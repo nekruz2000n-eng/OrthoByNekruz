@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 30% 6%;
+    --foreground: 210 40% 96%;
+    --card: 220 20% 10%;
+    --card-foreground: 210 40% 96%;
+    --popover: 220 20% 10%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 213 100% 65%;
+    --primary-foreground: 220 30% 6%;
+    --secondary: 217 32% 17%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 220 20% 10%;
+    --muted-foreground: 215 16% 60%;
+    --accent: 213 100% 65%;
+    --accent-foreground: 220 30% 6%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 32% 17%;
+    --input: 217 32% 17%;
+    --ring: 213 100% 65%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html, body {
+    @apply bg-background text-foreground;
+    overflow: hidden;
+    height: 100vh;
+    height: -webkit-fill-available;
+    width: 100vw;
+    position: fixed;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+}
+
+.glass-nav {
+  @apply bg-background/80 backdrop-blur-xl border-t border-white/5;
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+.glass-card {
+  @apply bg-card/50 backdrop-blur-sm border border-white/5;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full;
+}
+
+.pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+}
+
+/* Enable smooth scrolling only for scrollable containers */
+.scroll-container {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
