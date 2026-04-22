@@ -20,34 +20,41 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-20 glass-nav flex items-center justify-around px-4 pb-safe z-50">
-      {tabs.map((tab) => {
-        const Icon = tab.icon;
-        const isActive = activeTab === tab.id;
-        return (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange(tab.id as TabType)}
-            className="flex flex-col items-center justify-center space-y-1 w-full relative h-full transition-all active:scale-90"
-          >
-            <div className={cn(
-              "p-2 rounded-xl transition-all duration-300",
-              isActive ? "text-primary" : "text-muted-foreground"
-            )}>
-              <Icon className={cn("w-6 h-6", isActive && "drop-shadow-[0_0_8px_rgba(77,159,255,0.6)]")} />
-            </div>
-            <span className={cn(
-              "text-[10px] font-medium transition-all duration-300",
-              isActive ? "text-primary opacity-100" : "text-muted-foreground opacity-70"
-            )}>
-              {tab.label}
-            </span>
-            {isActive && (
-              <div className="absolute top-0 w-8 h-1 bg-primary rounded-full blur-[2px]" />
-            )}
-          </button>
-        );
-      })}
-    </nav>
+    <div className="fixed bottom-6 left-0 right-0 px-8 z-50 flex justify-center">
+      <nav className="flex items-center gap-1 bg-black/40 backdrop-blur-2xl p-2 rounded-[26px] border border-white/10 shadow-2xl">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onTabChange(tab.id as TabType)}
+              className={cn(
+                "relative flex items-center gap-2 px-4 py-2.5 rounded-full transition-all duration-500 overflow-hidden",
+                isActive ? "bg-primary/20" : "bg-transparent"
+              )}
+            >
+              <Icon
+                className={cn(
+                  "w-5 h-5 transition-all duration-300",
+                  isActive ? "text-primary scale-110" : "text-white/40"
+                )}
+              />
+              
+              {isActive && (
+                <span className="text-[11px] font-bold text-primary animate-in fade-in slide-in-from-left-2 duration-300">
+                  {tab.label}
+                </span>
+              )}
+
+              {/* Эффект блика при клике */}
+              {isActive && (
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite] pointer-events-none" />
+              )}
+            </button>
+          );
+        })}
+      </nav>
+    </div>
   );
 };

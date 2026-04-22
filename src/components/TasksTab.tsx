@@ -224,8 +224,7 @@ export const TasksTab = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background pb-32 overflow-hidden max-w-full">
-      <div className="p-4 bg-background/50 backdrop-blur-md sticky top-0 z-10 border-b border-white/5">
+<div className="flex flex-col h-full bg-background overflow-hidden max-w-full">      <div className="p-4 bg-background/50 backdrop-blur-md sticky top-0 z-10 border-b border-white/5">
         <div className="flex justify-between items-center px-2">
           <div className="flex items-center gap-3">
             <ToothIcon className="w-8 h-8 text-primary" />
@@ -251,8 +250,7 @@ export const TasksTab = () => {
       </div>
 
       <ScrollArea className="flex-1 scroll-container">
-        <div className="py-4 px-4 mx-auto max-w-2xl w-full pb-32">
-          {filtered.length > 0 ? (
+<div className="py-4 px-4 mx-auto max-w-2xl w-full pb-40">          {filtered.length > 0 ? (
             <Accordion type="single" collapsible className="space-y-3 w-full">
               {filtered.map((task) => {
                 const isResolved = resolvedIds.has(task.id);

@@ -1,99 +1,158 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import questionsData from '@/data/questions.json';
 import tasksData from '@/data/tasks.json';
 import testsData from '@/data/tests.json';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PieChart, Pie, Cell, ResponsiveContainer, Label } from 'recharts';
-import { BookOpen, CheckCircle2, ClipboardList, PenTool, BarChart3, Star } from 'lucide-react';
+import { BookOpen, ClipboardList, PenTool, Star, Trash2 } from 'lucide-react';
 import { ToothIcon } from './ToothIcon';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 export const StatsTab = () => {
-  const [stats, setStats] = useState({
-    studiedQuestions: 0,
-    resolvedTasks: 0,
-    testScores: {} as Record<number, number>
-  });
+  const [studiedCount, setStudiedCount] = useState(0);
+  const [resolvedTasksCount, setResolvedTasksCount] = useState(0);
+  const [testsResolvedCount, setTestsResolvedCount] = useState(0);
+
+  const totalQuestions = questionsData.length;
+  const totalTasks = tasksData.length;
+  const totalTests = testsData.length;
+
+  const loadStats = () => {
+    // Вопросы
+    const studied = localStorage.getItem('studiedQuestions');
+    if (studied) {
+      try {
+        const arr = JSON.parse(studied);
+        setStudiedCount(arr.length);
+      } catch (e) {}
+    } else {
+      setStudiedCount(0);
+    }
+    // Задачи
+    const resolved = localStorage.getItem('resolvedTasks');
+    if (resolved) {
+      try {
+        const arr = JSON.parse(resolved);
+        setResolvedTasksCount(arr.length);
+      } catch (e) {}
+    } else {
+      setResolvedTasksCount(0);
+    }
+    // Тесты: сумма лучших результатов по блокам
+    const scores = localStorage.getItem('test_block_scores');
+    if (scores) {
+      try {
+        const blockScores = JSON.parse(scores);
+        let sum = 0;
+        for (let key in blockScores) {
+          sum += blockScores[key];
+        }
+        setTestsResolvedCount(Math.min(sum, totalTests));
+      } catch (e) {}
+    } else {
+      setTestsResolvedCount(0);
+    }
+  };
+
+  const resetAllProgress = () => {
+    const confirmed = window.confirm('⚠️ Вы уверены? Весь прогресс (вопросы, задачи, тесты) будет сброшен. Заметки останутся.');
+    if (!confirmed) return;
+
+    // Удаляем только ключи прогресса
+    localStorage.removeItem('studiedQuestions');
+    localStorage.removeItem('resolvedTasks');
+    localStorage.removeItem('test_block_scores');
+
+    // Заметки НЕ удаляем: userNotes, userQuestionNotes, userTaskNotes, tests_personal_note и т.д.
+
+    // Обновляем состояние
+    loadStats();
+  };
 
   useEffect(() => {
-    const questions = JSON.parse(localStorage.getItem('studiedQuestions') || '[]');
-    const tasks = JSON.parse(localStorage.getItem('resolvedTasks') || '[]');
-    const tests = JSON.parse(localStorage.getItem('test_block_scores') || '{}');
-    
-    setStats({
-      studiedQuestions: questions.length,
-      resolvedTasks: tasks.length,
-      testScores: tests
-    });
+    loadStats();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') loadStats();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  const qProgress = (stats.studiedQuestions / questionsData.length) * 100;
-  const tProgress = (stats.resolvedTasks / tasksData.length) * 100;
-  
-  const testBlocksCount = Object.keys(stats.testScores).length;
-  const avgTestScore = testBlocksCount > 0 
-    ? (Object.values(stats.testScores).reduce((a, b) => a + b, 0) / (testBlocksCount * 20)) * 100 
-    : 0;
-
-  const totalPossible = questionsData.length + tasksData.length;
-  const totalDone = stats.studiedQuestions + stats.resolvedTasks;
-  const totalOverallProgress = (totalDone / totalPossible) * 100;
+  const questionsPercent = totalQuestions === 0 ? 0 : (studiedCount / totalQuestions) * 100;
+  const tasksPercent = totalTasks === 0 ? 0 : (resolvedTasksCount / totalTasks) * 100;
+  const testsPercent = totalTests === 0 ? 0 : (testsResolvedCount / totalTests) * 100;
+  const overallPercent = (questionsPercent + tasksPercent + testsPercent) / 3;
 
   const chartData = [
-    { name: 'Готово', value: totalOverallProgress },
-    { name: 'Осталось', value: 100 - totalOverallProgress },
+    { name: 'Готово', value: overallPercent },
+    { name: 'Осталось', value: 100 - overallPercent },
   ];
-
   const COLORS = ['#4D9FFF', 'rgba(255, 255, 255, 0.05)'];
 
   return (
-    <div className="flex flex-col h-full bg-background pb-32 overflow-x-hidden max-w-full">
+    <div className="flex flex-col h-full bg-background pb-0 overflow-x-hidden max-w-full">
       <div className="p-4 border-b border-white/5 bg-background/50 backdrop-blur-md sticky top-0 z-10">
-        <div className="flex items-center gap-3 px-2">
-          <ToothIcon className="w-10 h-10 text-primary" />
-          <h1 className="text-2xl font-bold font-headline tracking-tight text-foreground">OrthoByNekruz</h1>
+        <div className="flex justify-between items-center px-2">
+          <div className="flex items-center gap-3">
+            <ToothIcon className="w-10 h-10 text-primary" />
+            <h1 className="text-2xl font-bold font-headline tracking-tight text-foreground">OrthoByNekruz</h1>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={resetAllProgress}
+            className="gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+          >
+            <Trash2 className="w-4 h-4" />
+            Сброс
+          </Button>
         </div>
       </div>
 
       <ScrollArea className="flex-1 px-4">
-        <div className="space-y-6 mx-auto max-w-2xl pt-4 overflow-hidden">
-          {/* Main Progress Ring */}
-          <div className="h-64 w-full relative animate-in fade-in zoom-in-95 duration-700">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={80}
-                  outerRadius={100}
-                  paddingAngle={0}
-                  dataKey="value"
-                  startAngle={90}
-                  endAngle={-270}
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index]} stroke="none" />
-                  ))}
-                  <Label 
-                    value={`${Math.round(totalOverallProgress)}%`} 
-                    position="center" 
-                    fill="white" 
-                    className="text-4xl font-bold font-headline"
-                  />
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute bottom-4 left-0 right-0 text-center">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Общая готовность</span>
+        {/* Добавлен pb-32 в класс ниже, чтобы можно было прокрутить контент выше навигации */}
+        <div className="space-y-6 mx-auto max-w-2xl pt-4 pb-32 overflow-hidden">
+          {/* Круговая диаграмма */}
+          <div className="flex flex-col items-center">
+            <div className="h-64 w-full relative animate-in fade-in zoom-in-95 duration-700">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={80}
+                    outerRadius={100}
+                    paddingAngle={0}
+                    dataKey="value"
+                    startAngle={90}
+                    endAngle={-270}
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index]} stroke="none" />
+                    ))}
+                    <Label 
+                      value={`${Math.round(overallPercent)}%`} 
+                      position="center" 
+                      fill="white" 
+                      className="text-4xl font-bold font-headline"
+                    />
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="text-center mt-4">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                Общая готовность
+              </span>
             </div>
           </div>
 
           <div className="grid gap-4 px-2">
-            {/* Questions Card */}
+            {/* Вопросы */}
             <Card className="glass-card border-none overflow-hidden relative group max-w-full">
               <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
               <CardHeader className="pb-2">
@@ -105,20 +164,20 @@ export const StatsTab = () => {
               <CardContent>
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
-                    <div className="text-2xl font-bold">{stats.studiedQuestions} <span className="text-sm font-normal text-muted-foreground">/ {questionsData.length}</span></div>
-                    <p className="text-xs text-muted-foreground">Изучено разделов</p>
+                    <div className="text-2xl font-bold">{studiedCount} <span className="text-sm font-normal text-muted-foreground">/ {totalQuestions}</span></div>
+                    <p className="text-xs text-muted-foreground">изучено</p>
                   </div>
                   <div className="text-right">
-                    <span className="text-lg font-bold text-blue-400">{Math.round(qProgress)}%</span>
+                    <span className="text-lg font-bold text-blue-400">{Math.round(questionsPercent)}%</span>
                   </div>
                 </div>
                 <div className="mt-3 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${qProgress}%` }} />
+                  <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${questionsPercent}%` }} />
                 </div>
               </CardContent>
             </Card>
 
-            {/* Tasks Card */}
+            {/* Задачи */}
             <Card className="glass-card border-none overflow-hidden relative group max-w-full">
               <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
               <CardHeader className="pb-2">
@@ -130,20 +189,20 @@ export const StatsTab = () => {
               <CardContent>
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
-                    <div className="text-2xl font-bold">{stats.resolvedTasks} <span className="text-sm font-normal text-muted-foreground">/ {tasksData.length}</span></div>
-                    <p className="text-xs text-muted-foreground">Решено клинических случаев</p>
+                    <div className="text-2xl font-bold">{resolvedTasksCount} <span className="text-sm font-normal text-muted-foreground">/ {totalTasks}</span></div>
+                    <p className="text-xs text-muted-foreground">решено</p>
                   </div>
                   <div className="text-right">
-                    <span className="text-lg font-bold text-emerald-400">{Math.round(tProgress)}%</span>
+                    <span className="text-lg font-bold text-emerald-400">{Math.round(tasksPercent)}%</span>
                   </div>
                 </div>
                 <div className="mt-3 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${tProgress}%` }} />
+                  <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${tasksPercent}%` }} />
                 </div>
               </CardContent>
             </Card>
 
-            {/* Tests Card */}
+            {/* Тесты */}
             <Card className="glass-card border-none overflow-hidden relative group max-w-full">
               <div className="absolute top-0 left-0 w-1 h-full bg-amber-500" />
               <CardHeader className="pb-2">
@@ -155,27 +214,29 @@ export const StatsTab = () => {
               <CardContent>
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
-                    <div className="text-2xl font-bold">{testBlocksCount} <span className="text-sm font-normal text-muted-foreground">блоков начато</span></div>
-                    <p className="text-xs text-muted-foreground">Средний результат</p>
+                    <div className="text-2xl font-bold">{testsResolvedCount} <span className="text-sm font-normal text-muted-foreground">/ {totalTests}</span></div>
+                    <p className="text-xs text-muted-foreground">правильно решено</p>
                   </div>
                   <div className="text-right">
-                    <span className="text-lg font-bold text-amber-400">{Math.round(avgTestScore)}%</span>
+                    <span className="text-lg font-bold text-amber-400">{Math.round(testsPercent)}%</span>
                   </div>
                 </div>
                 <div className="mt-3 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-500 transition-all duration-1000" style={{ width: `${avgTestScore}%` }} />
+                  <div className="h-full bg-amber-500 transition-all duration-1000" style={{ width: `${testsPercent}%` }} />
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          <div className="p-6 mx-2 rounded-2xl bg-primary/5 border border-primary/10 flex items-center gap-4 animate-pulse">
+          <div className="p-6 mx-2 rounded-2xl bg-primary/5 border border-primary/10 flex items-center gap-4">
             <div className="p-3 rounded-full bg-primary/10">
               <Star className="w-6 h-6 text-primary" />
             </div>
             <div className="overflow-hidden">
               <h4 className="text-sm font-bold text-foreground">Ваша цель</h4>
-              <p className="text-xs text-muted-foreground break-words">Изучите все вопросы и задачи, чтобы достичь 100% готовности!</p>
+              <p className="text-xs text-muted-foreground break-words">
+                Изучите все вопросы, решите задачи и пройдите тесты на 100%, чтобы достичь полной готовности!
+              </p>
             </div>
           </div>
         </div>

@@ -188,9 +188,9 @@ export const QuestionsTab = () => {
     );
   };
 
-  // Основной return
+  // Основной return```
   return (
-    <div className="flex flex-col h-full bg-background pb-32 max-w-full overflow-hidden">
+    <div className="flex flex-col h-full bg-background pb-0 max-w-full overflow-hidden">
       <div className="p-4 space-y-4 bg-background/50 backdrop-blur-md sticky top-0 z-10 border-b border-white/5">
         <div className="flex justify-between items-center px-2">
           <div className="flex items-center gap-3">
@@ -217,7 +217,7 @@ export const QuestionsTab = () => {
       </div>
 
       <ScrollArea className="flex-1 scroll-container">
-        <div className="py-4 px-4 mx-auto max-w-2xl w-full pb-32">
+        <div className="py-4 px-4 mx-auto max-w-2xl w-full pb-20">
           {filtered.length > 0 ? (
             <Accordion type="single" collapsible className="space-y-3 w-full">
               {filtered.map((q) => {
@@ -250,7 +250,7 @@ export const QuestionsTab = () => {
                     <AccordionContent className="px-5 pb-5 pt-0 w-full overflow-hidden">
                       <div className="space-y-4 w-full max-w-full">
                         <div className="p-4 rounded-lg bg-white/5 border border-white/5 w-full">
-                          <h3 className="font-semibold text-primary mb-2 text-xs uppercase tracking-wider">Полный вопрос:</h3>
+                          <h3 className="font-semibold text-primary mb-2 text-xs uppercase tracking-wider">Вопрос:</h3>
                           <div className="text-sm leading-relaxed text-foreground/90 w-full">
                             {formatText(q.question)}
                           </div>
