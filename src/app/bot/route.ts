@@ -1,81 +1,67 @@
-import { Bot, InlineKeyboard } from 'grammy';
 import { kv } from '@vercel/kv';
 import { NextResponse } from 'next/server';
 
-// Это заставляет Vercel обрабатывать запрос каждый раз, а не брать из кэша
-export const dynamic = 'force-dynamic';
-
-const token = process.env.BOT_TOKEN || "";
-const ADMIN_ID = process.env.ADMIN_ID || "";
-const SITE_URL = 'https://ortho-by-nekruz.vercel.app';
-const CHANNEL_ID = '-1003929499461';
-
-const bot = token ? new Bot(token) : null;
-
-if (bot) {
-  bot.command('give', async (ctx) => {
-    // Лог в консоль Vercel, чтобы мы видели, кто пишет
-    console.log("ID написавшего:", ctx.from?.id, "Ожидаемый ADMIN_ID:", ADMIN_ID);
-    
-    const fromId = String(ctx.from?.id);
-    
-    if (fromId !== String(ADMIN_ID).trim()) {
-      return ctx.reply(`У вас нет прав. Ваш ID: ${fromId}`);
-    }
-
-    const studentId = ctx.match?.trim();
-    if (!studentId) {
-      return ctx.reply('Использование: /give [Telegram_ID]');
-    }
-
-    try {
-      const member = await ctx.api.getChatMember(CHANNEL_ID, Number(studentId));
-      const isMember = ['member', 'administrator', 'creator'].includes(member.status);
-
-      if (!isMember) {
-        return ctx.reply(`⚠️ Студент (${studentId}) не подписан на канал.`);
-      }
-
-      const key = await kv.spop('valid_keys');
-      
-      if (!key) {
-        return ctx.reply('❌ Ошибка: Ключи в базе закончились! Добавьте их командой SADD valid_keys [ключ]');
-      }
-
-      const loginUrl = `${SITE_URL}/?key=${key}&tgid=${studentId}`;
-      
-      await ctx.api.sendMessage(studentId, 
-        `🚀 Твой доступ к OrthoByNekruz готов!\n\nНажми на кнопку ниже, чтобы войти.`,
-        {
-          reply_markup: new InlineKeyboard().url('🚀 Войти в приложение', loginUrl)
-        }
-      );
-
-      await ctx.reply(`✅ Ключ ${key} успешно выдан студенту ${studentId}`);
-
-    } catch (error: any) {
-      console.error("Ошибка в команде give:", error);
-      await ctx.reply('Ошибка: ' + error.message);
-    }
-  });
-
-  bot.on('message', async (ctx) => {
-    await ctx.reply(`Бот активен. Твой Telegram ID: ${ctx.from.id}\nДля выдачи ключа используй: /give [ID]`);
-  });
-}
-
 export async function POST(request: Request) {
-  if (!bot) {
-    return NextResponse.json({ error: 'Bot token is missing' }, { status: 500 });
-  }
-
   try {
     const body = await request.json();
-    // Очень важно дождаться обработки
-    await bot.handleUpdate(body);
-    return NextResponse.json({ ok: true });
+    const { key, telegramId } = body;
+
+    // 1. Базовая проверка входящих данных
+    if (!key || !telegramId) {
+      return NextResponse.json(
+        { error: 'Ключ и Telegram ID обязательны' }, 
+        { status: 400 }
+      );
+    }
+
+    // 2. Проверяем, привязан ли уже этот ключ к кому-то в базе
+    // Мы храним связки в формате "link:ключ" -> "telegramId"
+    const linkedTgId = await kv.get(`link:${key}`);
+
+    if (linkedTgId) {
+      // Если ключ уже использован, проверяем — тем же самым ли человеком?
+      if (String(linkedTgId) === String(telegramId)) {
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Авторизация успешна (сессия возобновлена)' 
+        });
+      } else {
+        // Если ID не совпадает — значит ключ украли или передали
+        return NextResponse.json(
+          { error: 'Этот ключ уже активирован другим пользователем' }, 
+          { status: 403 }
+        );
+      }
+    }
+
+    // 3. Если ключ еще не привязан, проверяем, есть ли он в списке "valid_keys"
+    // Команда SREM удаляет ключ из списка и возвращает 1, если он там был
+    const wasRemoved = await kv.srem('valid_keys', key);
+
+    if (wasRemoved === 1) {
+      // Ключ был свободный! Теперь навсегда привязываем его к этому Telegram ID
+      await kv.set(`link:${key}`, telegramId);
+      
+      // Создаем запись в твоем реестре для контроля (чтобы ты видел список в CLI)
+      await kv.hset('user_registry', { [telegramId]: key });
+
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Доступ успешно активирован' 
+      });
+    } else {
+      // Ключа нет в списке valid_keys (значит он либо поддельный, либо уже использован)
+      return NextResponse.json(
+        { error: 'Неверный или использованный ключ' }, 
+        { status: 401 }
+      );
+    }
+
   } catch (error) {
-    console.error('Webhook Error:', error);
-    return NextResponse.json({ ok: true }); // Возвращаем 200, чтобы ТГ не слал повторы при ошибках кода
+    console.error('Auth Error:', error);
+    return NextResponse.json(
+      { error: 'Ошибка сервера. Проверьте базу данных.' }, 
+      { status: 500 }
+    );
   }
 }
