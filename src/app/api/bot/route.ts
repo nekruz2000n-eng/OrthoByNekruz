@@ -3,46 +3,47 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const token = process.env.BOT_TOKEN || "";
+const token = process.env.BOT_TOKEN;
+if (!token) {
+  console.error('BOT_TOKEN не задан в переменных окружения');
+}
 
-// Создаем экземпляр бота ВНЕ функции POST, чтобы он не пересоздавался постоянно
-const bot = new Bot(token);
+const bot = new Bot(token!);
 
-// Обработка команды /start
+// Обработчик команды /start
 bot.command('start', async (ctx) => {
-  try {
-    await ctx.reply('Система OrthoByNekruz на связи! Я тебя вижу.');
-  } catch (err) {
-    console.error("Ошибка при ответе на /start:", err);
-  }
+  console.log(`Получена команда /start от ${ctx.from.id}`);
+  await ctx.reply(`Привет! Твой ID: ${ctx.from.id}. Бот работает.`);
 });
 
-// Ответ на любое сообщение
+// Обработчик обычных сообщений
 bot.on('message', async (ctx) => {
-  await ctx.reply(`Твой ID: ${ctx.from.id}. Отправь /start для проверки.`);
+  console.log(`Получено сообщение от ${ctx.from.id}: ${ctx.message.text}`);
+  await ctx.reply(`Ты написал: ${ctx.message.text}`);
+});
+
+// Глобальный обработчик ошибок
+bot.catch((err) => {
+  console.error('Ошибка в боте:', err);
 });
 
 export async function POST(request: Request) {
-  if (!token) {
-    console.error("BOT_TOKEN отсутствует в переменных окружения!");
-    return NextResponse.json({ error: 'No token' }, { status: 500 });
-  }
-
   try {
-    const contentType = request.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      return NextResponse.json({ error: 'Invalid content type' }, { status: 400 });
-    }
-
     const body = await request.json();
+    console.log('Получен update от Telegram:', JSON.stringify(body).substring(0, 500));
     
-    // Передаем обновление в grammy
+    // Обрабатываем обновление через grammy
     await bot.handleUpdate(body);
     
     return NextResponse.json({ ok: true });
   } catch (error: any) {
-    console.error('Ошибка в POST обработчике:', error.message);
-    // Возвращаем 200, чтобы Телеграм не спамил запросами при ошибке кода
-    return NextResponse.json({ ok: true });
+    console.error('Ошибка при обработке update:', error);
+    return NextResponse.json({ ok: false, error: error.message }, { status: 200 });
   }
+}
+
+// Проверка вебхука (опционально, можно вызвать один раз)
+export async function GET() {
+  const webhookInfo = await bot.api.getWebhookInfo();
+  return NextResponse.json(webhookInfo);
 }
