@@ -10,9 +10,9 @@ if (!token) throw new Error('BOT_TOKEN is not set');
 const bot = new Bot(token);
 
 const CHANNEL_LINK = 'https://t.me/nzsdental';
-const CHANNEL_ID = '@nzsdental';          // username канала (без https)
+const CHANNEL_ID = '@nzsdental';
 const SUPPORT_LINK = 'https://t.me/evoeidos';
-const SECRET = process.env.SECRET || 'your_secret_key';
+const SECRET = process.env.SECRET || 'xK9#mP2$qL5@rV8&wN3!zT7';
 
 const redis = Redis.fromEnv();
 
@@ -53,7 +53,6 @@ bot.command('start', async (ctx) => {
   const userId = ctx.from?.id;
   if (!userId) return;
 
-  // Кнопки для проверки подписки
   const keyboard = new InlineKeyboard()
     .text('✅ Да, подписался', 'check_sub')
     .url('📢 Подписаться', CHANNEL_LINK);
@@ -69,10 +68,10 @@ bot.callbackQuery('check_sub', async (ctx) => {
   const userId = ctx.from.id;
   const subscribed = await isSubscribed(userId);
   if (subscribed) {
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery(); // просто закрываем уведомление
     await sendMainMenu(ctx);
   } else {
-    await ctx.answerCallbackQuery('❌ Ты ещё не подписан!', { show_alert: true });
+    await ctx.answerCallbackQuery({ text: '❌ Ты ещё не подписан!', show_alert: true });
     // Предложим подписаться снова
     const keyboard = new InlineKeyboard()
       .text('✅ Да, подписался', 'check_sub')
@@ -87,8 +86,6 @@ bot.callbackQuery('enter_key', async (ctx) => {
     '🔑 Отправь мне свой 8-значный ключ одним сообщением.\n\nПример: `16000778`',
     { parse_mode: 'Markdown' }
   );
-  // Переключаем состояние ожидания ключа (используем сессию или просто следующий шаг)
-  // Для простоты будем ожидать следующее текстовое сообщение
 });
 
 bot.callbackQuery('get_key', async (ctx) => {
@@ -104,34 +101,28 @@ bot.on('message:text', async (ctx) => {
   if (!userId) return;
   const text = ctx.message.text.trim();
 
-  // Игнорируем команды (начинаются с /)
   if (text.startsWith('/')) return;
 
-  // Проверяем, что это 8 цифр
   if (!/^\d{8}$/.test(text)) {
     await ctx.reply('❌ Ключ должен состоять ровно из 8 цифр. Попробуй ещё раз.');
     return;
   }
 
-  // Проверяем подписку ещё раз (на всякий случай)
   const subscribed = await isSubscribed(userId);
   if (!subscribed) {
     await ctx.reply('❌ Ты не подписан на канал. Подпишись и нажми /start заново.');
     return;
   }
 
-  // Проверяем ключ в Redis
   const keyExists = await redis.sismember('valid_keys', text);
   if (!keyExists) {
     await ctx.reply('❌ Неверный или уже использованный ключ. Доступ не активирован.');
     return;
   }
 
-  // Удаляем ключ
   await redis.srem('valid_keys', text);
   console.log(`Ключ ${text} использован пользователем ${userId}`);
 
-  // Генерируем ссылку
   const tokenHash = crypto.createHash('md5').update(userId.toString() + SECRET).digest('hex');
   const longUrl = `https://ortho-by-nekruz.vercel.app/?user_id=${userId}&token=${tokenHash}`;
   const shortUrl = await shortenUrl(longUrl);
