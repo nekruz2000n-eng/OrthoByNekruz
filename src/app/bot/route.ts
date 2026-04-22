@@ -2,32 +2,33 @@ import { Bot, InlineKeyboard } from 'grammy';
 import { kv } from '@vercel/kv';
 import { NextResponse } from 'next/server';
 
-// Берем переменные. Если их нет (при сборке), используем заглушки.
+// Это заставляет Vercel обрабатывать запрос каждый раз, а не брать из кэша
+export const dynamic = 'force-dynamic';
+
 const token = process.env.BOT_TOKEN || "";
 const ADMIN_ID = process.env.ADMIN_ID || "";
 const SITE_URL = 'https://ortho-by-nekruz.vercel.app';
 const CHANNEL_ID = '-1003929499461';
 
-// Инициализируем бота только если есть токен
 const bot = token ? new Bot(token) : null;
 
 if (bot) {
-  // Команда /give для выдачи ключей
   bot.command('give', async (ctx) => {
+    // Лог в консоль Vercel, чтобы мы видели, кто пишет
+    console.log("ID написавшего:", ctx.from?.id, "Ожидаемый ADMIN_ID:", ADMIN_ID);
+    
     const fromId = String(ctx.from?.id);
     
-    // Проверка, что пишет именно админ
-    if (fromId !== ADMIN_ID) {
-      return ctx.reply('У вас нет прав администратора.');
+    if (fromId !== String(ADMIN_ID).trim()) {
+      return ctx.reply(`У вас нет прав. Ваш ID: ${fromId}`);
     }
 
-    const studentId = ctx.match;
+    const studentId = ctx.match?.trim();
     if (!studentId) {
       return ctx.reply('Использование: /give [Telegram_ID]');
     }
 
     try {
-      // 1. Проверка подписки
       const member = await ctx.api.getChatMember(CHANNEL_ID, Number(studentId));
       const isMember = ['member', 'administrator', 'creator'].includes(member.status);
 
@@ -35,14 +36,12 @@ if (bot) {
         return ctx.reply(`⚠️ Студент (${studentId}) не подписан на канал.`);
       }
 
-      // 2. Достаем ключ из базы
       const key = await kv.spop('valid_keys');
       
       if (!key) {
-        return ctx.reply('❌ Ошибка: Ключи в базе закончились!');
+        return ctx.reply('❌ Ошибка: Ключи в базе закончились! Добавьте их командой SADD valid_keys [ключ]');
       }
 
-      // 3. Отправляем ссылку студенту
       const loginUrl = `${SITE_URL}/?key=${key}&tgid=${studentId}`;
       
       await ctx.api.sendMessage(studentId, 
@@ -55,18 +54,16 @@ if (bot) {
       await ctx.reply(`✅ Ключ ${key} успешно выдан студенту ${studentId}`);
 
     } catch (error: any) {
-      console.error(error);
+      console.error("Ошибка в команде give:", error);
       await ctx.reply('Ошибка: ' + error.message);
     }
   });
 
-  // Ответ на любое другое сообщение или /start
   bot.on('message', async (ctx) => {
-    await ctx.reply('Бот активен. Используйте /give [ID] для выдачи доступа.');
+    await ctx.reply(`Бот активен. Твой Telegram ID: ${ctx.from.id}\nДля выдачи ключа используй: /give [ID]`);
   });
 }
 
-// Обработчик Webhook для Vercel
 export async function POST(request: Request) {
   if (!bot) {
     return NextResponse.json({ error: 'Bot token is missing' }, { status: 500 });
@@ -74,10 +71,11 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
+    // Очень важно дождаться обработки
     await bot.handleUpdate(body);
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('Webhook Error:', error);
-    return NextResponse.json({ error: 'Internal Error' }, { status: 500 });
+    return NextResponse.json({ ok: true }); // Возвращаем 200, чтобы ТГ не слал повторы при ошибках кода
   }
 }
