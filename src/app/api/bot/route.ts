@@ -3,49 +3,66 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const token = process.env.BOT_TOKEN;
-if (!token) {
-  console.error('BOT_TOKEN не задан в переменных окружения');
+// ТОКЕН (ЗАМЕНИ НА НОВЫЙ ПОСЛЕ ПЕРЕВЫПУСКА)
+const token = '8390112746:AAEQMj-cglBXi0cZlqXqKgPjSw5advzxfVs';
+const bot = new Bot(token);
+
+// ID канала (числовой)
+const CHANNEL_ID = '-1003929499461';
+
+// Функция проверки подписки
+async function isSubscribed(userId: number): Promise<boolean> {
+  try {
+    const member = await bot.api.getChatMember(CHANNEL_ID, userId);
+    return ['member', 'administrator', 'creator'].includes(member.status);
+  } catch (error) {
+    console.error('Ошибка проверки подписки:', error);
+    return false;
+  }
 }
 
-const bot = new Bot(token!);
-
-// Обработчик команды /start
+// Команда /start
 bot.command('start', async (ctx) => {
-  const userId = ctx.from?.id ?? 'неизвестно';
-  console.log(`Получена команда /start от ${userId}`);
-  await ctx.reply(`Привет! Твой ID: ${userId}. Бот работает.`);
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  console.log(`/start от ${userId}`);
+
+  const subscribed = await isSubscribed(userId);
+  if (subscribed) {
+    await ctx.reply('✅ Подписка подтверждена! Ты можешь пользоваться ботом.');
+    // Здесь добавь выдачу ссылки на твой сайт
+  } else {
+    // Ссылка на канал: если у канала нет username, используй https://t.me/c/3929499461
+    await ctx.reply(
+      '❌ Ты не подписан на наш канал.\n' +
+      'Пожалуйста, подпишись: https://t.me/c/3929499461\n' +
+      'После подписки нажми /start снова.'
+    );
+  }
 });
 
-// Обработчик обычных сообщений
 bot.on('message', async (ctx) => {
-  const userId = ctx.from?.id ?? 'неизвестно';
-  const text = ctx.message?.text ?? 'не текст';
-  console.log(`Получено сообщение от ${userId}: ${text}`);
-  await ctx.reply(`Ты написал: ${text}`);
+  const userId = ctx.from?.id;
+  if (!userId) return;
+  await ctx.reply(`Твой ID: ${userId}. Напиши /start для проверки подписки.`);
 });
 
-bot.catch((err) => {
-  console.error('Ошибка в боте:', err);
-});
+bot.catch((err) => console.error('Ошибка бота:', err));
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    console.log('Получен update от Telegram:', JSON.stringify(body).substring(0, 500));
+    console.log('Update:', JSON.stringify(body).slice(0, 300));
     await bot.handleUpdate(body);
     return NextResponse.json({ ok: true });
   } catch (error: any) {
-    console.error('Ошибка при обработке update:', error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 200 });
+    console.error('Ошибка обработки:', error);
+    return NextResponse.json({ ok: false }, { status: 200 });
   }
 }
 
 export async function GET() {
-  try {
-    const webhookInfo = await bot.api.getWebhookInfo();
-    return NextResponse.json(webhookInfo);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  const info = await bot.api.getWebhookInfo();
+  return NextResponse.json(info);
 }
