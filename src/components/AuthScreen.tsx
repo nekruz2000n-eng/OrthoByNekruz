@@ -20,21 +20,12 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [needsSubscription, setNeedsSubscription] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
 
-  // Функция закрытия приветствия
-  const closeWelcome = useCallback(() => {
-    window.localStorage.setItem("welcome_seen", "true");
-    setShowWelcome(false);
-    onAuthenticated();
-    window.location.replace(window.location.origin);
-  }, [onAuthenticated]);
-
-  // Основная логика входа
+  // 1. Логика авторизации
   const handleAuth = useCallback(async (inputKey: string, inputTgId: string) => {
     if (loading || lockoutTime > 0 || !inputTgId) return;
     
     setLoading(true);
     setError(false);
-
     try {
       const response = await fetch('/api/auth', {
         method: 'POST',
@@ -48,41 +39,59 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         window.localStorage.setItem("is_authed", "true");
         window.localStorage.setItem("user_tg_id", String(inputTgId));
         
+        onAuthenticated();
+
+        // Показываем приветствие только новым пользователям
         const hasSeenWelcome = window.localStorage.getItem("welcome_seen");
-        if (!hasSeenWelcome) {
+        if (!hasSeenWelcome && inputKey !== "") {
           setShowWelcome(true);
-        } else {
-          onAuthenticated();
+        } else if (inputKey !== "") {
+          // Если вводили ключ вручную — релоад
           window.location.replace(window.location.origin);
         }
       } else {
         if (response.status === 403) {
           setNeedsSubscription(true);
         } else {
-          setLockoutTime(15);
-          setError(true);
+          if (inputKey !== "") { // Ошибку в лог только при ручном вводе
+            setLockoutTime(15);
+            setError(true);
+            toast({
+              variant: "destructive",
+              title: "Доступ ограничен",
+              description: data.error || "Неверный ключ"
+            });
+          }
         }
-        toast({
-          variant: "destructive",
-          title: "Доступ ограничен",
-          description: data.error || "Неверный ключ"
-        });
       }
     } catch (err) {
-      toast({ variant: "destructive", title: "Ошибка", description: "Сервер недоступен" });
+      if (inputKey !== "") {
+        toast({ variant: "destructive", title: "Ошибка", description: "Сервер недоступен" });
+      }
     } finally {
       setLoading(false);
     }
-  }, [loading, lockoutTime, toast, onAuthenticated]);
+  }, [loading, lockoutTime, onAuthenticated, toast]);
 
-  // Авто-вход при загрузке
+  // 2. Функция закрытия приветствия
+  const closeWelcome = useCallback(() => {
+    window.localStorage.setItem("welcome_seen", "true");
+    setShowWelcome(false);
+    window.location.replace(window.location.origin);
+  }, []);
+
+  // 3. Авто-вход: срабатывает ОДИН раз при загрузке
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     const tgId = tg?.initDataUnsafe?.user?.id;
-    if (tgId) handleAuth("", String(tgId));
-  }, []);
+    const alreadyAuthed = window.localStorage.getItem("is_authed");
+    
+    if (tgId && alreadyAuthed !== "true") {
+      handleAuth("", String(tgId));
+    }
+  }, [handleAuth]); 
 
-  // Таймер блокировки
+  // 4. Таймер блокировки
   useEffect(() => {
     if (lockoutTime > 0) {
       const timer = setInterval(() => setLockoutTime(prev => prev - 1), 1000);
@@ -92,7 +101,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background relative overflow-hidden">
-      {/* Экран приветствия (модалка) */}
       {showWelcome && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl animate-in fade-in zoom-in duration-300">
           <div className="w-full max-w-sm bg-card border border-white/10 p-8 rounded-[32px] shadow-2xl text-center space-y-6">
@@ -102,7 +110,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
             <div className="space-y-2">
               <h2 className="text-2xl font-bold tracking-tight text-white">Рад тебе!</h2>
               <p className="text-sm text-muted-foreground">
-                Спасибо за доверие. Пользуйся, изучай, развивайся — всё это сделано для того, чтобы ортопедия стала проще.
+                Спасибо за доверие. Пользуйся, изучай, развивайся — ортопедия стала проще.
               </p>
             </div>
             <Button onClick={closeWelcome} className="w-full h-14 rounded-2xl text-lg font-bold">
@@ -112,7 +120,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         </div>
       )}
 
-      {/* Основной контент */}
       <div className="w-full max-w-sm flex flex-col items-center z-10">
         <div className="mb-8 flex flex-col items-center space-y-4">
           <ToothIcon className={cn("w-16 h-16 text-primary transition-all", loading && "animate-pulse")} />
@@ -121,7 +128,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
 
         <div className={cn("w-full space-y-4", error && "animate-shake")}>
           <div className="space-y-4 bg-card/30 p-6 rounded-3xl border border-white/5 backdrop-blur-md shadow-2xl">
-            
             <div className="space-y-4">
               <div className="relative">
                 <Input
@@ -134,7 +140,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                   disabled={loading || lockoutTime > 0}
                   className="h-14 text-center text-2xl bg-background/40 border-white/10 rounded-2xl text-white tooth-input transition-all focus:border-primary/50"
                 />
-                {/* Слой с зубами */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none tracking-[0.4em] text-2xl">
                   {key.split('').map((_, i) => (
                     <span key={i} className="animate-in zoom-in duration-200">🦷</span>
