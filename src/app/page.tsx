@@ -18,6 +18,7 @@ export default function Home() {
     const authed = localStorage.getItem('is_authed') === 'true';
     setIsAuthenticated(authed);
 
+    // Инициализация Telegram WebApp (не затрагивает авторизацию)
     if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
       const tg = (window as any).Telegram.WebApp;
       tg.ready();
