@@ -19,13 +19,22 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [lockoutTime, setLockoutTime] = useState(0);
   const [needsSubscription, setNeedsSubscription] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [manualTgId, setManualTgId] = useState(''); // ручной ввод ID
 
-  // ОТЛАДКА: строка состояния
+  // Отладочная строка (можно удалить после тестирования)
   const [debug, setDebug] = useState('');
 
   const loadingRef = useRef(false);
 
-  // Логика авторизации
+  // Проверяем, доступен ли автоматический Telegram ID
+  const getTelegramId = useCallback((): string | null => {
+    if (typeof window !== 'undefined') {
+      const tg = (window as any).Telegram?.WebApp;
+      return tg?.initDataUnsafe?.user?.id || null;
+    }
+    return null;
+  }, []);
+
   const handleAuth = useCallback(
     async (inputKey: string, inputTgId: string) => {
       setDebug(`handleAuth called. key=${inputKey}, id=${inputTgId}`);
@@ -96,7 +105,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     [lockoutTime, onAuthenticated, toast]
   );
 
-  // Закрытие приветствия
   const closeWelcome = useCallback(() => {
     window.localStorage.setItem('welcome_seen', 'true');
     setShowWelcome(false);
@@ -104,7 +112,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     onAuthenticated();
   }, [onAuthenticated]);
 
-  // Таймер блокировки
   useEffect(() => {
     if (lockoutTime > 0) {
       const timer = setInterval(() => setLockoutTime(prev => prev - 1), 1000);
@@ -112,23 +119,40 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     }
   }, [lockoutTime]);
 
-  // Обработка клика по кнопке
+  // Обработка клика по кнопке входа
   const handleLoginClick = useCallback(() => {
-    const tg = (window as any).Telegram?.WebApp;
-    const currentTgId = tg?.initDataUnsafe?.user?.id;
-    setDebug(`Click. tgId=${currentTgId}`);
+    const autoId = getTelegramId();
+    let currentTgId = autoId ? String(autoId) : '';
+
+    setDebug(`Click. autoId=${autoId}, manualId=${manualTgId}`);
+
+    // Если автоматический ID отсутствует, пробуем ручной ввод
+    if (!currentTgId && manualTgId.trim()) {
+      currentTgId = manualTgId.trim();
+      setDebug(prev => prev + ` using manual ID=${currentTgId}`);
+    }
 
     if (!currentTgId) {
       toast({
         variant: 'destructive',
         title: 'ID не найден',
-        description: 'Убедитесь, что вы открыли приложение через бота.',
+        description: 'Введите ваш Telegram ID вручную (можно узнать в настройках Telegram).',
       });
       return;
     }
 
-    handleAuth(key, String(currentTgId));
-  }, [key, handleAuth, toast]);
+    // Сохраняем ID для будущих авто-входов
+    window.localStorage.setItem('user_tg_id', currentTgId);
+    handleAuth(key, currentTgId);
+  }, [key, handleAuth, toast, manualTgId, getTelegramId]);
+
+  // Автоматический вход при загрузке, если уже авторизован
+  useEffect(() => {
+    const authed = localStorage.getItem('is_authed') === 'true';
+    if (authed && onAuthenticated) {
+      onAuthenticated();
+    }
+  }, [onAuthenticated]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background relative overflow-hidden">
@@ -178,6 +202,22 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                 </div>
               </div>
 
+              {/* Если автоматический ID не получен, показываем поле для ручного ввода */}
+              {!getTelegramId() && (
+                <div className="relative">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="Ваш Telegram ID"
+                    value={manualTgId}
+                    onChange={(e) => setManualTgId(e.target.value.replace(/\D/g, ''))}
+                    disabled={loading || lockoutTime > 0}
+                    className="h-14 text-center text-lg bg-background/40 border-white/10 rounded-2xl text-white transition-all focus:border-primary/50"
+                  />
+                </div>
+              )}
+
               <Button
                 onClick={handleLoginClick}
                 disabled={loading || lockoutTime > 0 || key.length < 1}
@@ -186,7 +226,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                 {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Войти по Telegram"}
               </Button>
 
-              {/* Отладочная строка */}
+              {/* Отладочная строка (можно удалить) */}
               <p className="text-xs text-white/50 break-all mt-2">{debug}</p>
             </div>
 
