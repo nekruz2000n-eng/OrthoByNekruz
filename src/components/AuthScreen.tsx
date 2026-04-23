@@ -51,10 +51,10 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       setTimeout(() => window.location.reload(), 500);
       tapCountRef.current = 0;
     } else {
-      // Если в течение 1 секунды не набрано 6 касаний — сбрасываем счётчик
+      // Если в течение 2 секунды не набрано 6 касаний — сбрасываем счётчик
       tapTimerRef.current = setTimeout(() => {
         tapCountRef.current = 0;
-      }, 1000);
+      }, 200);
     }
   }, [toast]);
   // --------------------------------------------------------
@@ -198,9 +198,11 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               <Heart className="w-8 h-8 fill-primary/20" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold tracking-tight text-white">Welcome!</h2>
+              <h2 className="text-2xl font-bold tracking-tight text-white">Рад тебя видеть!</h2>
               <p className="text-sm text-muted-foreground">
-                Thanks for your trust. Learn, explore, grow — orthopedics made easier.
+                Спасибо за доверие. Учись, исследуй, развивайся — теперь ортопедия стала проще. 
+  В каждом разделе есть заметки — сохраняй важное лично для себя. 
+  Если заметишь баг или неточность в тестах, знаешь кому писать, всё починим.
               </p>
             </div>
             <Button onClick={closeWelcome} className="w-full h-14 rounded-2xl text-lg font-bold">
@@ -234,19 +236,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  placeholder={lockoutTime > 0 ? `Wait ${lockoutTime}s` : "Enter key"}
-                  value={key}
-                  onChange={(e) => setKey(e.target.value.replace(/\D/g, ''))} // только цифры
-                  disabled={loading || lockoutTime > 0}
-                  className="h-14 text-center text-2xl bg-background/40 border-white/10 rounded-2xl text-white tooth-input transition-all focus:border-primary/50"
-                />
-                {/* Эффект с иконками зуба при вводе */}
-                              {/* Поле ввода ключа */}
-              <div className="relative">
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
+                  maxLength={8}                       // ограничение длины ключа – максимум 8 цифр
                   placeholder={lockoutTime > 0 ? `Wait ${lockoutTime}s` : "Enter key"}
                   value={key}
                   onChange={(e) => setKey(e.target.value.replace(/\D/g, ''))} // только цифры
@@ -255,6 +245,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                 />
                 {/* Эффект с иконками зуба при вводе — адаптивный размер */}
                 {(() => {
+                  // Выбираем классы в зависимости от длины ключа
                   const iconSizeClass =
                     key.length <= 4 ? 'text-2xl' :
                     key.length <= 6 ? 'text-xl' :
@@ -271,7 +262,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                     </div>
                   );
                 })()}
-              </div>
               </div>
 
               {/* Поле ручного ввода ID появляется только если авто-ID не обнаружен */}
