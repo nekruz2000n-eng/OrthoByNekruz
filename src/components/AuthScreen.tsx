@@ -14,6 +14,9 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const { toast } = useToast();
 
   const [key, setKey] = useState('');
+  const [login, setLogin] = useState('');
+  const [password, setPassword] = useState('');
+
   const [tgId, setTgId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -119,6 +122,23 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
 
         <div className={cn("w-full space-y-4", error && "animate-shake")}>
           <div className="space-y-4 bg-card/30 p-6 rounded-3xl border border-white/5 backdrop-blur-md shadow-2xl">
+            <Input
+  placeholder="Придумай логин"
+  value={login}
+  onChange={(e) => setLogin(e.target.value)}
+  disabled={loading || lockoutTime > 0}
+  className="h-12 text-center text-lg bg-background/40 border-white/10 rounded-xl text-white"
+/>
+<Input
+  placeholder="Придумай пароль"
+  type="password"
+  value={password}
+  onChange={(e) => setPassword(e.target.value)}
+  disabled={loading || lockoutTime > 0}
+  className="h-12 text-center text-lg bg-background/40 border-white/10 rounded-xl text-white"
+/>
+
+
             <Input
               placeholder="Ключ доступа"
               value={key}
