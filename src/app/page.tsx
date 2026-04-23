@@ -15,11 +15,9 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<TabType>('questions');
 
   useEffect(() => {
-    // Проверяем, был ли пользователь авторизован ранее
     const authed = localStorage.getItem('is_authed') === 'true';
     setIsAuthenticated(authed);
 
-    // Инициализация Telegram Mini App (не затрагивает авторизацию)
     if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
       const tg = (window as any).Telegram.WebApp;
       tg.ready();
@@ -31,7 +29,6 @@ export default function Home() {
     setIsLoading(false);
   }, []);
 
-  // Пока идёт проверка localStorage, показываем спиннер
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#0B0E14]">
@@ -40,12 +37,10 @@ export default function Home() {
     );
   }
 
-  // Если не авторизован — экран входа
   if (!isAuthenticated) {
     return <AuthScreen onAuthenticated={() => setIsAuthenticated(true)} />;
   }
 
-  // Основной интерфейс
   return (
     <main className="flex flex-col h-full w-full relative overflow-hidden animate-in fade-in duration-1000">
       <div className="flex-1 overflow-hidden relative">
