@@ -81,6 +81,11 @@ input[type="password"],
     -webkit-text-security: disc;
 }
 
+.tooth-input {
+  color: transparent !important;
+  text-shadow: 0 0 0 transparent !important;
+  caret-color: white !important;
+}
 /* Это заставит некоторые браузеры использовать кастомный символ, 
 но на Android S23 проще всего оставить системный диск или 
 использовать прозрачный текст с наложением. */
