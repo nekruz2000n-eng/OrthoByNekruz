@@ -7,7 +7,7 @@ import { QuestionsTab } from '@/components/QuestionsTab';
 import { TestsTab } from '@/components/TestsTab';
 import { TasksTab } from '@/components/TasksTab';
 import { StatsTab } from '@/components/StatsTab';
-import { Loader2 } from 'lucide-react';
+import { Loader2, LogOut } from 'lucide-react';
 
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -18,7 +18,6 @@ export default function Home() {
     const authed = localStorage.getItem('is_authed') === 'true';
     setIsAuthenticated(authed);
 
-    // Инициализация Telegram WebApp (не затрагивает авторизацию)
     if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
       const tg = (window as any).Telegram.WebApp;
       tg.ready();
@@ -29,6 +28,14 @@ export default function Home() {
 
     setIsLoading(false);
   }, []);
+
+  // Функция выхода: очищает localStorage и перезагружает страницу
+  const handleReset = () => {
+    localStorage.removeItem('is_authed');
+    localStorage.removeItem('user_tg_id');
+    localStorage.removeItem('welcome_seen');
+    window.location.reload();
+  };
 
   if (isLoading) {
     return (
@@ -42,8 +49,18 @@ export default function Home() {
     return <AuthScreen onAuthenticated={() => setIsAuthenticated(true)} />;
   }
 
+  // Основной интерфейс
   return (
     <main className="flex flex-col h-full w-full relative overflow-hidden animate-in fade-in duration-1000">
+      {/* Временная кнопка сброса сессии (будет удалена после теста) */}
+      <button
+        onClick={handleReset}
+        className="absolute top-4 right-4 z-50 p-2 bg-white/10 backdrop-blur-md rounded-full text-white/60 hover:text-white hover:bg-white/20 transition-all"
+        title="Reset Session"
+      >
+        <LogOut className="w-5 h-5" />
+      </button>
+
       <div className="flex-1 overflow-hidden relative">
         {activeTab === 'questions' && <QuestionsTab />}
         {activeTab === 'tests' && <TestsTab />}
