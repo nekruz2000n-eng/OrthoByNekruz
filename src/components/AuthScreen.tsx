@@ -74,6 +74,17 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     }
   }, [loading, lockoutTime, toast, onAuthenticated]);
 
+  // Добавь это перед return
+  const closeWelcome = () => {
+    window.localStorage.setItem("welcome_seen", "true");
+    setShowWelcome(false);
+    onAuthenticated();
+    // Делаем перезагрузку, чтобы основной контент подтянулся чистым
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
+  };
+
   // Остальная часть кода без изменений (useEffect, Welcome screen и т.д.)
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background relative overflow-hidden">
