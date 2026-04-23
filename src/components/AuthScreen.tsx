@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ToothIcon } from './ToothIcon';
 import { Input } from '@/components/ui/input';
@@ -18,30 +18,11 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [lockoutTime, setLockoutTime] = useState(0);
-  
-  // Специальное состояние для ошибки подписки
   const [needsSubscription, setNeedsSubscription] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
 
-  useEffect(() => {
-    if (lockoutTime > 0) {
-      const timer = setInterval(() => setLockoutTime(prev => prev - 1), 1000);
-      return () => clearInterval(timer);
-    }
-  }, [lockoutTime]);
-
-  useEffect(() => {
-    const urlKey = searchParams.get('key');
-    const urlTgId = searchParams.get('tgid');
-    if (urlKey) setKey(urlKey);
-    if (urlTgId) setTgId(urlTgId);
-
-    if (urlKey && urlTgId && lockoutTime === 0) {
-      handleAuth(urlKey, urlTgId);
-    }
-  }, [searchParams]);
-
-  const handleAuth = async (inputKey: string, inputTgId: string) => {
+  // Функция авторизации (вынесена выше useEffect)
+  const handleAuth = useCallback(async (inputKey: string, inputTgId: string) => {
     if (loading || lockoutTime > 0 || !inputKey || !inputTgId) return;
     setLoading(true);
     setError(false);
@@ -59,7 +40,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       if (response.ok) {
         window.localStorage.setItem("is_authed", "true");
         window.localStorage.setItem("user_tg_id", inputTgId);
-        
         const hasSeenWelcome = window.localStorage.getItem("welcome_seen");
         if (!hasSeenWelcome) {
           setShowWelcome(true);
@@ -67,18 +47,16 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           onAuthenticated();
         }
       } else {
-        // Если сервер сказал, что не подписан (код 403)
         if (response.status === 403) {
           setNeedsSubscription(true);
         } else {
-          setLockoutTime(15); // Блокировка только на неверный ключ
+          setLockoutTime(15);
         }
-        
         setError(true);
-        toast({ 
-          variant: "destructive", 
-          title: "Доступ ограничен", 
-          description: data.error || "Произошла ошибка" 
+        toast({
+          variant: "destructive",
+          title: "Доступ ограничен",
+          description: data.error || "Произошла ошибка"
         });
       }
     } catch (err) {
@@ -86,7 +64,25 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     } finally {
       setLoading(false);
     }
-  };
+  }, [loading, lockoutTime, toast, onAuthenticated]);
+
+  // Таймер блокировки
+  useEffect(() => {
+    if (lockoutTime > 0) {
+      const timer = setInterval(() => setLockoutTime(prev => prev - 1), 1000);
+      return () => clearInterval(timer);
+    }
+  }, [lockoutTime]);
+
+  // Обработка параметров из URL
+  useEffect(() => {
+    if (!searchParams) return;
+    const urlKey = searchParams.get('key');
+    const urlTgId = searchParams.get('tgid');
+    if (urlKey && urlTgId && lockoutTime === 0) {
+      handleAuth(urlKey, urlTgId);
+    }
+  }, [searchParams, lockoutTime, handleAuth]);
 
   const closeWelcome = () => {
     window.localStorage.setItem("welcome_seen", "true");
@@ -96,8 +92,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background relative overflow-hidden">
-      
-      {/* МОДАЛКА ПРИВЕТСТВИЯ */}
       {showWelcome && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl animate-in fade-in zoom-in duration-300">
           <div className="w-full max-w-sm bg-card border border-white/10 p-8 rounded-[32px] shadow-2xl text-center space-y-6">
@@ -117,7 +111,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         </div>
       )}
 
-      {/* ОСНОВНОЙ ЭКРАН */}
       <div className="w-full max-w-sm flex flex-col items-center z-10">
         <div className="mb-8 flex flex-col items-center space-y-4">
           <ToothIcon className={cn("w-16 h-16 text-primary transition-all", loading && "animate-pulse")} />
@@ -126,7 +119,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
 
         <div className={cn("w-full space-y-4", error && "animate-shake")}>
           <div className="space-y-4 bg-card/30 p-6 rounded-3xl border border-white/5 backdrop-blur-md shadow-2xl">
-            
             <Input
               placeholder="Ключ доступа"
               value={key}
@@ -134,7 +126,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               disabled={loading || lockoutTime > 0}
               className="h-12 text-center text-xl font-mono bg-background/40 border-white/10 rounded-xl text-white"
             />
-            
             <Input
               placeholder="Твой TG ID"
               value={tgId}
