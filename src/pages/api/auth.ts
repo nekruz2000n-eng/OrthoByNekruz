@@ -1,63 +1,71 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
 
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const CHANNEL_ID = '-1003929499461';
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Разрешаем только POST запросы
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { key, telegramId } = req.body;
 
-  if (!key || !telegramId) {
-    return res.status(400).json({ error: 'Ключ и Telegram ID обязательны' });
+  // Проверка наличия Telegram ID (обязательно для всех)
+  if (!telegramId) {
+    return res.status(400).json({ error: 'ID пользователя не найден. Откройте приложение через Telegram' });
   }
 
+  // Приводим ID к строке для надежности поиска в базе
+  const tgIdStr = String(telegramId);
+
   try {
-    // 1. Проверяем, существует ли ключ в Redis
-    const isValidKey = await kv.sismember('valid_keys', key);
+    // 1. ПРОВЕРКА СУЩЕСТВУЮЩЕГО ПОЛЬЗОВАТЕЛЯ
+    // Ищем в KV ключ вида "user_id:12345678"
+    const existingUser = await kv.get(`user_id:${tgIdStr}`);
     
-    // Проверяем, не привязан ли этот ключ уже к ЭТОМУ пользователю (повторный вход)
-    const existingLink = await kv.get(`link:${key}`);
-    
-    if (!isValidKey && existingLink !== telegramId) {
-      return res.status(401).json({ error: 'Неверный или уже использованный ключ' });
-    }
-
-    // 2. Проверяем подписку студента через прямой запрос к Telegram API
-    const tgResponse = await fetch(
-      `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${CHANNEL_ID}&user_id=${telegramId}`
-    );
-    
-    const tgData = await tgResponse.json();
-
-    if (!tgData.ok) {
-      return res.status(500).json({ error: 'Ошибка проверки Telegram. Проверьте ваш ID.' });
-    }
-
-    const status = tgData.result.status;
-    const isSubscribed = ['creator', 'administrator', 'member'].includes(status);
-
-    if (!isSubscribed) {
-      return res.status(403).json({ 
-        error: 'Для активации нужно подписаться на канал!',
-        link: 'https://t.me/+oUvG_y-W6U4zMjVi' // Твоя ссылка на канал
+    if (existingUser) {
+      // Если запись есть, значит доступ уже был активирован ранее
+      return res.status(200).json({ 
+        success: true, 
+        message: 'С возвращением!' 
       });
     }
 
-    // 3. Если всё ок — фиксируем активацию
-    if (isValidKey) {
-      await kv.srem('valid_keys', key); // Удаляем из списка свободных
-      await kv.set(`link:${key}`, telegramId); // Привязываем к ID
-      await kv.hset('user_registry', { [telegramId]: key }); // Добавляем в общий реестр
+    // 2. РЕГИСТРАЦИЯ НОВОГО ПОЛЬЗОВАТЕЛЯ
+    // Если записи нет, значит человек зашел впервые и ОБЯЗАН ввести ключ
+    if (!key || key.trim() === '') {
+      return res.status(401).json({ 
+        error: 'Для первого входа необходимо ввести ключ активации' 
+      });
     }
 
-    return res.status(200).json({ success: true, message: 'Доступ разрешен!' });
+    // Проверяем, есть ли такой ключ в наборе 'valid_keys'
+    const isKeyValid = await kv.sismember('valid_keys', key.trim());
+    
+    if (!isKeyValid) {
+      return res.status(401).json({ 
+        error: 'Неверный, просроченный или уже использованный ключ' 
+      });
+    }
+
+    // 3. ПРИВЯЗКА И АКТИВАЦИЯ
+    // Создаем запись в базе
+    await kv.set(`user_id:${tgIdStr}`, { 
+      activatedKey: key.trim(), 
+      activatedAt: new Date().toISOString() 
+    });
+
+    // Удаляем использованный ключ из списка доступных (сжигаем его)
+    await kv.srem('valid_keys', key.trim());
+
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Ключ успешно активирован!' 
+    });
 
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    console.error('Auth API Error:', error);
+    return res.status(500).json({ 
+      error: 'Ошибка базы данных. Попробуйте позже' 
+    });
   }
 }

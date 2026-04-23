@@ -6,7 +6,7 @@ import { ToothIcon } from './ToothIcon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ExternalLink, Heart, BellRing } from 'lucide-react';
+import { Loader2, ExternalLink, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void }) => {
@@ -14,19 +14,17 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const { toast } = useToast();
 
   const [key, setKey] = useState('');
-  const [login, setLogin] = useState('');
-  const [password, setPassword] = useState('');
-
-  const [tgId, setTgId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [lockoutTime, setLockoutTime] = useState(0);
   const [needsSubscription, setNeedsSubscription] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
 
-  // Функция авторизации (вынесена выше useEffect)
+  // Основная функция авторизации
   const handleAuth = useCallback(async (inputKey: string, inputTgId: string) => {
-    if (loading || lockoutTime > 0 || !inputKey || !inputTgId) return;
+    // Если нет ID или мы в процессе загрузки/блокировки — выходим
+    if (loading || lockoutTime > 0 || !inputTgId) return;
+    
     setLoading(true);
     setError(false);
     setNeedsSubscription(false);
@@ -43,6 +41,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       if (response.ok) {
         window.localStorage.setItem("is_authed", "true");
         window.localStorage.setItem("user_tg_id", inputTgId);
+        
         const hasSeenWelcome = window.localStorage.getItem("welcome_seen");
         if (!hasSeenWelcome) {
           setShowWelcome(true);
@@ -50,10 +49,11 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           onAuthenticated();
         }
       } else {
+        // Если ошибка 403 (например, не подписан или ошибка привязки)
         if (response.status === 403) {
           setNeedsSubscription(true);
         } else {
-          setLockoutTime(15);
+          setLockoutTime(15); // Блокировка на 15 сек при неверном ключе
         }
         setError(true);
         toast({
@@ -69,7 +69,18 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     }
   }, [loading, lockoutTime, toast, onAuthenticated]);
 
-  // Таймер блокировки
+  // 1. Автоматический вход при открытии (если ID уже в базе)
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    const tgId = tg?.initDataUnsafe?.user?.id;
+    
+    if (tgId) {
+      // Пробуем войти автоматически по ID (без ключа)
+      handleAuth("", String(tgId));
+    }
+  }, []); // Только при первом запуске
+
+  // 2. Таймер блокировки
   useEffect(() => {
     if (lockoutTime > 0) {
       const timer = setInterval(() => setLockoutTime(prev => prev - 1), 1000);
@@ -77,7 +88,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     }
   }, [lockoutTime]);
 
-  // Обработка параметров из URL
+  // 3. Обработка ключа из ссылки (если прислали ссылку вида ?key=XXX&tgid=YYY)
   useEffect(() => {
     if (!searchParams) return;
     const urlKey = searchParams.get('key');
@@ -95,6 +106,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background relative overflow-hidden">
+      {/* Экран приветствия */}
       {showWelcome && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl animate-in fade-in zoom-in duration-300">
           <div className="w-full max-w-sm bg-card border border-white/10 p-8 rounded-[32px] shadow-2xl text-center space-y-6">
@@ -122,67 +134,50 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
 
         <div className={cn("w-full space-y-4", error && "animate-shake")}>
           <div className="space-y-4 bg-card/30 p-6 rounded-3xl border border-white/5 backdrop-blur-md shadow-2xl">
-            <Input
-  placeholder="Придумай логин"
-  value={login}
-  onChange={(e) => setLogin(e.target.value)}
-  disabled={loading || lockoutTime > 0}
-  className="h-12 text-center text-lg bg-background/40 border-white/10 rounded-xl text-white"
-/>
-<Input
-  placeholder="Придумай пароль"
-  type="password"
-  value={password}
-  onChange={(e) => setPassword(e.target.value)}
-  disabled={loading || lockoutTime > 0}
-  className="h-12 text-center text-lg bg-background/40 border-white/10 rounded-xl text-white"
-/>
-
-
-            <Input
-              placeholder="Ключ доступа"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              disabled={loading || lockoutTime > 0}
-              className="h-12 text-center text-xl font-mono bg-background/40 border-white/10 rounded-xl text-white"
-            />
-            <Input
-              placeholder="Твой TG ID"
-              value={tgId}
-              onChange={(e) => setTgId(e.target.value.replace(/\D/g, ''))}
-              disabled={loading || lockoutTime > 0}
-              className="h-12 text-center text-xl font-mono bg-background/40 border-white/10 rounded-xl text-white"
-            />
-
-            {needsSubscription ? (
-              <Button 
-                asChild
-                className="w-full h-14 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 text-white"
-              >
-                <a href="https://t.me/+oUvG_y-W6U4zMjVi" target="_blank">
-                  <BellRing className="mr-2 w-5 h-5" /> ПОДПИСАТЬСЯ НА КАНАЛ
-                </a>
-              </Button>
-            ) : (
-              <Button 
-                onClick={() => handleAuth(key, tgId)}
-                disabled={loading || !key || !tgId || lockoutTime > 0}
-                className="w-full h-14 rounded-xl font-bold text-lg"
-              >
-                {loading ? <Loader2 className="animate-spin" /> : 
-                 lockoutTime > 0 ? `БЛОК: ${lockoutTime}с` : "ВОЙТИ"}
-              </Button>
-            )}
             
+            <div className="space-y-4">
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder={lockoutTime > 0 ? `Подожди ${lockoutTime}с` : "Введите ключ (если впервые)"}
+                  value={key}
+                  onChange={(e) => setKey(e.target.value)}
+                  disabled={loading || lockoutTime > 0}
+                  style={{
+                    WebkitTextSecurity: 'disc', // Маскировка ввода под точки
+                  }}
+                  className="h-12 text-center text-lg bg-background/40 border-white/10 rounded-xl text-white placeholder:text-xs"
+                />
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-50">🦷</span>
+              </div>
+
+              <Button 
+                onClick={() => {
+                  const tg = (window as any).Telegram?.WebApp;
+                  const currentTgId = tg?.initDataUnsafe?.user?.id;
+                  handleAuth(key, String(currentTgId || ""));
+                }}
+                disabled={loading || lockoutTime > 0}
+                className="w-full bg-[#0088cc] hover:bg-[#0077b5] text-white font-bold py-6 rounded-2xl transition-all active:scale-95 shadow-lg shadow-[#0088cc]/20"
+              >
+                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Войти по Telegram"}
+              </Button>
+            </div>
+
             {needsSubscription && (
               <p className="text-[10px] text-center text-muted-foreground animate-pulse">
-                После подписки нажми "Войти" еще раз
+                Сначала активируй доступ у автора
               </p>
             )}
           </div>
 
           <div className="text-center space-y-2">
-            <a href="https://t.me/evoeidos" target="_blank" className="flex items-center justify-center text-xs text-primary/60 hover:text-primary transition-colors">
+            <a 
+              href="https://t.me/evoeidos" 
+              target="_blank" 
+              rel="noreferrer"
+              className="flex items-center justify-center text-xs text-primary/60 hover:text-primary transition-colors"
+            >
               Нужен ключ? Пиши мне @evoeidos <ExternalLink className="ml-1 w-3 h-3" />
             </a>
           </div>

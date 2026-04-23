@@ -38,7 +38,8 @@ export default function Home() {
     );
   }
 
-  if (!isAuthenticated) {
+// Мы заставляем программу ВСЕГДА показывать экран входа для теста
+  if (true || !isAuthenticated) {
     return <AuthScreen onAuthenticated={() => setIsAuthenticated(true)} />;
   }
 

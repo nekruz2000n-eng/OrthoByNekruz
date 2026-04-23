@@ -75,3 +75,12 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+input[type="password"], 
+.password-tooth {
+    -webkit-text-security: disc;
+}
+
+/* Это заставит некоторые браузеры использовать кастомный символ, 
+но на Android S23 проще всего оставить системный диск или 
+использовать прозрачный текст с наложением. */
