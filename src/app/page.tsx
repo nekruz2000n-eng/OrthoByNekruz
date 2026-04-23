@@ -16,18 +16,17 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<TabType>('questions');
   const { toast } = useToast();
 
-  // --- Скрытый сброс сессии через долгое нажатие (2 секунды) ---
+  // --- Скрытый сброс сессии (долгое нажатие 8 сек на невидимую область) ---
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleLongPressStart = useCallback(() => {
     longPressTimerRef.current = setTimeout(() => {
-      // Сброс сессии
       localStorage.removeItem('is_authed');
       localStorage.removeItem('user_tg_id');
       localStorage.removeItem('welcome_seen');
       toast({ title: 'Session reset', description: 'Reloading...' });
       setTimeout(() => window.location.reload(), 500);
-    }, 2000); // 2 секунды удержания
+    }, 8000); // 8 секунд удержания
   }, [toast]);
 
   const handleLongPressEnd = useCallback(() => {
@@ -36,7 +35,7 @@ export default function Home() {
       longPressTimerRef.current = null;
     }
   }, []);
-  // ---------------------------------------------------------
+  // ------------------------------------------------------------------------
 
   useEffect(() => {
     const storedAuthed = localStorage.getItem('is_authed') === 'true';
@@ -83,20 +82,16 @@ export default function Home() {
 
   return (
     <main className="flex flex-col h-full w-full relative overflow-hidden animate-in fade-in duration-1000">
-      {/* Заголовок со скрытым long-press сбросом сессии */}
-      <div className="flex justify-center pt-4 pb-2">
-        <h1
-          className="text-lg font-bold text-white/40 select-none cursor-default"
-          onTouchStart={handleLongPressStart}
-          onTouchEnd={handleLongPressEnd}
-          onTouchCancel={handleLongPressEnd}
-          onMouseDown={handleLongPressStart}
-          onMouseUp={handleLongPressEnd}
-          onMouseLeave={handleLongPressEnd}
-        >
-          OrthoByNekruz
-        </h1>
-      </div>
+      {/* Невидимая зона для скрытого сброса сессии (правый верхний угол) */}
+      <div
+        className="absolute top-0 right-0 w-10 h-10 z-50"
+        onTouchStart={handleLongPressStart}
+        onTouchEnd={handleLongPressEnd}
+        onTouchCancel={handleLongPressEnd}
+        onMouseDown={handleLongPressStart}
+        onMouseUp={handleLongPressEnd}
+        onMouseLeave={handleLongPressEnd}
+      />
 
       <div className="flex-1 overflow-hidden relative">
         {activeTab === 'questions' && <QuestionsTab />}
