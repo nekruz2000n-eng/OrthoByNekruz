@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation'; // Оставляем один импорт
+import { useSearchParams } from 'next/navigation';
 import { ToothIcon } from './ToothIcon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,51 +20,52 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [needsSubscription, setNeedsSubscription] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
 
-  // Основная функция авторизации
+  // Функция закрытия приветствия
+  const closeWelcome = useCallback(() => {
+    window.localStorage.setItem("welcome_seen", "true");
+    setShowWelcome(false);
+    onAuthenticated();
+    window.location.replace(window.location.origin);
+  }, [onAuthenticated]);
+
+  // Основная логика входа
   const handleAuth = useCallback(async (inputKey: string, inputTgId: string) => {
     if (loading || lockoutTime > 0 || !inputTgId) return;
     
     setLoading(true);
     setError(false);
-    setNeedsSubscription(false);
 
     try {
       const response = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: inputKey, telegramId: inputTgId }),
+        body: JSON.stringify({ key: inputKey.trim(), telegramId: String(inputTgId) }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
         window.localStorage.setItem("is_authed", "true");
-        window.localStorage.setItem("user_tg_id", inputTgId);
+        window.localStorage.setItem("user_tg_id", String(inputTgId));
         
-        // Проверка приветствия
         const hasSeenWelcome = window.localStorage.getItem("welcome_seen");
         if (!hasSeenWelcome) {
           setShowWelcome(true);
         } else {
           onAuthenticated();
+          window.location.replace(window.location.origin);
         }
-
-        // Принудительная перезагрузка для синхронизации
-        setTimeout(() => {
-          window.location.reload();
-        }, 100);
-        
       } else {
         if (response.status === 403) {
           setNeedsSubscription(true);
         } else {
           setLockoutTime(15);
+          setError(true);
         }
-        setError(true);
         toast({
           variant: "destructive",
           title: "Доступ ограничен",
-          description: data.error || "Произошла ошибка"
+          description: data.error || "Неверный ключ"
         });
       }
     } catch (err) {
@@ -74,21 +75,24 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     }
   }, [loading, lockoutTime, toast, onAuthenticated]);
 
-  // Добавь это перед return
-  const closeWelcome = () => {
-    window.localStorage.setItem("welcome_seen", "true");
-    setShowWelcome(false);
-    onAuthenticated();
-    // Делаем перезагрузку, чтобы основной контент подтянулся чистым
-    setTimeout(() => {
-      window.location.reload();
-    }, 100);
-  };
+  // Авто-вход при загрузке
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    const tgId = tg?.initDataUnsafe?.user?.id;
+    if (tgId) handleAuth("", String(tgId));
+  }, []);
 
-  // Остальная часть кода без изменений (useEffect, Welcome screen и т.д.)
+  // Таймер блокировки
+  useEffect(() => {
+    if (lockoutTime > 0) {
+      const timer = setInterval(() => setLockoutTime(prev => prev - 1), 1000);
+      return () => clearInterval(timer);
+    }
+  }, [lockoutTime]);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background relative overflow-hidden">
-      {/* Экран приветствия */}
+      {/* Экран приветствия (модалка) */}
       {showWelcome && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl animate-in fade-in zoom-in duration-300">
           <div className="w-full max-w-sm bg-card border border-white/10 p-8 rounded-[32px] shadow-2xl text-center space-y-6">
@@ -108,6 +112,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         </div>
       )}
 
+      {/* Основной контент */}
       <div className="w-full max-w-sm flex flex-col items-center z-10">
         <div className="mb-8 flex flex-col items-center space-y-4">
           <ToothIcon className={cn("w-16 h-16 text-primary transition-all", loading && "animate-pulse")} />
@@ -120,18 +125,21 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
             <div className="space-y-4">
               <div className="relative">
                 <Input
-  type="text"
-  placeholder={lockoutTime > 0 ? `Подожди ${lockoutTime}с` : "Введите ключ (если впервые)"}
-  value={key}
-  onChange={(e) => setKey(e.target.value)}
-  disabled={loading || lockoutTime > 0}
-  style={{
-    // @ts-ignore
-    WebkitTextSecurity: 'disc', // Маскировка ввода под точки
-  }}
-  className="h-12 text-center text-lg bg-background/40 border-white/10 rounded-xl text-white placeholder:text-xs"
-/>
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-50">🦷</span>
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder={lockoutTime > 0 ? `Подожди ${lockoutTime}с` : "Введите ключ"}
+                  value={key}
+                  onChange={(e) => setKey(e.target.value.replace(/\D/g, ''))}
+                  disabled={loading || lockoutTime > 0}
+                  className="h-14 text-center text-2xl bg-background/40 border-white/10 rounded-2xl text-white tooth-input transition-all focus:border-primary/50"
+                />
+                {/* Слой с зубами */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none tracking-[0.4em] text-2xl">
+                  {key.split('').map((_, i) => (
+                    <span key={i} className="animate-in zoom-in duration-200">🦷</span>
+                  ))}
+                </div>
               </div>
 
               <Button 
@@ -140,32 +148,38 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                   const currentTgId = tg?.initDataUnsafe?.user?.id;
                   handleAuth(key, String(currentTgId || ""));
                 }}
-                disabled={loading || lockoutTime > 0}
-                className="w-full bg-[#0088cc] hover:bg-[#0077b5] text-white font-bold py-6 rounded-2xl transition-all active:scale-95 shadow-lg shadow-[#0088cc]/20"
+                disabled={loading || lockoutTime > 0 || key.length < 1}
+                className="w-full h-14 bg-[#0088cc] hover:bg-[#0077b5] text-white font-bold rounded-2xl transition-all active:scale-95 shadow-lg shadow-[#0088cc]/20"
               >
                 {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Войти по Telegram"}
               </Button>
             </div>
 
             {needsSubscription && (
-              <p className="text-[10px] text-center text-muted-foreground animate-pulse">
+              <p className="text-[10px] text-center text-destructive animate-pulse">
                 Сначала активируй доступ у автора
               </p>
             )}
           </div>
 
-          <div className="text-center space-y-2">
+          <div className="text-center">
             <a 
               href="https://t.me/evoeidos" 
-              target="_blank" 
-              rel="noreferrer"
-              className="flex items-center justify-center text-xs text-primary/60 hover:text-primary transition-colors"
+              className="inline-flex items-center text-xs text-primary/60 hover:text-primary transition-colors"
             >
               Нужен ключ? Пиши мне @evoeidos <ExternalLink className="ml-1 w-3 h-3" />
             </a>
           </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        .tooth-input {
+          color: transparent !important;
+          text-shadow: 0 0 0 transparent !important;
+          caret-color: white !important;
+        }
+      `}</style>
     </div>
   );
 };
