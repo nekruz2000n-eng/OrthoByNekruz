@@ -138,16 +138,17 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
             <div className="space-y-4">
               <div className="relative">
                 <Input
-                  type="text"
-                  placeholder={lockoutTime > 0 ? `Подожди ${lockoutTime}с` : "Введите ключ (если впервые)"}
-                  value={key}
-                  onChange={(e) => setKey(e.target.value)}
-                  disabled={loading || lockoutTime > 0}
-                  style={{
-                    WebkitTextSecurity: 'disc', // Маскировка ввода под точки
-                  }}
-                  className="h-12 text-center text-lg bg-background/40 border-white/10 rounded-xl text-white placeholder:text-xs"
-                />
+  type="text"
+  placeholder={lockoutTime > 0 ? `Подожди ${lockoutTime}с` : "Введите ключ (если впервые)"}
+  value={key}
+  onChange={(e) => setKey(e.target.value)}
+  disabled={loading || lockoutTime > 0}
+  style={{
+    // @ts-ignore
+    WebkitTextSecurity: 'disc', // Маскировка ввода под точки
+  }}
+  className="h-12 text-center text-lg bg-background/40 border-white/10 rounded-xl text-white placeholder:text-xs"
+/>
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-50">🦷</span>
               </div>
 
