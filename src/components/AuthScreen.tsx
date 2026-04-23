@@ -10,7 +10,6 @@ import { Loader2, ExternalLink, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void }) => {
-  // searchParams пока не используется, но оставлен для будущих нужд
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
@@ -22,24 +21,51 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [needsSubscription, setNeedsSubscription] = useState(false); // требуется подписка на канал
   const [showWelcome, setShowWelcome] = useState(false);  // показывать ли приветственное окно
   const [manualTgId, setManualTgId] = useState('');       // ID, введённый вручную
-  const [autoTgId, setAutoTgId] = useState<string | null>(null); // ID, полученный автоматически от Telegram
+  const [autoTgId, setAutoTgId] = useState<string | null>(null); // ID, полученный автоматически
   const [idChecked, setIdChecked] = useState(false);      // завершена ли проверка авто-ID
 
-  // Ref'ы, чтобы избежать проблем с замыканиями и повторными запросами
+  // ---------- УЛУЧШЕННОЕ АВТООПРЕДЕЛЕНИЕ TELEGRAM ID (повторные попытки) ----------
+  const maxAttempts = 10;          // всего попыток
+  const attemptInterval = 500;     // интервал 500 мс (итого 5 секунд)
+  const [idCheckAttempts, setIdCheckAttempts] = useState(0);
+
+  useEffect(() => {
+    // Если ID уже найден или попытки кончились — останавливаемся
+    if (autoTgId !== null || idCheckAttempts >= maxAttempts) {
+      setIdChecked(true);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const tg = (window as any).Telegram?.WebApp;
+      const id = tg?.initDataUnsafe?.user?.id;
+      if (id) {
+        setAutoTgId(String(id));
+      } else {
+        setIdCheckAttempts(prev => prev + 1);
+      }
+    }, attemptInterval);
+
+    return () => clearTimeout(timer);
+  }, [autoTgId, idCheckAttempts]);
+
+  // Пока идёт проверка, считаем что инициализируемся
+  const isInitializing = !idChecked;
+  // --------------------------------------------------------
+
+  // Ref'ы для блокировки повторных запросов
   const loadingRef = useRef(false);
 
   // --- СКРЫТЫЙ СБРОС СЕССИИ (6 быстрых касаний по заголовку) ---
-  const tapCountRef = useRef(0);                         // счётчик касаний
-  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null); // таймер для сброса счётчика
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Обработчик касания заголовка
   const handleTitleClick = useCallback(() => {
-    if (typeof window === 'undefined') return;            // на сервере ничего не делаем
+    if (typeof window === 'undefined') return;
     tapCountRef.current += 1;
-    if (tapTimerRef.current) clearTimeout(tapTimerRef.current); // перезапускаем таймер при каждом новом касании
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
 
     if (tapCountRef.current >= 6) {
-      // Достигнуто 6 нажатий — выполняем сброс
       localStorage.removeItem('is_authed');
       localStorage.removeItem('user_tg_id');
       localStorage.removeItem('welcome_seen');
@@ -47,32 +73,19 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         title: 'Session reset',
         description: 'Local storage cleared. Reloading...',
       });
-      // Небольшая задержка перед перезагрузкой, чтобы пользователь увидел тост
       setTimeout(() => window.location.reload(), 500);
       tapCountRef.current = 0;
     } else {
-      // Если в течение 2 секунды не набрано 6 касаний — сбрасываем счётчик
       tapTimerRef.current = setTimeout(() => {
         tapCountRef.current = 0;
-      }, 200);
+      }, 2000); // 2 секунды на 6 нажатий
     }
   }, [toast]);
   // --------------------------------------------------------
 
-  // При первом рендере проверяем, есть ли автоматический Telegram ID
-  useEffect(() => {
-    const tg = (window as any).Telegram?.WebApp;
-    const id = tg?.initDataUnsafe?.user?.id;
-    if (id) {
-      setAutoTgId(String(id)); // если ID пришёл, сохраняем его
-    }
-    setIdChecked(true); // пометим, что проверка завершена
-  }, []);
-
   // -------- ОСНОВНАЯ ФУНКЦИЯ АВТОРИЗАЦИИ ----------
   const handleAuth = useCallback(
     async (inputKey: string, inputTgId: string) => {
-      // Блокируем запрос, если уже идёт загрузка, активен таймер или пустой ID
       if (loadingRef.current || lockoutTime > 0 || !inputTgId) return;
 
       loadingRef.current = true;
@@ -93,28 +106,20 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         const data = await response.json();
 
         if (response.ok) {
-          // Успешная авторизация — записываем флаги в localStorage
           window.localStorage.setItem('is_authed', 'true');
           window.localStorage.setItem('user_tg_id', String(inputTgId));
 
-          // Проверяем, видел ли пользователь приветствие раньше
           const hasSeenWelcome = window.localStorage.getItem('welcome_seen');
-
           if (!hasSeenWelcome && inputKey !== '') {
-            // Новый пользователь, вводивший ключ — показываем приветствие
             setShowWelcome(true);
           } else {
-            // Уже видел приветствие или это авто‑вход — сразу переходим в приложение
             onAuthenticated();
           }
         } else {
-          // Ответ с ошибкой от сервера
           if (response.status === 403) {
-            // Нет подписки на канал
             setNeedsSubscription(true);
           } else {
             if (inputKey !== '') {
-              // Неверный ключ — включаем блокировку и показываем тост
               setLockoutTime(15);
               setError(true);
               toast({
@@ -126,7 +131,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           }
         }
       } catch (err) {
-        // Сетевая ошибка или сервер недоступен
         if (inputKey !== '') {
           toast({
             variant: 'destructive',
@@ -139,27 +143,26 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         loadingRef.current = false;
       }
     },
-    [lockoutTime, onAuthenticated, toast] // зависимости колбэка
+    [lockoutTime, onAuthenticated, toast]
   );
 
   // -------- ЗАКРЫТИЕ ПРИВЕТСТВЕННОГО ОКНА ----------
   const closeWelcome = useCallback(() => {
-    window.localStorage.setItem('welcome_seen', 'true'); // запоминаем, что приветствие показано
+    window.localStorage.setItem('welcome_seen', 'true');
     setShowWelcome(false);
-    onAuthenticated(); // вызываем колбэк, который переключает на основное приложение
+    onAuthenticated();
   }, [onAuthenticated]);
 
   // -------- ТАЙМЕР БЛОКИРОВКИ ----------
   useEffect(() => {
     if (lockoutTime > 0) {
       const timer = setInterval(() => setLockoutTime(prev => prev - 1), 1000);
-      return () => clearInterval(timer); // очистка таймера при размонтировании
+      return () => clearInterval(timer);
     }
   }, [lockoutTime]);
 
   // -------- ОБРАБОТЧИК НАЖАТИЯ НА КНОПКУ ВХОДА ----------
   const handleLoginClick = useCallback(() => {
-    // Сначала пробуем взять автоматический ID, иначе — ручной
     const currentTgId = autoTgId || manualTgId.trim();
 
     if (!currentTgId) {
@@ -171,7 +174,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       return;
     }
 
-    // Если ID введён вручную, сохраним его для будущих авто‑входов
     if (!autoTgId && manualTgId.trim()) {
       window.localStorage.setItem('user_tg_id', manualTgId.trim());
     }
@@ -179,18 +181,18 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     handleAuth(key, currentTgId);
   }, [key, handleAuth, toast, autoTgId, manualTgId]);
 
-  // -------- АВТОМАТИЧЕСКИЙ ВХОД ПРИ НАЛИЧИИ СОХРАНЁННОЙ СЕССИИ ----------
+  // -------- АВТОМАТИЧЕСКИЙ ВХОД ПРИ СОХРАНЁННОЙ СЕССИИ ----------
   useEffect(() => {
     const authed = localStorage.getItem('is_authed') === 'true';
     if (authed && onAuthenticated) {
-      onAuthenticated(); // если уже авторизован, сразу переходим в приложение
+      onAuthenticated();
     }
   }, [onAuthenticated]);
 
   // ========== РЕНДЕР ==========
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background relative overflow-hidden">
-      {/* ПРИВЕТСТВЕННОЕ МОДАЛЬНОЕ ОКНО */}
+      {/* ПРИВЕТСТВЕННОЕ ОКНО */}
       {showWelcome && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl animate-in fade-in zoom-in duration-300">
           <div className="w-full max-w-sm bg-card border border-white/10 p-8 rounded-[32px] shadow-2xl text-center space-y-6">
@@ -201,12 +203,12 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               <h2 className="text-2xl font-bold tracking-tight text-white">Рад тебя видеть!</h2>
               <p className="text-sm text-muted-foreground">
                 Спасибо за доверие. Учись, исследуй, развивайся — теперь ортопедия стала проще. 
-  В каждом разделе есть заметки — сохраняй важное лично для себя. 
-  Если заметишь баг или неточность в тестах, знаешь кому писать, всё починим.
+                В каждом разделе есть заметки — сохраняй важное лично для себя. 
+                Если заметишь баг или неточность в тестах, знаешь кому писать, всё починим.
               </p>
             </div>
             <Button onClick={closeWelcome} className="w-full h-14 rounded-2xl text-lg font-bold">
-              Let's go!
+              Погнали!
             </Button>
           </div>
         </div>
@@ -214,10 +216,8 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
 
       {/* ОСНОВНОЙ ЭКРАН ВВОДА */}
       <div className="w-full max-w-sm flex flex-col items-center z-10">
-        {/* Заголовок и иконка */}
         <div className="mb-8 flex flex-col items-center space-y-4">
           <ToothIcon className={cn("w-16 h-16 text-primary transition-all", loading && "animate-pulse")} />
-          {/* Заголовок с секретным сбросом сессии через 6 нажатий */}
           <h1
             className="text-3xl font-bold tracking-tighter text-white select-none cursor-default"
             onClick={handleTitleClick}
@@ -226,7 +226,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           </h1>
         </div>
 
-        {/* Форма с вводом ключа и ID */}
         <div className={cn("w-full space-y-4", error && "animate-shake")}>
           <div className="space-y-4 bg-card/30 p-6 rounded-3xl border border-white/5 backdrop-blur-md shadow-2xl">
             <div className="space-y-4">
@@ -236,16 +235,15 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  maxLength={8}                       // ограничение длины ключа – максимум 8 цифр
+                  maxLength={8}
                   placeholder={lockoutTime > 0 ? `Wait ${lockoutTime}s` : "Enter key"}
                   value={key}
-                  onChange={(e) => setKey(e.target.value.replace(/\D/g, ''))} // только цифры
+                  onChange={(e) => setKey(e.target.value.replace(/\D/g, ''))}
                   disabled={loading || lockoutTime > 0}
                   className="h-14 text-center text-2xl bg-background/40 border-white/10 rounded-2xl text-white tooth-input transition-all focus:border-primary/50"
                 />
-                {/* Эффект с иконками зуба при вводе — адаптивный размер */}
+                {/* Адаптивные иконки зубов */}
                 {(() => {
-                  // Выбираем классы в зависимости от длины ключа
                   const iconSizeClass =
                     key.length <= 4 ? 'text-2xl' :
                     key.length <= 6 ? 'text-xl' :
@@ -264,14 +262,24 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                 })()}
               </div>
 
-              {/* Поле ручного ввода ID появляется только если авто-ID не обнаружен */}
+              {/* Блок определения Telegram ID */}
+              {isInitializing && (
+                <p className="text-xs text-white/50 text-center">Initializing...</p>
+              )}
+
               {idChecked && !autoTgId && (
-                <div className="relative">
+                <div className="space-y-2">
+                  <p className="text-sm text-red-400 text-center">
+                    Не удалось получить ID автоматически.
+                  </p>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Узнай свой ID у бота <strong>@userinfobot</strong> и введи его вручную.
+                  </p>
                   <Input
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    placeholder="Your Telegram ID"
+                    placeholder="Твой Telegram ID"
                     value={manualTgId}
                     onChange={(e) => setManualTgId(e.target.value.replace(/\D/g, ''))}
                     disabled={loading || lockoutTime > 0}
@@ -280,7 +288,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                 </div>
               )}
 
-              {/* Сообщение, что Telegram ID определён автоматически */}
               {idChecked && autoTgId && (
                 <p className="text-xs text-emerald-400 text-center">Telegram ID detected</p>
               )}
@@ -288,14 +295,13 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               {/* Кнопка входа */}
               <Button
                 onClick={handleLoginClick}
-                disabled={loading || lockoutTime > 0 || key.length < 1}
+                disabled={loading || lockoutTime > 0 || key.length < 1 || (!autoTgId && !manualTgId.trim())}
                 className="w-full h-14 bg-[#0088cc] hover:bg-[#0077b5] text-white font-bold rounded-2xl transition-all active:scale-95 shadow-lg shadow-[#0088cc]/20"
               >
                 {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Sign in with Telegram"}
               </Button>
             </div>
 
-            {/* Предупреждение о необходимости подписки */}
             {needsSubscription && (
               <p className="text-[10px] text-center text-destructive animate-pulse">
                 Subscribe to @nzsdental and try again
@@ -303,7 +309,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
             )}
           </div>
 
-          {/* Ссылка для получения ключа */}
           <div className="text-center">
             <a
               href="https://t.me/evoeidos"
@@ -315,7 +320,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         </div>
       </div>
 
-      {/* Стиль для скрытия текста в поле ввода (показываются только иконки) */}
       <style jsx global>{`
         .tooth-input {
           color: transparent !important;
