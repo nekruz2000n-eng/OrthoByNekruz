@@ -2,70 +2,53 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Разрешаем только POST запросы
+  // Проверяем метод
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Метод не разрешен' });
   }
 
   const { key, telegramId } = req.body;
 
-  // Проверка наличия Telegram ID (обязательно для всех)
+  // Проверка Telegram ID
   if (!telegramId) {
-    return res.status(400).json({ error: 'ID пользователя не найден. Откройте приложение через Telegram' });
+    return res.status(400).json({ error: 'Telegram ID не найден' });
   }
 
-  // Приводим ID к строке для надежности поиска в базе
   const tgIdStr = String(telegramId);
 
   try {
-    // 1. ПРОВЕРКА СУЩЕСТВУЮЩЕГО ПОЛЬЗОВАТЕЛЯ
-    // Ищем в KV ключ вида "user_id:12345678"
+    // 1. Проверяем, есть ли пользователь в базе (бесшовный вход)
     const existingUser = await kv.get(`user_id:${tgIdStr}`);
     
     if (existingUser) {
-      // Если запись есть, значит доступ уже был активирован ранее
-      return res.status(200).json({ 
-        success: true, 
-        message: 'С возвращением!' 
-      });
+      return res.status(200).json({ success: true, message: 'Welcome back' });
     }
 
-    // 2. РЕГИСТРАЦИЯ НОВОГО ПОЛЬЗОВАТЕЛЯ
-    // Если записи нет, значит человек зашел впервые и ОБЯЗАН ввести ключ
+    // 2. Если пользователя нет, проверяем ключ
     if (!key || key.trim() === '') {
-      return res.status(401).json({ 
-        error: 'Для первого входа необходимо ввести ключ активации' 
-      });
+      return res.status(401).json({ error: 'Введите ключ активации' });
     }
 
-    // Проверяем, есть ли такой ключ в наборе 'valid_keys'
+    // Проверка ключа в базе
     const isKeyValid = await kv.sismember('valid_keys', key.trim());
     
     if (!isKeyValid) {
-      return res.status(401).json({ 
-        error: 'Неверный, просроченный или уже использованный ключ' 
-      });
+      return res.status(401).json({ error: 'Неверный или использованный ключ' });
     }
 
-    // 3. ПРИВЯЗКА И АКТИВАЦИЯ
-    // Создаем запись в базе
+    // 3. Активация: привязываем ID к ключу
     await kv.set(`user_id:${tgIdStr}`, { 
       activatedKey: key.trim(), 
-      activatedAt: new Date().toISOString() 
+      date: new Date().toISOString() 
     });
 
-    // Удаляем использованный ключ из списка доступных (сжигаем его)
+    // Удаляем ключ из списка доступных
     await kv.srem('valid_keys', key.trim());
 
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Ключ успешно активирован!' 
-    });
+    return res.status(200).json({ success: true });
 
   } catch (error) {
-    console.error('Auth API Error:', error);
-    return res.status(500).json({ 
-      error: 'Ошибка базы данных. Попробуйте позже' 
-    });
+    console.error('Auth Error:', error);
+    return res.status(500).json({ error: 'Ошибка базы данных' });
   }
 }
