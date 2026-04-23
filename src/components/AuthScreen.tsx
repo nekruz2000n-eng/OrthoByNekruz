@@ -6,7 +6,7 @@ import { ToothIcon } from './ToothIcon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ExternalLink, ShieldAlert, Heart } from 'lucide-react';
+import { Loader2, ExternalLink, Heart, BellRing } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void }) => {
@@ -19,7 +19,8 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [error, setError] = useState(false);
   const [lockoutTime, setLockoutTime] = useState(0);
   
-  // Состояние для приветственного окна
+  // Специальное состояние для ошибки подписки
+  const [needsSubscription, setNeedsSubscription] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     if (loading || lockoutTime > 0 || !inputKey || !inputTgId) return;
     setLoading(true);
     setError(false);
+    setNeedsSubscription(false);
 
     try {
       const response = await fetch('/api/auth', {
@@ -58,7 +60,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         window.localStorage.setItem("is_authed", "true");
         window.localStorage.setItem("user_tg_id", inputTgId);
         
-        // ПРОВЕРКА: Первый ли это вход?
         const hasSeenWelcome = window.localStorage.getItem("welcome_seen");
         if (!hasSeenWelcome) {
           setShowWelcome(true);
@@ -66,9 +67,19 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           onAuthenticated();
         }
       } else {
+        // Если сервер сказал, что не подписан (код 403)
+        if (response.status === 403) {
+          setNeedsSubscription(true);
+        } else {
+          setLockoutTime(15); // Блокировка только на неверный ключ
+        }
+        
         setError(true);
-        setLockoutTime(30); // Упростил для примера до 30с
-        toast({ variant: "destructive", title: "Доступ отклонен", description: data.error });
+        toast({ 
+          variant: "destructive", 
+          title: "Доступ ограничен", 
+          description: data.error || "Произошла ошибка" 
+        });
       }
     } catch (err) {
       toast({ variant: "destructive", title: "Ошибка", description: "Сервер недоступен" });
@@ -80,13 +91,13 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const closeWelcome = () => {
     window.localStorage.setItem("welcome_seen", "true");
     setShowWelcome(false);
-    onAuthenticated(); // Пускаем в приложение
+    onAuthenticated();
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background relative overflow-hidden">
       
-      {/* ПРИВЕТСТВЕННОЕ ОКНО (МОДАЛКА) */}
+      {/* МОДАЛКА ПРИВЕТСТВИЯ */}
       {showWelcome && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl animate-in fade-in zoom-in duration-300">
           <div className="w-full max-w-sm bg-card border border-white/10 p-8 rounded-[32px] shadow-2xl text-center space-y-6">
@@ -94,11 +105,10 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               <Heart className="w-8 h-8 fill-primary/20" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold tracking-tight">Рад тебе!</h2>
-              <div className="text-sm text-muted-foreground leading-relaxed space-y-4">
-                <p>Спасибо за доверие. Пользуйся, изучай, развивайся — всё это сделано для того, чтобы ортопедия стала проще.</p>
-                <p>Если вдруг наткнешься на баг, или заметишь, что в тестах или задачах чего-то не хватает (ну, ошибки там или неточности), не молчи. Пиши мне сразу, ты знаешь, где меня найти.</p>
-              </div>
+              <h2 className="text-2xl font-bold tracking-tight text-white">Рад тебе!</h2>
+              <p className="text-sm text-muted-foreground">
+                Спасибо за доверие. Пользуйся, изучай, развивайся — всё это сделано для того, чтобы ортопедия стала проще.
+              </p>
             </div>
             <Button onClick={closeWelcome} className="w-full h-14 rounded-2xl text-lg font-bold">
               Погнали!
@@ -107,42 +117,62 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         </div>
       )}
 
-      {/* ОСНОВНОЙ ЭКРАН ВХОДА (тот же код, что был ранее) */}
-      <div className="w-full max-w-sm flex flex-col items-center">
+      {/* ОСНОВНОЙ ЭКРАН */}
+      <div className="w-full max-w-sm flex flex-col items-center z-10">
         <div className="mb-8 flex flex-col items-center space-y-4">
-          <ToothIcon className={cn("w-16 h-16 text-primary", loading && "animate-pulse")} />
-          <h1 className="text-3xl font-bold tracking-tighter">OrthoByNekruz</h1>
+          <ToothIcon className={cn("w-16 h-16 text-primary transition-all", loading && "animate-pulse")} />
+          <h1 className="text-3xl font-bold tracking-tighter text-white">OrthoByNekruz</h1>
         </div>
 
         <div className={cn("w-full space-y-4", error && "animate-shake")}>
           <div className="space-y-4 bg-card/30 p-6 rounded-3xl border border-white/5 backdrop-blur-md shadow-2xl">
+            
             <Input
               placeholder="Ключ доступа"
               value={key}
-              onChange={(e) => setKey(e.target.value.replace(/\D/g, ''))}
+              onChange={(e) => setKey(e.target.value)}
               disabled={loading || lockoutTime > 0}
-              className="h-12 text-center text-xl font-mono bg-background/40 border-white/10 rounded-xl"
+              className="h-12 text-center text-xl font-mono bg-background/40 border-white/10 rounded-xl text-white"
             />
+            
             <Input
               placeholder="Твой TG ID"
               value={tgId}
               onChange={(e) => setTgId(e.target.value.replace(/\D/g, ''))}
               disabled={loading || lockoutTime > 0}
-              className="h-12 text-center text-xl font-mono bg-background/40 border-white/10 rounded-xl"
+              className="h-12 text-center text-xl font-mono bg-background/40 border-white/10 rounded-xl text-white"
             />
-            <Button 
-              onClick={() => handleAuth(key, tgId)}
-              disabled={loading || !key || !tgId || lockoutTime > 0}
-              className="w-full h-12 rounded-xl font-bold"
-            >
-              {loading ? <Loader2 className="animate-spin" /> : 
-               lockoutTime > 0 ? `БЛОК: ${lockoutTime}с` : "ВОЙТИ"}
-            </Button>
+
+            {needsSubscription ? (
+              <Button 
+                asChild
+                className="w-full h-14 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 text-white"
+              >
+                <a href="https://t.me/+oUvG_y-W6U4zMjVi" target="_blank">
+                  <BellRing className="mr-2 w-5 h-5" /> ПОДПИСАТЬСЯ НА КАНАЛ
+                </a>
+              </Button>
+            ) : (
+              <Button 
+                onClick={() => handleAuth(key, tgId)}
+                disabled={loading || !key || !tgId || lockoutTime > 0}
+                className="w-full h-14 rounded-xl font-bold text-lg"
+              >
+                {loading ? <Loader2 className="animate-spin" /> : 
+                 lockoutTime > 0 ? `БЛОК: ${lockoutTime}с` : "ВОЙТИ"}
+              </Button>
+            )}
+            
+            {needsSubscription && (
+              <p className="text-[10px] text-center text-muted-foreground animate-pulse">
+                После подписки нажми "Войти" еще раз
+              </p>
+            )}
           </div>
 
-          <div className="text-center">
-            <a href="https://t.me/evoeidos" target="_blank" className="text-xs text-primary/60 hover:text-primary">
-              Нужен ключ? Пиши мне @evoeidos
+          <div className="text-center space-y-2">
+            <a href="https://t.me/evoeidos" target="_blank" className="flex items-center justify-center text-xs text-primary/60 hover:text-primary transition-colors">
+              Нужен ключ? Пиши мне @evoeidos <ExternalLink className="ml-1 w-3 h-3" />
             </a>
           </div>
         </div>
