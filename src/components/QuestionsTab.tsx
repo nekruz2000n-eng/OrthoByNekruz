@@ -93,44 +93,84 @@ export const QuestionsTab = () => {
     return (glossaryData as GlossaryItem[]).slice().sort((a, b) => b.term.length - a.term.length);
   }, []);
 
-  const renderWithGlossary = (text: string) => {
-  // 1. Жирный текст оставляем как было
-  let processed = text.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold text-amber-300">$1</span>');
-
-  // 2. Обработка глоссария с отладкой
-  if (glossaryTerms.length > 0) {
-    // Выведи в консоль количество терминов и первый текст для проверки
-    console.log('Количество терминов в словаре:', glossaryTerms.length);
-    console.log('Пример текста:', text.substring(0, 100));
-
-    const termsPattern = glossaryTerms.map(t => escapeRegExp(t.term)).join('|');
-    const regex = new RegExp(`\\b(${termsPattern})\\b`, 'gi');
-    let matchCount = 0;
-    
-    processed = processed.replace(regex, (match) => {
-      const found = glossaryTerms.find(t => t.term.toLowerCase() === match.toLowerCase());
-      if (found) {
-        matchCount++;
-        // Добавляем временный красный border, чтобы точно заметить
-        return `<span class="glossary-term" style="border: 2px solid red;" data-definition="${encodeURIComponent(found.definition)}">${match}</span>`;
-      }
-      return match;
-    });
-    console.log('Найдено терминов в тексте:', matchCount);
-  } else {
-    console.log('Словарь glossaryTerms пуст!');
+ const renderWithGlossary = (text: string) => {
+  // Разбиваем текст на фрагменты: обычные и жирные (**...**)
+  const fragments: { type: 'normal' | 'bold'; content: string }[] = [];
+  let remaining = text;
+  const boldRegex = /\*\*(.*?)\*\*/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  
+  while ((match = boldRegex.exec(remaining)) !== null) {
+    // Текст до жирного
+    if (match.index > lastIndex) {
+      fragments.push({ type: 'normal', content: remaining.substring(lastIndex, match.index) });
+    }
+    // Жирный текст (без **)
+    fragments.push({ type: 'bold', content: match[1] });
+    lastIndex = match.index + match[0].length;
+  }
+  // Остаток после последнего жирного
+  if (lastIndex < remaining.length) {
+    fragments.push({ type: 'normal', content: remaining.substring(lastIndex) });
   }
 
-  // 3. Отображение строк
-  const lines = processed.split('\n').map((line, i) => (
+  // Функция для поиска терминов в обычном тексте и оборачивания в span
+  const processNormalText = (normalText: string): string => {
+    let result = normalText;
+    // Сортируем термины по убыванию длины, чтобы длинные составные термины обрабатывались первыми
+    const sortedTerms = [...glossaryTerms].sort((a, b) => b.term.length - a.term.length);
+    
+    for (const termItem of sortedTerms) {
+      const term = termItem.term;
+      // Экранируем специальные символы в термине для регулярки
+      const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Ищем термин как целое слово: перед ним должен быть не буквенно-цифровой и не дефис, и после тоже (чтобы не захватить часть слова)
+      // Используем просмотр назад и вперёд, но они могут не поддерживаться в старых браузерах. Вместо этого ищем термин, окружённый границами, которые мы определим как любой символ, не являющийся буквой, цифрой или дефисом, или начало/конец строки.
+      // Упростим: используем регулярное выражение с захватом контекста и заменяем только термин, если он не часть другого слова.
+      // Более надёжный способ: ищем вхождения термина, и для каждого проверяем окружение.
+      const termRegex = new RegExp(escapedTerm, 'gi');
+      result = result.replace(termRegex, (match, offset) => {
+        // Проверка границ: символ перед совпадением
+        const prevChar = offset > 0 ? result[offset - 1] : '';
+        const nextChar = offset + match.length < result.length ? result[offset + match.length] : '';
+        // Разрешённые границы: пробел, знак препинания, начало/конец строки, скобки, тире и т.п.
+        const isBoundary = (ch: string) => /[\s\p{P}\p{Z}]/u.test(ch) || ch === ''; 
+        // Проверяем, что prevChar и nextChar являются границами, либо термин содержит дефис/пробел внутри – тогда границы должны быть до и после всего термина.
+        // Для составных терминов (содержащих пробел или дефис) проверяем только границы вокруг всего термина.
+        if ( (isBoundary(prevChar) || prevChar === '') && (isBoundary(nextChar) || nextChar === '') ) {
+          // Дополнительная проверка: не находится ли термин внутри другого слова? Например, "окклюзия" в "окклюзионный". isBoundary учитывает что prevChar не буква/цифра/дефис, но разрешён ли дефис внутри слова? Нет, дефис считается границей? По условию, дефис – это часть термина, поэтому если термин содержит дефис, то перед и после должны быть границы, но сам дефис внутри термина не должен быть частью другого слова. Всё корректно.
+          return `<span class="glossary-term" data-definition="${encodeURIComponent(termItem.definition)}">${match}</span>`;
+        }
+        return match;
+      });
+    }
+    return result;
+  };
+
+  // Собираем финальную строку
+  const processedFragments = fragments.map((frag) => {
+    if (frag.type === 'bold') {
+      // Жирный текст оборачиваем в наш стиль
+      return `<span class="font-bold text-amber-300">${frag.content}</span>`;
+    } else {
+      // Обычный текст обрабатываем глоссарием
+      return processNormalText(frag.content);
+    }
+  });
+
+  const finalHtml = processedFragments.join('');
+
+  // Разбиваем на строки для отображения
+  const lines = finalHtml.split('\n').map((line, i) => (
     <React.Fragment key={i}>
       <span dangerouslySetInnerHTML={{ __html: line }} />
       <br />
     </React.Fragment>
   ));
+
   return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
 };
-
   const handleGlossaryClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.classList.contains('glossary-term')) {
