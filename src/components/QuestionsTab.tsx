@@ -94,29 +94,42 @@ export const QuestionsTab = () => {
   }, []);
 
   const renderWithGlossary = (text: string) => {
-    // 1. Жирный текст (**...**) -> <span class="font-bold text-amber-300">
-    let processed = text.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold text-amber-300">$1</span>');
-    // 2. Термины глоссария
-    if (glossaryTerms.length > 0) {
-      const termsPattern = glossaryTerms.map(t => escapeRegExp(t.term)).join('|');
-      const regex = new RegExp(`\\b(${termsPattern})\\b`, 'gi');
-      processed = processed.replace(regex, (match) => {
-        const found = glossaryTerms.find(t => t.term.toLowerCase() === match.toLowerCase());
-        if (found) {
-          return `<span class="glossary-term" data-definition="${encodeURIComponent(found.definition)}">${match}</span>`;
-        }
-        return match;
-      });
-    }
-    // 3. Строки
-    const lines = processed.split('\n').map((line, i) => (
-      <React.Fragment key={i}>
-        <span dangerouslySetInnerHTML={{ __html: line }} />
-        <br />
-      </React.Fragment>
-    ));
-    return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
-  };
+  // 1. Жирный текст оставляем как было
+  let processed = text.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold text-amber-300">$1</span>');
+
+  // 2. Обработка глоссария с отладкой
+  if (glossaryTerms.length > 0) {
+    // Выведи в консоль количество терминов и первый текст для проверки
+    console.log('Количество терминов в словаре:', glossaryTerms.length);
+    console.log('Пример текста:', text.substring(0, 100));
+
+    const termsPattern = glossaryTerms.map(t => escapeRegExp(t.term)).join('|');
+    const regex = new RegExp(`\\b(${termsPattern})\\b`, 'gi');
+    let matchCount = 0;
+    
+    processed = processed.replace(regex, (match) => {
+      const found = glossaryTerms.find(t => t.term.toLowerCase() === match.toLowerCase());
+      if (found) {
+        matchCount++;
+        // Добавляем временный красный border, чтобы точно заметить
+        return `<span class="glossary-term" style="border: 2px solid red;" data-definition="${encodeURIComponent(found.definition)}">${match}</span>`;
+      }
+      return match;
+    });
+    console.log('Найдено терминов в тексте:', matchCount);
+  } else {
+    console.log('Словарь glossaryTerms пуст!');
+  }
+
+  // 3. Отображение строк
+  const lines = processed.split('\n').map((line, i) => (
+    <React.Fragment key={i}>
+      <span dangerouslySetInnerHTML={{ __html: line }} />
+      <br />
+    </React.Fragment>
+  ));
+  return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
+};
 
   const handleGlossaryClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
