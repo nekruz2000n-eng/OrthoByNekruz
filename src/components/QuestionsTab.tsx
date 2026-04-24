@@ -23,6 +23,7 @@ interface GlossaryItem {
   term: string;
   definition: string;
 }
+console.log('Glossary data:', glossaryData);
 
 export const QuestionsTab = () => {
   const [search, setSearch] = useState('');
@@ -114,40 +115,25 @@ export const QuestionsTab = () => {
   }, []);
 
   const renderWithGlossary = (text: string) => {
-    // Сначала обрабатываем markdown жирный (**...**)
-    // Заменяем **...** на <b>...</b>
-    let processed = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-    
-    // Если есть глоссарий, ищем термины и оборачиваем их в span
-    if (glossaryTerms.length > 0) {
-      // Создаём регулярное выражение из всех терминов (целые слова, без учёта регистра)
-      const termsPattern = glossaryTerms
-        .map(t => escapeRegExp(t.term))
-        .join('|');
-      const regex = new RegExp(`\\b(${termsPattern})\\b`, 'gi');
-      
-      processed = processed.replace(regex, (match) => {
-        const found = glossaryTerms.find(
-          t => t.term.toLowerCase() === match.toLowerCase()
-        );
-        if (found) {
-          return `<span class="glossary-term" data-definition="${encodeURIComponent(found.definition)}">${match}</span>`;
-        }
-        return match;
-      });
-    }
-
-    // Теперь разбиваем на строки и вставляем <br/>
-    const lines = processed.split('\n').map((line, i) => (
-      <React.Fragment key={i}>
-        <span dangerouslySetInnerHTML={{ __html: line }} />
-        <br />
-      </React.Fragment>
-    ));
-
-    return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
-  };
-
+  // Временная проверка: выделим слово "периодонт", если есть
+  if (text.toLowerCase().includes('периодонт')) {
+    const parts = text.split(/(периодонт)/gi);
+    return (
+      <div className="w-full break-words whitespace-pre-wrap">
+        {parts.map((part, i) =>
+          part.toLowerCase() === 'периодонт' ? (
+            <span key={i} className="glossary-term" data-definition="Тестовое определение">периодонт</span>
+          ) : (
+            <span key={i}>{part}</span>
+          )
+        )}
+      </div>
+    );
+  }
+  // Иначе возвращаем обычный текст с жирным
+  const processed = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+  return <div className="w-full break-words whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: processed }} />;
+};
   // Обработчик клика по термину
   const handleGlossaryClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -438,3 +424,13 @@ export const QuestionsTab = () => {
     </div>
   );
 };
+<style jsx>{`
+  .glossary-term {
+    color: #3b82f6;
+    cursor: pointer;
+    text-decoration: underline dotted;
+  }
+  .glossary-term:hover {
+    color: #60a5fa;
+  }
+`}</style>
