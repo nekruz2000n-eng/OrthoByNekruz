@@ -403,22 +403,18 @@ export const QuestionsTab = () => {
       </ScrollArea>
 
       {/* Режим чтения */}
+            {/* Режим чтения – без верхней панели, низ две кнопки */}
       <AnimatePresence>
         {readingQuestion && (
-          <motion.div initial={{ opacity: 0, y: 100 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 100 }} transition={{ type: "spring", damping: 25, stiffness: 300 }} className="fixed inset-0 z-[100] bg-background flex flex-col p-6 overflow-hidden max-w-full">
-            <div className="flex justify-between items-center mb-8">
-              <div className="flex items-center gap-3">
-                <ToothIcon className="w-10 h-10 text-primary" />
-                <span className="text-xs font-mono px-3 py-1 bg-primary/10 text-primary rounded-full uppercase tracking-wider">
-                  Вопрос № {readingQuestion.id}
-                </span>
-              </div>
-              <button onClick={() => setReadingQuestion(null)} className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <ScrollArea className="flex-1 scroll-container" onClick={handleGlossaryClick}>
-              <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden px-1">
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed inset-0 z-[100] bg-background flex flex-col overflow-hidden max-w-full"
+          >
+            <ScrollArea className="flex-1 scroll-container px-5 pt-10" onClick={handleGlossaryClick}>
+              <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
                 <div className="space-y-4 w-full">
                   <h2 className="text-2xl md:text-3xl font-bold font-headline leading-tight text-foreground break-words whitespace-pre-wrap">
                     {renderWithGlossary(readingQuestion.question)}
@@ -435,15 +431,32 @@ export const QuestionsTab = () => {
                 <PersonalNote id={readingQuestion.id} />
               </div>
             </ScrollArea>
-            <div className="mt-auto pt-6 border-t border-white/5 bg-background pb-safe">
-              <Button size="lg" className="w-full h-16 rounded-2xl gap-3 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20" onClick={() => toggleStudied(readingQuestion.id)}>
-                <CheckCircle2 className="w-6 h-6" /> Отметить как изученное
-              </Button>
+
+            {/* Нижний блок с двумя кнопками */}
+            <div className="mt-auto pt-6 border-t border-white/5 bg-background pb-safe px-5">
+              <div className="flex gap-3 items-center">
+                {/* Основная кнопка — 75% */}
+                <Button
+                  size="lg"
+                  className="flex-1 h-16 rounded-2xl gap-3 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+                  onClick={() => toggleStudied(readingQuestion.id)}
+                >
+                  <CheckCircle2 className="w-6 h-6" />
+                  Отметить как изученное
+                </Button>
+                {/* Кнопка закрытия — 25% */}
+                <button
+                  onClick={() => setReadingQuestion(null)}
+                  className="w-16 h-16 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0"
+                  title="Закрыть"
+                >
+                  <X className="w-6 h-6 text-white" />
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
       {/* Тултип глоссария */}
       
              {/* Тултип глоссария (перетаскиваемый, без кнопки закрытия) */}
