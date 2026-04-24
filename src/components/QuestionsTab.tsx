@@ -433,26 +433,26 @@ export const QuestionsTab = () => {
             </ScrollArea>
 
             {/* Нижний блок с двумя кнопками */}
-            <div className="mt-auto pt-6 border-t border-white/5 bg-background pb-safe px-5">
-              <div className="flex gap-3 items-center">
-                {/* Основная кнопка — 75% */}
-                <Button
-                  size="lg"
-                  className="flex-1 h-16 rounded-2xl gap-3 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-                  onClick={() => toggleStudied(readingQuestion.id)}
-                >
-                  <CheckCircle2 className="w-6 h-6" />
-                  Отметить как изученное
-                </Button>
-                {/* Кнопка закрытия — 25% */}
-                <button
-                  onClick={() => setReadingQuestion(null)}
-                  className="w-16 h-16 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0"
-                  title="Закрыть"
-                >
-                  <X className="w-6 h-6 text-white" />
-                </button>
-              </div>
+                        {/* Нижний блок – кнопка на всю ширину + крестик-иконка поверх */}
+            <div className="relative mt-auto pt-6 border-t border-white/5 bg-background pb-safe px-5">
+              {/* Кнопка закрытия – абсолютно позиционирована, не занимает место в потоке */}
+              <button
+                onClick={() => setReadingQuestion(null)}
+                className="absolute top-0 right-5 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors z-10"
+                title="Закрыть"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+
+              {/* Основная кнопка – теперь на 100% ширины */}
+              <Button
+                size="lg"
+                className="w-full h-16 rounded-2xl gap-3 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+                onClick={() => toggleStudied(readingQuestion.id)}
+              >
+                <CheckCircle2 className="w-6 h-6" />
+                Отметить как изученное
+              </Button>
             </div>
           </motion.div>
         )}
