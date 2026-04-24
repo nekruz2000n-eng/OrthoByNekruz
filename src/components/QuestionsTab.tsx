@@ -1,4 +1,6 @@
 "use client";
+import glossaryData from '@/data/glossary.json';
+import { TextWithGlossary } from '@/components/TextWithGlossary';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import questionsData from '@/data/questions.json';
 import { Input } from '@/components/ui/input';
@@ -301,7 +303,7 @@ export const QuestionsTab = () => {
         </div>
       </ScrollArea>
 
-      <AnimatePresence>
+       <AnimatePresence>
         {readingQuestion && (
           <motion.div
             initial={{ opacity: 0, y: 100 }}
@@ -329,7 +331,10 @@ export const QuestionsTab = () => {
               <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden px-1">
                 <div className="space-y-4 w-full">
                   <h2 className="text-2xl md:text-3xl font-bold font-headline leading-tight text-foreground break-words whitespace-pre-wrap">
-                    {readingQuestion.question.replace(/\*\*/g, '')}
+                    <TextWithGlossary
+                      text={readingQuestion.question.replace(/\*\*/g, '')}
+                      glossary={glossaryData}
+                    />
                   </h2>
                 </div>
 
@@ -339,7 +344,10 @@ export const QuestionsTab = () => {
                     Ответ
                   </div>
                   <div className="text-base leading-[1.4] text-foreground/80 font-light selection:bg-primary/30 w-full break-words whitespace-pre-wrap">
-                    {formatText(readingQuestion.answer)}
+                    <TextWithGlossary
+                      text={readingQuestion.answer.replace(/\*\*/g, '')}
+                      glossary={glossaryData}
+                    />
                   </div>
                 </div>
 
@@ -360,7 +368,6 @@ export const QuestionsTab = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
       <style jsx global>{`
         .markdown-note p { margin-bottom: 0.5rem; word-break: break-word; white-space: pre-wrap; }
         .markdown-note p:last-child { margin-bottom: 0; }
