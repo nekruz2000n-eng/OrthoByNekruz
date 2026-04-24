@@ -94,6 +94,83 @@ export const QuestionsTab = () => {
   }, []);
   // --- Состояние для перетаскиваемого тултипа ---
   const [dragging, setDragging] = useState(false);
+    // --- Плавающая кнопка закрытия (перетаскиваемая) ---
+  const [closeBtnPos, setCloseBtnPos] = useState({ x: window.innerWidth - 60, y: 60 });
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const [closeDragging, setCloseDragging] = useState(false);
+  const closeStartPos = useRef({ x: 0, y: 0 });
+  const closeBtnStartPos = useRef({ x: 0, y: 0 });
+  const hasMoved = useRef(false);
+
+  // Обновить начальную позицию при открытии нового вопроса
+  useEffect(() => {
+    if (readingQuestion) {
+      setCloseBtnPos({ x: window.innerWidth - 60, y: 60 });
+      hasMoved.current = false;
+    }
+  }, [readingQuestion]);
+
+  const handleCloseMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCloseDragging(true);
+    hasMoved.current = false;
+    closeStartPos.current = { x: e.clientX, y: e.clientY };
+    closeBtnStartPos.current = { x: closeBtnPos.x, y: closeBtnPos.y };
+  };
+
+  const handleCloseTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    const touch = e.touches[0];
+    setCloseDragging(true);
+    hasMoved.current = false;
+    closeStartPos.current = { x: touch.clientX, y: touch.clientY };
+    closeBtnStartPos.current = { x: closeBtnPos.x, y: closeBtnPos.y };
+  };
+
+  // Эффект для перемещения
+  useEffect(() => {
+    if (!closeDragging) return;
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const dx = clientX - closeStartPos.current.x;
+      const dy = clientY - closeStartPos.current.y;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        hasMoved.current = true;
+      }
+      let newX = closeBtnStartPos.current.x + dx;
+      let newY = closeBtnStartPos.current.y + dy;
+      // Ограничение по экрану
+      const btn = closeBtnRef.current;
+      if (btn) {
+        const rect = btn.getBoundingClientRect();
+        const maxX = window.innerWidth - rect.width - 10;
+        const maxY = window.innerHeight - rect.height - 10;
+        newX = Math.max(10, Math.min(newX, maxX));
+        newY = Math.max(10, Math.min(newY, maxY));
+      }
+      setCloseBtnPos({ x: newX, y: newY });
+    };
+
+    const handleUp = () => {
+      setCloseDragging(false);
+      // Если не было перемещения, то это клик – закрываем
+      if (!hasMoved.current) {
+        setReadingQuestion(null);
+      }
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleUp);
+    };
+  }, [closeDragging]);
   const dragStartPos = useRef({ x: 0, y: 0 });
   const tooltipStartPos = useRef({ x: 0, y: 0 });
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -308,7 +385,7 @@ export const QuestionsTab = () => {
             value={localNote}
             onChange={(e) => setLocalNote(e.target.value)}
             onBlur={() => updateNote(id, localNote)}
-            placeholder="Добавьте свои примечания здесь... (поддерживается Markdown)"
+            placeholder=" Добавьте свои примечания здесь... (этот запись хранится только в вашем браузере и при чистке данных будет удалена)"
             className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm text-foreground/90 resize-none min-h-[60px] placeholder:text-amber-500/20"
             autoFocus
           />
@@ -434,17 +511,8 @@ export const QuestionsTab = () => {
 
             {/* Нижний блок с двумя кнопками */}
                         {/* Нижний блок – кнопка на всю ширину + крестик-иконка поверх */}
-            <div className="relative mt-auto pt-6 border-t border-white/5 bg-background pb-safe px-5">
-              {/* Кнопка закрытия – абсолютно позиционирована, не занимает место в потоке */}
-              <button
-                onClick={() => setReadingQuestion(null)}
-                className="absolute top-0 right-5 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors z-10"
-                title="Закрыть"
-              >
-                <X className="w-5 h-5 text-white" />
-              </button>
-
-              {/* Основная кнопка – теперь на 100% ширины */}
+                        {/* Нижний блок – основная кнопка на всю ширину, плавающий крестик отдельно */}
+            <div className="mt-auto pt-6 border-t border-white/5 bg-background pb-safe px-5">
               <Button
                 size="lg"
                 className="w-full h-16 rounded-2xl gap-3 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
@@ -454,6 +522,19 @@ export const QuestionsTab = () => {
                 Отметить как изученное
               </Button>
             </div>
+
+            {/* Плавающая перетаскиваемая кнопка закрытия */}
+            <button
+              ref={closeBtnRef}
+              className="fixed z-[200] w-12 h-12 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 transition-colors shadow-lg select-none"
+              style={{ left: closeBtnPos.x, top: closeBtnPos.y }}
+              onMouseDown={handleCloseMouseDown}
+              onTouchStart={handleCloseTouchStart}
+              onClick={(e) => e.stopPropagation()} // чтобы не сработал onClick контейнера
+              title="Закрыть (можно перетащить)"
+            >
+              <X className="w-6 h-6 text-white" />
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
