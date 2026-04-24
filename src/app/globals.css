@@ -91,10 +91,13 @@ input[type="password"],
 использовать прозрачный текст с наложением. */
 
 .glossary-term {
-  color: #3b82f6; /* primary */
+  color: #60a5fa;
   cursor: pointer;
   text-decoration: underline dotted;
 }
 .glossary-term:hover {
-  color: #60a5fa;
+  color: #93c5fd;
+}
+.text-amber-300 {
+  color: #fbbf24;
 }

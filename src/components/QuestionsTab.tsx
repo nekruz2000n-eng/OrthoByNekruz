@@ -443,16 +443,3 @@ export const QuestionsTab = () => {
     </div>
   );
 };
-<style jsx>{`
-  .glossary-term {
-    color: #60a5fa;        /* голубой */
-    cursor: pointer;
-    text-decoration: underline dotted;
-  }
-  .glossary-term:hover {
-    color: #93c5fd;
-  }
-  .text-amber-300 {
-    color: #fbbf24;        /* жёлтый для жирного */
-  }
-`}</style>
