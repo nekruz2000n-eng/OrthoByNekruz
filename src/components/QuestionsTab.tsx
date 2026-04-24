@@ -115,21 +115,40 @@ export const QuestionsTab = () => {
   }, []);
 
   const renderWithGlossary = (text: string) => {
-  // Временная проверка: выделим слово "периодонт", если есть
-  if (text.toLowerCase().includes('периодонт')) {
-    const parts = text.split(/(периодонт)/gi);
-    return (
-      <div className="w-full break-words whitespace-pre-wrap">
-        {parts.map((part, i) =>
-          part.toLowerCase() === 'периодонт' ? (
-            <span key={i} className="glossary-term" data-definition="Тестовое определение">периодонт</span>
-          ) : (
-            <span key={i}>{part}</span>
-          )
-        )}
-      </div>
-    );
+  // 1. Жирный текст (**...**) заменяем на <span class="font-bold text-amber-300">
+  let processed = text.replace(
+    /\*\*(.*?)\*\*/g,
+    '<span class="font-bold text-amber-300">$1</span>'
+  );
+
+  // 2. Термины глоссария оборачиваем в glossary-term
+  if (glossaryTerms.length > 0) {
+    const termsPattern = glossaryTerms
+      .map(t => escapeRegExp(t.term))
+      .join('|');
+    const regex = new RegExp(`\\b(${termsPattern})\\b`, 'gi');
+
+    processed = processed.replace(regex, (match) => {
+      const found = glossaryTerms.find(
+        t => t.term.toLowerCase() === match.toLowerCase()
+      );
+      if (found) {
+        return `<span class="glossary-term" data-definition="${encodeURIComponent(found.definition)}">${match}</span>`;
+      }
+      return match;
+    });
   }
+
+  // 3. Разбиваем на строки
+  const lines = processed.split('\n').map((line, i) => (
+    <React.Fragment key={i}>
+      <span dangerouslySetInnerHTML={{ __html: line }} />
+      <br />
+    </React.Fragment>
+  ));
+
+  return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
+};
   // Иначе возвращаем обычный текст с жирным
   const processed = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
   return <div className="w-full break-words whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: processed }} />;
@@ -426,11 +445,14 @@ export const QuestionsTab = () => {
 };
 <style jsx>{`
   .glossary-term {
-    color: #3b82f6;
+    color: #60a5fa;        /* голубой */
     cursor: pointer;
     text-decoration: underline dotted;
   }
   .glossary-term:hover {
-    color: #60a5fa;
+    color: #93c5fd;
+  }
+  .text-amber-300 {
+    color: #fbbf24;        /* жёлтый для жирного */
   }
 `}</style>
