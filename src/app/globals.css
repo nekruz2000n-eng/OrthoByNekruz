@@ -89,3 +89,12 @@ input[type="password"],
 /* Это заставит некоторые браузеры использовать кастомный символ, 
 но на Android S23 проще всего оставить системный диск или 
 использовать прозрачный текст с наложением. */
+
+.glossary-term {
+  color: #3b82f6; /* primary */
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+.glossary-term:hover {
+  color: #60a5fa;
+}

@@ -1,8 +1,7 @@
 "use client";
-import glossaryData from '@/data/glossary.json';
-import { TextWithGlossary } from '@/components/TextWithGlossary';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import questionsData from '@/data/questions.json';
+import glossaryData from '@/data/glossary.json'; // импорт словаря
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
@@ -19,12 +18,22 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 
+// Тип для элемента глоссария
+interface GlossaryItem {
+  term: string;
+  definition: string;
+}
+
 export const QuestionsTab = () => {
   const [search, setSearch] = useState('');
   const [studiedIds, setStudiedIds] = useState<Set<number>>(new Set());
   const [userNotes, setUserNotes] = useState<Record<number, string>>({});
   const [isLoaded, setIsLoaded] = useState(false);
   const [readingQuestion, setReadingQuestion] = useState<any | null>(null);
+  
+  // Состояние для тултипа глоссария
+  const [activeTermDef, setActiveTermDef] = useState<string | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const savedStudied = localStorage.getItem('studiedQuestions');
@@ -33,17 +42,13 @@ export const QuestionsTab = () => {
     if (savedStudied) {
       try {
         setStudiedIds(new Set(JSON.parse(savedStudied)));
-      } catch (e) {
-        console.error("Failed to parse studied questions", e);
-      }
+      } catch (e) {}
     }
     
     if (savedNotes) {
       try {
         setUserNotes(JSON.parse(savedNotes));
-      } catch (e) {
-        console.error("Failed to parse user notes", e);
-      }
+      } catch (e) {}
     }
     
     setIsLoaded(true);
@@ -73,10 +78,7 @@ export const QuestionsTab = () => {
 
   const updateNote = (id: number, text: string) => {
     const sanitized = text.replace(/<[^>]*>?/gm, '');
-    setUserNotes(prev => ({
-      ...prev,
-      [id]: sanitized
-    }));
+    setUserNotes(prev => ({ ...prev, [id]: sanitized }));
   };
 
   const clearNote = (id: number) => {
@@ -101,26 +103,75 @@ export const QuestionsTab = () => {
     return (studiedIds.size / questionsData.length) * 100;
   }, [studiedIds]);
 
-  const formatText = (text: string) => {
-    return (
-      <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
-        {text.split('\n').map((line, i) => (
-          <React.Fragment key={i}>
-            {line.split('**').map((part, j) => 
-              j % 2 === 1 ? <b key={j} className="text-primary">{part}</b> : part
-            )}
-            <br />
-          </React.Fragment>
-        ))}
-      </div>
-    );
+  // ---- Глоссарий: поиск и замена терминов с сохранением форматирования ----
+  const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const glossaryTerms = useMemo(() => {
+    // Сортируем по длине (длинные первыми), чтобы избежать частичных замен
+    return (glossaryData as GlossaryItem[])
+      .slice()
+      .sort((a, b) => b.term.length - a.term.length);
+  }, []);
+
+  const renderWithGlossary = (text: string) => {
+    // Сначала обрабатываем markdown жирный (**...**)
+    // Заменяем **...** на <b>...</b>
+    let processed = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+    
+    // Если есть глоссарий, ищем термины и оборачиваем их в span
+    if (glossaryTerms.length > 0) {
+      // Создаём регулярное выражение из всех терминов (целые слова, без учёта регистра)
+      const termsPattern = glossaryTerms
+        .map(t => escapeRegExp(t.term))
+        .join('|');
+      const regex = new RegExp(`\\b(${termsPattern})\\b`, 'gi');
+      
+      processed = processed.replace(regex, (match) => {
+        const found = glossaryTerms.find(
+          t => t.term.toLowerCase() === match.toLowerCase()
+        );
+        if (found) {
+          return `<span class="glossary-term" data-definition="${encodeURIComponent(found.definition)}">${match}</span>`;
+        }
+        return match;
+      });
+    }
+
+    // Теперь разбиваем на строки и вставляем <br/>
+    const lines = processed.split('\n').map((line, i) => (
+      <React.Fragment key={i}>
+        <span dangerouslySetInnerHTML={{ __html: line }} />
+        <br />
+      </React.Fragment>
+    ));
+
+    return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
   };
 
-  const getCleanPreview = (text: string) => {
-    return text.replace(/\*\*/g, '').trim();
+  // Обработчик клика по термину
+  const handleGlossaryClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('glossary-term')) {
+      const defEncoded = target.getAttribute('data-definition');
+      if (defEncoded) {
+        const definition = decodeURIComponent(defEncoded);
+        setActiveTermDef(definition);
+        setTooltipPos({ x: e.clientX, y: e.clientY });
+        e.stopPropagation();
+      }
+    }
   };
 
-  // Компонент заметки (исправлен, без лишних скобок)
+  // Закрытие тултипа по клику вне
+  useEffect(() => {
+    if (activeTermDef) {
+      const handler = () => setActiveTermDef(null);
+      document.addEventListener('click', handler);
+      return () => document.removeEventListener('click', handler);
+    }
+  }, [activeTermDef]);
+
+  // ---- Компонент заметки (без изменений) ----
   const PersonalNote = ({ id }: { id: number }) => {
     const [isEditing, setIsEditing] = useState(false);
     const note = userNotes[id] || '';
@@ -190,9 +241,13 @@ export const QuestionsTab = () => {
     );
   };
 
-  // Основной return```
+  const getCleanPreview = (text: string) => {
+    return text.replace(/\*\*/g, '').trim();
+  };
+
+  // ---- Основной return ----
   return (
-    <div className="flex flex-col h-full bg-background pb-0 max-w-full overflow-hidden">
+    <div className="flex flex-col h-full bg-background pb-0 max-w-full overflow-hidden" onClick={handleGlossaryClick}>
       <div className="p-4 space-y-4 bg-background/50 backdrop-blur-md sticky top-0 z-10 border-b border-white/5">
         <div className="flex justify-between items-center px-2">
           <div className="flex items-center gap-3">
@@ -254,14 +309,14 @@ export const QuestionsTab = () => {
                         <div className="p-4 rounded-lg bg-white/5 border border-white/5 w-full">
                           <h3 className="font-semibold text-primary mb-2 text-xs uppercase tracking-wider">Вопрос:</h3>
                           <div className="text-sm leading-relaxed text-foreground/90 w-full">
-                            {formatText(q.question)}
+                            {renderWithGlossary(q.question)}
                           </div>
                         </div>
 
                         <div className="p-4 rounded-lg bg-white/5 border border-white/5 w-full">
                           <h3 className="font-semibold text-primary mb-2 text-xs uppercase tracking-wider">Ответ:</h3>
                           <div className="text-sm leading-relaxed text-foreground/80 w-full">
-                            {formatText(q.answer)}
+                            {renderWithGlossary(q.answer)}
                           </div>
                         </div>
 
@@ -303,7 +358,8 @@ export const QuestionsTab = () => {
         </div>
       </ScrollArea>
 
-       <AnimatePresence>
+      {/* Режим чтения */}
+      <AnimatePresence>
         {readingQuestion && (
           <motion.div
             initial={{ opacity: 0, y: 100 }}
@@ -327,14 +383,11 @@ export const QuestionsTab = () => {
               </button>
             </div>
 
-            <ScrollArea className="flex-1 scroll-container">
+            <ScrollArea className="flex-1 scroll-container" onClick={handleGlossaryClick}>
               <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden px-1">
                 <div className="space-y-4 w-full">
                   <h2 className="text-2xl md:text-3xl font-bold font-headline leading-tight text-foreground break-words whitespace-pre-wrap">
-                    <TextWithGlossary
-                      text={readingQuestion.question.replace(/\*\*/g, '')}
-                      glossary={glossaryData}
-                    />
+                    {renderWithGlossary(readingQuestion.question)}
                   </h2>
                 </div>
 
@@ -344,10 +397,7 @@ export const QuestionsTab = () => {
                     Ответ
                   </div>
                   <div className="text-base leading-[1.4] text-foreground/80 font-light selection:bg-primary/30 w-full break-words whitespace-pre-wrap">
-                    <TextWithGlossary
-                      text={readingQuestion.answer.replace(/\*\*/g, '')}
-                      glossary={glossaryData}
-                    />
+                    {renderWithGlossary(readingQuestion.answer)}
                   </div>
                 </div>
 
@@ -368,12 +418,23 @@ export const QuestionsTab = () => {
           </motion.div>
         )}
       </AnimatePresence>
-      <style jsx global>{`
-        .markdown-note p { margin-bottom: 0.5rem; word-break: break-word; white-space: pre-wrap; }
-        .markdown-note p:last-child { margin-bottom: 0; }
-        .markdown-note ul, .markdown-note ol { margin-left: 1.25rem; margin-bottom: 0.5rem; }
-        .markdown-note li { margin-bottom: 0.25rem; word-break: break-word; }
-      `}</style>
+
+      {/* Тултип глоссария */}
+      {activeTermDef && (
+        <div
+          className="fixed z-[200] bg-card border border-white/10 rounded-2xl p-4 shadow-2xl max-w-xs"
+          style={{ left: tooltipPos.x + 10, top: tooltipPos.y + 10 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p className="text-white text-sm">{activeTermDef}</p>
+          <button
+            onClick={() => setActiveTermDef(null)}
+            className="mt-2 text-xs text-primary underline"
+          >
+            Закрыть
+          </button>
+        </div>
+      )}
     </div>
   );
 };
