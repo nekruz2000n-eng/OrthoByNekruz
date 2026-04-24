@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import questionsData from '@/data/questions.json';
-import glossaryData from '@/data/glossary.json'; // импорт словаря
+import glossaryData from '@/data/glossary.json';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
@@ -18,12 +18,10 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 
-// Тип для элемента глоссария
 interface GlossaryItem {
   term: string;
   definition: string;
 }
-console.log('Glossary data:', glossaryData);
 
 export const QuestionsTab = () => {
   const [search, setSearch] = useState('');
@@ -31,27 +29,18 @@ export const QuestionsTab = () => {
   const [userNotes, setUserNotes] = useState<Record<number, string>>({});
   const [isLoaded, setIsLoaded] = useState(false);
   const [readingQuestion, setReadingQuestion] = useState<any | null>(null);
-  
-  // Состояние для тултипа глоссария
   const [activeTermDef, setActiveTermDef] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const savedStudied = localStorage.getItem('studiedQuestions');
     const savedNotes = localStorage.getItem('userQuestionNotes');
-    
     if (savedStudied) {
-      try {
-        setStudiedIds(new Set(JSON.parse(savedStudied)));
-      } catch (e) {}
+      try { setStudiedIds(new Set(JSON.parse(savedStudied))); } catch (e) {}
     }
-    
     if (savedNotes) {
-      try {
-        setUserNotes(JSON.parse(savedNotes));
-      } catch (e) {}
+      try { setUserNotes(JSON.parse(savedNotes)); } catch (e) {}
     }
-    
     setIsLoaded(true);
   }, []);
 
@@ -65,21 +54,15 @@ export const QuestionsTab = () => {
   const toggleStudied = (id: number) => {
     setStudiedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
-    if (readingQuestion && readingQuestion.id === id) {
-      setReadingQuestion(null);
-    }
+    if (readingQuestion && readingQuestion.id === id) setReadingQuestion(null);
   };
 
   const updateNote = (id: number, text: string) => {
-    const sanitized = text.replace(/<[^>]*>?/gm, '');
-    setUserNotes(prev => ({ ...prev, [id]: sanitized }));
+    setUserNotes(prev => ({ ...prev, [id]: text.replace(/<[^>]*>?/gm, '') }));
   };
 
   const clearNote = (id: number) => {
@@ -104,70 +87,49 @@ export const QuestionsTab = () => {
     return (studiedIds.size / questionsData.length) * 100;
   }, [studiedIds]);
 
-  // ---- Глоссарий: поиск и замена терминов с сохранением форматирования ----
   const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   const glossaryTerms = useMemo(() => {
-    // Сортируем по длине (длинные первыми), чтобы избежать частичных замен
-    return (glossaryData as GlossaryItem[])
-      .slice()
-      .sort((a, b) => b.term.length - a.term.length);
+    return (glossaryData as GlossaryItem[]).slice().sort((a, b) => b.term.length - a.term.length);
   }, []);
 
   const renderWithGlossary = (text: string) => {
-  // 1. Жирный текст (**...**) заменяем на <span class="font-bold text-amber-300">
-  let processed = text.replace(
-    /\*\*(.*?)\*\*/g,
-    '<span class="font-bold text-amber-300">$1</span>'
-  );
+    // 1. Жирный текст (**...**) -> <span class="font-bold text-amber-300">
+    let processed = text.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold text-amber-300">$1</span>');
+    // 2. Термины глоссария
+    if (glossaryTerms.length > 0) {
+      const termsPattern = glossaryTerms.map(t => escapeRegExp(t.term)).join('|');
+      const regex = new RegExp(`\\b(${termsPattern})\\b`, 'gi');
+      processed = processed.replace(regex, (match) => {
+        const found = glossaryTerms.find(t => t.term.toLowerCase() === match.toLowerCase());
+        if (found) {
+          return `<span class="glossary-term" data-definition="${encodeURIComponent(found.definition)}">${match}</span>`;
+        }
+        return match;
+      });
+    }
+    // 3. Строки
+    const lines = processed.split('\n').map((line, i) => (
+      <React.Fragment key={i}>
+        <span dangerouslySetInnerHTML={{ __html: line }} />
+        <br />
+      </React.Fragment>
+    ));
+    return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
+  };
 
-  // 2. Термины глоссария оборачиваем в glossary-term
-  if (glossaryTerms.length > 0) {
-    const termsPattern = glossaryTerms
-      .map(t => escapeRegExp(t.term))
-      .join('|');
-    const regex = new RegExp(`\\b(${termsPattern})\\b`, 'gi');
-
-    processed = processed.replace(regex, (match) => {
-      const found = glossaryTerms.find(
-        t => t.term.toLowerCase() === match.toLowerCase()
-      );
-      if (found) {
-        return `<span class="glossary-term" data-definition="${encodeURIComponent(found.definition)}">${match}</span>`;
-      }
-      return match;
-    });
-  }
-
-  // 3. Разбиваем на строки
-  const lines = processed.split('\n').map((line, i) => (
-    <React.Fragment key={i}>
-      <span dangerouslySetInnerHTML={{ __html: line }} />
-      <br />
-    </React.Fragment>
-  ));
-
-  return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
-};
-  // Иначе возвращаем обычный текст с жирным
-  const processed = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-  return <div className="w-full break-words whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: processed }} />;
-};
-  // Обработчик клика по термину
   const handleGlossaryClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.classList.contains('glossary-term')) {
       const defEncoded = target.getAttribute('data-definition');
       if (defEncoded) {
-        const definition = decodeURIComponent(defEncoded);
-        setActiveTermDef(definition);
+        setActiveTermDef(decodeURIComponent(defEncoded));
         setTooltipPos({ x: e.clientX, y: e.clientY });
         e.stopPropagation();
       }
     }
   };
 
-  // Закрытие тултипа по клику вне
   useEffect(() => {
     if (activeTermDef) {
       const handler = () => setActiveTermDef(null);
@@ -176,17 +138,13 @@ export const QuestionsTab = () => {
     }
   }, [activeTermDef]);
 
-  // ---- Компонент заметки (без изменений) ----
   const PersonalNote = ({ id }: { id: number }) => {
     const [isEditing, setIsEditing] = useState(false);
     const note = userNotes[id] || '';
     const [localNote, setLocalNote] = useState(note);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    useEffect(() => {
-      setLocalNote(note);
-    }, [note]);
-
+    useEffect(() => { setLocalNote(note); }, [note]);
     useEffect(() => {
       if (isEditing && textareaRef.current) {
         textareaRef.current.focus();
@@ -199,28 +157,19 @@ export const QuestionsTab = () => {
       <div className="mt-6 p-4 rounded-xl bg-amber-900/10 border border-amber-500/20 relative group w-full">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 text-amber-500 text-xs font-bold uppercase tracking-widest">
-            <Pencil className="w-3.5 h-3.5" />
-            Моя заметка
+            <Pencil className="w-3.5 h-3.5" /> Моя заметка
           </div>
           <div className="flex gap-2">
             {note && (
-              <button 
-                onClick={() => clearNote(id)}
-                className="text-muted-foreground/50 hover:text-destructive transition-colors"
-                title="Очистить заметку"
-              >
+              <button onClick={() => clearNote(id)} className="text-muted-foreground/50 hover:text-destructive transition-colors" title="Очистить заметку">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             )}
-            <button 
-              onClick={() => setIsEditing(!isEditing)}
-              className="text-amber-500/50 hover:text-amber-500 transition-colors text-xs font-medium"
-            >
+            <button onClick={() => setIsEditing(!isEditing)} className="text-amber-500/50 hover:text-amber-500 transition-colors text-xs font-medium">
               {isEditing ? 'Готово' : 'Править'}
             </button>
           </div>
         </div>
-
         {isEditing ? (
           <textarea
             ref={textareaRef}
@@ -233,26 +182,18 @@ export const QuestionsTab = () => {
           />
         ) : (
           <div className="text-sm prose prose-invert prose-amber max-w-none break-words whitespace-pre-wrap">
-            {note ? (
-              <ReactMarkdown>
-                {note}
-              </ReactMarkdown>
-            ) : (
-              <p className="text-muted-foreground italic">Нет примечаний</p>
-            )}
+            {note ? <ReactMarkdown>{note}</ReactMarkdown> : <p className="text-muted-foreground italic">Нет примечаний</p>}
           </div>
         )}
       </div>
     );
   };
 
-  const getCleanPreview = (text: string) => {
-    return text.replace(/\*\*/g, '').trim();
-  };
+  const getCleanPreview = (text: string) => text.replace(/\*\*/g, '').trim();
 
-  // ---- Основной return ----
   return (
     <div className="flex flex-col h-full bg-background pb-0 max-w-full overflow-hidden" onClick={handleGlossaryClick}>
+      {/* Верхняя панель */}
       <div className="p-4 space-y-4 bg-background/50 backdrop-blur-md sticky top-0 z-10 border-b border-white/5">
         <div className="flex justify-between items-center px-2">
           <div className="flex items-center gap-3">
@@ -266,18 +207,13 @@ export const QuestionsTab = () => {
             <Progress value={progress} className="h-0.5 w-10 bg-white/5" />
           </div>
         </div>
-        
         <div className="relative mx-2">
-          <Input
-            placeholder="Поиск по вопросу или №..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-12 glass-card border-none focus-visible:ring-primary/50"
-          />
+          <Input placeholder="Поиск по вопросу или №..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 h-12 glass-card border-none focus-visible:ring-primary/50" />
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
         </div>
       </div>
 
+      {/* Список вопросов */}
       <ScrollArea className="flex-1 scroll-container">
         <div className="py-4 px-4 mx-auto max-w-2xl w-full pb-20">
           {filtered.length > 0 ? (
@@ -285,21 +221,11 @@ export const QuestionsTab = () => {
               {filtered.map((q) => {
                 const isStudied = studiedIds.has(q.id);
                 return (
-                  <AccordionItem 
-                    key={q.id} 
-                    value={q.id.toString()}
-                    className={cn(
-                      "border-none glass-card rounded-xl transition-all duration-300 w-full max-w-full",
-                      isStudied && "bg-primary/5 border border-primary/20"
-                    )}
-                  >
+                  <AccordionItem key={q.id} value={q.id.toString()} className={cn("border-none glass-card rounded-xl transition-all duration-300 w-full max-w-full", isStudied && "bg-primary/5 border border-primary/20")}>
                     <AccordionTrigger className="px-5 py-4 hover:no-underline group">
                       <div className="flex flex-col items-start text-left gap-1 pr-4 w-full break-words whitespace-normal overflow-hidden">
                         <div className="flex items-center gap-2">
-                          <span className={cn(
-                            "text-[10px] font-mono px-2 py-0.5 rounded",
-                            isStudied ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
-                          )}>
+                          <span className={cn("text-[10px] font-mono px-2 py-0.5 rounded", isStudied ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary")}>
                             Вопрос № {q.id}
                           </span>
                           {isStudied && <CheckCircle2 className="w-3.5 h-3.5 text-primary" />}
@@ -313,37 +239,18 @@ export const QuestionsTab = () => {
                       <div className="space-y-4 w-full max-w-full">
                         <div className="p-4 rounded-lg bg-white/5 border border-white/5 w-full">
                           <h3 className="font-semibold text-primary mb-2 text-xs uppercase tracking-wider">Вопрос:</h3>
-                          <div className="text-sm leading-relaxed text-foreground/90 w-full">
-                            {renderWithGlossary(q.question)}
-                          </div>
+                          <div className="text-sm leading-relaxed text-foreground/90 w-full">{renderWithGlossary(q.question)}</div>
                         </div>
-
                         <div className="p-4 rounded-lg bg-white/5 border border-white/5 w-full">
                           <h3 className="font-semibold text-primary mb-2 text-xs uppercase tracking-wider">Ответ:</h3>
-                          <div className="text-sm leading-relaxed text-foreground/80 w-full">
-                            {renderWithGlossary(q.answer)}
-                          </div>
+                          <div className="text-sm leading-relaxed text-foreground/80 w-full">{renderWithGlossary(q.answer)}</div>
                         </div>
-
                         <PersonalNote id={q.id} />
-
                         <div className="flex flex-wrap gap-2 mt-4">
-                          <Button
-                            variant="outline"
-                            className="flex-1 min-w-[140px] h-11 rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/10"
-                            onClick={() => setReadingQuestion(q)}
-                          >
-                            <BookOpen className="w-4 h-4" />
-                            Режим чтения
+                          <Button variant="outline" className="flex-1 min-w-[140px] h-11 rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/10" onClick={() => setReadingQuestion(q)}>
+                            <BookOpen className="w-4 h-4" /> Режим чтения
                           </Button>
-                          <Button
-                            variant={isStudied ? "default" : "outline"}
-                            className={cn(
-                              "flex-1 min-w-[140px] h-11 rounded-xl gap-2 transition-all",
-                              isStudied ? "bg-primary text-primary-foreground" : "border-primary/30 text-primary hover:bg-primary/10"
-                            )}
-                            onClick={() => toggleStudied(q.id)}
-                          >
+                          <Button variant={isStudied ? "default" : "outline"} className={cn("flex-1 min-w-[140px] h-11 rounded-xl gap-2 transition-all", isStudied ? "bg-primary text-primary-foreground" : "border-primary/30 text-primary hover:bg-primary/10")} onClick={() => toggleStudied(q.id)}>
                             {isStudied ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
                             {isStudied ? "Изучено" : "Изучил"}
                           </Button>
@@ -366,13 +273,7 @@ export const QuestionsTab = () => {
       {/* Режим чтения */}
       <AnimatePresence>
         {readingQuestion && (
-          <motion.div
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 100 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-0 z-[100] bg-background flex flex-col p-6 overflow-hidden max-w-full"
-          >
+          <motion.div initial={{ opacity: 0, y: 100 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 100 }} transition={{ type: "spring", damping: 25, stiffness: 300 }} className="fixed inset-0 z-[100] bg-background flex flex-col p-6 overflow-hidden max-w-full">
             <div className="flex justify-between items-center mb-8">
               <div className="flex items-center gap-3">
                 <ToothIcon className="w-10 h-10 text-primary" />
@@ -380,14 +281,10 @@ export const QuestionsTab = () => {
                   Вопрос № {readingQuestion.id}
                 </span>
               </div>
-              <button 
-                onClick={() => setReadingQuestion(null)}
-                className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors"
-              >
+              <button onClick={() => setReadingQuestion(null)} className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
-
             <ScrollArea className="flex-1 scroll-container" onClick={handleGlossaryClick}>
               <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden px-1">
                 <div className="space-y-4 w-full">
@@ -395,29 +292,20 @@ export const QuestionsTab = () => {
                     {renderWithGlossary(readingQuestion.question)}
                   </h2>
                 </div>
-
                 <div className="space-y-4 w-full">
                   <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest">
-                    <BookOpen className="w-4 h-4" />
-                    Ответ
+                    <BookOpen className="w-4 h-4" /> Ответ
                   </div>
                   <div className="text-base leading-[1.4] text-foreground/80 font-light selection:bg-primary/30 w-full break-words whitespace-pre-wrap">
                     {renderWithGlossary(readingQuestion.answer)}
                   </div>
                 </div>
-
                 <PersonalNote id={readingQuestion.id} />
               </div>
             </ScrollArea>
-
             <div className="mt-auto pt-6 border-t border-white/5 bg-background pb-safe">
-              <Button
-                size="lg"
-                className="w-full h-16 rounded-2xl gap-3 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-                onClick={() => toggleStudied(readingQuestion.id)}
-              >
-                <CheckCircle2 className="w-6 h-6" />
-                Отметить как изученное
+              <Button size="lg" className="w-full h-16 rounded-2xl gap-3 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20" onClick={() => toggleStudied(readingQuestion.id)}>
+                <CheckCircle2 className="w-6 h-6" /> Отметить как изученное
               </Button>
             </div>
           </motion.div>
@@ -426,18 +314,9 @@ export const QuestionsTab = () => {
 
       {/* Тултип глоссария */}
       {activeTermDef && (
-        <div
-          className="fixed z-[200] bg-card border border-white/10 rounded-2xl p-4 shadow-2xl max-w-xs"
-          style={{ left: tooltipPos.x + 10, top: tooltipPos.y + 10 }}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="fixed z-[200] bg-card border border-white/10 rounded-2xl p-4 shadow-2xl max-w-xs" style={{ left: tooltipPos.x + 10, top: tooltipPos.y + 10 }} onClick={(e) => e.stopPropagation()}>
           <p className="text-white text-sm">{activeTermDef}</p>
-          <button
-            onClick={() => setActiveTermDef(null)}
-            className="mt-2 text-xs text-primary underline"
-          >
-            Закрыть
-          </button>
+          <button onClick={() => setActiveTermDef(null)} className="mt-2 text-xs text-primary underline">Закрыть</button>
         </div>
       )}
     </div>
