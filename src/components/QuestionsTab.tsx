@@ -92,7 +92,86 @@ export const QuestionsTab = () => {
   const glossaryTerms = useMemo(() => {
     return (glossaryData as GlossaryItem[]).slice().sort((a, b) => b.term.length - a.term.length);
   }, []);
+  // --- Состояние для перетаскиваемого тултипа ---
+  const [dragging, setDragging] = useState(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
+  const tooltipStartPos = useRef({ x: 0, y: 0 });
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
+  // При начале перетаскивания
+  const handleTooltipMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDragging(true);
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
+    tooltipStartPos.current = { x: tooltipPos.x, y: tooltipPos.y };
+  };
+
+  // При движении
+  useEffect(() => {
+    if (!dragging) return;
+    const handleMove = (e: MouseEvent) => {
+      const dx = e.clientX - dragStartPos.current.x;
+      const dy = e.clientY - dragStartPos.current.y;
+      let newX = tooltipStartPos.current.x + dx;
+      let newY = tooltipStartPos.current.y + dy;
+
+      // Ограничиваем, чтобы тултип не выходил за экран
+      const tooltip = tooltipRef.current;
+      if (tooltip) {
+        const rect = tooltip.getBoundingClientRect();
+        const maxX = window.innerWidth - rect.width - 10;
+        const maxY = window.innerHeight - rect.height - 10;
+        newX = Math.max(10, Math.min(newX, maxX));
+        newY = Math.max(10, Math.min(newY, maxY));
+      }
+      setTooltipPos({ x: newX, y: newY });
+    };
+    const handleUp = () => setDragging(false);
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, [dragging]);
+
+  // Аналогично для touch-событий
+  const handleTooltipTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    const touch = e.touches[0];
+    setDragging(true);
+    dragStartPos.current = { x: touch.clientX, y: touch.clientY };
+    tooltipStartPos.current = { x: tooltipPos.x, y: tooltipPos.y };
+  };
+
+  useEffect(() => {
+    if (!dragging) return;
+    const handleTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      const dx = touch.clientX - dragStartPos.current.x;
+      const dy = touch.clientY - dragStartPos.current.y;
+      let newX = tooltipStartPos.current.x + dx;
+      let newY = tooltipStartPos.current.y + dy;
+      const tooltip = tooltipRef.current;
+      if (tooltip) {
+        const rect = tooltip.getBoundingClientRect();
+        const maxX = window.innerWidth - rect.width - 10;
+        const maxY = window.innerHeight - rect.height - 10;
+        newX = Math.max(10, Math.min(newX, maxX));
+        newY = Math.max(10, Math.min(newY, maxY));
+      }
+      setTooltipPos({ x: newX, y: newY });
+    };
+    const handleTouchEnd = () => setDragging(false);
+
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+    return () => {
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [dragging]);
  const renderWithGlossary = (text: string) => {
   // Разбиваем текст на фрагменты: обычные и жирные (**...**)
   const fragments: { type: 'normal' | 'bold'; content: string }[] = [];
@@ -366,12 +445,24 @@ export const QuestionsTab = () => {
       </AnimatePresence>
 
       {/* Тултип глоссария */}
+      
+             {/* Тултип глоссария (перетаскиваемый, без кнопки закрытия) */}
       {activeTermDef && (
-        <div className="fixed z-[200] bg-card border border-white/10 rounded-2xl p-4 shadow-2xl max-w-xs" style={{ left: tooltipPos.x + 10, top: tooltipPos.y + 10 }} onClick={(e) => e.stopPropagation()}>
+
+        
+        <div
+          ref={tooltipRef}
+          className="fixed z-[200] bg-card border border-white/10 rounded-2xl p-4 shadow-2xl max-w-xs select-none"
+          style={{ left: tooltipPos.x, top: tooltipPos.y }}
+          onMouseDown={handleTooltipMouseDown}
+          onTouchStart={handleTooltipTouchStart}
+          onClick={(e) => e.stopPropagation()}
+        >
           <p className="text-white text-sm">{activeTermDef}</p>
-          <button onClick={() => setActiveTermDef(null)} className="mt-2 text-xs text-primary underline">Закрыть</button>
+          {/* Маленькая подсказка, что можно перетаскивать */}
+          <p className="text-[10px] text-muted-foreground mt-1">↔ перетащите, чтобы переместить</p>
         </div>
-      )}
+      )}    
     </div>
   );
 };
