@@ -32,6 +32,8 @@ export const QuestionsTab = () => {
   const [activeTermDef, setActiveTermDef] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
+  const [fontSize, setFontSize] = useState(16); // дефолтный размер в px
+
   useEffect(() => {
     const savedStudied = localStorage.getItem('studiedQuestions');
     const savedNotes = localStorage.getItem('userQuestionNotes');
@@ -441,28 +443,44 @@ export const QuestionsTab = () => {
                         </span>
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent className="px-5 pb-5 pt-0 w-full overflow-hidden">
-                      <div className="space-y-4 w-full max-w-full">
-                        <div className="p-4 rounded-lg bg-white/5 border border-white/5 w-full">
-                          <h3 className="font-semibold text-primary mb-2 text-xs uppercase tracking-wider">Вопрос:</h3>
-                          <div className="text-sm leading-relaxed text-foreground/90 w-full">{renderWithGlossary(q.question)}</div>
-                        </div>
-                        <div className="p-4 rounded-lg bg-white/5 border border-white/5 w-full">
-                          <h3 className="font-semibold text-primary mb-2 text-xs uppercase tracking-wider">Ответ:</h3>
-                          <div className="text-sm leading-relaxed text-foreground/80 w-full">{renderWithGlossary(q.answer)}</div>
-                        </div>
-                        <PersonalNote id={q.id} />
-                        <div className="flex flex-wrap gap-2 mt-4">
-                          <Button variant="outline" className="flex-1 min-w-[140px] h-11 rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/10" onClick={() => setReadingQuestion(q)}>
-                            <BookOpen className="w-4 h-4" /> Режим чтения
-                          </Button>
-                          <Button variant={isStudied ? "default" : "outline"} className={cn("flex-1 min-w-[140px] h-11 rounded-xl gap-2 transition-all", isStudied ? "bg-primary text-primary-foreground" : "border-primary/30 text-primary hover:bg-primary/10")} onClick={() => toggleStudied(q.id)}>
-                            {isStudied ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
-                            {isStudied ? "Изучено" : "Изучил"}
-                          </Button>
-                        </div>
-                      </div>
-                    </AccordionContent>
+                   <AccordionContent className="px-5 pb-5 pt-0 w-full overflow-hidden">
+  <div className="space-y-4 w-full max-w-full">
+    {/* Блок с обрезанным ответом */}
+    <div className="relative">
+      <div className="text-sm leading-relaxed text-foreground/80 max-h-24 overflow-hidden">
+        {renderWithGlossary(q.answer)}
+      </div>
+      {/* Градиентная вуаль снизу */}
+      <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
+    </div>
+
+    {/* Кнопки действий */}
+    <div className="flex flex-wrap gap-2">
+      <Button
+        variant="outline"
+        className="flex-1 min-w-[140px] h-11 rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/10"
+        onClick={() => setReadingQuestion(q)}
+      >
+        <BookOpen className="w-4 h-4" />
+        Режим чтения
+      </Button>
+      <Button
+        variant={isStudied ? "default" : "outline"}
+        className={cn(
+          "flex-1 min-w-[140px] h-11 rounded-xl gap-2 transition-all",
+          isStudied ? "bg-primary text-primary-foreground" : "border-primary/30 text-primary hover:bg-primary/10"
+        )}
+        onClick={() => toggleStudied(q.id)}
+      >
+        {isStudied ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
+        {isStudied ? "Изучено" : "Изучил"}
+      </Button>
+    </div>
+
+    {/* Заметка (раскрывается по желанию) */}
+    <PersonalNote id={q.id} />
+  </div>
+</AccordionContent>
                   </AccordionItem>
                 );
               })}
@@ -481,58 +499,82 @@ export const QuestionsTab = () => {
       <AnimatePresence>
         {readingQuestion && (
           <motion.div
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 100 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-0 z-[100] bg-background flex flex-col overflow-hidden max-w-full"
+  initial={{ opacity: 0, y: 100 }}
+  animate={{ opacity: 1, y: 0 }}
+  exit={{ opacity: 0, y: 100 }}
+  transition={{ type: "spring", damping: 25, stiffness: 300 }}
+  className="fixed inset-0 z-[100] bg-background flex flex-col overflow-hidden max-w-full"
+>
+  {/* Внутренний контейнер объединяет всё содержимое */}
+  <div className="flex flex-col h-full relative">
+    {/* Кнопки изменения размера шрифта */}
+    <div className="absolute top-4 right-4 flex gap-2 z-20">
+      <button
+        onClick={() => setFontSize(prev => Math.max(14, prev - 2))}
+        className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white text-xs font-bold hover:bg-white/20 transition-colors"
+        disabled={fontSize <= 14}
+        title="Уменьшить шрифт"
+      >
+        A–
+      </button>
+      <button
+        onClick={() => setFontSize(prev => Math.min(22, prev + 2))}
+        className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white text-xs font-bold hover:bg-white/20 transition-colors"
+        disabled={fontSize >= 22}
+        title="Увеличить шрифт"
+      >
+        A+
+      </button>
+    </div>
+
+    {/* Область прокрутки с контентом */}
+    <ScrollArea className="flex-1 scroll-container px-5 pt-10" onClick={handleGlossaryClick}>
+      <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
+        <div className="space-y-4 w-full">
+          <h2
+            className="text-lg md:text-xl font-semibold leading-snug text-foreground/80 break-words whitespace-pre-wrap mb-6"
+            style={{ fontSize: `${fontSize * 1.2}px` }}
           >
-            <ScrollArea className="flex-1 scroll-container px-5 pt-10" onClick={handleGlossaryClick}>
-  <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
-    <div className="space-y-4 w-full">
-      <h2 className="text-lg md:text-xl font-semibold leading-snug text-foreground/80 break-words whitespace-pre-wrap mb-6">
-  {renderWithGlossary(readingQuestion.question)}
-</h2>
-    </div>
-    <div className="space-y-4 w-full">
-      <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest">
-        <BookOpen className="w-4 h-4" /> Ответ
+            {renderWithGlossary(readingQuestion.question)}
+          </h2>
+        </div>
+        <div className="space-y-4 w-full">
+          <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest">
+            <BookOpen className="w-4 h-4" /> Ответ
+          </div>
+          <div
+            className="leading-relaxed text-foreground/80 font-light selection:bg-primary/30 w-full break-words whitespace-pre-wrap reading-answer"
+            style={{ fontSize: `${fontSize}px` }}
+          >
+            {renderWithGlossary(readingQuestion.answer)}
+          </div>
+        </div>
+        <PersonalNote id={readingQuestion.id} />
       </div>
-      <div className="text-lg leading-relaxed text-foreground/80 font-light selection:bg-primary/30 w-full break-words whitespace-pre-wrap">
-        {renderWithGlossary(readingQuestion.answer)}
+    </ScrollArea>
+
+    {/* Нижняя панель с кнопками */}
+    <div className="mt-auto pt-6 border-t border-white/5 bg-background pb-safe px-5">
+      <div className="flex gap-3 items-center">
+        <Button
+          size="lg"
+          className="flex-1 h-16 rounded-2xl gap-3 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+          onClick={() => toggleStudied(readingQuestion.id)}
+        >
+          <CheckCircle2 className="w-6 h-6" />
+          Отметить как изученное
+        </Button>
+        <button
+          onClick={() => setReadingQuestion(null)}
+          className="w-16 h-16 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0"
+          title="Закрыть"
+        >
+          <X className="w-6 h-6 text-white" />
+        </button>
       </div>
     </div>
-    <PersonalNote id={readingQuestion.id} />
   </div>
-</ScrollArea>
-
-            {/* Нижний блок с двумя кнопками */}
-                        {/* Нижний блок – кнопка на всю ширину + крестик-иконка поверх */}
-                        {/* Нижний блок – основная кнопка на всю ширину, плавающий крестик отдельно */}
-            <div className="mt-auto pt-6 border-t border-white/5 bg-background pb-safe px-5">
-              <Button
-                size="lg"
-                className="w-full h-16 rounded-2xl gap-3 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-                onClick={() => toggleStudied(readingQuestion.id)}
-              >
-                <CheckCircle2 className="w-6 h-6" />
-                Отметить как изученное
-              </Button>
-            </div>
-
-            {/* Плавающая перетаскиваемая кнопка закрытия */}
-            <button
-              ref={closeBtnRef}
-              className="fixed z-[200] w-12 h-12 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 transition-colors shadow-lg select-none"
-              style={{ left: closeBtnPos.x, top: closeBtnPos.y }}
-              onMouseDown={handleCloseMouseDown}
-              onTouchStart={handleCloseTouchStart}
-              onClick={(e) => e.stopPropagation()} // чтобы не сработал onClick контейнера
-              title="Закрыть (можно перетащить)"
-            >
-              <X className="w-6 h-6 text-white" />
-            </button>
-          </motion.div>
+</motion.div>
         )}
       </AnimatePresence>
       {/* Тултип глоссария */}
