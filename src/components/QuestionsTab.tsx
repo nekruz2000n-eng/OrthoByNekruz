@@ -327,6 +327,39 @@ export const QuestionsTab = () => {
 
   return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
 };
+
+
+const initialDistance = useRef<number | null>(null);
+const initialFontSize = useRef<number>(16);
+const contentRef = useRef<HTMLDivElement>(null);
+
+const handleTouchStart = (e: React.TouchEvent) => {
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    initialDistance.current = Math.hypot(dx, dy);
+    initialFontSize.current = fontSize;
+  }
+};
+
+const handleTouchMove = (e: React.TouchEvent) => {
+  if (e.touches.length === 2 && initialDistance.current !== null) {
+    e.preventDefault();
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const distance = Math.hypot(dx, dy);
+    const scale = distance / initialDistance.current;
+    const newSize = Math.max(12, Math.min(28, Math.round(initialFontSize.current * scale)));
+    setFontSize(newSize);
+  }
+};
+
+const handleTouchEnd = (e: React.TouchEvent) => {
+  if (e.touches.length < 2) {
+    initialDistance.current = null;
+  }
+};
   const handleGlossaryClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.classList.contains('glossary-term')) {
@@ -338,6 +371,8 @@ export const QuestionsTab = () => {
       }
     }
   };
+
+
 
   useEffect(() => {
     if (activeTermDef) {
@@ -352,6 +387,41 @@ export const QuestionsTab = () => {
     const note = userNotes[id] || '';
     const [localNote, setLocalNote] = useState(note);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const [fontSize, setFontSize] = useState(16);
+
+    
+const initialDistance = useRef<number | null>(null);
+const initialFontSize = useRef<number>(16);
+const contentRef = useRef<HTMLDivElement>(null);
+
+
+const handleTouchStart = (e: React.TouchEvent) => {
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    initialDistance.current = Math.hypot(dx, dy);
+    initialFontSize.current = fontSize;
+  }
+};
+
+const handleTouchMove = (e: React.TouchEvent) => {
+  if (e.touches.length === 2 && initialDistance.current !== null) {
+    e.preventDefault();
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const distance = Math.hypot(dx, dy);
+    const scale = distance / initialDistance.current;
+    const newSize = Math.max(12, Math.min(28, Math.round(initialFontSize.current * scale)));
+    setFontSize(newSize);
+  }
+};
+
+const handleTouchEnd = (e: React.TouchEvent) => {
+  if (e.touches.length < 2) {
+    initialDistance.current = null;
+  }
+};
 
     useEffect(() => { setLocalNote(note); }, [note]);
     useEffect(() => {
@@ -509,50 +579,39 @@ export const QuestionsTab = () => {
   {/* Внутренний контейнер объединяет всё содержимое */}
   <div className="flex flex-col h-full relative">
     {/* Кнопки изменения размера шрифта */}
-    <div className="absolute top-4 right-4 flex gap-2 z-20">
-      <button
-        onClick={() => setFontSize(prev => Math.max(14, prev - 2))}
-        className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white text-xs font-bold hover:bg-white/20 transition-colors"
-        disabled={fontSize <= 14}
-        title="Уменьшить шрифт"
-      >
-        A–
-      </button>
-      <button
-        onClick={() => setFontSize(prev => Math.min(22, prev + 2))}
-        className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white text-xs font-bold hover:bg-white/20 transition-colors"
-        disabled={fontSize >= 22}
-        title="Увеличить шрифт"
-      >
-        A+
-      </button>
-    </div>
+    
 
     {/* Область прокрутки с контентом */}
-    <ScrollArea className="flex-1 scroll-container px-5 pt-10" onClick={handleGlossaryClick}>
-      <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
-        <div className="space-y-4 w-full">
-          <h2
-            className="text-lg md:text-xl font-semibold leading-snug text-foreground/80 break-words whitespace-pre-wrap mb-6"
-            style={{ fontSize: `${fontSize * 1.2}px` }}
-          >
-            {renderWithGlossary(readingQuestion.question)}
-          </h2>
-        </div>
-        <div className="space-y-4 w-full">
-          <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest">
-            <BookOpen className="w-4 h-4" /> Ответ
-          </div>
-          <div
-            className="leading-relaxed text-foreground/80 font-light selection:bg-primary/30 w-full break-words whitespace-pre-wrap reading-answer"
-            style={{ fontSize: `${fontSize}px` }}
-          >
-            {renderWithGlossary(readingQuestion.answer)}
-          </div>
-        </div>
-        <PersonalNote id={readingQuestion.id} />
+    <div
+  className="flex-1 overflow-y-auto px-5 pt-10 scroll-container"
+  onTouchStart={handleTouchStart}
+  onTouchMove={handleTouchMove}
+  onTouchEnd={handleTouchEnd}
+  onClick={handleGlossaryClick}
+>
+  <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
+    <div className="space-y-4 w-full">
+      <h2
+        className="text-lg md:text-xl font-semibold leading-snug text-foreground/80 break-words whitespace-pre-wrap mb-6"
+        style={{ fontSize: `${fontSize * 1.2}px` }}
+      >
+        {renderWithGlossary(readingQuestion.question)}
+      </h2>
+    </div>
+    <div className="space-y-4 w-full">
+      <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest">
+        <BookOpen className="w-4 h-4" /> Ответ
       </div>
-    </ScrollArea>
+      <div
+        className="leading-relaxed text-foreground/80 font-light selection:bg-primary/30 w-full break-words whitespace-pre-wrap reading-answer"
+        style={{ fontSize: `${fontSize}px` }}
+      >
+        {renderWithGlossary(readingQuestion.answer)}
+      </div>
+    </div>
+    <PersonalNote id={readingQuestion.id} />
+  </div>
+</div>
 
     {/* Нижняя панель с кнопками */}
                 {/* Нижняя панель с четырьмя кнопками */}
