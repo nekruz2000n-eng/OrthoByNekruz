@@ -319,11 +319,8 @@ export const QuestionsTab = () => {
 
   // Разбиваем на строки для отображения
   const lines = finalHtml.split('\n').map((line, i) => (
-    <React.Fragment key={i}>
-      <span dangerouslySetInnerHTML={{ __html: line }} />
-      <br />
-    </React.Fragment>
-  ));
+  <p key={i} className="indent-4 mb-1 last:mb-0" dangerouslySetInnerHTML={{ __html: line }} />
+));
 
   return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
 };
@@ -493,7 +490,7 @@ export const QuestionsTab = () => {
             <ScrollArea className="flex-1 scroll-container px-5 pt-10" onClick={handleGlossaryClick}>
   <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
     <div className="space-y-4 w-full">
-      <h2 className="text-2xl md:text-3xl font-bold font-headline leading-tight text-foreground break-words whitespace-pre-wrap reading-text">
+      <h2 className="text-2xl md:text-3xl font-bold font-headline leading-tight text-foreground break-words whitespace-pre-wrap">
         {renderWithGlossary(readingQuestion.question)}
       </h2>
     </div>
