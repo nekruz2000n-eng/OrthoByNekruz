@@ -202,9 +202,9 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
             <div className="space-y-2">
               <h2 className="text-2xl font-bold tracking-tight text-white">Рад тебя видеть!</h2>
               <p className="text-sm text-muted-foreground">
-                Спасибо за доверие. Учись, исследуй, развивайся — теперь ортопедия стала проще. 
+                Спасибо за доверие. Учись, исследуй, развивайся — тут всё чтоб ты сдал ортопедию. 
                 В каждом разделе есть заметки — сохраняй важное лично для себя. 
-                Если заметишь баг или неточность в тестах, знаешь кому писать, всё починим.
+                Если заметишь баг или неточность в тестах, или идеи какие-то знаешь кому писать, всё починим.
               </p>
             </div>
             <Button onClick={closeWelcome} className="w-full h-14 rounded-2xl text-lg font-bold">
