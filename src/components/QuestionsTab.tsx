@@ -498,7 +498,7 @@ export const QuestionsTab = () => {
       <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest">
         <BookOpen className="w-4 h-4" /> Ответ
       </div>
-      <div className="text-base leading-relaxed text-foreground/80 font-light selection:bg-primary/30 w-full break-words whitespace-pre-wrap">
+      <div className="text-lg leading-relaxed text-foreground/80 font-light selection:bg-primary/30 w-full break-words whitespace-pre-wrap">
         {renderWithGlossary(readingQuestion.answer)}
       </div>
     </div>
