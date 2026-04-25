@@ -490,9 +490,9 @@ export const QuestionsTab = () => {
             <ScrollArea className="flex-1 scroll-container px-5 pt-10" onClick={handleGlossaryClick}>
   <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
     <div className="space-y-4 w-full">
-      <h2 className="text-2xl md:text-3xl font-bold font-headline leading-tight text-foreground break-words whitespace-pre-wrap">
-        {renderWithGlossary(readingQuestion.question)}
-      </h2>
+      <h2 className="text-lg md:text-xl font-semibold leading-snug text-foreground/80 break-words whitespace-pre-wrap mb-6">
+  {renderWithGlossary(readingQuestion.question)}
+</h2>
     </div>
     <div className="space-y-4 w-full">
       <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest">
