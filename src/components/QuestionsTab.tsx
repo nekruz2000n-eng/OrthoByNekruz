@@ -34,6 +34,10 @@ export const QuestionsTab = () => {
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
   const [fontSize, setFontSize] = useState(16); // дефолтный размер в px
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);  // 👈 добавь эту строку
+const [scale, setScale] = useState(1);
+const [translate, setTranslate] = useState({ x: 0, y: 0 });
+const imageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const savedStudied = localStorage.getItem('studiedQuestions');
@@ -389,6 +393,12 @@ const handleTouchEnd = (e: React.TouchEvent) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [fontSize, setFontSize] = useState(16);
 
+    const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+const [scale, setScale] = useState(1);
+const [translate, setTranslate] = useState({ x: 0, y: 0 });
+const imageRef = useRef<HTMLDivElement>(null);
+
+
     
 const initialDistance = useRef<number | null>(null);
 const initialFontSize = useRef<number>(16);
@@ -591,14 +601,6 @@ const handleTouchEnd = (e: React.TouchEvent) => {
 >
   <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
     {readingQuestion.image && (
-  <div className="my-4 rounded-xl overflow-hidden border border-white/10">
-    <img
-      src={readingQuestion.image}
-      alt="Иллюстрация к вопросу"
-      className="w-full h-auto object-contain max-h-80"
-      loading="lazy"
-    />
-  </div>
 )}
     <div className="space-y-4 w-full">
       <h2
@@ -608,6 +610,7 @@ const handleTouchEnd = (e: React.TouchEvent) => {
         {renderWithGlossary(readingQuestion.question)}
       </h2>
     </div>
+
     <div className="space-y-4 w-full">
       <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest">
         <BookOpen className="w-4 h-4" /> Ответ
@@ -618,6 +621,11 @@ const handleTouchEnd = (e: React.TouchEvent) => {
       >
         {renderWithGlossary(readingQuestion.answer)}
       </div>
+      <div className="my-4 rounded-xl overflow-hidden border border-white/10 cursor-pointer"
+         onClick={() => setZoomedImage(readingQuestion.image)}>
+      <img src={readingQuestion.image} alt="Иллюстрация к вопросу"
+           className="w-full h-auto object-contain max-h-80" loading="lazy" />
+    </div>
     </div>
     <PersonalNote id={readingQuestion.id} />
   </div>
@@ -708,6 +716,103 @@ const handleTouchEnd = (e: React.TouchEvent) => {
           <p className="text-[10px] text-muted-foreground mt-1">↔ перетащите, чтобы переместить</p>
         </div>
       )}    
+      {/* Модалка для увеличенного изображения с зумом и панорамированием */}
+{zoomedImage && (
+  <div
+    className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center backdrop-blur-sm"
+    onClick={() => {
+      setZoomedImage(null);
+      setScale(1);
+      setTranslate({ x: 0, y: 0 });
+    }}
+    onWheel={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.deltaY > 0 ? -0.2 : 0.2;
+      setScale((prev) => Math.min(5, Math.max(1, prev + delta)));
+    }}
+    onTouchStart={(e) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        (e.currentTarget as any).__pinchStart = {
+          dist,
+          scale,
+          translate,
+          cx: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+          cy: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        };
+      } else if (e.touches.length === 1) {
+        (e.currentTarget as any).__panStart = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY,
+          translate,
+        };
+      }
+    }}
+    onTouchMove={(e) => {
+      if (e.touches.length === 2 && (e.currentTarget as any).__pinchStart) {
+        const ps = (e.currentTarget as any).__pinchStart;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const newScale = Math.min(5, Math.max(1, ps.scale * (dist / ps.dist)));
+        // Рассчитываем смещение, чтобы зум был относительно центра пальцев
+        const ratio = newScale / ps.scale;
+        const newX = ps.translate.x + (ps.cx - ps.translate.x) * (1 - ratio);
+        const newY = ps.translate.y + (ps.cy - ps.translate.y) * (1 - ratio);
+        setScale(newScale);
+        setTranslate({ x: newX, y: newY });
+      } else if (e.touches.length === 1 && (e.currentTarget as any).__panStart && scale > 1) {
+        const ps = (e.currentTarget as any).__panStart;
+        const dx = e.touches[0].clientX - ps.x;
+        const dy = e.touches[0].clientY - ps.y;
+        setTranslate({
+          x: ps.translate.x + dx,
+          y: ps.translate.y + dy,
+        });
+      }
+    }}
+    onTouchEnd={(e) => {
+      delete (e.currentTarget as any).__pinchStart;
+      delete (e.currentTarget as any).__panStart;
+    }}
+  >
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setZoomedImage(null);
+        setScale(1);
+        setTranslate({ x: 0, y: 0 });
+      }}
+      className="absolute top-4 right-4 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors z-10"
+    >
+      <X className="w-6 h-6 text-white" />
+    </button>
+    <div
+      ref={imageRef}
+      className="flex items-center justify-center max-w-full max-h-full"
+      onClick={(e) => e.stopPropagation()}
+      onDoubleClick={() => {
+        setScale(1);
+        setTranslate({ x: 0, y: 0 });
+      }}
+    >
+      <img
+        src={zoomedImage}
+        alt="Просмотр изображения"
+        className="max-w-full max-h-full object-contain rounded-xl select-none"
+        style={{
+          transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
+          transition: 'transform 0.2s ease-out',
+          touchAction: 'none',
+        }}
+        draggable={false}
+      />
+    </div>
+  </div>
+)}
     </div>
   );
 };
