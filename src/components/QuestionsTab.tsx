@@ -33,11 +33,29 @@ export const QuestionsTab = () => {
   const [activeTermDef, setActiveTermDef] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
-  const [fontSize, setFontSize] = useState(16); // дефолтный размер в px
-  const [zoomedImage, setZoomedImage] = useState<string | null>(null);  // 👈 добавь эту строку
-const [scale, setScale] = useState(1);
-const [translate, setTranslate] = useState({ x: 0, y: 0 });
-const imageRef = useRef<HTMLDivElement>(null);
+  const [fontSize, setFontSize] = useState(16);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [scale, setScale] = useState(1);
+  const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const imageRef = useRef<HTMLDivElement>(null);
+
+  const initialDistance = useRef<number | null>(null);
+  const initialFontSize = useRef<number>(16);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const [dragging, setDragging] = useState(false);
+  const [closeBtnPos, setCloseBtnPos] = useState({ x: 0, y: 0 });
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const [closeDragging, setCloseDragging] = useState(false);
+  const closeStartPos = useRef({ x: 0, y: 0 });
+  const closeBtnStartPos = useRef({ x: 0, y: 0 });
+  const hasMoved = useRef(false);
+
+  const dragStartPos = useRef({ x: 0, y: 0 });
+  const tooltipStartPos = useRef({ x: 0, y: 0 });
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  // ... остальные useEffect и функции – все они остаются без изменений (см. ниже)
 
   useEffect(() => {
     const savedStudied = localStorage.getItem('studiedQuestions');
@@ -99,90 +117,56 @@ const imageRef = useRef<HTMLDivElement>(null);
   const glossaryTerms = useMemo(() => {
     return (glossaryData as GlossaryItem[]).slice().sort((a, b) => b.term.length - a.term.length);
   }, []);
-  // --- Состояние для перетаскиваемого тултипа ---
-  const [dragging, setDragging] = useState(false);
-    // --- Плавающая кнопка закрытия (перетаскиваемая) ---
-  const [closeBtnPos, setCloseBtnPos] = useState({ x: window.innerWidth - 60, y: 60 });
-  const closeBtnRef = useRef<HTMLButtonElement>(null);
-  const [closeDragging, setCloseDragging] = useState(false);
-  const closeStartPos = useRef({ x: 0, y: 0 });
-  const closeBtnStartPos = useRef({ x: 0, y: 0 });
-  const hasMoved = useRef(false);
 
-  // Обновить начальную позицию при открытии нового вопроса
-  useEffect(() => {
-    if (readingQuestion) {
-      setCloseBtnPos({ x: window.innerWidth - 60, y: 60 });
-      hasMoved.current = false;
+  const handleGlossaryClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('glossary-term')) {
+      const defEncoded = target.getAttribute('data-definition');
+      if (defEncoded) {
+        setActiveTermDef(decodeURIComponent(defEncoded));
+        setTooltipPos({ x: e.clientX, y: e.clientY });
+        e.stopPropagation();
+      }
     }
-  }, [readingQuestion]);
-
-  const handleCloseMouseDown = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCloseDragging(true);
-    hasMoved.current = false;
-    closeStartPos.current = { x: e.clientX, y: e.clientY };
-    closeBtnStartPos.current = { x: closeBtnPos.x, y: closeBtnPos.y };
   };
 
-  const handleCloseTouchStart = (e: React.TouchEvent) => {
-    e.stopPropagation();
-    const touch = e.touches[0];
-    setCloseDragging(true);
-    hasMoved.current = false;
-    closeStartPos.current = { x: touch.clientX, y: touch.clientY };
-    closeBtnStartPos.current = { x: closeBtnPos.x, y: closeBtnPos.y };
-  };
-
-  // Эффект для перемещения
   useEffect(() => {
-    if (!closeDragging) return;
-    const handleMove = (e: MouseEvent | TouchEvent) => {
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      const dx = clientX - closeStartPos.current.x;
-      const dy = clientY - closeStartPos.current.y;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
-        hasMoved.current = true;
-      }
-      let newX = closeBtnStartPos.current.x + dx;
-      let newY = closeBtnStartPos.current.y + dy;
-      // Ограничение по экрану
-      const btn = closeBtnRef.current;
-      if (btn) {
-        const rect = btn.getBoundingClientRect();
-        const maxX = window.innerWidth - rect.width - 10;
-        const maxY = window.innerHeight - rect.height - 10;
-        newX = Math.max(10, Math.min(newX, maxX));
-        newY = Math.max(10, Math.min(newY, maxY));
-      }
-      setCloseBtnPos({ x: newX, y: newY });
-    };
+    if (activeTermDef) {
+      const handler = () => setActiveTermDef(null);
+      document.addEventListener('click', handler);
+      return () => document.removeEventListener('click', handler);
+    }
+  }, [activeTermDef]);
 
-    const handleUp = () => {
-      setCloseDragging(false);
-      // Если не было перемещения, то это клик – закрываем
-      if (!hasMoved.current) {
-        setReadingQuestion(null);
-      }
-    };
+  // Обработчики жестов pinch-to-zoom
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      initialDistance.current = Math.hypot(dx, dy);
+      initialFontSize.current = fontSize;
+    }
+  };
 
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
-    window.addEventListener('touchmove', handleMove, { passive: false });
-    window.addEventListener('touchend', handleUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-      window.removeEventListener('touchmove', handleMove);
-      window.removeEventListener('touchend', handleUp);
-    };
-  }, [closeDragging]);
-  const dragStartPos = useRef({ x: 0, y: 0 });
-  const tooltipStartPos = useRef({ x: 0, y: 0 });
-  const tooltipRef = useRef<HTMLDivElement>(null);
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && initialDistance.current !== null) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const distance = Math.hypot(dx, dy);
+      const scale = distance / initialDistance.current;
+      const newSize = Math.max(12, Math.min(28, Math.round(initialFontSize.current * scale)));
+      setFontSize(newSize);
+    }
+  };
 
-  // При начале перетаскивания
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length < 2) {
+      initialDistance.current = null;
+    }
+  };
+
   const handleTooltipMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation();
     setDragging(true);
@@ -190,7 +174,6 @@ const imageRef = useRef<HTMLDivElement>(null);
     tooltipStartPos.current = { x: tooltipPos.x, y: tooltipPos.y };
   };
 
-  // При движении
   useEffect(() => {
     if (!dragging) return;
     const handleMove = (e: MouseEvent) => {
@@ -198,8 +181,6 @@ const imageRef = useRef<HTMLDivElement>(null);
       const dy = e.clientY - dragStartPos.current.y;
       let newX = tooltipStartPos.current.x + dx;
       let newY = tooltipStartPos.current.y + dy;
-
-      // Ограничиваем, чтобы тултип не выходил за экран
       const tooltip = tooltipRef.current;
       if (tooltip) {
         const rect = tooltip.getBoundingClientRect();
@@ -211,7 +192,6 @@ const imageRef = useRef<HTMLDivElement>(null);
       setTooltipPos({ x: newX, y: newY });
     };
     const handleUp = () => setDragging(false);
-
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
     return () => {
@@ -220,7 +200,6 @@ const imageRef = useRef<HTMLDivElement>(null);
     };
   }, [dragging]);
 
-  // Аналогично для touch-событий
   const handleTooltipTouchStart = (e: React.TouchEvent) => {
     e.stopPropagation();
     const touch = e.touches[0];
@@ -248,7 +227,6 @@ const imageRef = useRef<HTMLDivElement>(null);
       setTooltipPos({ x: newX, y: newY });
     };
     const handleTouchEnd = () => setDragging(false);
-
     window.addEventListener('touchmove', handleTouchMove, { passive: false });
     window.addEventListener('touchend', handleTouchEnd);
     return () => {
@@ -256,182 +234,125 @@ const imageRef = useRef<HTMLDivElement>(null);
       window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [dragging]);
- const renderWithGlossary = (text: string) => {
-  // Разбиваем текст на фрагменты: обычные и жирные (**...**)
-  const fragments: { type: 'normal' | 'bold'; content: string }[] = [];
-  let remaining = text;
-  const boldRegex = /\*\*(.*?)\*\*/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  
-  while ((match = boldRegex.exec(remaining)) !== null) {
-    // Текст до жирного
-    if (match.index > lastIndex) {
-      fragments.push({ type: 'normal', content: remaining.substring(lastIndex, match.index) });
-    }
-    // Жирный текст (без **)
-    fragments.push({ type: 'bold', content: match[1] });
-    lastIndex = match.index + match[0].length;
-  }
-  // Остаток после последнего жирного
-  if (lastIndex < remaining.length) {
-    fragments.push({ type: 'normal', content: remaining.substring(lastIndex) });
-  }
 
-  // Функция для поиска терминов в обычном тексте и оборачивания в span
-  const processNormalText = (normalText: string): string => {
-    let result = normalText;
-    // Сортируем термины по убыванию длины, чтобы длинные составные термины обрабатывались первыми
-    const sortedTerms = [...glossaryTerms].sort((a, b) => b.term.length - a.term.length);
-    
-    for (const termItem of sortedTerms) {
-      const term = termItem.term;
-      // Экранируем специальные символы в термине для регулярки
-      const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      // Ищем термин как целое слово: перед ним должен быть не буквенно-цифровой и не дефис, и после тоже (чтобы не захватить часть слова)
-      // Используем просмотр назад и вперёд, но они могут не поддерживаться в старых браузерах. Вместо этого ищем термин, окружённый границами, которые мы определим как любой символ, не являющийся буквой, цифрой или дефисом, или начало/конец строки.
-      // Упростим: используем регулярное выражение с захватом контекста и заменяем только термин, если он не часть другого слова.
-      // Более надёжный способ: ищем вхождения термина, и для каждого проверяем окружение.
-      const termRegex = new RegExp(escapedTerm, 'gi');
-      result = result.replace(termRegex, (match, offset) => {
-        // Проверка границ: символ перед совпадением
-        const prevChar = offset > 0 ? result[offset - 1] : '';
-        const nextChar = offset + match.length < result.length ? result[offset + match.length] : '';
-        // Разрешённые границы: пробел, знак препинания, начало/конец строки, скобки, тире и т.п.
-        const isBoundary = (ch: string) => /[\s\p{P}\p{Z}]/u.test(ch) || ch === ''; 
-        // Проверяем, что prevChar и nextChar являются границами, либо термин содержит дефис/пробел внутри – тогда границы должны быть до и после всего термина.
-        // Для составных терминов (содержащих пробел или дефис) проверяем только границы вокруг всего термина.
-        if ( (isBoundary(prevChar) || prevChar === '') && (isBoundary(nextChar) || nextChar === '') ) {
-          // Дополнительная проверка: не находится ли термин внутри другого слова? Например, "окклюзия" в "окклюзионный". isBoundary учитывает что prevChar не буква/цифра/дефис, но разрешён ли дефис внутри слова? Нет, дефис считается границей? По условию, дефис – это часть термина, поэтому если термин содержит дефис, то перед и после должны быть границы, но сам дефис внутри термина не должен быть частью другого слова. Всё корректно.
-          return `<span class="glossary-term" data-definition="${encodeURIComponent(termItem.definition)}">${match}</span>`;
-        }
-        return match;
-      });
+  // Логика перетаскиваемой кнопки закрытия
+  useEffect(() => {
+    if (readingQuestion) {
+      setCloseBtnPos({ x: window.innerWidth - 60, y: 60 });
+      hasMoved.current = false;
     }
-    return result;
+  }, [readingQuestion]);
+
+  const handleCloseMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCloseDragging(true);
+    hasMoved.current = false;
+    closeStartPos.current = { x: e.clientX, y: e.clientY };
+    closeBtnStartPos.current = { x: closeBtnPos.x, y: closeBtnPos.y };
   };
 
-  // Собираем финальную строку
-  const processedFragments = fragments.map((frag) => {
-    if (frag.type === 'bold') {
-      // Жирный текст оборачиваем в наш стиль
-      return `<span class="font-bold text-amber-300">${frag.content}</span>`;
-    } else {
-      // Обычный текст обрабатываем глоссарием
-      return processNormalText(frag.content);
-    }
-  });
-
-  const finalHtml = processedFragments.join('');
-
-  // Разбиваем на строки для отображения
-  const lines = finalHtml.split('\n').map((line, i) => (
-  <p key={i} className="indent-4 mb-1 last:mb-0" dangerouslySetInnerHTML={{ __html: line }} />
-));
-
-  return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
-};
-
-
-const initialDistance = useRef<number | null>(null);
-const initialFontSize = useRef<number>(16);
-const contentRef = useRef<HTMLDivElement>(null);
-
-const handleTouchStart = (e: React.TouchEvent) => {
-  if (e.touches.length === 2) {
-    e.preventDefault();
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    initialDistance.current = Math.hypot(dx, dy);
-    initialFontSize.current = fontSize;
-  }
-};
-
-const handleTouchMove = (e: React.TouchEvent) => {
-  if (e.touches.length === 2 && initialDistance.current !== null) {
-    e.preventDefault();
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    const distance = Math.hypot(dx, dy);
-    const scale = distance / initialDistance.current;
-    const newSize = Math.max(12, Math.min(28, Math.round(initialFontSize.current * scale)));
-    setFontSize(newSize);
-  }
-};
-
-const handleTouchEnd = (e: React.TouchEvent) => {
-  if (e.touches.length < 2) {
-    initialDistance.current = null;
-  }
-};
-  const handleGlossaryClick = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.classList.contains('glossary-term')) {
-      const defEncoded = target.getAttribute('data-definition');
-      if (defEncoded) {
-        setActiveTermDef(decodeURIComponent(defEncoded));
-        setTooltipPos({ x: e.clientX, y: e.clientY });
-        e.stopPropagation();
-      }
-    }
+  const handleCloseTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    const touch = e.touches[0];
+    setCloseDragging(true);
+    hasMoved.current = false;
+    closeStartPos.current = { x: touch.clientX, y: touch.clientY };
+    closeBtnStartPos.current = { x: closeBtnPos.x, y: closeBtnPos.y };
   };
-
-
 
   useEffect(() => {
-    if (activeTermDef) {
-      const handler = () => setActiveTermDef(null);
-      document.addEventListener('click', handler);
-      return () => document.removeEventListener('click', handler);
+    if (!closeDragging) return;
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const dx = clientX - closeStartPos.current.x;
+      const dy = clientY - closeStartPos.current.y;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved.current = true;
+      let newX = closeBtnStartPos.current.x + dx;
+      let newY = closeBtnStartPos.current.y + dy;
+      const btn = closeBtnRef.current;
+      if (btn) {
+        const rect = btn.getBoundingClientRect();
+        const maxX = window.innerWidth - rect.width - 10;
+        const maxY = window.innerHeight - rect.height - 10;
+        newX = Math.max(10, Math.min(newX, maxX));
+        newY = Math.max(10, Math.min(newY, maxY));
+      }
+      setCloseBtnPos({ x: newX, y: newY });
+    };
+    const handleUp = () => {
+      setCloseDragging(false);
+      if (!hasMoved.current) setReadingQuestion(null);
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleUp);
+    };
+  }, [closeDragging]);
+
+  const renderWithGlossary = (text: string) => {
+    const fragments: { type: 'normal' | 'bold'; content: string }[] = [];
+    let remaining = text;
+    const boldRegex = /\*\*(.*?)\*\*/g;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    
+    while ((match = boldRegex.exec(remaining)) !== null) {
+      if (match.index > lastIndex) {
+        fragments.push({ type: 'normal', content: remaining.substring(lastIndex, match.index) });
+      }
+      fragments.push({ type: 'bold', content: match[1] });
+      lastIndex = match.index + match[0].length;
     }
-  }, [activeTermDef]);
+    if (lastIndex < remaining.length) {
+      fragments.push({ type: 'normal', content: remaining.substring(lastIndex) });
+    }
+
+    const processNormalText = (normalText: string): string => {
+      let result = normalText;
+      const sortedTerms = [...glossaryTerms].sort((a, b) => b.term.length - a.term.length);
+      for (const termItem of sortedTerms) {
+        const term = termItem.term;
+        const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const termRegex = new RegExp(escapedTerm, 'gi');
+        result = result.replace(termRegex, (match, offset) => {
+          const prevChar = offset > 0 ? result[offset - 1] : '';
+          const nextChar = offset + match.length < result.length ? result[offset + match.length] : '';
+          const isBoundary = (ch: string) => /[\s\p{P}\p{Z}]/u.test(ch) || ch === '';
+          if ((isBoundary(prevChar) || prevChar === '') && (isBoundary(nextChar) || nextChar === '')) {
+            return `<span class="glossary-term" data-definition="${encodeURIComponent(termItem.definition)}">${match}</span>`;
+          }
+          return match;
+        });
+      }
+      return result;
+    };
+
+    const processedFragments = fragments.map((frag) => {
+      if (frag.type === 'bold') {
+        return `<span class="font-bold text-amber-300">${frag.content}</span>`;
+      } else {
+        return processNormalText(frag.content);
+      }
+    });
+    const finalHtml = processedFragments.join('');
+    const lines = finalHtml.split('\n').map((line, i) => (
+      <p key={i} className="indent-4 mb-1 last:mb-0" dangerouslySetInnerHTML={{ __html: line }} />
+    ));
+    return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
+  };
 
   const PersonalNote = ({ id }: { id: number }) => {
     const [isEditing, setIsEditing] = useState(false);
     const note = userNotes[id] || '';
     const [localNote, setLocalNote] = useState(note);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const [fontSize, setFontSize] = useState(16);
-
-    const [zoomedImage, setZoomedImage] = useState<string | null>(null);
-const [scale, setScale] = useState(1);
-const [translate, setTranslate] = useState({ x: 0, y: 0 });
-const imageRef = useRef<HTMLDivElement>(null);
-
-
-    
-const initialDistance = useRef<number | null>(null);
-const initialFontSize = useRef<number>(16);
-const contentRef = useRef<HTMLDivElement>(null);
-
-
-const handleTouchStart = (e: React.TouchEvent) => {
-  if (e.touches.length === 2) {
-    e.preventDefault();
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    initialDistance.current = Math.hypot(dx, dy);
-    initialFontSize.current = fontSize;
-  }
-};
-
-const handleTouchMove = (e: React.TouchEvent) => {
-  if (e.touches.length === 2 && initialDistance.current !== null) {
-    e.preventDefault();
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    const distance = Math.hypot(dx, dy);
-    const scale = distance / initialDistance.current;
-    const newSize = Math.max(12, Math.min(28, Math.round(initialFontSize.current * scale)));
-    setFontSize(newSize);
-  }
-};
-
-const handleTouchEnd = (e: React.TouchEvent) => {
-  if (e.touches.length < 2) {
-    initialDistance.current = null;
-  }
-};
 
     useEffect(() => { setLocalNote(note); }, [note]);
     useEffect(() => {
@@ -524,44 +445,29 @@ const handleTouchEnd = (e: React.TouchEvent) => {
                         </span>
                       </div>
                     </AccordionTrigger>
-                   <AccordionContent className="px-5 pb-5 pt-0 w-full overflow-hidden">
-  <div className="space-y-4 w-full max-w-full">
-    {/* Блок с обрезанным ответом */}
-    <div className="relative">
-      <div className="text-sm leading-relaxed text-foreground/80 max-h-24 overflow-hidden">
-        {renderWithGlossary(q.answer)}
-      </div>
-      {/* Градиентная вуаль снизу */}
-      <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
-    </div>
+                    <AccordionContent className="px-5 pb-5 pt-0 w-full overflow-hidden">
+                      <div className="space-y-4 w-full max-w-full">
+                        {/* Сокращённый ответ */}
+                        <div className="relative">
+                          <div className="text-sm leading-relaxed text-foreground/80 max-h-24 overflow-hidden">
+                            {renderWithGlossary(q.answer)}
+                          </div>
+                          <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
+                        </div>
 
-    {/* Кнопки действий */}
-    <div className="flex flex-wrap gap-2">
-      <Button
-        variant="outline"
-        className="flex-1 min-w-[140px] h-11 rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/10"
-        onClick={() => setReadingQuestion(q)}
-      >
-        <BookOpen className="w-4 h-4" />
-        Режим чтения
-      </Button>
-      <Button
-        variant={isStudied ? "default" : "outline"}
-        className={cn(
-          "flex-1 min-w-[140px] h-11 rounded-xl gap-2 transition-all",
-          isStudied ? "bg-primary text-primary-foreground" : "border-primary/30 text-primary hover:bg-primary/10"
-        )}
-        onClick={() => toggleStudied(q.id)}
-      >
-        {isStudied ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
-        {isStudied ? "Изучено" : "Изучил"}
-      </Button>
-    </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="outline" className="flex-1 min-w-[140px] h-11 rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/10" onClick={() => setReadingQuestion(q)}>
+                            <BookOpen className="w-4 h-4" /> Режим чтения
+                          </Button>
+                          <Button variant={isStudied ? "default" : "outline"} className={cn("flex-1 min-w-[140px] h-11 rounded-xl gap-2 transition-all", isStudied ? "bg-primary text-primary-foreground" : "border-primary/30 text-primary hover:bg-primary/10")} onClick={() => toggleStudied(q.id)}>
+                            {isStudied ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
+                            {isStudied ? "Изучено" : "Изучил"}
+                          </Button>
+                        </div>
 
-    {/* Заметка (раскрывается по желанию) */}
-    <PersonalNote id={q.id} />
-  </div>
-</AccordionContent>
+                        <PersonalNote id={q.id} />
+                      </div>
+                    </AccordionContent>
                   </AccordionItem>
                 );
               })}
@@ -576,133 +482,125 @@ const handleTouchEnd = (e: React.TouchEvent) => {
       </ScrollArea>
 
       {/* Режим чтения */}
-            {/* Режим чтения – без верхней панели, низ две кнопки */}
       <AnimatePresence>
         {readingQuestion && (
           <motion.div
-  initial={{ opacity: 0, y: 100 }}
-  animate={{ opacity: 1, y: 0 }}
-  exit={{ opacity: 0, y: 100 }}
-  transition={{ type: "spring", damping: 25, stiffness: 300 }}
-  className="fixed inset-0 z-[100] bg-background flex flex-col overflow-hidden max-w-full"
->
-  {/* Внутренний контейнер объединяет всё содержимое */}
-  <div className="flex flex-col h-full relative">
-    {/* Кнопки изменения размера шрифта */}
-    
-
-    {/* Область прокрутки с контентом */}
-    <div
-  className="flex-1 overflow-y-auto px-5 pt-10 scroll-container"
-  onTouchStart={handleTouchStart}
-  onTouchMove={handleTouchMove}
-  onTouchEnd={handleTouchEnd}
-  onClick={handleGlossaryClick}
->
-  <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
-    {readingQuestion.image && (
-)}
-    <div className="space-y-4 w-full">
-      <h2
-        className="text-lg md:text-xl font-semibold leading-snug text-foreground/80 break-words whitespace-pre-wrap mb-6"
-        style={{ fontSize: `${fontSize * 1.2}px` }}
-      >
-        {renderWithGlossary(readingQuestion.question)}
-      </h2>
-    </div>
-
-    <div className="space-y-4 w-full">
-      <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest">
-        <BookOpen className="w-4 h-4" /> Ответ
-      </div>
-      <div
-        className="leading-relaxed text-foreground/80 font-light selection:bg-primary/30 w-full break-words whitespace-pre-wrap reading-answer"
-        style={{ fontSize: `${fontSize}px` }}
-      >
-        {renderWithGlossary(readingQuestion.answer)}
-      </div>
-      <div className="my-4 rounded-xl overflow-hidden border border-white/10 cursor-pointer"
-         onClick={() => setZoomedImage(readingQuestion.image)}>
-      <img src={readingQuestion.image} alt="Иллюстрация к вопросу"
-           className="w-full h-auto object-contain max-h-80" loading="lazy" />
-    </div>
-    </div>
-    <PersonalNote id={readingQuestion.id} />
-  </div>
-</div>
-
-    {/* Нижняя панель с кнопками */}
-                {/* Нижняя панель с четырьмя кнопками */}
-            <div className="mt-auto pt-6 border-t border-white/5 bg-background pb-safe px-3">
-              <div className="flex gap-2 items-center">
-                {/* Крайняя левая – стрелка влево (предыдущий вопрос) */}
-                <button
-                  onClick={() => {
-                    const currentIndex = questionsData.findIndex(q => q.id === readingQuestion.id);
-                    if (currentIndex === -1) return;
-                    const prevIndex = (currentIndex - 1 + questionsData.length) % questionsData.length;
-                    setReadingQuestion(questionsData[prevIndex]);
-                  }}
-                  className="w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0"
-                  title="Предыдущий вопрос"
-                >
-                  <ArrowLeft className="w-5 h-5 text-white" />
-                </button>
-
-                {/* Кнопка «Изучил» (средняя, крупнее) */}
-                <Button
-                  variant={studiedIds.has(readingQuestion.id) ? "default" : "outline"}
-                  className={cn(
-                    "flex-1 h-11 rounded-xl gap-2 font-bold",
-                    studiedIds.has(readingQuestion.id)
-                      ? "bg-primary text-primary-foreground"
-                      : "border-primary/30 text-primary hover:bg-primary/10"
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed inset-0 z-[100] bg-background flex flex-col overflow-hidden max-w-full"
+          >
+            <div className="flex flex-col h-full relative">
+              {/* Область прокрутки с контентом */}
+              <div
+                className="flex-1 overflow-y-auto px-5 pt-10 scroll-container"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onClick={handleGlossaryClick}
+              >
+                <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
+                  {/* Вопрос */}
+                  <div className="space-y-4 w-full">
+                    <h2
+                      className="text-lg md:text-xl font-semibold leading-snug text-foreground/80 break-words whitespace-pre-wrap mb-6"
+                      style={{ fontSize: `${fontSize * 1.2}px` }}
+                    >
+                      {renderWithGlossary(readingQuestion.question)}
+                    </h2>
+                  </div>
+                  {/* Ответ */}
+                  <div className="space-y-4 w-full">
+                    <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest">
+                      <BookOpen className="w-4 h-4" /> Ответ
+                    </div>
+                    <div
+                      className="leading-relaxed text-foreground/80 font-light selection:bg-primary/30 w-full break-words whitespace-pre-wrap reading-answer"
+                      style={{ fontSize: `${fontSize}px` }}
+                    >
+                      {renderWithGlossary(readingQuestion.answer)}
+                    </div>
+                  </div>
+                  {/* Картинка (только после ответа, перед заметкой) */}
+                  {readingQuestion.image && (
+                    <div
+                      className="my-4 rounded-xl overflow-hidden border border-white/10 cursor-pointer"
+                      onClick={() => setZoomedImage(readingQuestion.image)}
+                    >
+                      <img
+                        src={readingQuestion.image}
+                        alt="Иллюстрация к вопросу"
+                        className="w-full h-auto object-contain max-h-80"
+                        loading="lazy"
+                      />
+                    </div>
                   )}
-                  onClick={() => toggleStudied(readingQuestion.id)}
-                >
-                  {studiedIds.has(readingQuestion.id) ? (
-                    <CheckCircle2 className="w-4 h-4" />
-                  ) : (
-                    <Circle className="w-4 h-4" />
-                  )}
-                  {studiedIds.has(readingQuestion.id) ? "Изучено" : "Изучил"}
-                </Button>
+                  <PersonalNote id={readingQuestion.id} />
+                </div>
+              </div>
 
-                {/* Кнопка «Выйти» (средняя, крупнее) */}
-                <Button
-                  variant="outline"
-                  className="flex-1 h-11 rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/10 font-bold"
-                  onClick={() => setReadingQuestion(null)}
-                >
-                  <X className="w-4 h-4" />
-                  Выйти
-                </Button>
-
-                {/* Крайняя правая – стрелка вправо (следующий вопрос) */}
-                <button
-                  onClick={() => {
-                    const currentIndex = questionsData.findIndex(q => q.id === readingQuestion.id);
-                    if (currentIndex === -1) return;
-                    const nextIndex = (currentIndex + 1) % questionsData.length;
-                    setReadingQuestion(questionsData[nextIndex]);
-                  }}
-                  className="w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0"
-                  title="Следующий вопрос"
-                >
-                  <ArrowRight className="w-5 h-5 text-white" />
-                </button>
+              {/* Нижняя панель с кнопками */}
+              <div className="mt-auto pt-6 border-t border-white/5 bg-background pb-safe px-3">
+                <div className="flex gap-2 items-center">
+                  <button
+                    onClick={() => {
+                      const currentIndex = questionsData.findIndex(q => q.id === readingQuestion.id);
+                      if (currentIndex === -1) return;
+                      const prevIndex = (currentIndex - 1 + questionsData.length) % questionsData.length;
+                      setReadingQuestion(questionsData[prevIndex]);
+                    }}
+                    className="w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0"
+                    title="Предыдущий вопрос"
+                  >
+                    <ArrowLeft className="w-5 h-5 text-white" />
+                  </button>
+                  <Button
+                    variant={studiedIds.has(readingQuestion.id) ? "default" : "outline"}
+                    className={cn(
+                      "flex-1 h-11 rounded-xl gap-2 font-bold",
+                      studiedIds.has(readingQuestion.id)
+                        ? "bg-primary text-primary-foreground"
+                        : "border-primary/30 text-primary hover:bg-primary/10"
+                    )}
+                    onClick={() => toggleStudied(readingQuestion.id)}
+                  >
+                    {studiedIds.has(readingQuestion.id) ? (
+                      <CheckCircle2 className="w-4 h-4" />
+                    ) : (
+                      <Circle className="w-4 h-4" />
+                    )}
+                    {studiedIds.has(readingQuestion.id) ? "Изучено" : "Изучил"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-11 rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/10 font-bold"
+                    onClick={() => setReadingQuestion(null)}
+                  >
+                    <X className="w-4 h-4" />
+                    Выйти
+                  </Button>
+                  <button
+                    onClick={() => {
+                      const currentIndex = questionsData.findIndex(q => q.id === readingQuestion.id);
+                      if (currentIndex === -1) return;
+                      const nextIndex = (currentIndex + 1) % questionsData.length;
+                      setReadingQuestion(questionsData[nextIndex]);
+                    }}
+                    className="w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0"
+                    title="Следующий вопрос"
+                  >
+                    <ArrowRight className="w-5 h-5 text-white" />
+                  </button>
+                </div>
               </div>
             </div>
-  </div>
-</motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
-      {/* Тултип глоссария */}
-      
-             {/* Тултип глоссария (перетаскиваемый, без кнопки закрытия) */}
-      {activeTermDef && (
 
-        
+      {/* Тултип глоссария */}
+      {activeTermDef && (
         <div
           ref={tooltipRef}
           className="fixed z-[200] bg-card border border-white/10 rounded-2xl p-4 shadow-2xl max-w-xs select-none"
@@ -712,107 +610,106 @@ const handleTouchEnd = (e: React.TouchEvent) => {
           onClick={(e) => e.stopPropagation()}
         >
           <p className="text-white text-sm">{activeTermDef}</p>
-          {/* Маленькая подсказка, что можно перетаскивать */}
           <p className="text-[10px] text-muted-foreground mt-1">↔ перетащите, чтобы переместить</p>
         </div>
-      )}    
-      {/* Модалка для увеличенного изображения с зумом и панорамированием */}
-{zoomedImage && (
-  <div
-    className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center backdrop-blur-sm"
-    onClick={() => {
-      setZoomedImage(null);
-      setScale(1);
-      setTranslate({ x: 0, y: 0 });
-    }}
-    onWheel={(e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const delta = e.deltaY > 0 ? -0.2 : 0.2;
-      setScale((prev) => Math.min(5, Math.max(1, prev + delta)));
-    }}
-    onTouchStart={(e) => {
-      if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const dist = Math.hypot(dx, dy);
-        (e.currentTarget as any).__pinchStart = {
-          dist,
-          scale,
-          translate,
-          cx: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-          cy: (e.touches[0].clientY + e.touches[1].clientY) / 2,
-        };
-      } else if (e.touches.length === 1) {
-        (e.currentTarget as any).__panStart = {
-          x: e.touches[0].clientX,
-          y: e.touches[0].clientY,
-          translate,
-        };
-      }
-    }}
-    onTouchMove={(e) => {
-      if (e.touches.length === 2 && (e.currentTarget as any).__pinchStart) {
-        const ps = (e.currentTarget as any).__pinchStart;
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const dist = Math.hypot(dx, dy);
-        const newScale = Math.min(5, Math.max(1, ps.scale * (dist / ps.dist)));
-        // Рассчитываем смещение, чтобы зум был относительно центра пальцев
-        const ratio = newScale / ps.scale;
-        const newX = ps.translate.x + (ps.cx - ps.translate.x) * (1 - ratio);
-        const newY = ps.translate.y + (ps.cy - ps.translate.y) * (1 - ratio);
-        setScale(newScale);
-        setTranslate({ x: newX, y: newY });
-      } else if (e.touches.length === 1 && (e.currentTarget as any).__panStart && scale > 1) {
-        const ps = (e.currentTarget as any).__panStart;
-        const dx = e.touches[0].clientX - ps.x;
-        const dy = e.touches[0].clientY - ps.y;
-        setTranslate({
-          x: ps.translate.x + dx,
-          y: ps.translate.y + dy,
-        });
-      }
-    }}
-    onTouchEnd={(e) => {
-      delete (e.currentTarget as any).__pinchStart;
-      delete (e.currentTarget as any).__panStart;
-    }}
-  >
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        setZoomedImage(null);
-        setScale(1);
-        setTranslate({ x: 0, y: 0 });
-      }}
-      className="absolute top-4 right-4 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors z-10"
-    >
-      <X className="w-6 h-6 text-white" />
-    </button>
-    <div
-      ref={imageRef}
-      className="flex items-center justify-center max-w-full max-h-full"
-      onClick={(e) => e.stopPropagation()}
-      onDoubleClick={() => {
-        setScale(1);
-        setTranslate({ x: 0, y: 0 });
-      }}
-    >
-      <img
-        src={zoomedImage}
-        alt="Просмотр изображения"
-        className="max-w-full max-h-full object-contain rounded-xl select-none"
-        style={{
-          transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
-          transition: 'transform 0.2s ease-out',
-          touchAction: 'none',
-        }}
-        draggable={false}
-      />
-    </div>
-  </div>
-)}
+      )}
+
+      {/* Модальное окно для увеличенного изображения */}
+      {zoomedImage && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center backdrop-blur-sm"
+          onClick={() => {
+            setZoomedImage(null);
+            setScale(1);
+            setTranslate({ x: 0, y: 0 });
+          }}
+          onWheel={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const delta = e.deltaY > 0 ? -0.2 : 0.2;
+            setScale((prev) => Math.min(5, Math.max(1, prev + delta)));
+          }}
+          onTouchStart={(e) => {
+            if (e.touches.length === 2) {
+              const dx = e.touches[0].clientX - e.touches[1].clientX;
+              const dy = e.touches[0].clientY - e.touches[1].clientY;
+              const dist = Math.hypot(dx, dy);
+              (e.currentTarget as any).__pinchStart = {
+                dist,
+                scale,
+                translate,
+                cx: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                cy: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+              };
+            } else if (e.touches.length === 1) {
+              (e.currentTarget as any).__panStart = {
+                x: e.touches[0].clientX,
+                y: e.touches[0].clientY,
+                translate,
+              };
+            }
+          }}
+          onTouchMove={(e) => {
+            if (e.touches.length === 2 && (e.currentTarget as any).__pinchStart) {
+              const ps = (e.currentTarget as any).__pinchStart;
+              const dx = e.touches[0].clientX - e.touches[1].clientX;
+              const dy = e.touches[0].clientY - e.touches[1].clientY;
+              const dist = Math.hypot(dx, dy);
+              const newScale = Math.min(5, Math.max(1, ps.scale * (dist / ps.dist)));
+              const ratio = newScale / ps.scale;
+              const newX = ps.translate.x + (ps.cx - ps.translate.x) * (1 - ratio);
+              const newY = ps.translate.y + (ps.cy - ps.translate.y) * (1 - ratio);
+              setScale(newScale);
+              setTranslate({ x: newX, y: newY });
+            } else if (e.touches.length === 1 && (e.currentTarget as any).__panStart && scale > 1) {
+              const ps = (e.currentTarget as any).__panStart;
+              const dx = e.touches[0].clientX - ps.x;
+              const dy = e.touches[0].clientY - ps.y;
+              setTranslate({
+                x: ps.translate.x + dx,
+                y: ps.translate.y + dy,
+              });
+            }
+          }}
+          onTouchEnd={(e) => {
+            delete (e.currentTarget as any).__pinchStart;
+            delete (e.currentTarget as any).__panStart;
+          }}
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoomedImage(null);
+              setScale(1);
+              setTranslate({ x: 0, y: 0 });
+            }}
+            className="absolute top-4 right-4 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors z-10"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+          <div
+            ref={imageRef}
+            className="flex items-center justify-center max-w-full max-h-full"
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={() => {
+              setScale(1);
+              setTranslate({ x: 0, y: 0 });
+            }}
+          >
+            <img
+              src={zoomedImage}
+              alt="Просмотр изображения"
+              className="max-w-full max-h-full object-contain rounded-xl select-none"
+              style={{
+                transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
+                transition: 'transform 0.2s ease-out',
+                touchAction: 'none',
+              }}
+              draggable={false}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
