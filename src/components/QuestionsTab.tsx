@@ -4,6 +4,7 @@ import questionsData from '@/data/questions.json';
 import glossaryData from '@/data/glossary.json';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Search, Book, CheckCircle2, Circle, BookOpen, X, Pencil, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { 
@@ -12,7 +13,7 @@ import {
   AccordionItem, 
   AccordionTrigger 
 } from '@/components/ui/accordion';
-import { Search, Book, CheckCircle2, Circle, BookOpen, X, Pencil, Trash2 } from 'lucide-react';
+
 import { ToothIcon } from './ToothIcon';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -554,25 +555,67 @@ export const QuestionsTab = () => {
     </ScrollArea>
 
     {/* Нижняя панель с кнопками */}
-    <div className="mt-auto pt-6 border-t border-white/5 bg-background pb-safe px-5">
-      <div className="flex gap-3 items-center">
-        <Button
-          size="lg"
-          className="flex-1 h-16 rounded-2xl gap-3 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-          onClick={() => toggleStudied(readingQuestion.id)}
-        >
-          <CheckCircle2 className="w-6 h-6" />
-          Отметить как изученное
-        </Button>
-        <button
-          onClick={() => setReadingQuestion(null)}
-          className="w-16 h-16 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0"
-          title="Закрыть"
-        >
-          <X className="w-6 h-6 text-white" />
-        </button>
-      </div>
-    </div>
+                {/* Нижняя панель с четырьмя кнопками */}
+            <div className="mt-auto pt-6 border-t border-white/5 bg-background pb-safe px-3">
+              <div className="flex gap-2 items-center">
+                {/* Крайняя левая – стрелка влево (предыдущий вопрос) */}
+                <button
+                  onClick={() => {
+                    const currentIndex = questionsData.findIndex(q => q.id === readingQuestion.id);
+                    if (currentIndex === -1) return;
+                    const prevIndex = (currentIndex - 1 + questionsData.length) % questionsData.length;
+                    setReadingQuestion(questionsData[prevIndex]);
+                  }}
+                  className="w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0"
+                  title="Предыдущий вопрос"
+                >
+                  <ArrowLeft className="w-5 h-5 text-white" />
+                </button>
+
+                {/* Кнопка «Изучил» (средняя, крупнее) */}
+                <Button
+                  variant={studiedIds.has(readingQuestion.id) ? "default" : "outline"}
+                  className={cn(
+                    "flex-1 h-11 rounded-xl gap-2 font-bold",
+                    studiedIds.has(readingQuestion.id)
+                      ? "bg-primary text-primary-foreground"
+                      : "border-primary/30 text-primary hover:bg-primary/10"
+                  )}
+                  onClick={() => toggleStudied(readingQuestion.id)}
+                >
+                  {studiedIds.has(readingQuestion.id) ? (
+                    <CheckCircle2 className="w-4 h-4" />
+                  ) : (
+                    <Circle className="w-4 h-4" />
+                  )}
+                  {studiedIds.has(readingQuestion.id) ? "Изучено" : "Изучил"}
+                </Button>
+
+                {/* Кнопка «Выйти» (средняя, крупнее) */}
+                <Button
+                  variant="outline"
+                  className="flex-1 h-11 rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/10 font-bold"
+                  onClick={() => setReadingQuestion(null)}
+                >
+                  <X className="w-4 h-4" />
+                  Выйти
+                </Button>
+
+                {/* Крайняя правая – стрелка вправо (следующий вопрос) */}
+                <button
+                  onClick={() => {
+                    const currentIndex = questionsData.findIndex(q => q.id === readingQuestion.id);
+                    if (currentIndex === -1) return;
+                    const nextIndex = (currentIndex + 1) % questionsData.length;
+                    setReadingQuestion(questionsData[nextIndex]);
+                  }}
+                  className="w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0"
+                  title="Следующий вопрос"
+                >
+                  <ArrowRight className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
   </div>
 </motion.div>
         )}
