@@ -590,6 +590,16 @@ const handleTouchEnd = (e: React.TouchEvent) => {
   onClick={handleGlossaryClick}
 >
   <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
+    {readingQuestion.image && (
+  <div className="my-4 rounded-xl overflow-hidden border border-white/10">
+    <img
+      src={readingQuestion.image}
+      alt="Иллюстрация к вопросу"
+      className="w-full h-auto object-contain max-h-80"
+      loading="lazy"
+    />
+  </div>
+)}
     <div className="space-y-4 w-full">
       <h2
         className="text-lg md:text-xl font-semibold leading-snug text-foreground/80 break-words whitespace-pre-wrap mb-6"
