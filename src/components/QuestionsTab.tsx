@@ -569,7 +569,7 @@ export const QuestionsTab = () => {
                     </h2>
                   </div>
                   {/* ОТВЕТ */}
-                  <div className="space-y-4 w-full">
+                  <div className="space-y-2 w-full">
                     <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest">
                       <BookOpen className="w-4 h-4" /> Ответ
                     </div>
