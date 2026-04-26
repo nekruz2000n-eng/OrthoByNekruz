@@ -3,7 +3,32 @@
 @tailwind utilities;
 
 @layer base {
+  /* СВЕТЛАЯ ТЕМА (по умолчанию) */
   :root {
+    --background: 0 0% 100%;
+    --foreground: 220 30% 10%;
+    --card: 0 0% 98%;
+    --card-foreground: 220 30% 10%;
+    --popover: 0 0% 98%;
+    --popover-foreground: 220 30% 10%;
+    --primary: 213 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 20% 90%;
+    --secondary-foreground: 220 30% 10%;
+    --muted: 210 20% 90%;
+    --muted-foreground: 215 16% 40%;
+    --accent: 213 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 20% 85%;
+    --input: 210 20% 85%;
+    --ring: 213 100% 50%;
+    --radius: 0.75rem;
+  }
+
+  /* ТЁМНАЯ ТЕМА (когда на html добавлен класс dark) */
+  .dark {
     --background: 220 30% 6%;
     --foreground: 210 40% 96%;
     --card: 220 20% 10%;
@@ -23,7 +48,6 @@
     --border: 217 32% 17%;
     --input: 217 32% 17%;
     --ring: 213 100% 65%;
-    --radius: 0.75rem;
   }
 }
 
@@ -33,19 +57,17 @@
   }
   
   html, body {
-  @apply bg-background text-foreground;
-  overflow: hidden;
-  height: 100vh;
-  width: 100vw;
-  position: fixed;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  overscroll-behavior: none;
-
-  /* Безопасные отступы Telegram, чтобы контент не залезал под "чёлку" и кнопки */
-  padding-top: var(--tg-safe-area-inset-top);
-  padding-bottom: var(--tg-safe-area-inset-bottom);
-}
+    @apply bg-background text-foreground;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    position: fixed;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+    padding-top: var(--tg-safe-area-inset-top);
+    padding-bottom: var(--tg-safe-area-inset-bottom);
+  }
 }
 
 .glass-nav {
@@ -73,7 +95,6 @@
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
 }
 
-/* Enable smooth scrolling only for scrollable containers */
 .scroll-container {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -87,11 +108,8 @@ input[type="password"],
 .tooth-input {
   color: transparent !important;
   text-shadow: 0 0 0 transparent !important;
-  caret-color: white !important;
+  caret-color: rgb(219, 169, 169) !important;
 }
-/* Это заставит некоторые браузеры использовать кастомный символ, 
-но на Android S23 проще всего оставить системный диск или 
-использовать прозрачный текст с наложением. */
 
 .glossary-term {
   color: #60a5fa;
@@ -103,31 +121,4 @@ input[type="password"],
 }
 .text-amber-300 {
   color: #b69647;
-}
-
-body {
-  touch-action: manipulation; /* уже может быть, проверь */
-}
-
-/* СВЕТЛАЯ ТЕМА (когда нет класса dark) */
-:root {
-  --background: 0 0% 100%;
-  --foreground: 220 30% 10%;
-  --card: 0 0% 98%;
-  --card-foreground: 220 30% 10%;
-  --popover: 0 0% 98%;
-  --popover-foreground: 220 30% 10%;
-  --primary: 213 100% 50%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 210 20% 90%;
-  --secondary-foreground: 220 30% 10%;
-  --muted: 210 20% 90%;
-  --muted-foreground: 215 16% 40%;
-  --accent: 213 100% 50%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 0 84% 50%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 210 20% 85%;
-  --input: 210 20% 85%;
-  --ring: 213 100% 50%;
 }
