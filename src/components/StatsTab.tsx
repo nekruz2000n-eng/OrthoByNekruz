@@ -126,17 +126,15 @@ export const StatsTab = () => {
               Сброс
             </Button>
             {/* Переключатель темы */}
-            <button
-              onClick={() => setIsDark(prev => !prev)}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-              title="Переключить тему"
-            >
-              {isDark ? (
-                <Sun className="w-5 h-5 text-yellow-400" />
-              ) : (
-                <Moon className="w-5 h-5 text-slate-400" />
-              )}
-            </button>
+            <Button
+  variant="outline"
+  size="sm"
+  onClick={() => setIsDark(prev => !prev)}
+  className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+>
+  {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+  {isDark ? 'Светлая' : 'Тёмная'}
+</Button>
           </div>
         </div>
       </div>
