@@ -1,14 +1,11 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { Redis } from '@upstash/redis';
-
-const redis = Redis.fromEnv();
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHANNEL_USERNAME = 'nzsdental'; // без @
 
-// Проверка подписки через Telegram API (без библиотек)
+// Проверка подписки на канал
 async function isSubscribed(userId: number): Promise<boolean> {
-  if (!BOT_TOKEN) return false; // если токена нет, пропускаем проверку (но лучше его добавить)
+  if (!BOT_TOKEN) return false;
   try {
     const url = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=@${CHANNEL_USERNAME}&user_id=${userId}`;
     const res = await fetch(url);
@@ -26,28 +23,61 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { key, telegramId } = req.body;
-  if (!key || !telegramId) {
-    return res.status(400).json({ error: 'Key and Telegram ID required' });
+  const update = req.body;
+  const message = update?.message;
+
+  // Обрабатываем только команду /start
+  if (
+    message &&
+    message.text &&
+    message.text.trim().toLowerCase() === '/start'
+  ) {
+    const chatId = message.chat.id;
+    const userId = message.from?.id;
+
+    if (!userId) {
+      // Если не удалось получить ID пользователя (маловероятно), просто отвечаем OK
+      return res.status(200).json({ ok: true });
+    }
+
+    const subscribed = await isSubscribed(userId);
+
+    if (subscribed) {
+      // Пользователь подписан – отправляем кнопку входа
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: 'Привет! 🦷\nТвой помощник по ортопедии готов к работе:',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: '🚀 Открыть OrthoByNekruz',
+                  web_app: {
+                    url: 'https://ortho-by-nekruz.vercel.app/',
+                    fullscreen: true,   // попытка открыть без плашки
+                  },
+                },
+              ],
+            ],
+          },
+        }),
+      });
+    } else {
+      // Не подписан – просим подписаться
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: `Чтобы воспользоваться ботом, подпишись на канал @${CHANNEL_USERNAME} и нажми /start ещё раз.`,
+        }),
+      });
+    }
   }
 
-  // 1. Проверяем ключ
-  const keyExists = await redis.sismember('valid_keys', key);
-  if (!keyExists) {
-    return res.status(401).json({ error: 'Неверный или уже использованный ключ' });
-  }
-
-  // 2. Проверяем подписку
-  const subscribed = await isSubscribed(Number(telegramId));
-  if (!subscribed) {
-    return res.status(403).json({ 
-      error: `Ты не подписан на канал. Подпишись: https://t.me/${CHANNEL_USERNAME} и повтори ввод ключа.`,
-      needSubscription: true
-    });
-  }
-
-  // 3. Всё ок — удаляем ключ
-  await redis.srem('valid_keys', key);
-
-  return res.status(200).json({ success: true });
+  // Всегда отвечаем 200 OK, чтобы Telegram не считал вебхук сломанным
+  return res.status(200).json({ ok: true });
 }
