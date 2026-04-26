@@ -7,10 +7,9 @@ import testsData from '@/data/tests.json';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PieChart, Pie, Cell, ResponsiveContainer, Label } from 'recharts';
-import { BookOpen, ClipboardList, PenTool, Star, Trash2 } from 'lucide-react';
+import { BookOpen, ClipboardList, PenTool, Star, Trash2, Sun, Moon } from 'lucide-react';
 import { ToothIcon } from './ToothIcon';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon } from 'lucide-react';
 
 export const StatsTab = () => {
   const [studiedCount, setStudiedCount] = useState(0);
@@ -21,21 +20,24 @@ export const StatsTab = () => {
   const totalTasks = tasksData.length;
   const totalTests = testsData.length;
 
+  // ----- состояние темы -----
   const [isDark, setIsDark] = useState(() => {
-  if (typeof window === 'undefined') return true;
-  return localStorage.getItem('theme') !== 'light';
-});
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('theme') !== 'light';
+  });
 
-useEffect(() => {
-  const root = document.documentElement;
-  if (isDark) {
-    root.classList.add('dark');
-    localStorage.setItem('theme', 'dark');
-  } else {
-    root.classList.remove('dark');
-    localStorage.setItem('theme', 'light');
-  }
-}, [isDark]);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isDark) {
+      root.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      root.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDark]);
+  // ---------------------------
+
   const loadStats = () => {
     // Вопросы
     const studied = localStorage.getItem('studiedQuestions');
@@ -57,7 +59,7 @@ useEffect(() => {
     } else {
       setResolvedTasksCount(0);
     }
-    // Тесты: сумма лучших результатов по блокам
+    // Тесты
     const scores = localStorage.getItem('test_block_scores');
     if (scores) {
       try {
@@ -77,14 +79,9 @@ useEffect(() => {
     const confirmed = window.confirm('⚠️ Вы уверены? Весь прогресс (вопросы, задачи, тесты) будет сброшен. Заметки останутся.');
     if (!confirmed) return;
 
-    // Удаляем только ключи прогресса
     localStorage.removeItem('studiedQuestions');
     localStorage.removeItem('resolvedTasks');
     localStorage.removeItem('test_block_scores');
-
-    // Заметки НЕ удаляем: userNotes, userQuestionNotes, userTaskNotes, tests_personal_note и т.д.
-
-    // Обновляем состояние
     loadStats();
   };
 
@@ -110,26 +107,41 @@ useEffect(() => {
 
   return (
     <div className="flex flex-col h-full bg-background pb-0 overflow-x-hidden max-w-full">
+      {/* Верхняя панель с заголовком и кнопками */}
       <div className="p-4 border-b border-white/5 bg-background/50 backdrop-blur-md sticky top-0 z-10">
         <div className="flex justify-between items-center px-2">
           <div className="flex items-center gap-3">
             <ToothIcon className="w-10 h-10 text-primary" />
             <h1 className="text-2xl font-bold font-headline tracking-tight text-foreground">OrthoByNekruz</h1>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={resetAllProgress}
-            className="gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
-          >
-            <Trash2 className="w-4 h-4" />
-            Сброс
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Кнопка сброса прогресса */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetAllProgress}
+              className="gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+            >
+              <Trash2 className="w-4 h-4" />
+              Сброс
+            </Button>
+            {/* Переключатель темы */}
+            <button
+              onClick={() => setIsDark(prev => !prev)}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              title="Переключить тему"
+            >
+              {isDark ? (
+                <Sun className="w-5 h-5 text-yellow-400" />
+              ) : (
+                <Moon className="w-5 h-5 text-slate-400" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       <ScrollArea className="flex-1 px-4">
-        {/* Добавлен pb-32 в класс ниже, чтобы можно было прокрутить контент выше навигации */}
         <div className="space-y-6 mx-auto max-w-2xl pt-4 pb-32 overflow-hidden">
           {/* Круговая диаграмма */}
           <div className="flex flex-col items-center">
@@ -153,7 +165,7 @@ useEffect(() => {
                     <Label 
                       value={`${Math.round(overallPercent)}%`} 
                       position="center" 
-                      fill="white" 
+                      fill="currentColor" 
                       className="text-4xl font-bold font-headline"
                     />
                   </Pie>
@@ -167,6 +179,7 @@ useEffect(() => {
             </div>
           </div>
 
+          {/* Карточки со статистикой */}
           <div className="grid gap-4 px-2">
             {/* Вопросы */}
             <Card className="glass-card border-none overflow-hidden relative group max-w-full">
@@ -257,26 +270,6 @@ useEffect(() => {
           </div>
         </div>
       </ScrollArea>
-    {/* Блок переключения темы */}
-{/* Переключатель темы */}
-<div className="mt-8 pt-6 border-t border-[hsl(var(--border))] px-4 pb-safe">
-  <button
-    onClick={() => setIsDark(prev => !prev)}
-    className="w-full flex items-center justify-center gap-3 py-4 rounded-xl bg-[hsl(var(--muted))] hover:bg-[hsl(var(--muted-foreground)/0.1)] transition-colors"
-  >
-    {isDark ? (
-      <>
-        <Sun className="w-5 h-5 text-yellow-400" />
-        <span className="text-sm text-[hsl(var(--muted-foreground))]">Светлая тема</span>
-      </>
-    ) : (
-      <>
-        <Moon className="w-5 h-5 text-slate-400" />
-        <span className="text-sm text-[hsl(var(--muted-foreground))]">Тёмная тема</span>
-      </>
-    )}
-  </button>
-</div>
     </div>
   );
 };
