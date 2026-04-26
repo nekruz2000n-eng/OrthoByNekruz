@@ -21,7 +21,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
 
   return (
     <div className="fixed bottom-6 left-0 right-0 px-8 z-50 flex justify-center">
-      <nav className="flex items-center gap-1 bg-black/40 backdrop-blur-2xl p-2 rounded-[26px] border border-white/10 shadow-2xl">
+      <nav className="flex items-center gap-1 bg-black/40 dark:bg-black/40 backdrop-blur-2xl p-2 rounded-[26px] border border-white/10 shadow-2xl">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -37,12 +37,15 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
               <Icon
                 className={cn(
                   "w-5 h-5 transition-all duration-300",
-                  isActive ? "text-primary scale-110" : "text-white/40"
+                  // Активная иконка: чёрная в светлой теме, белая в тёмной
+                  isActive
+                    ? "text-black dark:text-white scale-110"
+                    : "text-black/50 dark:text-white/40"
                 )}
               />
               
               {isActive && (
-                <span className="text-[11px] font-bold text-primary animate-in fade-in slide-in-from-left-2 duration-300">
+                <span className="text-[11px] font-bold text-black dark:text-white animate-in fade-in slide-in-from-left-2 duration-300">
                   {tab.label}
                 </span>
               )}
