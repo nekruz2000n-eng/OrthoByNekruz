@@ -74,7 +74,7 @@ export default function Home() {
         localStorage.removeItem('demo_mode');
         localStorage.removeItem('demo_start');
         localStorage.setItem('demo_used', 'true');
-        window.location.reload(); // Автоматический выход
+alert('Время демо истекло!'); window.location.reload(); // Автоматический выход
       }, remaining);
 
       // Очистка таймера при размонтировании компонента
