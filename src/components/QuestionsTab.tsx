@@ -1,62 +1,78 @@
 "use client";
+
+// =================================================
+// ИМПОРТЫ
+// =================================================
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import questionsData from '@/data/questions.json';
-import glossaryData from '@/data/glossary.json';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Book, CheckCircle2, Circle, BookOpen, X, Pencil, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
+import questionsData from '@/data/questions.json';      // Массив вопросов и ответов
+import glossaryData from '@/data/glossary.json';        // Словарь терминов для глоссария
+import { Input } from '@/components/ui/input';          // Поле ввода (поиск)
+import { ScrollArea } from '@/components/ui/scroll-area'; // Прокручиваемая область
+import { Search, Book, CheckCircle2, Circle, BookOpen, X, Pencil, Trash2, ArrowLeft, ArrowRight } from 'lucide-react'; // Иконки
+import { Progress } from '@/components/ui/progress';    // Индикатор прогресса
+import { Button } from '@/components/ui/button';        // Кнопки
 import { 
   Accordion, 
   AccordionContent, 
   AccordionItem, 
   AccordionTrigger 
-} from '@/components/ui/accordion';
+} from '@/components/ui/accordion';                    // Раскрывающиеся карточки вопросов
+import { ToothIcon } from './ToothIcon';                // Иконка зуба
+import { cn } from '@/lib/utils';                       // Утилита для слияния CSS-классов
+import { motion, AnimatePresence } from 'framer-motion'; // Анимации
+import ReactMarkdown from 'react-markdown';             // Рендеринг Markdown в заметках
 
-import { ToothIcon } from './ToothIcon';
-import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
-
+// Тип элемента глоссария
 interface GlossaryItem {
   term: string;
   definition: string;
 }
 
+// =================================================
+// ГЛАВНЫЙ КОМПОНЕНТ
+// =================================================
 export const QuestionsTab = () => {
-  const [search, setSearch] = useState('');
-  const [studiedIds, setStudiedIds] = useState<Set<number>>(new Set());
-  const [userNotes, setUserNotes] = useState<Record<number, string>>({});
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [readingQuestion, setReadingQuestion] = useState<any | null>(null);
-  const [activeTermDef, setActiveTermDef] = useState<string | null>(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
-  const [fontSize, setFontSize] = useState(16);
-  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
-  const [scale, setScale] = useState(1);
-  const [translate, setTranslate] = useState({ x: 0, y: 0 });
-  const imageRef = useRef<HTMLDivElement>(null);
+  // =================================================
+  // СОСТОЯНИЯ (USE STATE)
+  // =================================================
+  const [search, setSearch] = useState('');                        // Строка поиска
+  const [studiedIds, setStudiedIds] = useState<Set<number>>(new Set()); // ID изученных вопросов
+  const [userNotes, setUserNotes] = useState<Record<number, string>>({}); // Заметки пользователя (ключ – ID вопроса)
+  const [isLoaded, setIsLoaded] = useState(false);                // Флаг завершения загрузки данных из localStorage
+  const [readingQuestion, setReadingQuestion] = useState<any | null>(null); // Вопрос, открытый в режиме чтения (или null)
+  const [activeTermDef, setActiveTermDef] = useState<string | null>(null); // Определение активного термина для тултипа глоссария
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });   // Позиция тултипа глоссария
+  const [fontSize, setFontSize] = useState(16);                   // Текущий размер шрифта в режиме чтения (базовый)
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null); // URL изображения для полноэкранного просмотра
+  const [scale, setScale] = useState(1);                          // Масштаб увеличенного изображения
+  const [translate, setTranslate] = useState({ x: 0, y: 0 });     // Смещение увеличенного изображения при панорамировании
 
-  const initialDistance = useRef<number | null>(null);
-  const initialFontSize = useRef<number>(16);
-  const contentRef = useRef<HTMLDivElement>(null);
+  // =================================================
+  // REFS (USE REF)
+  // =================================================
+  const imageRef = useRef<HTMLDivElement>(null);           // Ссылка на контейнер увеличенного изображения
+  const initialDistance = useRef<number | null>(null);     // Начальное расстояние между пальцами для pinch‑to‑zoom текста
+  const initialFontSize = useRef<number>(16);              // Запоминаем размер шрифта перед началом жеста
+  const contentRef = useRef<HTMLDivElement>(null);         // Ссылка на контейнер с контентом режима чтения (для жестов)
 
+  // Для перетаскиваемого тултипа глоссария
   const [dragging, setDragging] = useState(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
+  const tooltipStartPos = useRef({ x: 0, y: 0 });
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  // Для плавающей кнопки закрытия режима чтения (перетаскиваемой)
   const [closeBtnPos, setCloseBtnPos] = useState({ x: 0, y: 0 });
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const [closeDragging, setCloseDragging] = useState(false);
   const closeStartPos = useRef({ x: 0, y: 0 });
   const closeBtnStartPos = useRef({ x: 0, y: 0 });
-  const hasMoved = useRef(false);
+  const hasMoved = useRef(false);                          // Было ли перемещение (чтобы отличить клик от перетаскивания)
 
-  const dragStartPos = useRef({ x: 0, y: 0 });
-  const tooltipStartPos = useRef({ x: 0, y: 0 });
-  const tooltipRef = useRef<HTMLDivElement>(null);
-
-  // ... остальные useEffect и функции – все они остаются без изменений (см. ниже)
-
+  // =================================================
+  // ЗАГРУЗКА ДАННЫХ ИЗ LOCALSTORAGE
+  // =================================================
   useEffect(() => {
     const savedStudied = localStorage.getItem('studiedQuestions');
     const savedNotes = localStorage.getItem('userQuestionNotes');
@@ -69,6 +85,7 @@ export const QuestionsTab = () => {
     setIsLoaded(true);
   }, []);
 
+  // Сохранение изученных и заметок в localStorage при каждом изменении
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem('studiedQuestions', JSON.stringify(Array.from(studiedIds)));
@@ -76,20 +93,26 @@ export const QuestionsTab = () => {
     }
   }, [studiedIds, userNotes, isLoaded]);
 
+  // =================================================
+  // ФУНКЦИИ УПРАВЛЕНИЯ СОСТОЯНИЕМ
+  // =================================================
+  // Переключить статус "изучено" у вопроса
   const toggleStudied = (id: number) => {
     setStudiedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+    // Если вопрос был открыт в режиме чтения – закрыть его
     if (readingQuestion && readingQuestion.id === id) setReadingQuestion(null);
   };
 
+  // Обновить заметку для вопроса (с удалением HTML‑тегов)
   const updateNote = (id: number, text: string) => {
     setUserNotes(prev => ({ ...prev, [id]: text.replace(/<[^>]*>?/gm, '') }));
   };
 
+  // Удалить заметку
   const clearNote = (id: number) => {
     setUserNotes(prev => {
       const next = { ...prev };
@@ -98,6 +121,9 @@ export const QuestionsTab = () => {
     });
   };
 
+  // =================================================
+  // ФИЛЬТРАЦИЯ ВОПРОСОВ ПО ПОИСКУ
+  // =================================================
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
     return questionsData.filter(q => {
@@ -107,17 +133,23 @@ export const QuestionsTab = () => {
     });
   }, [search]);
 
+  // Прогресс изученных вопросов
   const progress = useMemo(() => {
     if (questionsData.length === 0) return 0;
     return (studiedIds.size / questionsData.length) * 100;
   }, [studiedIds]);
 
+  // Экранирование специальных символов для регулярных выражений
   const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+  // Подготовленный массив терминов для глоссария (сортировка по длине)
   const glossaryTerms = useMemo(() => {
     return (glossaryData as GlossaryItem[]).slice().sort((a, b) => b.term.length - a.term.length);
   }, []);
 
+  // =================================================
+  // ГЛОССАРИЙ: ПОИСК ТЕРМИНОВ В ТЕКСТЕ
+  // =================================================
   const handleGlossaryClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.classList.contains('glossary-term')) {
@@ -130,6 +162,7 @@ export const QuestionsTab = () => {
     }
   };
 
+  // Закрытие тултипа глоссария при клике вне
   useEffect(() => {
     if (activeTermDef) {
       const handler = () => setActiveTermDef(null);
@@ -138,7 +171,9 @@ export const QuestionsTab = () => {
     }
   }, [activeTermDef]);
 
-  // Обработчики жестов pinch-to-zoom
+  // =================================================
+  // ЖЕСТ PINCH‑TO‑ZOOM ДЛЯ ШРИФТА В РЕЖИМЕ ЧТЕНИЯ
+  // =================================================
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       e.preventDefault();
@@ -155,8 +190,8 @@ export const QuestionsTab = () => {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const distance = Math.hypot(dx, dy);
-      const scale = distance / initialDistance.current;
-      const newSize = Math.max(12, Math.min(28, Math.round(initialFontSize.current * scale)));
+      const scaleRatio = distance / initialDistance.current;
+      const newSize = Math.max(12, Math.min(28, Math.round(initialFontSize.current * scaleRatio)));
       setFontSize(newSize);
     }
   };
@@ -167,6 +202,9 @@ export const QuestionsTab = () => {
     }
   };
 
+  // =================================================
+  // ПЕРЕТАСКИВАЕМЫЙ ТУЛТИП ГЛОССАРИЯ
+  // =================================================
   const handleTooltipMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation();
     setDragging(true);
@@ -235,7 +273,9 @@ export const QuestionsTab = () => {
     };
   }, [dragging]);
 
-  // Логика перетаскиваемой кнопки закрытия
+  // =================================================
+  // ПЕРЕТАСКИВАЕМАЯ КНОПКА ЗАКРЫТИЯ РЕЖИМА ЧТЕНИЯ
+  // =================================================
   useEffect(() => {
     if (readingQuestion) {
       setCloseBtnPos({ x: window.innerWidth - 60, y: 60 });
@@ -296,7 +336,11 @@ export const QuestionsTab = () => {
     };
   }, [closeDragging]);
 
+  // =================================================
+  // ФУНКЦИЯ РЕНДЕРИНГА ТЕКСТА С ГЛОССАРИЕМ
+  // =================================================
   const renderWithGlossary = (text: string) => {
+    // Разбиваем текст на обычные и жирные (**...**) фрагменты
     const fragments: { type: 'normal' | 'bold'; content: string }[] = [];
     let remaining = text;
     const boldRegex = /\*\*(.*?)\*\*/g;
@@ -314,6 +358,7 @@ export const QuestionsTab = () => {
       fragments.push({ type: 'normal', content: remaining.substring(lastIndex) });
     }
 
+    // Обработка обычного текста: поиск терминов и замена на <span class="glossary-term">
     const processNormalText = (normalText: string): string => {
       let result = normalText;
       const sortedTerms = [...glossaryTerms].sort((a, b) => b.term.length - a.term.length);
@@ -334,6 +379,7 @@ export const QuestionsTab = () => {
       return result;
     };
 
+    // Собираем фрагменты в HTML‑строку
     const processedFragments = fragments.map((frag) => {
       if (frag.type === 'bold') {
         return `<span class="font-bold text-amber-300">${frag.content}</span>`;
@@ -342,12 +388,17 @@ export const QuestionsTab = () => {
       }
     });
     const finalHtml = processedFragments.join('');
+
+    // Разбиваем на абзацы и оборачиваем в <p> с красной строкой
     const lines = finalHtml.split('\n').map((line, i) => (
       <p key={i} className="indent-4 mb-1 last:mb-0" dangerouslySetInnerHTML={{ __html: line }} />
     ));
     return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
   };
 
+  // =================================================
+  // КОМПОНЕНТ ЗАМЕТКИ
+  // =================================================
   const PersonalNote = ({ id }: { id: number }) => {
     const [isEditing, setIsEditing] = useState(false);
     const note = userNotes[id] || '';
@@ -386,7 +437,7 @@ export const QuestionsTab = () => {
             value={localNote}
             onChange={(e) => setLocalNote(e.target.value)}
             onBlur={() => updateNote(id, localNote)}
-            placeholder=" Добавьте свои примечания здесь... (этот запись хранится только в вашем браузере и при чистке данных будет удалена)"
+            placeholder=" Добавьте свои примечания здесь... (хранится только в вашем браузере)"
             className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm text-foreground/90 resize-none min-h-[60px] placeholder:text-amber-500/20"
             autoFocus
           />
@@ -399,11 +450,15 @@ export const QuestionsTab = () => {
     );
   };
 
+  // Очистка текста от ** для предпросмотра
   const getCleanPreview = (text: string) => text.replace(/\*\*/g, '').trim();
 
+  // =================================================
+  // ГЛАВНЫЙ РЕНДЕР
+  // =================================================
   return (
     <div className="flex flex-col h-full bg-background pb-0 max-w-full overflow-hidden" onClick={handleGlossaryClick}>
-      {/* Верхняя панель */}
+      {/* ВЕРХНЯЯ ПАНЕЛЬ */}
       <div className="p-4 space-y-4 bg-background/50 backdrop-blur-md sticky top-0 z-10 border-b border-white/5">
         <div className="flex justify-between items-center px-2">
           <div className="flex items-center gap-3">
@@ -423,7 +478,7 @@ export const QuestionsTab = () => {
         </div>
       </div>
 
-      {/* Список вопросов */}
+      {/* СПИСОК ВОПРОСОВ */}
       <ScrollArea className="flex-1 scroll-container">
         <div className="py-4 px-4 mx-auto max-w-2xl w-full pb-20">
           {filtered.length > 0 ? (
@@ -481,7 +536,7 @@ export const QuestionsTab = () => {
         </div>
       </ScrollArea>
 
-      {/* Режим чтения */}
+      {/* РЕЖИМ ЧТЕНИЯ */}
       <AnimatePresence>
         {readingQuestion && (
           <motion.div
@@ -492,7 +547,8 @@ export const QuestionsTab = () => {
             className="fixed inset-0 z-[100] bg-background flex flex-col overflow-hidden max-w-full"
           >
             <div className="flex flex-col h-full relative">
-              {/* Область прокрутки с контентом */}
+
+              {/* ПРОКРУЧИВАЕМАЯ ОБЛАСТЬ С КОНТЕНТОМ (ЖЕСТ PINCH‑TO‑ZOOM) */}
               <div
                 className="flex-1 overflow-y-auto px-5 pt-10 scroll-container"
                 onTouchStart={handleTouchStart}
@@ -501,7 +557,7 @@ export const QuestionsTab = () => {
                 onClick={handleGlossaryClick}
               >
                 <div className="space-y-10 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
-                  {/* Вопрос */}
+                  {/* ВОПРОС */}
                   <div className="space-y-4 w-full">
                     <h2
                       className="text-lg md:text-xl font-semibold leading-snug text-foreground/80 break-words whitespace-pre-wrap mb-6"
@@ -510,7 +566,7 @@ export const QuestionsTab = () => {
                       {renderWithGlossary(readingQuestion.question)}
                     </h2>
                   </div>
-                  {/* Ответ */}
+                  {/* ОТВЕТ */}
                   <div className="space-y-4 w-full">
                     <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest">
                       <BookOpen className="w-4 h-4" /> Ответ
@@ -522,27 +578,41 @@ export const QuestionsTab = () => {
                       {renderWithGlossary(readingQuestion.answer)}
                     </div>
                   </div>
-                  {/* Картинка (только после ответа, перед заметкой) */}
-                  {readingQuestion.image && (
-                    <div
-                      className="my-4 rounded-xl overflow-hidden border border-white/10 cursor-pointer"
-                      onClick={() => setZoomedImage(readingQuestion.image)}
-                    >
-                      <img
-                        src={readingQuestion.image}
-                        alt="Иллюстрация к вопросу"
-                        className="w-full h-auto object-contain max-h-80"
-                        loading="lazy"
-                      />
-                    </div>
-                  )}
+                  {/* КАРТИНКА (после ответа, перед заметкой) */}
+                  {/* Блок изображений (одно или несколько) */}
+{(() => {
+  // Приводим к массиву: если строка – оборачиваем, если массив – оставляем, если ничего – null
+  const raw = readingQuestion.images || readingQuestion.image;
+  if (!raw) return null;
+  const imageList = Array.isArray(raw) ? raw : [raw];
+  return (
+    <div className="space-y-4">
+      {imageList.map((imgUrl: string, idx: number) => (
+        <div
+          key={idx}
+          className="rounded-xl overflow-hidden border border-white/10 cursor-pointer"
+          onClick={() => setZoomedImage(imgUrl)}
+        >
+          <img
+            src={imgUrl}
+            alt={`Иллюстрация к вопросу ${idx + 1}`}
+            className="w-full h-auto object-contain max-h-80"
+            loading="lazy"
+          />
+        </div>
+      ))}
+    </div>
+  );
+})()}
+                  {/* ЗАМЕТКА */}
                   <PersonalNote id={readingQuestion.id} />
                 </div>
               </div>
 
-              {/* Нижняя панель с кнопками */}
+              {/* НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ */}
               <div className="mt-auto pt-6 border-t border-white/5 bg-background pb-safe px-3">
                 <div className="flex gap-2 items-center">
+                  {/* Кнопка влево */}
                   <button
                     onClick={() => {
                       const currentIndex = questionsData.findIndex(q => q.id === readingQuestion.id);
@@ -555,6 +625,8 @@ export const QuestionsTab = () => {
                   >
                     <ArrowLeft className="w-5 h-5 text-white" />
                   </button>
+
+                  {/* Кнопка "Изучил" */}
                   <Button
                     variant={studiedIds.has(readingQuestion.id) ? "default" : "outline"}
                     className={cn(
@@ -565,13 +637,13 @@ export const QuestionsTab = () => {
                     )}
                     onClick={() => toggleStudied(readingQuestion.id)}
                   >
-                    {studiedIds.has(readingQuestion.id) ? (
-                      <CheckCircle2 className="w-4 h-4" />
-                    ) : (
-                      <Circle className="w-4 h-4" />
-                    )}
-                    {studiedIds.has(readingQuestion.id) ? "Изучено" : "Изучил"}
+                    {studiedIds.has(readingQuestion.id)
+                      ? (<><CheckCircle2 className="w-4 h-4" /> Изучено</>)
+                      : (<><Circle className="w-4 h-4" /> Изучил</>)
+                    }
                   </Button>
+
+                  {/* Кнопка "Выйти" */}
                   <Button
                     variant="outline"
                     className="flex-1 h-11 rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/10 font-bold"
@@ -580,6 +652,8 @@ export const QuestionsTab = () => {
                     <X className="w-4 h-4" />
                     Выйти
                   </Button>
+
+                  {/* Кнопка вправо */}
                   <button
                     onClick={() => {
                       const currentIndex = questionsData.findIndex(q => q.id === readingQuestion.id);
@@ -599,7 +673,7 @@ export const QuestionsTab = () => {
         )}
       </AnimatePresence>
 
-      {/* Тултип глоссария */}
+      {/* ТУЛТИП ГЛОССАРИЯ */}
       {activeTermDef && (
         <div
           ref={tooltipRef}
@@ -614,15 +688,11 @@ export const QuestionsTab = () => {
         </div>
       )}
 
-      {/* Модальное окно для увеличенного изображения */}
+      {/* МОДАЛЬНОЕ ОКНО ДЛЯ УВЕЛИЧЕННОГО ИЗОБРАЖЕНИЯ */}
       {zoomedImage && (
         <div
           className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center backdrop-blur-sm"
-          onClick={() => {
-            setZoomedImage(null);
-            setScale(1);
-            setTranslate({ x: 0, y: 0 });
-          }}
+          onClick={() => { setZoomedImage(null); setScale(1); setTranslate({ x: 0, y: 0 }); }}
           onWheel={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -635,9 +705,7 @@ export const QuestionsTab = () => {
               const dy = e.touches[0].clientY - e.touches[1].clientY;
               const dist = Math.hypot(dx, dy);
               (e.currentTarget as any).__pinchStart = {
-                dist,
-                scale,
-                translate,
+                dist, scale, translate,
                 cx: (e.touches[0].clientX + e.touches[1].clientX) / 2,
                 cy: (e.touches[0].clientY + e.touches[1].clientY) / 2,
               };
@@ -665,10 +733,7 @@ export const QuestionsTab = () => {
               const ps = (e.currentTarget as any).__panStart;
               const dx = e.touches[0].clientX - ps.x;
               const dy = e.touches[0].clientY - ps.y;
-              setTranslate({
-                x: ps.translate.x + dx,
-                y: ps.translate.y + dy,
-              });
+              setTranslate({ x: ps.translate.x + dx, y: ps.translate.y + dy });
             }
           }}
           onTouchEnd={(e) => {
@@ -677,12 +742,7 @@ export const QuestionsTab = () => {
           }}
         >
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setZoomedImage(null);
-              setScale(1);
-              setTranslate({ x: 0, y: 0 });
-            }}
+            onClick={(e) => { e.stopPropagation(); setZoomedImage(null); setScale(1); setTranslate({ x: 0, y: 0 }); }}
             className="absolute top-4 right-4 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors z-10"
           >
             <X className="w-6 h-6 text-white" />
@@ -691,10 +751,7 @@ export const QuestionsTab = () => {
             ref={imageRef}
             className="flex items-center justify-center max-w-full max-h-full"
             onClick={(e) => e.stopPropagation()}
-            onDoubleClick={() => {
-              setScale(1);
-              setTranslate({ x: 0, y: 0 });
-            }}
+            onDoubleClick={() => { setScale(1); setTranslate({ x: 0, y: 0 }); }}
           >
             <img
               src={zoomedImage}
