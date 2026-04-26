@@ -116,15 +116,7 @@ export const StatsTab = () => {
           </div>
           <div className="flex items-center gap-2">
             {/* Кнопка сброса прогресса */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={resetAllProgress}
-              className="gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
-            >
-              <Trash2 className="w-4 h-4" />
-              Сброс
-            </Button>
+            
             {/* Переключатель темы */}
             <Button
   variant="outline"
@@ -169,6 +161,18 @@ export const StatsTab = () => {
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
+            <div className="absolute top-0 right-0 z-10">
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={resetAllProgress}
+      className="gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+    >
+      <Trash2 className="w-4 h-4" />
+      Сброс
+    </Button>
+  </div>
+
             </div>
             <div className="text-center mt-4">
               <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
