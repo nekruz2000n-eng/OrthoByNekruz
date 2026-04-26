@@ -33,16 +33,19 @@
   }
   
   html, body {
-    @apply bg-background text-foreground;
-    overflow: hidden;
-    height: 100vh;
-    height: -webkit-fill-available;
-    width: 100vw;
-    position: fixed;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    overscroll-behavior: none;
-  }
+  @apply bg-background text-foreground;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  position: fixed;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+
+  /* Безопасные отступы, чтобы контент не перекрывался системными элементами Telegram */
+  padding-top: var(--tg-safe-area-inset-top, 0px);
+  padding-bottom: var(--tg-safe-area-inset-bottom, 0px);
+}
 }
 
 .glass-nav {
@@ -100,4 +103,8 @@ input[type="password"],
 }
 .text-amber-300 {
   color: #b69647;
+}
+
+body {
+  touch-action: manipulation; /* уже может быть, проверь */
 }
