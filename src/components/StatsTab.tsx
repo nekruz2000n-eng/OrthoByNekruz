@@ -122,7 +122,7 @@ export const StatsTab = () => {
   variant="outline"
   size="sm"
   onClick={() => setIsDark(prev => !prev)}
-  className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+  className="gap-2 border-primary/30 text-primary hover:bg-primary/10 [&>span]:text-foreground"
 >
   {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
   {isDark ? 'Светлая' : 'Тёмная'}
