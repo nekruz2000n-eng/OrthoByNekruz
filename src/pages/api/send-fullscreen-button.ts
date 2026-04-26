@@ -2,10 +2,10 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const BOT_TOKEN = process.env.BOT_TOKEN;
-  const CHAT_ID = '-1003929499461'; // твой ID канала
+  const CHAT_ID = '-1003929499461';
 
   if (!BOT_TOKEN) {
-    return res.status(400).json({ error: 'BOT_TOKEN не задан в переменных окружения' });
+    return res.status(400).json({ error: 'BOT_TOKEN не задан' });
   }
 
   try {
@@ -17,10 +17,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         text: 'Запускай и учись! 😉',
         reply_markup: {
           inline_keyboard: [[{
-            text: '📚 Открыть приложение',
+            text: '📚 Открыть приложение (с плашкой)',
             web_app: {
-              url: 'https://ortho-by-nekruz.vercel.app/',
-              fullscreen: true   // ← вот ключевой параметр
+              url: 'https://ortho-by-nekruz.vercel.app/'
+              // fullscreen убрали – inline-кнопка не умеет fullscreen
             }
           }]]
         }
