@@ -10,6 +10,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Label } from 'recharts';
 import { BookOpen, ClipboardList, PenTool, Star, Trash2 } from 'lucide-react';
 import { ToothIcon } from './ToothIcon';
 import { Button } from '@/components/ui/button';
+import { Sun, Moon } from 'lucide-react';
 
 export const StatsTab = () => {
   const [studiedCount, setStudiedCount] = useState(0);
@@ -20,6 +21,21 @@ export const StatsTab = () => {
   const totalTasks = tasksData.length;
   const totalTests = testsData.length;
 
+  const [isDark, setIsDark] = useState(() => {
+  if (typeof window === 'undefined') return true;
+  return localStorage.getItem('theme') !== 'light';
+});
+
+useEffect(() => {
+  const root = document.documentElement;
+  if (isDark) {
+    root.classList.add('dark');
+    localStorage.setItem('theme', 'dark');
+  } else {
+    root.classList.remove('dark');
+    localStorage.setItem('theme', 'light');
+  }
+}, [isDark]);
   const loadStats = () => {
     // Вопросы
     const studied = localStorage.getItem('studiedQuestions');
@@ -241,6 +257,25 @@ export const StatsTab = () => {
           </div>
         </div>
       </ScrollArea>
+    {/* Блок переключения темы */}
+<div className="mt-8 pt-6 border-t border-white/10 px-4 pb-safe">
+  <button
+    onClick={() => setIsDark(!isDark)}
+    className="w-full flex items-center justify-center gap-3 py-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+  >
+    {isDark ? (
+      <>
+        <Sun className="w-5 h-5 text-yellow-400" />
+        <span className="text-sm text-muted-foreground">Светлая тема</span>
+      </>
+    ) : (
+      <>
+        <Moon className="w-5 h-5 text-slate-400" />
+        <span className="text-sm text-muted-foreground">Тёмная тема</span>
+      </>
+    )}
+  </button>
+</div>
     </div>
   );
 };

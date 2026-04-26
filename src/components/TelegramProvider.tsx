@@ -6,32 +6,31 @@ export default function TelegramProvider() {
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) {
-      // 1. Разворачиваем окно на всю доступную высоту
       tg.expand();
-
-      // 2. Блокируем закрытие свайпом вниз (требуется Telegram версии 7.7+)
-      if (typeof tg.disableVerticalSwipes === 'function') {
-        tg.disableVerticalSwipes();
-      }
-
-      // 3. Включаем подтверждение закрытия (на случай, если свайп всё-таки возможен)
       tg.enableClosingConfirmation();
-
-      // 4. НАСТРОЙКА ПРОЗРАЧНОГО ЗАГОЛОВКА
-      // Вместо конкретного цвета фона используем ключевое слово 'bg_color' или 'secondary_bg_color',
-      // чтобы плашка заголовка сливалась с фоном твоего приложения.
-      // Но Telegram также позволяет передать 'bottom_bar_bg_color' и т.д.
-      // Мы укажем шестнадцатеричное значение, совпадающее с твоим фоном (#0B0E14)
       tg.setHeaderColor('#0B0E14');
       tg.setBackgroundColor('#0B0E14');
+      tg.ready();
 
-      // 5. ПОЛНОЭКРАННЫЙ РЕЖИМ (скрывает верхнюю плашку, если поддерживается)
-      if (tg.isVersionAtLeast && tg.isVersionAtLeast('8.0') && typeof tg.requestFullscreen === 'function') {
-        tg.requestFullscreen();
+      // Блокируем свайп сразу
+      if (typeof tg.disableVerticalSwipes === 'function') {
+        tg.disableVerticalSwipes();
+      } else {
+        // Если метод не появился, пробуем через 100 мс
+        setTimeout(() => {
+          const retryTg = (window as any).Telegram?.WebApp;
+          if (retryTg && typeof retryTg.disableVerticalSwipes === 'function') {
+            retryTg.disableVerticalSwipes();
+          }
+        }, 100);
       }
 
-      // 6. Сообщаем Telegram, что приложение полностью загружено и готово
-      tg.ready();
+      // Дополнительная страховка: при изменении viewport снова запрещаем свайп
+      tg.onEvent('viewportChanged', (data: any) => {
+        if (data && data.isStateStable === false) {
+          tg.disableVerticalSwipes?.();
+        }
+      });
     }
   }, []);
 
