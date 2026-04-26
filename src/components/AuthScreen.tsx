@@ -300,6 +300,17 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               >
                 {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Sign in with Telegram"}
               </Button>
+              <Button
+  variant="outline"
+  className="w-full h-12 rounded-xl border-primary/30 text-primary/80 hover:bg-primary/10"
+  onClick={() => {
+    localStorage.setItem('demo_mode', 'true');
+    localStorage.setItem('demo_start', String(Date.now()));
+    onAuthenticated();
+  }}
+>
+  Попробовать демо (5 мин)
+</Button>
             </div>
 
             {needsSubscription && (
