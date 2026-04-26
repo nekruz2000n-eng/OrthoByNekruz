@@ -1,9 +1,8 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { NextResponse } from 'next/server';
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const CHANNEL_USERNAME = 'nzsdental'; // без @
+const CHANNEL_USERNAME = 'nzsdental';
 
-// Проверка подписки на канал
 async function isSubscribed(userId: number): Promise<boolean> {
   if (!BOT_TOKEN) return false;
   try {
@@ -18,15 +17,10 @@ async function isSubscribed(userId: number): Promise<boolean> {
   }
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const update = req.body;
+export async function POST(req: Request) {
+  const update = await req.json();
   const message = update?.message;
 
-  // Обрабатываем только команду /start
   if (
     message &&
     message.text &&
@@ -36,14 +30,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const userId = message.from?.id;
 
     if (!userId) {
-      // Если не удалось получить ID пользователя (маловероятно), просто отвечаем OK
-      return res.status(200).json({ ok: true });
+      return NextResponse.json({ ok: true });
     }
 
     const subscribed = await isSubscribed(userId);
 
     if (subscribed) {
-      // Пользователь подписан – отправляем кнопку входа
       await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -57,7 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                   text: '🚀 Открыть OrthoByNekruz',
                   web_app: {
                     url: 'https://ortho-by-nekruz.vercel.app/',
-                    fullscreen: true,   // попытка открыть без плашки
+                    fullscreen: true,
                   },
                 },
               ],
@@ -66,7 +58,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }),
       });
     } else {
-      // Не подписан – просим подписаться
       await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -78,6 +69,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  // Всегда отвечаем 200 OK, чтобы Telegram не считал вебхук сломанным
-  return res.status(200).json({ ok: true });
+  return NextResponse.json({ ok: true });
 }
