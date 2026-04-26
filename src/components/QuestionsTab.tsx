@@ -558,7 +558,7 @@ export const QuestionsTab = () => {
                 onTouchEnd={handleTouchEnd}
                 onClick={handleGlossaryClick}
               >
-                <div className="space-y-8 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
+                <div className="space-y-7 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
                   {/* ВОПРОС */}
                   <div className="space-y-4 w-full">
                     <h2
