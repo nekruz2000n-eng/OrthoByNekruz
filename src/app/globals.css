@@ -106,6 +106,7 @@
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
+    padding-top: var(--tg-safe-area-inset-top);
     padding-bottom: var(--tg-safe-area-inset-bottom);
   }
 }
