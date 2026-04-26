@@ -710,7 +710,7 @@ export const QuestionsTab = () => {
           ))}
         </div>
       )}
-      <p className="text-white text-sm">{activeTermDef}</p>
+     {activeTermDef ? <p className="text-white text-sm">{activeTermDef}</p> : null}
       <p className="text-[10px] text-muted-foreground mt-1">↔ перетащите, чтобы переместить</p>
     </div>
   );
