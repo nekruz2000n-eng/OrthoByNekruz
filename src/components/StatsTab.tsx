@@ -258,20 +258,21 @@ useEffect(() => {
         </div>
       </ScrollArea>
     {/* Блок переключения темы */}
-<div className="mt-8 pt-6 border-t border-white/10 px-4 pb-safe">
+{/* Переключатель темы */}
+<div className="mt-8 pt-6 border-t border-[hsl(var(--border))] px-4 pb-safe">
   <button
-    onClick={() => setIsDark(!isDark)}
-    className="w-full flex items-center justify-center gap-3 py-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+    onClick={() => setIsDark(prev => !prev)}
+    className="w-full flex items-center justify-center gap-3 py-4 rounded-xl bg-[hsl(var(--muted))] hover:bg-[hsl(var(--muted-foreground)/0.1)] transition-colors"
   >
     {isDark ? (
       <>
         <Sun className="w-5 h-5 text-yellow-400" />
-        <span className="text-sm text-muted-foreground">Светлая тема</span>
+        <span className="text-sm text-[hsl(var(--muted-foreground))]">Светлая тема</span>
       </>
     ) : (
       <>
         <Moon className="w-5 h-5 text-slate-400" />
-        <span className="text-sm text-muted-foreground">Тёмная тема</span>
+        <span className="text-sm text-[hsl(var(--muted-foreground))]">Тёмная тема</span>
       </>
     )}
   </button>
