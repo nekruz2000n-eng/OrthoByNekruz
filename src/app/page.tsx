@@ -49,13 +49,10 @@ export default function Home() {
 
     // ---------- 1. Проверка демо-режима ----------
     if (demoMode && demoStart) {
-      const startTime = Number(demoStart);
-      const now = Date.now();
-      const elapsed = now - startTime;
+      const elapsed = Date.now() - Number(demoStart);
 
-      // Если демо уже был использован ранее или время истекло
-      if (demoUsed || elapsed > 1 * 60 * 1000) {
-        // Сбрасываем демо и помечаем как использованный
+      // Если время истекло — сбрасываем и выходим
+      if (elapsed > 5 * 60 * 1000) {
         localStorage.removeItem('demo_mode');
         localStorage.removeItem('demo_start');
         localStorage.setItem('demo_used', 'true');
@@ -64,20 +61,19 @@ export default function Home() {
         return;
       }
 
-      // Демо ещё активно — пускаем
+      // Демо активно — разрешаем вход
       setIsAuthenticated(true);
       setIsLoading(false);
 
-      // Таймер на оставшееся время (в миллисекундах)
-      const remaining = 1 * 60 * 1000 - elapsed;
+      // Таймер, который выкинет ровно через оставшееся время
+      const remaining = 5 * 60 * 1000 - elapsed;
       const timer = setTimeout(() => {
         localStorage.removeItem('demo_mode');
         localStorage.removeItem('demo_start');
         localStorage.setItem('demo_used', 'true');
-alert('Время демо истекло!'); window.location.reload(); // Автоматический выход
+        window.location.reload();
       }, remaining);
 
-      // Очистка таймера при размонтировании компонента
       return () => clearTimeout(timer);
     }
 
@@ -135,7 +131,7 @@ alert('Время демо истекло!'); window.location.reload(); // Ав�
 
   return (
     <main className="flex flex-col h-full w-full relative overflow-hidden animate-in fade-in duration-1000">
-      {/* Невидимая зона для сброса сессии */}
+      {/* Невидимая зона для скрытого сброса сессии (правый верхний угол) */}
       <div
         className="absolute top-0 right-0 w-10 h-10 z-50"
         onTouchStart={handleLongPressStart}
