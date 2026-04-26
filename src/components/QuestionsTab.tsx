@@ -562,7 +562,7 @@ export const QuestionsTab = () => {
                   {/* ВОПРОС */}
                   <div className="space-y-4 w-full">
                     <h2
-                      className="text-lg md:text-xl font-semibold leading-snug text-foreground/80 break-words whitespace-pre-wrap mb-6"
+                      className="text-lg md:text-xl font-semibold leading-snug text-foreground/80 break-words whitespace-pre-wrap mb-0"
                       style={{ fontSize: `${fontSize * 1.2}px` }}
                     >
                       {renderWithGlossary(readingQuestion.question)}
