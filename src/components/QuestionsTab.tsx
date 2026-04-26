@@ -552,7 +552,7 @@ export const QuestionsTab = () => {
 
               {/* ПРОКРУЧИВАЕМАЯ ОБЛАСТЬ С КОНТЕНТОМ (ЖЕСТ PINCH‑TO‑ZOOM) */}
               <div
-                className="flex-1 overflow-y-auto px-5 pt-10 scroll-container"
+                className="flex-1 overflow-y-auto px-5 pt-15 scroll-container"
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
