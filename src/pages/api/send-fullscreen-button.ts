@@ -1,13 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Берем токен из переменных окружения, куда ты его сохранил
   const BOT_TOKEN = process.env.BOT_TOKEN;
-  // Вставь сюда свой ID, который ты узнал у @userinfobot
-  const CHAT_ID = '-1003929499461';
+  const CHAT_ID = '-1003929499461'; // твой ID канала
 
-  if (!BOT_TOKEN || CHAT_ID === '-1003929499461') {
-    return res.status(400).json({ error: 'Не забудь вписать свой CHAT_ID в коде функции!' });
+  if (!BOT_TOKEN) {
+    return res.status(400).json({ error: 'BOT_TOKEN не задан в переменных окружения' });
   }
 
   try {
@@ -19,12 +17,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         text: 'Запускай и учись! 😉',
         reply_markup: {
           inline_keyboard: [[{
-            text: '📚 Открыть приложение', web_app: { url: 'https://ortho-by-nekruz.vercel.app/' }
+            text: '📚 Открыть приложение',
+            web_app: {
+              url: 'https://ortho-by-nekruz.vercel.app/',
+              fullscreen: true   // ← вот ключевой параметр
+            }
           }]]
         }
       })
     });
-    
+
     const data = await response.json();
     res.status(200).json({ success: true, data });
   } catch (error) {
