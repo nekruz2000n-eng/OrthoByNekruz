@@ -26,7 +26,9 @@ import ReactMarkdown from 'react-markdown';             // Рендеринг Ma
 interface GlossaryItem {
   term: string;
   definition: string;
+  image?: string | string[]; // необязательное поле: строка или массив строк
 }
+
 
 // =================================================
 // ГЛАВНЫЙ КОМПОНЕНТ
@@ -674,19 +676,45 @@ export const QuestionsTab = () => {
       </AnimatePresence>
 
       {/* ТУЛТИП ГЛОССАРИЯ */}
-      {activeTermDef && (
-        <div
-          ref={tooltipRef}
-          className="fixed z-[200] bg-card border border-white/10 rounded-2xl p-4 shadow-2xl max-w-xs select-none"
-          style={{ left: tooltipPos.x, top: tooltipPos.y }}
-          onMouseDown={handleTooltipMouseDown}
-          onTouchStart={handleTooltipTouchStart}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <p className="text-white text-sm">{activeTermDef}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">↔ перетащите, чтобы переместить</p>
+     {/* Тултип глоссария с поддержкой картинок и зума */}
+{activeTermDef && (() => {
+  const found = glossaryTerms.find((g: GlossaryItem) => g.definition === activeTermDef);
+  const termImage = found?.image;
+  return (
+    <div
+      ref={tooltipRef}
+      className="fixed z-[200] bg-card border border-white/10 rounded-2xl p-4 shadow-2xl max-w-xs select-none"
+      style={{ left: tooltipPos.x, top: tooltipPos.y }}
+      onMouseDown={handleTooltipMouseDown}
+      onTouchStart={handleTooltipTouchStart}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {termImage && (
+        <div className="mb-3 space-y-2">
+          {(Array.isArray(termImage) ? termImage : [termImage]).map((imgUrl: string, idx: number) => (
+            <div
+              key={idx}
+              className="rounded-lg overflow-hidden border border-white/10 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation(); // чтобы не закрылся тултип
+                setZoomedImage(imgUrl);
+              }}
+            >
+              <img
+                src={imgUrl}
+                alt={`Иллюстрация термина ${idx + 1}`}
+                className="w-full h-auto object-contain max-h-32"
+                loading="lazy"
+              />
+            </div>
+          ))}
         </div>
       )}
+      <p className="text-white text-sm">{activeTermDef}</p>
+      <p className="text-[10px] text-muted-foreground mt-1">↔ перетащите, чтобы переместить</p>
+    </div>
+  );
+})()}
 
       {/* МОДАЛЬНОЕ ОКНО ДЛЯ УВЕЛИЧЕННОГО ИЗОБРАЖЕНИЯ */}
       {zoomedImage && (
