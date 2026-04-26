@@ -69,7 +69,7 @@ export default function Home() {
       setIsLoading(false);
 
       // Таймер на оставшееся время (в миллисекундах)
-      const remaining = 5 * 60 * 1000 - elapsed;
+      const remaining = 1 * 60 * 1000 - elapsed;
       const timer = setTimeout(() => {
         localStorage.removeItem('demo_mode');
         localStorage.removeItem('demo_start');

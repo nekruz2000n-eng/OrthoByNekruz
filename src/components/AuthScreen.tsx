@@ -303,13 +303,37 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               <Button
   variant="outline"
   className="w-full h-12 rounded-xl border-primary/30 text-primary/80 hover:bg-primary/10"
-  onClick={() => {
-    localStorage.setItem('demo_mode', 'true');
-    localStorage.setItem('demo_start', String(Date.now()));
-    onAuthenticated();
+  onClick={async () => {
+    const tg = (window as any).Telegram?.WebApp;
+    const currentTgId = tg?.initDataUnsafe?.user?.id;
+
+    if (!currentTgId) {
+      toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось определить Telegram ID. Откройте приложение через бота.' });
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telegramId: String(currentTgId), mode: 'check_demo' }),
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        toast({ variant: 'destructive', title: 'Демо недоступно', description: data.message || 'Вы уже использовали пробный период.' });
+        return;
+      }
+
+      localStorage.setItem('demo_mode', 'true');
+      localStorage.setItem('demo_start', String(Date.now()));
+      onAuthenticated();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Ошибка', description: 'Сервер недоступен.' });
+    }
   }}
 >
-  Попробовать демо (5 мин)
+  Попробовать демо (4 мин)
 </Button>
             </div>
 
