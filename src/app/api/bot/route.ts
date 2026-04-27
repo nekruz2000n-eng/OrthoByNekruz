@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHANNEL_USERNAME = 'nzsdental';
 
+// Проверка подписки на канал через Telegram API
 async function isSubscribed(userId: number): Promise<boolean> {
   if (!BOT_TOKEN) return false;
   try {
@@ -21,11 +22,7 @@ export async function POST(req: Request) {
   const update = await req.json();
   const message = update?.message;
 
-  if (
-    message &&
-    message.text &&
-    message.text.trim().toLowerCase() === '/start'
-  ) {
+  if (message && message.text && message.text.trim().toLowerCase() === '/start') {
     const chatId = message.chat.id;
     const userId = message.from?.id;
 
@@ -36,6 +33,7 @@ export async function POST(req: Request) {
     const subscribed = await isSubscribed(userId);
 
     if (subscribed) {
+      // Отправляем приветственное сообщение с кнопкой входа в приложение
       await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -49,8 +47,8 @@ export async function POST(req: Request) {
                   text: '🚀 Открыть OrthoByNekruz',
                   web_app: {
                     url: 'https://ortho-by-nekruz.vercel.app/',
-                    fullscreen: true,
-                  },
+                    fullscreen: true   // ← добавили
+                  }
                 },
               ],
             ],
@@ -58,6 +56,7 @@ export async function POST(req: Request) {
         }),
       });
     } else {
+      // Просим подписаться на канал
       await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

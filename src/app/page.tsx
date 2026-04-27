@@ -9,11 +9,8 @@ import { TasksTab } from '@/components/TasksTab';
 import { StatsTab } from '@/components/StatsTab';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useDemoTimer } from '../hooks/useDemoTimer';
-import GlossaryTerm from '../components/GlossaryTerm';
 
 export default function Home() {
-  useDemoTimer(); // Включаем таймер отсчета
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<TabType>('questions');
