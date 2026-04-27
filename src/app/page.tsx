@@ -9,8 +9,11 @@ import { TasksTab } from '@/components/TasksTab';
 import { StatsTab } from '@/components/StatsTab';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useDemoTimer } from '../hooks/useDemoTimer';
+import GlossaryTerm from '../components/GlossaryTerm';
 
 export default function Home() {
+  useDemoTimer(); // Включаем таймер отсчета
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<TabType>('questions');
@@ -21,14 +24,8 @@ export default function Home() {
 
   const handleLongPressStart = useCallback(() => {
     longPressTimerRef.current = setTimeout(() => {
-      // Принудительно очищаем всё: авторизацию и демо
-      localStorage.removeItem('is_authed');
-      localStorage.removeItem('user_tg_id');
-      localStorage.removeItem('welcome_seen');
-      localStorage.removeItem('demo_mode');
-      localStorage.removeItem('demo_start');
-      localStorage.removeItem('demo_used');
-      toast({ title: 'Session reset', description: 'Reloading...' });
+      localStorage.clear(); // Очищаем вообще всё для сброса
+      toast({ title: 'Session reset', description: 'All data cleared. Reloading...' });
       setTimeout(() => window.location.reload(), 500);
     }, 8000);
   }, [toast]);
@@ -39,55 +36,64 @@ export default function Home() {
       longPressTimerRef.current = null;
     }
   }, []);
-  // =============================================================
 
+  // ======== ОСНОВНАЯ ЛОГИКА АВТОРИЗАЦИИ И ДЕМО ========
   useEffect(() => {
-    const checkAuth = () => {
+    const initAuth = () => {
       const storedAuthed = localStorage.getItem('is_authed') === 'true';
       const demoMode = localStorage.getItem('demo_mode') === 'true';
       const demoStart = localStorage.getItem('demo_start');
       const demoUsed = localStorage.getItem('demo_used') === 'true';
 
-      // 1. Проверка демо-режима (1 МИНУТА)
+      // 1. ЛОГИКА ДЕМО-РЕЖИМА
       if (demoMode && demoStart) {
-        const DEMO_LIMIT = 1 * 60 * 1000; // 1 минута в мс
-        const elapsed = Date.now() - Number(demoStart);
+        const DEMO_LIMIT = 1 * 60 * 1000; // Ровно 1 минута
 
-        if (elapsed >= DEMO_LIMIT) {
-          localStorage.removeItem('demo_mode');
-          localStorage.removeItem('demo_start');
-          localStorage.setItem('demo_used', 'true');
-          setIsAuthenticated(false);
-          return;
-        }
+        const checkDemoStatus = () => {
+          const elapsed = Date.now() - Number(demoStart);
+          if (elapsed >= DEMO_LIMIT) {
+            // Время истекло: чистим ключи и сбрасываем стейт
+            localStorage.removeItem('is_authed');
+            localStorage.removeItem('demo_mode');
+            localStorage.removeItem('demo_start');
+            localStorage.setItem('demo_used', 'true');
+            setIsAuthenticated(false);
+            window.location.reload(); 
+            return true;
+          }
+          return false;
+        };
+
+        // Проверяем сразу при загрузке
+        if (checkDemoStatus()) return;
 
         setIsAuthenticated(true);
+        setIsLoading(false);
 
-        // Таймер на вылет
-        const remaining = DEMO_LIMIT - elapsed;
-        const timer = setTimeout(() => {
-          localStorage.removeItem('demo_mode');
-          localStorage.removeItem('demo_start');
-          localStorage.setItem('demo_used', 'true');
-          setIsAuthenticated(false); // Сначала закрываем доступ
-          window.location.reload();   // Потом релоад для надежности
-        }, remaining);
+        // Ставим интервал для проверки каждую секунду (чтобы выкинуло мгновенно)
+        const interval = setInterval(() => {
+          checkDemoStatus();
+        }, 1000);
 
-        return () => clearTimeout(timer);
+        return () => clearInterval(interval);
       }
 
+      // 2. ЕСЛИ ДЕМО ИСПОЛЬЗОВАН, НО НЕТ КЛЮЧА
       if (demoUsed && !storedAuthed) {
         setIsAuthenticated(false);
+        setIsLoading(false);
         return;
       }
 
-      // 2. Обычная проверка
+      // 3. ОБЫЧНАЯ АВТОРИЗАЦИЯ ПО КЛЮЧУ
       if (storedAuthed) {
         const storedTgId = localStorage.getItem('user_tg_id');
         const tg = (window as any).Telegram?.WebApp;
         const currentTgId = tg?.initDataUnsafe?.user?.id;
 
+        // Если ID сменился — сбрасываем
         if (currentTgId && storedTgId && String(currentTgId) !== storedTgId) {
+          localStorage.removeItem('is_authed');
           setIsAuthenticated(false);
         } else {
           setIsAuthenticated(true);
@@ -95,18 +101,22 @@ export default function Home() {
       } else {
         setIsAuthenticated(false);
       }
+
+      setIsLoading(false);
     };
 
-    checkAuth();
-    setIsLoading(false);
+    initAuth();
 
-    // Telegram Init
+    // Инициализация Telegram Mini App
     if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
       const tg = (window as any).Telegram.WebApp;
       tg.ready();
       tg.expand();
+      tg.setHeaderColor('#0B0E14');
+      tg.setBackgroundColor('#0B0E14');
     }
-  }, [isAuthenticated]); // Добавляем isAuthenticated, чтобы эффект реагировал на вход
+  }, [isAuthenticated]); // Следим за изменением стейта для перезапуска логики
+
   // ====== РЕНДЕР ======
   if (isLoading) {
     return (

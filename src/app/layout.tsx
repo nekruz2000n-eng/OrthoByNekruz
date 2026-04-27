@@ -1,58 +1,71 @@
-import type { Metadata, Viewport } from 'next';
-import './globals.css';
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { AuthScreen } from '@/components/AuthScreen'; // Убедись, что путь к AuthScreen верный
 import { Toaster } from '@/components/ui/toaster';
-import Script from 'next/script';
-import TelegramProvider from '@/components/TelegramProvider';
-
-export const metadata: Metadata = {
-  title: 'OrthoByNekruz',
-  description: 'Dental Student Learning Platform',
-};
-
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  viewportFit: 'cover',
-};
+import { useToast } from '@/hooks/use-toast';
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
+  const { toast } = useToast();
+
+  // 1. Проверка авторизации при загрузке
+  useEffect(() => {
+    const authStatus = localStorage.getItem('is_authed') === 'true';
+    setIsAuthenticated(authStatus);
+    setIsChecking(false);
+  }, []);
+
+  // 2. ИНЖЕНЕРНЫЙ ТАЙМЕР (Watcher)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const checkDemoExpiry = () => {
+      const isDemo = localStorage.getItem('demo_mode') === 'true';
+      const demoStart = localStorage.getItem('demo_start');
+      
+      if (isDemo && demoStart) {
+        const elapsed = Date.now() - parseInt(demoStart, 10);
+        const THREE_MINUTES = 3 * 60 * 1000; 
+
+        if (elapsed >= THREE_MINUTES) {
+          // ВРЕМЯ ВЫШЛО
+          localStorage.setItem('is_authed', 'false');
+          localStorage.setItem('demo_expired', 'true');
+          setIsAuthenticated(false);
+          
+          toast({
+            variant: 'destructive',
+            title: 'Демо-период завершен',
+            description: 'Для продолжения работы необходим ключ доступа.',
+          });
+        }
+      }
+    };
+
+    // Проверяем каждые 2 секунды, чтобы юзер не успел дочитать
+    const interval = setInterval(checkDemoExpiry, 2000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, toast]);
+
+  // Если идет первичная проверка — не показываем ничего, чтобы не было "мигания"
+  if (isChecking) return null;
+
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-        <Script
-          src="https://telegram.org/js/telegram-web-app.js"
-          strategy="lazyOnload"
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                var theme = localStorage.getItem('theme');
-                if (theme === 'light') {
-                  document.documentElement.classList.remove('dark');
-                } else {
-                  document.documentElement.classList.add('dark');
-                }
-              })();
-            `,
-          }}
-        />
-      </head>
-      <body className="font-body antialiased bg-background text-foreground overflow-hidden h-screen w-screen">
-        <TelegramProvider />
-        {children}
+    <html lang="ru">
+      <body className="antialiased dark">
+        {isAuthenticated ? (
+          // Если авторизован (или в демо) — показываем контент приложения
+          <main>{children}</main>
+        ) : (
+          // Если не авторизован или демо кончилось — экран входа
+          <AuthScreen onAuthenticated={() => setIsAuthenticated(true)} />
+        )}
         <Toaster />
       </body>
     </html>
