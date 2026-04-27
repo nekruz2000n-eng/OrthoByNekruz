@@ -333,7 +333,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     }
   }}
 >
-  Попробовать демо (4 мин)
+  Попробовать демо (1 мин)
 </Button>
             </div>
 
