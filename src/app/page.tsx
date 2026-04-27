@@ -42,80 +42,71 @@ export default function Home() {
   // =============================================================
 
   useEffect(() => {
-    const storedAuthed = localStorage.getItem('is_authed') === 'true';
-    const demoMode = localStorage.getItem('demo_mode') === 'true';
-    const demoStart = localStorage.getItem('demo_start');
-    const demoUsed = localStorage.getItem('demo_used') === 'true';
+    const checkAuth = () => {
+      const storedAuthed = localStorage.getItem('is_authed') === 'true';
+      const demoMode = localStorage.getItem('demo_mode') === 'true';
+      const demoStart = localStorage.getItem('demo_start');
+      const demoUsed = localStorage.getItem('demo_used') === 'true';
 
-    // ---------- 1. Проверка демо-режима ----------
-    if (demoMode && demoStart) {
-      const elapsed = Date.now() - Number(demoStart);
+      // 1. Проверка демо-режима (1 МИНУТА)
+      if (demoMode && demoStart) {
+        const DEMO_LIMIT = 1 * 60 * 1000; // 1 минута в мс
+        const elapsed = Date.now() - Number(demoStart);
 
-      // Если время истекло — сбрасываем и выходим
-      if (elapsed > 5 * 60 * 1000) {
-        localStorage.removeItem('demo_mode');
-        localStorage.removeItem('demo_start');
-        localStorage.setItem('demo_used', 'true');
+        if (elapsed >= DEMO_LIMIT) {
+          localStorage.removeItem('demo_mode');
+          localStorage.removeItem('demo_start');
+          localStorage.setItem('demo_used', 'true');
+          setIsAuthenticated(false);
+          return;
+        }
+
+        setIsAuthenticated(true);
+
+        // Таймер на вылет
+        const remaining = DEMO_LIMIT - elapsed;
+        const timer = setTimeout(() => {
+          localStorage.removeItem('demo_mode');
+          localStorage.removeItem('demo_start');
+          localStorage.setItem('demo_used', 'true');
+          setIsAuthenticated(false); // Сначала закрываем доступ
+          window.location.reload();   // Потом релоад для надежности
+        }, remaining);
+
+        return () => clearTimeout(timer);
+      }
+
+      if (demoUsed && !storedAuthed) {
         setIsAuthenticated(false);
-        setIsLoading(false);
         return;
       }
 
-      // Демо активно — разрешаем вход
-      setIsAuthenticated(true);
-      setIsLoading(false);
+      // 2. Обычная проверка
+      if (storedAuthed) {
+        const storedTgId = localStorage.getItem('user_tg_id');
+        const tg = (window as any).Telegram?.WebApp;
+        const currentTgId = tg?.initDataUnsafe?.user?.id;
 
-      // Таймер, который выкинет ровно через оставшееся время
-      const remaining = 5 * 60 * 1000 - elapsed;
-      const timer = setTimeout(() => {
-        localStorage.removeItem('demo_mode');
-        localStorage.removeItem('demo_start');
-        localStorage.setItem('demo_used', 'true');
-        window.location.reload();
-      }, remaining);
-
-      return () => clearTimeout(timer);
-    }
-
-    // Если демо уже был использован — на экран входа
-    if (demoUsed) {
-      localStorage.removeItem('demo_mode');
-      localStorage.removeItem('demo_start');
-      setIsAuthenticated(false);
-      setIsLoading(false);
-      return;
-    }
-
-    // ---------- 2. Обычная проверка авторизации ----------
-    if (storedAuthed) {
-      const storedTgId = localStorage.getItem('user_tg_id');
-      const tg = (window as any).Telegram?.WebApp;
-      const currentTgId = tg?.initDataUnsafe?.user?.id;
-
-      if (currentTgId && storedTgId && String(currentTgId) !== storedTgId) {
-        localStorage.removeItem('is_authed');
-        localStorage.removeItem('user_tg_id');
-        localStorage.removeItem('welcome_seen');
-        setIsAuthenticated(false);
+        if (currentTgId && storedTgId && String(currentTgId) !== storedTgId) {
+          setIsAuthenticated(false);
+        } else {
+          setIsAuthenticated(true);
+        }
       } else {
-        setIsAuthenticated(true);
+        setIsAuthenticated(false);
       }
-    } else {
-      setIsAuthenticated(false);
-    }
+    };
 
-    // ---------- 3. Инициализация Telegram Mini App ----------
+    checkAuth();
+    setIsLoading(false);
+
+    // Telegram Init
     if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
       const tg = (window as any).Telegram.WebApp;
       tg.ready();
       tg.expand();
-      tg.setHeaderColor('#0B0E14');
-      tg.setBackgroundColor('#0B0E14');
     }
-
-    setIsLoading(false);
-  }, []);
-
+  }, [isAuthenticated]); // Добавляем isAuthenticated, чтобы эффект реагировал на вход
   // ====== РЕНДЕР ======
   if (isLoading) {
     return (
