@@ -9,6 +9,7 @@ import { Loader2, ExternalLink, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void }) => {
+  
   const { toast } = useToast();
 
   // ---------- СОСТОЯНИЯ ----------
@@ -26,7 +27,17 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const maxAttempts = 20;          // всего попыток
   const attemptInterval = 300;     // интервал 500 мс (итого 5 секунд)
   const [idCheckAttempts, setIdCheckAttempts] = useState(0);
+// Добавь это в начало компонента AuthScreen
+const [debugInfo, setDebugInfo] = useState('');
 
+useEffect(() => {
+  const tg = (window as any).Telegram?.WebApp;
+  if (tg) {
+    setDebugInfo(JSON.stringify(tg.initDataUnsafe));
+  } else {
+    setDebugInfo('Объект Telegram не найден в window');
+  }
+}, [idCheckAttempts]);
   useEffect(() => {
   if (autoTgId !== null || idCheckAttempts >= 20) {
     setIdChecked(true);
@@ -198,6 +209,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         <div className="mb-8 flex flex-col items-center space-y-4">
           <ToothIcon className={cn("w-16 h-16 text-primary transition-all", loading && "animate-pulse")} />
           <h1 className="text-3xl font-bold tracking-tighter text-white select-none cursor-default" onClick={handleTitleClick}>OrthoByNekruz</h1>
+        <p className="text-[8px] text-white/20">{debugInfo}</p> 
         </div>
 
         <div className={cn("w-full space-y-4", error && "animate-shake")}>
