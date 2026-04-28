@@ -23,7 +23,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [idChecked, setIdChecked] = useState(false);
 
   // ---------- АВТООПРЕДЕЛЕНИЕ TELEGRAM ID (повторные попытки) ----------
-  const maxAttempts = 10;          // всего попыток
+  const maxAttempts = 20;          // всего попыток
   const attemptInterval = 500;     // интервал 500 мс (итого 5 секунд)
   const [idCheckAttempts, setIdCheckAttempts] = useState(0);
 
