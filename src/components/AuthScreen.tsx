@@ -64,6 +64,12 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       if (tg) {
         tg.ready();
         tg.expand?.();
+        // Устанавливаем цвет шапки под твой темный фон
+  // 'bg_color' подтянет цвет из темы Telegram, либо можно задать HEX:
+  tg.setHeaderColor('#0a0a0c'); 
+  
+  // Также можно покрасить нижнюю полоску (Background)
+  tg.setBackgroundColor('#0a0a0c');
         
         // Пытаемся достать ID всеми способами
         let id = tg.initDataUnsafe?.user?.id;
