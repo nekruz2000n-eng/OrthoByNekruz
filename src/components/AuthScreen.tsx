@@ -227,7 +227,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           </div>
           <div className="text-center">
             <a href="https://t.me/evoeidos" className="inline-flex items-center text-xs text-primary/60 hover:text-primary transition-colors">
-              Need a key? DM @evoeidos <ExternalLink className="ml-1 w-3 h-3" />
+              Нужен ключ ? DM @evoeidos <ExternalLink className="ml-1 w-3 h-3" />
             </a>
           </div>
         </div>
