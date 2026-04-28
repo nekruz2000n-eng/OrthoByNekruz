@@ -28,79 +28,91 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const maxAttempts = 20;
   const attemptInterval = 500;
 
-  // 1. Защита от ошибок гидрации (Next.js)
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+ // 1. Защита от гидрации
+useEffect(() => {
+  setMounted(true);
+}, []);
 
-  // 2. РУЧНАЯ ЗАГРУЗКА СКРИПТА (если он не загрузился в layout)
-  useEffect(() => {
-    if (!mounted) return;
-    
-    const existingScript = document.getElementById('tg-iframe-script');
-    if (!existingScript) {
-      const script = document.createElement('script');
-      script.id = 'tg-iframe-script';
-      script.src = 'https://telegram.org/js/telegram-web-app.js';
-      script.async = true;
-      script.onload = () => {
-        console.log("Telegram script loaded manually");
-        setIdCheckAttempts(0); 
-      };
-      document.head.appendChild(script);
+// 2. Инициализация Telegram WebApp (цвета, expand) – вызывается однократно при готовности
+useEffect(() => {
+  if (!mounted) return;
+
+  const existingScript = document.getElementById('tg-iframe-script');
+  if (!existingScript) {
+    const script = document.createElement('script');
+    script.id = 'tg-iframe-script';
+    script.src = 'https://telegram.org/js/telegram-web-app.js';
+    script.async = true;
+    script.onload = () => {
+      console.log("Telegram script loaded manually");
+      initTelegram();
+    };
+    document.head.appendChild(script);
+  } else {
+    // если скрипт уже загружен, просто проверяем объект tg
+    initTelegram();
+  }
+
+  function initTelegram() {
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand?.();
+      // Устанавливаем тёмный цвет заголовка и фона сразу
+      tg.setHeaderColor('#0a0a0c');
+      tg.setBackgroundColor('#0a0a0c');
     }
-  }, [mounted]);
+  }
 
-  // 3. ЛОГИКА ОПРЕДЕЛЕНИЯ ID
-  useEffect(() => {
-    if (!mounted || autoTgId !== null || idCheckAttempts >= maxAttempts) {
-      if (idCheckAttempts >= maxAttempts) setIdChecked(true);
-      return;
+  // Периодически проверяем появление tg (на случай поздней инициализации)
+  const checkInterval = setInterval(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand?.();
+      tg.setHeaderColor('#0a0a0c');
+      tg.setBackgroundColor('#0a0a0c');
+      clearInterval(checkInterval);
     }
+  }, 300);
 
-    const timer = setTimeout(() => {
-      const tg = (window as any).Telegram?.WebApp;
-      
-      if (tg) {
-        tg.ready();
-        tg.expand?.();
-        // Устанавливаем цвет шапки под твой темный фон
-  // 'bg_color' подтянет цвет из темы Telegram, либо можно задать HEX:
-  tg.setHeaderColor('#0a0a0c'); 
-  
-  // Также можно покрасить нижнюю полоску (Background)
-  tg.setBackgroundColor('#0a0a0c');
-        
-        // Пытаемся достать ID всеми способами
-        let id = tg.initDataUnsafe?.user?.id;
+  return () => clearInterval(checkInterval);
+}, [mounted]);
 
-        if (!id && tg.initData) {
-          const searchParams = new URLSearchParams(tg.initData);
-          const userStr = searchParams.get('user');
-          if (userStr) {
-            try {
-              id = JSON.parse(userStr).id;
-            } catch (e) {}
-          }
+// 3. ЛОГИКА ОПРЕДЕЛЕНИЯ ID (без установки цвета)
+useEffect(() => {
+  if (!mounted || autoTgId !== null || idCheckAttempts >= maxAttempts) {
+    if (idCheckAttempts >= maxAttempts) setIdChecked(true);
+    return;
+  }
+
+  const timer = setTimeout(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg) {
+      let id = tg.initDataUnsafe?.user?.id;
+      if (!id && tg.initData) {
+        const searchParams = new URLSearchParams(tg.initData);
+        const userStr = searchParams.get('user');
+        if (userStr) {
+          try { id = JSON.parse(userStr).id; } catch (e) {}
         }
-
-        if (id) {
-          setAutoTgId(String(id));
-          setIdChecked(true);
-          setDebugInfo(`Detected ID: ${id}`);
-        } else {
-          setDebugInfo(`Attempt ${idCheckAttempts}: No ID in initData`);
-          setIdCheckAttempts(prev => prev + 1);
-        }
+      }
+      if (id) {
+        setAutoTgId(String(id));
+        setIdChecked(true);
+        setDebugInfo(`Detected ID: ${id}`);
       } else {
-        setDebugInfo('Searching for Telegram object...');
+        setDebugInfo(`Attempt ${idCheckAttempts}: No ID in initData`);
         setIdCheckAttempts(prev => prev + 1);
       }
-    }, attemptInterval);
+    } else {
+      setDebugInfo('Searching for Telegram object...');
+      setIdCheckAttempts(prev => prev + 1);
+    }
+  }, attemptInterval);
 
-    return () => clearTimeout(timer);
-  }, [mounted, autoTgId, idCheckAttempts]);
-
+  return () => clearTimeout(timer);
+}, [mounted, autoTgId, idCheckAttempts]);
   // --- СКРЫТЫЙ СБРОС (6 касаний) ---
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
