@@ -12,6 +12,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const { toast } = useToast();
 
   // ---------- СОСТОЯНИЯ ----------
+  const [mounted, setMounted] = useState(false);
   const [key, setKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -21,72 +22,80 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [manualTgId, setManualTgId] = useState('');
   const [autoTgId, setAutoTgId] = useState<string | null>(null);
   const [idChecked, setIdChecked] = useState(false);
-
-  // ---------- АВТООПРЕДЕЛЕНИЕ TELEGRAM ID (повторные попытки) ----------
-  const maxAttempts = 20;          // всего попыток
-  const attemptInterval = 300;     // интервал 500 мс (итого 5 секунд)
   const [idCheckAttempts, setIdCheckAttempts] = useState(0);
+  const [debugInfo, setDebugInfo] = useState('');
 
+  const maxAttempts = 20;
+  const attemptInterval = 500;
+
+  // 1. Защита от ошибок гидрации (Next.js)
   useEffect(() => {
-    useEffect(() => {
-  // Проверяем, есть ли скрипт на странице
-  const existingScript = document.getElementById('tg-iframe-script');
-  if (!existingScript) {
-    const script = document.createElement('script');
-    script.id = 'tg-iframe-script';
-    script.src = 'https://telegram.org/js/telegram-web-app.js';
-    script.async = true;
-    script.onload = () => {
-      console.log("Telegram script loaded manually");
-      // После загрузки даем пинок проверке ID
-      setIdCheckAttempts(0); 
-    };
-    document.head.appendChild(script);
-  }
-}, []);
-  if (autoTgId !== null || idCheckAttempts >= 20) {
-    setIdChecked(true);
-    return;
-  }
+    setMounted(true);
+  }, []);
 
-  const timer = setTimeout(() => {
-    const tg = (window as any).Telegram?.WebApp;
+  // 2. РУЧНАЯ ЗАГРУЗКА СКРИПТА (если он не загрузился в layout)
+  useEffect(() => {
+    if (!mounted) return;
     
-    if (tg) {
-      tg.ready();
+    const existingScript = document.getElementById('tg-iframe-script');
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.id = 'tg-iframe-script';
+      script.src = 'https://telegram.org/js/telegram-web-app.js';
+      script.async = true;
+      script.onload = () => {
+        console.log("Telegram script loaded manually");
+        setIdCheckAttempts(0); 
+      };
+      document.head.appendChild(script);
+    }
+  }, [mounted]);
+
+  // 3. ЛОГИКА ОПРЕДЕЛЕНИЯ ID
+  useEffect(() => {
+    if (!mounted || autoTgId !== null || idCheckAttempts >= maxAttempts) {
+      if (idCheckAttempts >= maxAttempts) setIdChecked(true);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const tg = (window as any).Telegram?.WebApp;
       
-      // Попытка 1: Через стандартный объект
-      let id = tg.initDataUnsafe?.user?.id;
+      if (tg) {
+        tg.ready();
+        tg.expand?.();
+        
+        // Пытаемся достать ID всеми способами
+        let id = tg.initDataUnsafe?.user?.id;
 
-      // Попытка 2: Парсим сырую строку (иногда объект пуст, а строка полная)
-      if (!id && tg.initData) {
-        const searchParams = new URLSearchParams(tg.initData);
-        const userStr = searchParams.get('user');
-        if (userStr) {
-          try {
-            const userObj = JSON.parse(userStr);
-            id = userObj.id;
-          } catch (e) {}
+        if (!id && tg.initData) {
+          const searchParams = new URLSearchParams(tg.initData);
+          const userStr = searchParams.get('user');
+          if (userStr) {
+            try {
+              id = JSON.parse(userStr).id;
+            } catch (e) {}
+          }
         }
-      }
 
-      if (id) {
-        setAutoTgId(String(id));
-        setIdChecked(true);
+        if (id) {
+          setAutoTgId(String(id));
+          setIdChecked(true);
+          setDebugInfo(`Detected ID: ${id}`);
+        } else {
+          setDebugInfo(`Attempt ${idCheckAttempts}: No ID in initData`);
+          setIdCheckAttempts(prev => prev + 1);
+        }
       } else {
+        setDebugInfo('Searching for Telegram object...');
         setIdCheckAttempts(prev => prev + 1);
       }
-    } else {
-      setIdCheckAttempts(prev => prev + 1);
-    }
-  }, 500);
+    }, attemptInterval);
 
-  return () => clearTimeout(timer);
-}, [autoTgId, idCheckAttempts]);
+    return () => clearTimeout(timer);
+  }, [mounted, autoTgId, idCheckAttempts]);
 
-  const isInitializing = !idChecked; // идёт ли проверка авто-ID
-
-  // --- СКРЫТЫЙ СБРОС (6 касаний по заголовку) ---
+  // --- СКРЫТЫЙ СБРОС (6 касаний) ---
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -103,11 +112,10 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     }
   }, [toast]);
 
-  // -------- ОСНОВНАЯ ФУНКЦИЯ АВТОРИЗАЦИИ ----------
+  // -------- АВТОРИЗАЦИЯ ----------
   const handleAuth = useCallback(
     async (inputKey: string, inputTgId: string) => {
       if (loading || lockoutTime > 0 || !inputTgId) return;
-
       setLoading(true);
       setError(false);
       setNeedsSubscription(false);
@@ -120,11 +128,9 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         });
 
         const data = await response.json();
-
         if (response.ok) {
           localStorage.setItem('is_authed', 'true');
           localStorage.setItem('user_tg_id', String(inputTgId));
-
           if (!localStorage.getItem('welcome_seen') && inputKey !== '') {
             setShowWelcome(true);
           } else {
@@ -133,7 +139,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         } else {
           if (response.status === 403) {
             setNeedsSubscription(true);
-          } else if (inputKey !== '') {
+          } else {
             setLockoutTime(15);
             setError(true);
             toast({ variant: 'destructive', title: 'Access denied', description: data.error || 'Invalid key' });
@@ -157,13 +163,10 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     handleAuth(key, currentTgId);
   };
 
-  // -------- ДЕМО РЕЖИМ (запрос к серверу) ----------
   const handleDemoClick = async () => {
-    const tg = (window as any).Telegram?.WebApp;
-    const currentTgId = tg?.initDataUnsafe?.user?.id || autoTgId || manualTgId;
-
+    const currentTgId = autoTgId || manualTgId.trim();
     if (!currentTgId) {
-      toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось определить ID. Попробуйте запустить через бота.' });
+      toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось определить ID.' });
       return;
     }
 
@@ -175,16 +178,14 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         body: JSON.stringify({ telegramId: String(currentTgId), mode: 'check_demo' }),
       });
       const data = await response.json();
-
       if (data.success) {
-        // Критически важно: ставим флаги ПЕРЕД вызовом onAuthenticated
         localStorage.setItem('is_authed', 'true');
         localStorage.setItem('demo_mode', 'true');
         localStorage.setItem('demo_start', String(Date.now()));
         localStorage.setItem('user_tg_id', String(currentTgId));
         onAuthenticated();
       } else {
-        toast({ variant: 'destructive', title: 'Демо недоступно', description: data.message || 'Вы уже использовали пробный период.' });
+        toast({ variant: 'destructive', title: 'Демо недоступно', description: data.message });
       }
     } catch (error) {
       toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
@@ -192,6 +193,8 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       setLoading(false);
     }
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background relative overflow-hidden">
@@ -203,7 +206,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
             </div>
             <div className="space-y-2">
               <h2 className="text-2xl font-bold tracking-tight text-white">Рад тебя видеть!</h2>
-              <p className="text-sm text-muted-foreground">Учись, исследуй, развивайся — тут всё, чтобы ты сдал ортопедию.</p>
+              <p className="text-sm text-muted-foreground">Учись, исследуй, развивайся.</p>
             </div>
             <Button onClick={() => { localStorage.setItem('welcome_seen', 'true'); setShowWelcome(false); onAuthenticated(); }} className="w-full h-14 rounded-2xl text-lg font-bold">Погнали!</Button>
           </div>
@@ -211,9 +214,10 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       )}
 
       <div className="w-full max-w-sm flex flex-col items-center z-10">
-        <div className="mb-8 flex flex-col items-center space-y-4">
+        <div className="mb-8 flex flex-col items-center space-y-4 text-center">
           <ToothIcon className={cn("w-16 h-16 text-primary transition-all", loading && "animate-pulse")} />
           <h1 className="text-3xl font-bold tracking-tighter text-white select-none cursor-default" onClick={handleTitleClick}>OrthoByNekruz</h1>
+          <p className="text-[10px] text-white/20 font-mono break-all px-4">{debugInfo}</p>
         </div>
 
         <div className={cn("w-full space-y-4", error && "animate-shake")}>
@@ -241,16 +245,16 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                 placeholder="Твой Telegram ID"
                 value={manualTgId}
                 onChange={(e) => setManualTgId(e.target.value.replace(/\D/g, ''))}
-                className="h-14 text-center text-lg bg-background/40 border-white/10 rounded-2xl text-white"
+                className="h-14 text-center text-lg bg-background/40 border-white/10 rounded-2xl text-white animate-in slide-in-from-top-2"
               />
             )}
 
             <Button
               onClick={handleLoginClick}
-              disabled={loading || lockoutTime > 0 || key.length < 1 || (!autoTgId && !manualTgId.trim())}
+              disabled={loading || lockoutTime > 0 || (key.length < 1 && !autoTgId && !manualTgId)}
               className="w-full h-14 bg-[#0088cc] hover:bg-[#0077b5] text-white font-bold rounded-2xl"
             >
-              {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Sign in with Telegram"}
+              {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : autoTgId ? "Sign in" : "Enter ID manually"}
             </Button>
 
             <Button
@@ -259,7 +263,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               className="w-full h-12 rounded-xl border-primary/30 text-primary/80 hover:bg-primary/10"
               onClick={handleDemoClick}
             >
-              Попробовать демо (1 мин)
+              Попробовать демо (3 мин)
             </Button>
 
             {needsSubscription && <p className="text-[10px] text-center text-destructive animate-pulse">Subscribe to @nzsdental and try again</p>}
@@ -278,6 +282,12 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           text-shadow: 0 0 0 transparent !important;
           caret-color: white !important;
         }
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          75% { transform: translateX(5px); }
+        }
+        .animate-shake { animation: shake 0.2s ease-in-out 0s 2; }
       `}</style>
     </div>
   );
