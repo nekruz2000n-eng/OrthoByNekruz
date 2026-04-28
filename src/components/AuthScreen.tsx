@@ -28,20 +28,43 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [idCheckAttempts, setIdCheckAttempts] = useState(0);
 
   useEffect(() => {
-    // Если ID уже найден или попытки кончились — останавливаемся
-    if (autoTgId !== null || idCheckAttempts >= maxAttempts) {
+    // Если ID уже найден — выходим
+    if (autoTgId !== null) {
       setIdChecked(true);
       return;
     }
+
+    // Если попытки кончились — даем юзеру вводить вручную
+    if (idCheckAttempts >= maxAttempts) {
+      setIdChecked(true);
+      return;
+    }
+
     const timer = setTimeout(() => {
       const tg = (window as any).Telegram?.WebApp;
-      const id = tg?.initDataUnsafe?.user?.id;
-      if (id) {
-        setAutoTgId(String(id));
+      
+      if (tg) {
+        // Сообщаем телеграму, что приложение загружено
+        tg.ready();
+        // Принудительно расширяем на весь экран (помогает "разбудить" API)
+        tg.expand?.();
+
+        const user = tg.initDataUnsafe?.user;
+        
+        if (user && user.id) {
+          console.log("Found TG ID:", user.id);
+          setAutoTgId(String(user.id));
+          setIdChecked(true);
+        } else {
+          // Если объект tg есть, но user.id еще нет — пробуем еще раз
+          setIdCheckAttempts(prev => prev + 1);
+        }
       } else {
+        // Если самого объекта Telegram еще нет в window
         setIdCheckAttempts(prev => prev + 1);
       }
     }, attemptInterval);
+
     return () => clearTimeout(timer);
   }, [autoTgId, idCheckAttempts]);
 
