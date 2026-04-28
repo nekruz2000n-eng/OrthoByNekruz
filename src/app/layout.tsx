@@ -1,5 +1,5 @@
 'use client';
-
+import "./globals.css";
 import React, { useEffect, useState } from 'react';
 import { AuthScreen } from '@/components/AuthScreen'; // Убедись, что путь к AuthScreen верный
 import { Toaster } from '@/components/ui/toaster';
