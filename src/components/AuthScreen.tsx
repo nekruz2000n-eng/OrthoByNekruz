@@ -24,51 +24,49 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
 
   // ---------- АВТООПРЕДЕЛЕНИЕ TELEGRAM ID (повторные попытки) ----------
   const maxAttempts = 20;          // всего попыток
-  const attemptInterval = 500;     // интервал 500 мс (итого 5 секунд)
+  const attemptInterval = 300;     // интервал 500 мс (итого 5 секунд)
   const [idCheckAttempts, setIdCheckAttempts] = useState(0);
 
   useEffect(() => {
-    if (autoTgId !== null || idCheckAttempts >= 30) { // Увеличил до 30 попыток
-      setIdChecked(true);
-      return;
-    }
+  if (autoTgId !== null || idCheckAttempts >= 20) {
+    setIdChecked(true);
+    return;
+  }
 
-    const timer = setTimeout(() => {
-      const tg = (window as any).Telegram?.WebApp;
+  const timer = setTimeout(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    
+    if (tg) {
+      tg.ready();
       
-      if (tg) {
-        tg.ready();
-        
-        // 1. Пробуем стандартный метод
-        let id = tg.initDataUnsafe?.user?.id;
+      // Попытка 1: Через стандартный объект
+      let id = tg.initDataUnsafe?.user?.id;
 
-        // 2. Если пусто, пробуем вытащить из параметров строки (на случай сбоя API)
-        if (!id) {
-          const params = new URLSearchParams(tg.initData || "");
+      // Попытка 2: Парсим сырую строку (иногда объект пуст, а строка полная)
+      if (!id && tg.initData) {
+        const searchParams = new URLSearchParams(tg.initData);
+        const userStr = searchParams.get('user');
+        if (userStr) {
           try {
-            const userRaw = params.get('user');
-            if (userRaw) {
-              const userObj = JSON.parse(userRaw);
-              id = userObj.id;
-            }
-          } catch (e) {
-            console.error("Failed to parse user from initData");
-          }
+            const userObj = JSON.parse(userStr);
+            id = userObj.id;
+          } catch (e) {}
         }
+      }
 
-        if (id) {
-          setAutoTgId(String(id));
-          setIdChecked(true);
-        } else {
-          setIdCheckAttempts(prev => prev + 1);
-        }
+      if (id) {
+        setAutoTgId(String(id));
+        setIdChecked(true);
       } else {
         setIdCheckAttempts(prev => prev + 1);
       }
-    }, 300); // Уменьшил интервал до 300мс, чтобы проверка шла быстрее
-    
-    return () => clearTimeout(timer);
-  }, [autoTgId, idCheckAttempts]);
+    } else {
+      setIdCheckAttempts(prev => prev + 1);
+    }
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, [autoTgId, idCheckAttempts]);
 
   const isInitializing = !idChecked; // идёт ли проверка авто-ID
 
