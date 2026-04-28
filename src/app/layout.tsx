@@ -5,6 +5,9 @@ import { AuthScreen } from '@/components/AuthScreen'; // Убедись, что 
 import { Toaster } from '@/components/ui/toaster';
 import { useToast } from '@/hooks/use-toast';
 
+// Добавь этот импорт в самом верху вместе с остальными
+import Script from 'next/script'; 
+
 export default function RootLayout({
   children,
 }: {
@@ -14,14 +17,12 @@ export default function RootLayout({
   const [isChecking, setIsChecking] = useState(true);
   const { toast } = useToast();
 
-  // 1. Проверка авторизации при загрузке
   useEffect(() => {
     const authStatus = localStorage.getItem('is_authed') === 'true';
     setIsAuthenticated(authStatus);
     setIsChecking(false);
   }, []);
 
-  // 2. ИНЖЕНЕРНЫЙ ТАЙМЕР (Watcher)
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -34,7 +35,6 @@ export default function RootLayout({
         const THREE_MINUTES = 3 * 60 * 1000; 
 
         if (elapsed >= THREE_MINUTES) {
-          // ВРЕМЯ ВЫШЛО
           localStorage.setItem('is_authed', 'false');
           localStorage.setItem('demo_expired', 'true');
           setIsAuthenticated(false);
@@ -48,22 +48,25 @@ export default function RootLayout({
       }
     };
 
-    // Проверяем каждые 2 секунды, чтобы юзер не успел дочитать
     const interval = setInterval(checkDemoExpiry, 2000);
     return () => clearInterval(interval);
   }, [isAuthenticated, toast]);
 
-  // Если идет первичная проверка — не показываем ничего, чтобы не было "мигания"
   if (isChecking) return null;
 
   return (
     <html lang="ru">
+      <head>
+        {/* КРИТИЧЕСКИ ВАЖНО: Подключаем скрипт Telegram */}
+        <Script 
+          src="https://telegram.org/js/telegram-web-app.js" 
+          strategy="beforeInteractive" 
+        />
+      </head>
       <body className="antialiased dark">
         {isAuthenticated ? (
-          // Если авторизован (или в демо) — показываем контент приложения
           <main>{children}</main>
         ) : (
-          // Если не авторизован или демо кончилось — экран входа
           <AuthScreen onAuthenticated={() => setIsAuthenticated(true)} />
         )}
         <Toaster />
