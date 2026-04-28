@@ -223,7 +223,7 @@ useEffect(() => {
   if (!mounted) return null;
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background relative overflow-hidden">
+   <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background relative overflow-hidden pt-16">
       {showWelcome && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl animate-in fade-in zoom-in duration-300">
           <div className="w-full max-w-sm bg-card border border-white/10 p-8 rounded-[32px] shadow-2xl text-center space-y-6">
