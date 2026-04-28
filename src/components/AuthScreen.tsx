@@ -28,14 +28,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [idCheckAttempts, setIdCheckAttempts] = useState(0);
 
   useEffect(() => {
-    // Если ID уже найден — выходим
-    if (autoTgId !== null) {
-      setIdChecked(true);
-      return;
-    }
-
-    // Если попытки кончились — даем юзеру вводить вручную
-    if (idCheckAttempts >= maxAttempts) {
+    if (autoTgId !== null || idCheckAttempts >= 30) { // Увеличил до 30 попыток
       setIdChecked(true);
       return;
     }
@@ -44,27 +37,36 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       const tg = (window as any).Telegram?.WebApp;
       
       if (tg) {
-        // Сообщаем телеграму, что приложение загружено
         tg.ready();
-        // Принудительно расширяем на весь экран (помогает "разбудить" API)
-        tg.expand?.();
-
-        const user = tg.initDataUnsafe?.user;
         
-        if (user && user.id) {
-          console.log("Found TG ID:", user.id);
-          setAutoTgId(String(user.id));
+        // 1. Пробуем стандартный метод
+        let id = tg.initDataUnsafe?.user?.id;
+
+        // 2. Если пусто, пробуем вытащить из параметров строки (на случай сбоя API)
+        if (!id) {
+          const params = new URLSearchParams(tg.initData || "");
+          try {
+            const userRaw = params.get('user');
+            if (userRaw) {
+              const userObj = JSON.parse(userRaw);
+              id = userObj.id;
+            }
+          } catch (e) {
+            console.error("Failed to parse user from initData");
+          }
+        }
+
+        if (id) {
+          setAutoTgId(String(id));
           setIdChecked(true);
         } else {
-          // Если объект tg есть, но user.id еще нет — пробуем еще раз
           setIdCheckAttempts(prev => prev + 1);
         }
       } else {
-        // Если самого объекта Telegram еще нет в window
         setIdCheckAttempts(prev => prev + 1);
       }
-    }, attemptInterval);
-
+    }, 300); // Уменьшил интервал до 300мс, чтобы проверка шла быстрее
+    
     return () => clearTimeout(timer);
   }, [autoTgId, idCheckAttempts]);
 
