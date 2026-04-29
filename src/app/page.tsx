@@ -128,25 +128,26 @@ export default function Home() {
   }
 
   return (
-    <main className="flex flex-col h-full w-full relative overflow-hidden animate-in fade-in duration-1000">
-      {/* Невидимая зона для скрытого сброса сессии (правый верхний угол) */}
-      <div
-        className="absolute top-0 right-0 w-10 h-10 z-50"
-        onTouchStart={handleLongPressStart}
-        onTouchEnd={handleLongPressEnd}
-        onTouchCancel={handleLongPressEnd}
-        onMouseDown={handleLongPressStart}
-        onMouseUp={handleLongPressEnd}
-        onMouseLeave={handleLongPressEnd}
-      />
+    <main 
+      className="flex flex-col h-[100dvh] w-full relative overflow-hidden animate-in fade-in duration-1000"
+      style={{
+        // Динамический отступ сверху: берем переменную Телеграма, если ее нет — системную (iOS/Android)
+        paddingTop: 'var(--tg-safe-area-inset-top, env(safe-area-inset-top, 16px))'
+      }}
+    >
+      {/* Невидимая зона для скрытого сброса сессии (правый верхний угол) */}
+      <div
+        className="absolute top-0 right-0 w-10 h-10 z-50"
+        // ... твои обработчики нажатий
+      />
 
-      <div className="flex-1 overflow-hidden relative">
-        {activeTab === 'questions' && <QuestionsTab />}
-        {activeTab === 'tests' && <TestsTab />}
-        {activeTab === 'tasks' && <TasksTab />}
-        {activeTab === 'stats' && <StatsTab />}
-      </div>
-      <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
-    </main>
-  );
+      <div className="flex-1 overflow-hidden relative">
+        {activeTab === 'questions' && <QuestionsTab />}
+        {activeTab === 'tests' && <TestsTab />}
+        {activeTab === 'tasks' && <TasksTab />}
+        {activeTab === 'stats' && <StatsTab />}
+      </div>
+      <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+    </main>
+  );
 }
