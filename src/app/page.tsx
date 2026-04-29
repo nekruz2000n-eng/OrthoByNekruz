@@ -132,12 +132,13 @@ export default function Home() {
       className="flex flex-col h-[100dvh] w-full relative overflow-hidden animate-in fade-in duration-1000"
       style={{
         // Динамический отступ сверху: берем переменную Телеграма, если ее нет — системную (iOS/Android)
-        paddingTop: 'var(--tg-safe-area-inset-top, env(safe-area-inset-top, 16px))'
+      // Берем системный отступ Телеграма и прибавляем к нему, например, еще 10 пикселей для надежности
+        paddingTop: 'calc(var(--tg-safe-area-inset-top, env(safe-area-inset-top, 16px)) - 5px)'
       }}
     >
       {/* Невидимая зона для скрытого сброса сессии (правый верхний угол) */}
       <div
-        className="absolute top-0 right-0 w-10 h-10 z-50"
+        className="absolute top-0 right-0 w-15 h-15 z-50"
         // ... твои обработчики нажатий
       />
 
