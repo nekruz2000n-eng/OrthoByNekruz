@@ -403,7 +403,8 @@ export const QuestionsTab = () => {
       <div 
         className="p-4 space-y-4 bg-background/50 backdrop-blur-md sticky top-0 z-10 border-b border-white/5"
         style={{
-          paddingTop: 'calc(var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 16px)'
+          // Используем вычисленную переменную. По умолчанию (до загрузки) ставим 16px
+          paddingTop: 'var(--dynamic-top, 16px)'
         }}
       >
         <div className="flex justify-between items-center px-2">

@@ -95,12 +95,26 @@ export default function Home() {
 
     initAuth();
 
+    // Инициализация Telegram Mini App
     if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
       const tg = (window as any).Telegram.WebApp;
       tg.ready();
       tg.expand();
       tg.setHeaderColor('#0B0E14');
       tg.setBackgroundColor('#0B0E14');
+
+      // --- ИНЖЕНЕРНЫЙ ФИКС ОТСТУПОВ ---
+      // Узнаем платформу: пк/браузер или телефон (android/ios)
+      const isDesktop = ['tdesktop', 'weba', 'macos', 'unknown'].includes(tg.platform);
+      
+      // Если телефон: берем отступ ТГ, а если его нет (старый ТГ) — жестко ставим 45px под кнопку "Закрыть".
+      // Если ПК: отступ не нужен (оставляем базовые 16px шапки).
+      const topPadding = isDesktop 
+        ? '16px' 
+        : 'calc(var(--tg-safe-area-inset-top, 45px) + 16px)';
+        
+      // Записываем это в глобальную память стилей сайта
+      document.documentElement.style.setProperty('--dynamic-top', topPadding);
     }
   }, [isAuthenticated]);
 
