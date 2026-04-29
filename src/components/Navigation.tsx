@@ -20,11 +20,12 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
   ];
 
   return (
-    <div 
+    <div
       className="fixed left-0 right-0 px-8 z-50 flex justify-center"
-      style={{ bottom: '50px' }} // Жестко ставим 50 пикселей для теста
+      style={{
+        bottom: 'calc(var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 24px)) + 24px)'
+      }}
     >
-      {/* Навигационная панель */}
       <nav className="flex items-center gap-1 bg-black/40 dark:bg-black/40 backdrop-blur-2xl p-2 rounded-[26px] border border-white/10 shadow-2xl">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -41,7 +42,6 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
               <Icon
                 className={cn(
                   "w-5 h-5 transition-all duration-300",
-                  // Активная иконка: чёрная в светлой теме, белая в тёмной
                   isActive
                     ? "text-black dark:text-white scale-110"
                     : "text-black/50 dark:text-white/40"
@@ -54,7 +54,6 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
                 </span>
               )}
 
-              {/* Эффект блика при клике */}
               {isActive && (
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite] pointer-events-none" />
               )}
@@ -65,4 +64,3 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
     </div>
   );
 };
-

@@ -7,43 +7,25 @@
    СВЕТЛАЯ ТЕМА (по умолчанию, когда нет класса dark)
    =========================================== */
 :root {
-  /* Основной фон страницы */
-  --background: 0 0% 100%;        /* белый */
-  /* Основной цвет текста */
-  --foreground: 220 30% 10%;      /* очень тёмный синий */
-  /* Фон карточек */
-  --card: 0 0% 88%;               /* светло-серый */
-  /* Цвет текста на карточках */
+  --background: 0 0% 100%;
+  --foreground: 220 30% 10%;
+  --card: 0 0% 88%;
   --card-foreground: 220 30% 10%;
-  /* Фон всплывающих окон */
   --popover: 0 0% 98%;
-  /* Цвет текста во всплывающих окнах */
   --popover-foreground: 220 30% 10%;
-  /* Основной акцентный цвет (кнопки, ссылки) – более спокойный синий */
-  --primary: 213 70% 45%;         /* вместо резкого 213 100% 50% */
-  /* Текст на основном акценте */
+  --primary: 213 70% 45%;
   --primary-foreground: 0 0% 100%;
-  /* Вторичный фон */
   --secondary: 210 20% 90%;
-  /* Текст на вторичном фоне */
   --secondary-foreground: 220 30% 10%;
-  /* Приглушённый фон */
   --muted: 210 20% 90%;
-  /* Приглушённый текст */
   --muted-foreground: 215 16% 40%;
-  /* Дополнительный акцент */
   --accent: 213 70% 45%;
-  /* Текст на дополнительном акценте */
   --accent-foreground: 0 0% 100%;
-  /* Разрушительные действия (красный) */
   --destructive: 0 84% 50%;
   --destructive-foreground: 0 0% 100%;
-  /* Цвета границ и полей ввода */
   --border: 210 20% 75%;
   --input: 210 20% 75%;
-  /* Цвет обводки при фокусе */
   --ring: 213 70% 45%;
-  /* Скругление углов */
   --radius: 0.75rem;
 }
 
@@ -51,43 +33,24 @@
    ТЁМНАЯ ТЕМА (когда на <html> добавлен класс dark)
    =========================================== */
 .dark {
-  /* Основной фон страницы */
-  --background: 220 30% 6%;       /* очень тёмный синий */
-  /* Основной цвет текста */
-  --foreground: 210 40% 96%;      /* почти белый */
-  /* Фон карточек */
-  --card: 220 20% 10%;            /* тёмный, но чуть светлее фона */
-  /* Цвет текста на карточках */
+  --background: 220 30% 6%;
+  --foreground: 210 40% 96%;
+  --card: 220 20% 10%;
   --card-foreground: 210 40% 96%;
-  /* Фон всплывающих окон */
   --popover: 220 20% 10%;
-  /* Цвет текста во всплывающих окнах */
   --popover-foreground: 210 40% 96%;
-  /* Основной акцентный цвет */
   --primary: 213 100% 65%;
-  /* Цвет текста на акцентном фоне */
   --primary-foreground: 220 30% 6%;
-  /* Вторичный фон */
   --secondary: 217 32% 17%;
-  /* Цвет текста на вторичном фоне */
   --secondary-foreground: 210 40% 96%;
-  /* Приглушённый фон */
   --muted: 220 20% 10%;
-  /* Приглушённый цвет текста */
   --muted-foreground: 215 16% 60%;
-  /* Дополнительный акцент */
   --accent: 213 100% 65%;
-  /* Цвет текста на дополнительном акценте */
   --accent-foreground: 220 30% 6%;
-  /* Цвет разрушительных действий */
   --destructive: 0 84.2% 60.2%;
-  /* Цвет текста на разрушительных кнопках */
   --destructive-foreground: 210 40% 98%;
-  /* Цвет границ */
   --border: 217 32% 17%;
-  /* Цвет фона полей ввода */
   --input: 217 32% 17%;
-  /* Цвет обводки при фокусе */
   --ring: 213 100% 65%;
 }
 }
@@ -100,20 +63,23 @@
   html, body {
     @apply bg-background text-foreground;
     overflow: hidden;
-    height: 100vh;
+    /* Используем dvh вместо vh для мобильных браузеров */
+    height: 100dvh; 
     width: 100vw;
     position: fixed;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
-padding-top: calc(var(--tg-safe-area-inset-top) + 10px);
-    padding-bottom: var(--tg-safe-area-inset-bottom);
+    /* ВНИМАНИЕ: отступы (padding) отсюда УДАЛЕНЫ! 
+       Они должны задаваться только локально в компонентах (шапка, навигация),
+       чтобы не сдвигать глобальный фон приложения. */
   }
 }
 
 .glass-nav {
   @apply bg-background/80 backdrop-blur-xl border-t border-white/5;
-  padding-bottom: env(safe-area-inset-bottom, 20px);
+  /* Добавлена тройная защита для Телеграма и старых браузеров */
+  padding-bottom: calc(var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 20px);
 }
 
 .glass-card {
@@ -133,7 +99,8 @@ padding-top: calc(var(--tg-safe-area-inset-top) + 10px);
 }
 
 .pb-safe {
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+  /* Добавлена тройная защита для Телеграма и старых браузеров */
+  padding-bottom: calc(var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 20px);
 }
 
 .scroll-container {
