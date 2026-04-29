@@ -106,7 +106,7 @@
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
-padding-top: calc(var(--tg-safe-area-inset-top) + 7px);
+padding-top: calc(var(--tg-safe-area-inset-top) + 10px);
     padding-bottom: var(--tg-safe-area-inset-bottom);
   }
 }
@@ -157,4 +157,8 @@ padding-top: calc(var(--tg-safe-area-inset-top) + 7px);
 }
 .text-amber-300 {
   color: #b69647;
+}
+img {
+  -webkit-user-drag: none;
+  user-select: none;
 }

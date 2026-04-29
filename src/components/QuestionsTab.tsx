@@ -1,80 +1,60 @@
 "use client";
 
-// =================================================
-// ИМПОРТЫ
-// =================================================
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import questionsData from '@/data/questions.json';      // Массив вопросов и ответов
-import glossaryData from '@/data/glossary.json';        // Словарь терминов для глоссария
-import { Input } from '@/components/ui/input';          // Поле ввода (поиск)
-import { ScrollArea } from '@/components/ui/scroll-area'; // Прокручиваемая область
-import { Search, Book, CheckCircle2, Circle, BookOpen, X, Pencil, Trash2, ArrowLeft, ArrowRight } from 'lucide-react'; // Иконки
-import { Progress } from '@/components/ui/progress';    // Индикатор прогресса
-import { Button } from '@/components/ui/button';        // Кнопки
+import questionsData from '@/data/questions.json';
+import glossaryData from '@/data/glossary.json';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Search, Book, CheckCircle2, Circle, BookOpen, X, Pencil, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { 
   Accordion, 
   AccordionContent, 
   AccordionItem, 
   AccordionTrigger 
-} from '@/components/ui/accordion';                    // Раскрывающиеся карточки вопросов
-import { ToothIcon } from './ToothIcon';                // Иконка зуба
-import { cn } from '@/lib/utils';                       // Утилита для слияния CSS-классов
-import { motion, AnimatePresence } from 'framer-motion'; // Анимации
-import ReactMarkdown from 'react-markdown';             // Рендеринг Markdown в заметках
+} from '@/components/ui/accordion';
 
-// Тип элемента глоссария
+import { ToothIcon } from './ToothIcon';
+import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+
 interface GlossaryItem {
   term: string;
   definition: string;
-  image?: string | string[]; // необязательное поле: строка или массив строк
+  image?: string | string[];
 }
 
-
-// =================================================
-// ГЛАВНЫЙ КОМПОНЕНТ
-// =================================================
 export const QuestionsTab = () => {
+  const [search, setSearch] = useState('');
+  const [studiedIds, setStudiedIds] = useState<Set<number>>(new Set());
+  const [userNotes, setUserNotes] = useState<Record<number, string>>({});
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [readingQuestion, setReadingQuestion] = useState<any | null>(null);
+  const [activeTermDef, setActiveTermDef] = useState<string | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [fontSize, setFontSize] = useState(16);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [scale, setScale] = useState(1);
+  const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const imageRef = useRef<HTMLDivElement>(null);
+  const initialDistance = useRef<number | null>(null);
+  const initialFontSize = useRef<number>(16);
+  const contentRef = useRef<HTMLDivElement>(null);
 
-  // =================================================
-  // СОСТОЯНИЯ (USE STATE)
-  // =================================================
-  const [search, setSearch] = useState('');                        // Строка поиска
-  const [studiedIds, setStudiedIds] = useState<Set<number>>(new Set()); // ID изученных вопросов
-  const [userNotes, setUserNotes] = useState<Record<number, string>>({}); // Заметки пользователя (ключ – ID вопроса)
-  const [isLoaded, setIsLoaded] = useState(false);                // Флаг завершения загрузки данных из localStorage
-  const [readingQuestion, setReadingQuestion] = useState<any | null>(null); // Вопрос, открытый в режиме чтения (или null)
-  const [activeTermDef, setActiveTermDef] = useState<string | null>(null); // Определение активного термина для тултипа глоссария
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });   // Позиция тултипа глоссария
-  const [fontSize, setFontSize] = useState(16);                   // Текущий размер шрифта в режиме чтения (базовый)
-  const [zoomedImage, setZoomedImage] = useState<string | null>(null); // URL изображения для полноэкранного просмотра
-  const [scale, setScale] = useState(1);                          // Масштаб увеличенного изображения
-  const [translate, setTranslate] = useState({ x: 0, y: 0 });     // Смещение увеличенного изображения при панорамировании
-
-  // =================================================
-  // REFS (USE REF)
-  // =================================================
-  const imageRef = useRef<HTMLDivElement>(null);           // Ссылка на контейнер увеличенного изображения
-  const initialDistance = useRef<number | null>(null);     // Начальное расстояние между пальцами для pinch‑to‑zoom текста
-  const initialFontSize = useRef<number>(16);              // Запоминаем размер шрифта перед началом жеста
-  const contentRef = useRef<HTMLDivElement>(null);         // Ссылка на контейнер с контентом режима чтения (для жестов)
-
-  // Для перетаскиваемого тултипа глоссария
   const [dragging, setDragging] = useState(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
   const tooltipStartPos = useRef({ x: 0, y: 0 });
   const tooltipRef = useRef<HTMLDivElement>(null);
 
-  // Для плавающей кнопки закрытия режима чтения (перетаскиваемой)
   const [closeBtnPos, setCloseBtnPos] = useState({ x: 0, y: 0 });
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const [closeDragging, setCloseDragging] = useState(false);
   const closeStartPos = useRef({ x: 0, y: 0 });
   const closeBtnStartPos = useRef({ x: 0, y: 0 });
-  const hasMoved = useRef(false);                          // Было ли перемещение (чтобы отличить клик от перетаскивания)
+  const hasMoved = useRef(false);
 
-  // =================================================
-  // ЗАГРУЗКА ДАННЫХ ИЗ LOCALSTORAGE
-  // =================================================
   useEffect(() => {
     const savedStudied = localStorage.getItem('studiedQuestions');
     const savedNotes = localStorage.getItem('userQuestionNotes');
@@ -87,7 +67,6 @@ export const QuestionsTab = () => {
     setIsLoaded(true);
   }, []);
 
-  // Сохранение изученных и заметок в localStorage при каждом изменении
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem('studiedQuestions', JSON.stringify(Array.from(studiedIds)));
@@ -95,26 +74,20 @@ export const QuestionsTab = () => {
     }
   }, [studiedIds, userNotes, isLoaded]);
 
-  // =================================================
-  // ФУНКЦИИ УПРАВЛЕНИЯ СОСТОЯНИЕМ
-  // =================================================
-  // Переключить статус "изучено" у вопроса
   const toggleStudied = (id: number) => {
     setStudiedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
-    // Если вопрос был открыт в режиме чтения – закрыть его
     if (readingQuestion && readingQuestion.id === id) setReadingQuestion(null);
   };
 
-  // Обновить заметку для вопроса (с удалением HTML‑тегов)
   const updateNote = (id: number, text: string) => {
     setUserNotes(prev => ({ ...prev, [id]: text.replace(/<[^>]*>?/gm, '') }));
   };
 
-  // Удалить заметку
   const clearNote = (id: number) => {
     setUserNotes(prev => {
       const next = { ...prev };
@@ -123,9 +96,6 @@ export const QuestionsTab = () => {
     });
   };
 
-  // =================================================
-  // ФИЛЬТРАЦИЯ ВОПРОСОВ ПО ПОИСКУ
-  // =================================================
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
     return questionsData.filter(q => {
@@ -135,23 +105,17 @@ export const QuestionsTab = () => {
     });
   }, [search]);
 
-  // Прогресс изученных вопросов
   const progress = useMemo(() => {
     if (questionsData.length === 0) return 0;
     return (studiedIds.size / questionsData.length) * 100;
   }, [studiedIds]);
 
-  // Экранирование специальных символов для регулярных выражений
   const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  // Подготовленный массив терминов для глоссария (сортировка по длине)
   const glossaryTerms = useMemo(() => {
     return (glossaryData as GlossaryItem[]).slice().sort((a, b) => b.term.length - a.term.length);
   }, []);
 
-  // =================================================
-  // ГЛОССАРИЙ: ПОИСК ТЕРМИНОВ В ТЕКСТЕ
-  // =================================================
   const handleGlossaryClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.classList.contains('glossary-term')) {
@@ -164,7 +128,6 @@ export const QuestionsTab = () => {
     }
   };
 
-  // Закрытие тултипа глоссария при клике вне
   useEffect(() => {
     if (activeTermDef) {
       const handler = () => setActiveTermDef(null);
@@ -173,9 +136,6 @@ export const QuestionsTab = () => {
     }
   }, [activeTermDef]);
 
-  // =================================================
-  // ЖЕСТ PINCH‑TO‑ZOOM ДЛЯ ШРИФТА В РЕЖИМЕ ЧТЕНИЯ
-  // =================================================
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       e.preventDefault();
@@ -204,9 +164,6 @@ export const QuestionsTab = () => {
     }
   };
 
-  // =================================================
-  // ПЕРЕТАСКИВАЕМЫЙ ТУЛТИП ГЛОССАРИЯ
-  // =================================================
   const handleTooltipMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation();
     setDragging(true);
@@ -275,9 +232,6 @@ export const QuestionsTab = () => {
     };
   }, [dragging]);
 
-  // =================================================
-  // ПЕРЕТАСКИВАЕМАЯ КНОПКА ЗАКРЫТИЯ РЕЖИМА ЧТЕНИЯ
-  // =================================================
   useEffect(() => {
     if (readingQuestion) {
       setCloseBtnPos({ x: window.innerWidth - 60, y: 60 });
@@ -338,11 +292,7 @@ export const QuestionsTab = () => {
     };
   }, [closeDragging]);
 
-  // =================================================
-  // ФУНКЦИЯ РЕНДЕРИНГА ТЕКСТА С ГЛОССАРИЕМ
-  // =================================================
   const renderWithGlossary = (text: string) => {
-    // Разбиваем текст на обычные и жирные (**...**) фрагменты
     const fragments: { type: 'normal' | 'bold'; content: string }[] = [];
     let remaining = text;
     const boldRegex = /\*\*(.*?)\*\*/g;
@@ -360,7 +310,6 @@ export const QuestionsTab = () => {
       fragments.push({ type: 'normal', content: remaining.substring(lastIndex) });
     }
 
-    // Обработка обычного текста: поиск терминов и замена на <span class="glossary-term">
     const processNormalText = (normalText: string): string => {
       let result = normalText;
       const sortedTerms = [...glossaryTerms].sort((a, b) => b.term.length - a.term.length);
@@ -381,7 +330,6 @@ export const QuestionsTab = () => {
       return result;
     };
 
-    // Собираем фрагменты в HTML‑строку
     const processedFragments = fragments.map((frag) => {
       if (frag.type === 'bold') {
         return `<span class="font-bold text-amber-300">${frag.content}</span>`;
@@ -390,17 +338,12 @@ export const QuestionsTab = () => {
       }
     });
     const finalHtml = processedFragments.join('');
-
-    // Разбиваем на абзацы и оборачиваем в <p> с красной строкой
     const lines = finalHtml.split('\n').map((line, i) => (
       <p key={i} className="indent-4 mb-1 last:mb-0" dangerouslySetInnerHTML={{ __html: line }} />
     ));
     return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
   };
 
-  // =================================================
-  // КОМПОНЕНТ ЗАМЕТКИ
-  // =================================================
   const PersonalNote = ({ id }: { id: number }) => {
     const [isEditing, setIsEditing] = useState(false);
     const note = userNotes[id] || '';
@@ -452,12 +395,8 @@ export const QuestionsTab = () => {
     );
   };
 
-  // Очистка текста от ** для предпросмотра
   const getCleanPreview = (text: string) => text.replace(/\*\*/g, '').trim();
 
-  // =================================================
-  // ГЛАВНЫЙ РЕНДЕР
-  // =================================================
   return (
     <div className="flex flex-col h-full bg-background pb-0 max-w-full overflow-hidden" onClick={handleGlossaryClick}>
       {/* ВЕРХНЯЯ ПАНЕЛЬ */}
@@ -504,7 +443,6 @@ export const QuestionsTab = () => {
                     </AccordionTrigger>
                     <AccordionContent className="px-5 pb-5 pt-0 w-full overflow-hidden">
                       <div className="space-y-4 w-full max-w-full">
-                        {/* Сокращённый ответ */}
                         <div className="relative">
                           <div className="text-sm leading-relaxed text-foreground/80 max-h-24 overflow-hidden">
                             {renderWithGlossary(q.answer)}
@@ -549,8 +487,6 @@ export const QuestionsTab = () => {
             className="fixed inset-0 z-[100] bg-background flex flex-col overflow-hidden max-w-full"
           >
             <div className="flex flex-col h-full relative">
-
-              {/* ПРОКРУЧИВАЕМАЯ ОБЛАСТЬ С КОНТЕНТОМ (ЖЕСТ PINCH‑TO‑ZOOM) */}
               <div
                 className="flex-1 overflow-y-auto px-5 pt-16 scroll-container"
                 onTouchStart={handleTouchStart}
@@ -580,41 +516,39 @@ export const QuestionsTab = () => {
                       {renderWithGlossary(readingQuestion.answer)}
                     </div>
                   </div>
-                  {/* КАРТИНКА (после ответа, перед заметкой) */}
-                  {/* Блок изображений (одно или несколько) */}
-{(() => {
-  // Приводим к массиву: если строка – оборачиваем, если массив – оставляем, если ничего – null
-  const raw = readingQuestion.images || readingQuestion.image;
-  if (!raw) return null;
-  const imageList = Array.isArray(raw) ? raw : [raw];
-  return (
-    <div className="space-y-4">
-      {imageList.map((imgUrl: string, idx: number) => (
-        <div
-          key={idx}
-          className="rounded-xl overflow-hidden border border-white/10 cursor-pointer"
-          onClick={() => setZoomedImage(imgUrl)}
-        >
-          <img
-            src={imgUrl}
-            alt={`Иллюстрация к вопросу ${idx + 1}`}
-            className="w-full h-auto object-contain max-h-80"
-            loading="lazy"
-          />
-        </div>
-      ))}
-    </div>
-  );
-})()}
-                  {/* ЗАМЕТКА */}
+                  {/* КАРТИНКА */}
+                  {(() => {
+                    const raw = readingQuestion.images || readingQuestion.image;
+                    if (!raw) return null;
+                    const imageList = Array.isArray(raw) ? raw : [raw];
+                    return (
+                      <div className="space-y-4">
+                        {imageList.map((imgUrl: string, idx: number) => (
+                          <div
+                            key={idx}
+                            className="rounded-xl overflow-hidden border border-white/10 cursor-pointer"
+                            onClick={() => setZoomedImage(imgUrl)}
+                          >
+                            <img
+                              src={imgUrl}
+                              alt={`Иллюстрация ${idx + 1}`}
+                              className="w-full h-auto object-contain max-h-80"
+                              loading="lazy"
+                              onContextMenu={(e) => e.preventDefault()}
+                              draggable={false}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   <PersonalNote id={readingQuestion.id} />
                 </div>
               </div>
 
-              {/* НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ */}
+              {/* НИЖНЯЯ ПАНЕЛЬ */}
               <div className="mt-auto pt-6 border-t border-white/5 bg-background pb-safe px-3">
                 <div className="flex gap-2 items-center">
-                  {/* Кнопка влево */}
                   <button
                     onClick={() => {
                       const currentIndex = questionsData.findIndex(q => q.id === readingQuestion.id);
@@ -627,8 +561,6 @@ export const QuestionsTab = () => {
                   >
                     <ArrowLeft className="w-5 h-5 text-white" />
                   </button>
-
-                  {/* Кнопка "Изучил" */}
                   <Button
                     variant={studiedIds.has(readingQuestion.id) ? "default" : "outline"}
                     className={cn(
@@ -639,23 +571,19 @@ export const QuestionsTab = () => {
                     )}
                     onClick={() => toggleStudied(readingQuestion.id)}
                   >
-                    {studiedIds.has(readingQuestion.id)
-                      ? (<><CheckCircle2 className="w-4 h-4" /> Изучено</>)
-                      : (<><Circle className="w-4 h-4" /> Изучил</>)
-                    }
+                    {studiedIds.has(readingQuestion.id) ? (
+                      <><CheckCircle2 className="w-4 h-4" /> Изучено</>
+                    ) : (
+                      <><Circle className="w-4 h-4" /> Изучил</>
+                    )}
                   </Button>
-
-                  {/* Кнопка "Выйти" */}
                   <Button
                     variant="outline"
                     className="flex-1 h-11 rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/10 font-bold"
                     onClick={() => setReadingQuestion(null)}
                   >
-                    <X className="w-4 h-4" />
-                    Выйти
+                    <X className="w-4 h-4" /> Выйти
                   </Button>
-
-                  {/* Кнопка вправо */}
                   <button
                     onClick={() => {
                       const currentIndex = questionsData.findIndex(q => q.id === readingQuestion.id);
@@ -676,45 +604,43 @@ export const QuestionsTab = () => {
       </AnimatePresence>
 
       {/* ТУЛТИП ГЛОССАРИЯ */}
-     {/* Тултип глоссария с поддержкой картинок и зума */}
-{activeTermDef && (() => {
-  const found = glossaryTerms.find((g: GlossaryItem) => g.definition === activeTermDef);
-  const termImage = found?.image;
-  return (
-    <div
-      ref={tooltipRef}
-      className="fixed z-[200] bg-card border border-white/10 rounded-2xl p-4 shadow-2xl max-w-xs select-none"
-      style={{ left: tooltipPos.x, top: tooltipPos.y }}
-      onMouseDown={handleTooltipMouseDown}
-      onTouchStart={handleTooltipTouchStart}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {termImage && (
-        <div className="mb-3 space-y-2">
-          {(Array.isArray(termImage) ? termImage : [termImage]).map((imgUrl: string, idx: number) => (
-            <div
-              key={idx}
-              className="rounded-lg overflow-hidden border border-white/10 cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation(); // чтобы не закрылся тултип
-                setZoomedImage(imgUrl);
-              }}
-            >
-              <img
-                src={imgUrl}
-                alt={`Иллюстрация термина ${idx + 1}`}
-                className="w-full h-auto object-contain max-h-32"
-                loading="lazy"
-              />
-            </div>
-          ))}
-        </div>
-      )}
-     {activeTermDef ? <p className="text-white text-sm">{activeTermDef}</p> : null}
-      <p className="text-[10px] text-muted-foreground mt-1">↔ перетащите, чтобы переместить</p>
-    </div>
-  );
-})()}
+      {activeTermDef && (() => {
+        const found = glossaryTerms.find((g: GlossaryItem) => g.definition === activeTermDef);
+        const termImage = found?.image;
+        return (
+          <div
+            ref={tooltipRef}
+            className="fixed z-[200] bg-card border border-white/10 rounded-2xl p-4 shadow-2xl max-w-xs select-none"
+            style={{ left: tooltipPos.x, top: tooltipPos.y }}
+            onMouseDown={handleTooltipMouseDown}
+            onTouchStart={handleTooltipTouchStart}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {termImage && (
+              <div className="mb-3 space-y-2">
+                {(Array.isArray(termImage) ? termImage : [termImage]).map((imgUrl: string, idx: number) => (
+                  <div
+                    key={idx}
+                    className="rounded-lg overflow-hidden border border-white/10 cursor-pointer"
+                    onClick={(e) => { e.stopPropagation(); setZoomedImage(imgUrl); }}
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={`Иллюстрация термина ${idx + 1}`}
+                      className="w-full h-auto object-contain max-h-32"
+                      loading="lazy"
+                      onContextMenu={(e) => e.preventDefault()}
+                      draggable={false}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            {activeTermDef && <p className="text-white text-sm">{activeTermDef}</p>}
+            <p className="text-[10px] text-muted-foreground mt-1">↔ перетащите, чтобы переместить</p>
+          </div>
+        );
+      })()}
 
       {/* МОДАЛЬНОЕ ОКНО ДЛЯ УВЕЛИЧЕННОГО ИЗОБРАЖЕНИЯ */}
       {zoomedImage && (
@@ -791,6 +717,7 @@ export const QuestionsTab = () => {
                 touchAction: 'none',
               }}
               draggable={false}
+              onContextMenu={(e) => e.preventDefault()}
             />
           </div>
         </div>

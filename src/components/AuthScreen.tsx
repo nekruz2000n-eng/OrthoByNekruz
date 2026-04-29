@@ -49,42 +49,23 @@ useEffect(() => {
     };
     document.head.appendChild(script);
   } else {
-    // если скрипт уже загружен, просто проверяем объект tg
     initTelegram();
   }
 
- function initTelegram() {
-  const tg = (window as any).Telegram?.WebApp;
-  if (tg) {
-    tg.ready();
-    tg.expand?.();
-    // Устанавливаем цвет фона приложения
-    tg.setBackgroundColor('#0B0E14');
-    // Пытаемся скрыть или затемнить заголовок
-    try {
-      // secondary_bg_color использует системный тёмный цвет, если доступен
-      tg.setHeaderColor('secondary_bg_color');
-    } catch {
-      // если не поддерживается, красим в наш тёмный
-      tg.setHeaderColor('#0B0E14');
-    }
-    // На всякий случай – нижний бар
-    try { tg.setBottomBarColor('#0B0E14'); } catch {}
-  }
-}
-  // Периодически проверяем появление tg (на случай поздней инициализации)
-  const checkInterval = setInterval(() => {
+  function initTelegram() {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) {
       tg.ready();
       tg.expand?.();
-      tg.setHeaderColor('#0a0a0c');
-      tg.setBackgroundColor('#0a0a0c');
-      clearInterval(checkInterval);
+      tg.setBackgroundColor('#0B0E14');
+      try {
+        tg.setHeaderColor('secondary_bg_color');
+      } catch {
+        tg.setHeaderColor('#0B0E14');
+      }
+      try { tg.setBottomBarColor('#0B0E14'); } catch {}
     }
-  }, 300);
-
-  return () => clearInterval(checkInterval);
+  }
 }, [mounted]);
 
 // 3. ЛОГИКА ОПРЕДЕЛЕНИЯ ID (без установки цвета)
