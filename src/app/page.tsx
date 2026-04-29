@@ -129,11 +129,11 @@ export default function Home() {
 
   return (
     <main 
-      className="flex flex-col h-[100dvh] w-full relative overflow-hidden animate-in fade-in duration-1000"
+     className="flex flex-col h-[100dvh] w-full relative overflow-hidden animate-in fade-in duration-1000"
       style={{
-        // Динамический отступ сверху: берем переменную Телеграма, если ее нет — системную (iOS/Android)
-      // Берем системный отступ Телеграма и прибавляем к нему, например, еще 10 пикселей для надежности
-        paddingTop: 'calc(var(--tg-safe-area-inset-top, env(safe-area-inset-top, 16px)) - 5px)'
+        // Оставляем ТОЛЬКО переменную Телеграма, а если её нет — ставим 0px.
+        // Теперь отступ будет появляться только тогда, когда он реально нужен!
+        paddingTop: 'var(--tg-safe-area-inset-top, 0px)'
       }}
     >
       {/* Невидимая зона для скрытого сброса сессии (правый верхний угол) */}
