@@ -421,7 +421,10 @@ export const QuestionsTab = () => {
 
       {/* СПИСОК ВОПРОСОВ */}
       <ScrollArea className="flex-1 scroll-container">
-        <div className="py-4 px-4 mx-auto max-w-2xl w-full pb-20">
+        <div 
+          className="py-4 px-4 mx-auto max-w-2xl w-full"
+          style={{ paddingBottom: 'calc(var(--tg-safe-area-inset-bottom, 24px) + 100px)' }}
+        >
           {filtered.length > 0 ? (
             <Accordion type="single" collapsible className="space-y-3 w-full">
               {filtered.map((q) => {
