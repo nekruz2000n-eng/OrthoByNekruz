@@ -20,9 +20,16 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
   ];
 
   return (
-    <div className="fixed bottom-6 left-0 right-0 px-8 z-50 flex justify-center">
-      <nav className="flex items-center gap-1 bg-black/40 dark:bg-black/40 backdrop-blur-2xl p-2 rounded-[26px] border border-white/10 shadow-2xl">
-        {tabs.map((tab) => {
+    <div 
+      className="fixed left-0 right-0 px-8 z-50 flex justify-center"
+      style={{ 
+        bottom: 'calc(var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 24px)' 
+      }}
+    >
+        {/* Навигационная панель */}
+      <nav className="flex items-center gap-1 bg-black/40 dark:bg-black/40 backdrop-blur-2xl p-2 rounded-[26px] border border-white/10 shadow-2xl">
+        {/* ... дальше код не трогаем, оставляем как было {tabs.map((tab) => { ... */}
+              {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
