@@ -52,25 +52,25 @@ function initTelegramApp(): () => void {
   tg.ready();
 
   // ── 2. Полный экран ────────────────────────────────────────────────────────
+  //    BotFather уже выставил Fullscreen — expand() достаточно.
+  //    requestFullscreen() вызываем на случай запуска через inline-кнопку.
   tg.expand();
   try { tg.requestFullscreen(); } catch {}
 
-  // ── 3. СЛОЙ 1: Telegram API — запрет свайпа вниз ──────────────────────────
-  //    Вызываем сразу + таймеры, т.к. expand/requestFullscreen async
+  // ── 3. СЛОЙ 1: Telegram API — disableVerticalSwipes ────────────────────────
   const disableSwipe = () => { try { tg.disableVerticalSwipes(); } catch {} };
   disableSwipe();
   const swipeTimers = [
-    setTimeout(disableSwipe, 200),
-    setTimeout(disableSwipe, 700),
-    setTimeout(disableSwipe, 1500),
+    setTimeout(disableSwipe, 150),
+    setTimeout(disableSwipe, 500),
+    setTimeout(disableSwipe, 1200),
     setTimeout(disableSwipe, 3000),
   ];
 
-  // ── 4. СЛОЙ 2: DOM-перехватчик свайпа вниз ────────────────────────────────
-  //    Работает на уровне браузера — не зависит от версии Telegram.
-  //    Логика: если касание началось в верхней 30% экрана ИЛИ
-  //    скролл-контейнер уже в начале (scrollTop=0) — и пользователь
-  //    тянет ВНИЗ — блокируем событие до того как TG его обработает.
+  // ── 4. СЛОЙ 2: DOM touchmove-перехватчик ───────────────────────────────────
+  //    Ищем реальный скролл-элемент: Radix UI ScrollArea использует
+  //    data-radix-scroll-area-viewport, а не сам .scroll-container.
+  //    Также обрабатываем обычные overflow:auto контейнеры.
   let touchStartY = 0;
   let touchStartX = 0;
 
@@ -83,30 +83,53 @@ function initTelegramApp(): () => void {
     const dy = e.touches[0].clientY - touchStartY;
     const dx = e.touches[0].clientX - touchStartX;
 
-    // Горизонтальный свайп — не трогаем
-    if (Math.abs(dx) > Math.abs(dy)) return;
+    // Горизонтальный свайп — не блокируем
+    if (Math.abs(dx) > Math.abs(dy) + 5) return;
 
-    // Тянут вниз (dy > 0)
-    if (dy > 8) {
-      const target = e.target as HTMLElement;
-      // Ищем ближайший скролл-контейнер
-      const scrollEl = target.closest('.scroll-container, [data-scroll]') as HTMLElement | null;
+    // Только свайп ВНИЗ
+    if (dy <= 8) return;
 
-      // Если скролл-контейнера нет, или он уже в самом верху — блокируем
-      if (!scrollEl || scrollEl.scrollTop <= 0) {
-        e.preventDefault();
-        e.stopPropagation();
+    // Ищем реальный прокручиваемый элемент (обходим дерево вверх)
+    let el = e.target as HTMLElement | null;
+    let scrollEl: HTMLElement | null = null;
+    while (el && el !== document.body) {
+      // Radix UI ScrollArea viewport
+      if (el.hasAttribute('data-radix-scroll-area-viewport')) {
+        scrollEl = el;
+        break;
       }
+      // Наш кастомный скролл
+      if (el.classList.contains('scroll-container')) {
+        scrollEl = el;
+        break;
+      }
+      // Любой overflow-y: auto/scroll элемент
+      const style = window.getComputedStyle(el);
+      const oy = style.overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) {
+        scrollEl = el;
+        break;
+      }
+      el = el.parentElement;
     }
+
+    // Если скролл-контейнер не найден — однозначно блокируем
+    if (!scrollEl) {
+      e.preventDefault();
+      return;
+    }
+
+    // Если скролл-контейнер в самом верху — блокируем (нет куда скролить вверх)
+    if (scrollEl.scrollTop <= 0) {
+      e.preventDefault();
+    }
+    // Если есть куда скролить — позволяем скролл, не блокируем
   };
 
   document.addEventListener('touchstart', onTouchStart, { passive: true });
   document.addEventListener('touchmove',  onTouchMove,  { passive: false });
 
-  // ── 5. СЛОЙ 3: Кнопка «Назад» (Android) + подтверждение закрытия ──────────
-  //    tg.BackButton.show() перехватывает аппаратную кнопку «Назад» на Android.
-  //    Вместо закрытия — показываем tg.showConfirm() с выбором пользователя.
-  //    tg.enableClosingConfirmation() — резервная защита для X-кнопки и свайпа.
+  // ── 5. СЛОЙ 3: BackButton (Android «Назад») + ClosingConfirmation ───────────
   try {
     tg.BackButton.show();
     tg.BackButton.onClick(() => {
@@ -116,7 +139,6 @@ function initTelegramApp(): () => void {
       );
     });
   } catch {}
-
   try { tg.enableClosingConfirmation(); } catch {}
 
   // ── 6. Цвет шапки/фона ────────────────────────────────────────────────────
@@ -126,12 +148,14 @@ function initTelegramApp(): () => void {
   try { tg.setBackgroundColor(bg); } catch {}
   try { tg.setBottomBarColor(bg); }  catch {}
 
-  // ── 7. Safe areas: первый вызов сразу ─────────────────────────────────────
+  // ── 7. Safe areas — СРАЗУ, до polling ─────────────────────────────────────
+  //    В BotFather-fullscreen режиме contentSafeAreaInsets доступны
+  //    сразу после tg.ready(). Вызываем немедленно.
   updateSafeAreas(tg);
 
   // ── 8. Polling safe areas (50мс, макс 5 сек) ──────────────────────────────
-  //    requestFullscreen() async — contentSafeAreaInsets обновляется позже.
-  //    Останавливаемся как только получили ненулевое значение.
+  //    Для случая inline-кнопки: requestFullscreen() async,
+  //    contentSafeAreaInsets появляются позже.
   let pollCount = 0;
   const safeAreaPoll = setInterval(() => {
     pollCount++;
@@ -141,11 +165,11 @@ function initTelegramApp(): () => void {
       (tg?.safeAreaInsets?.top        ?? 0) > 0;
     if (hasValue || pollCount >= 100) {
       clearInterval(safeAreaPoll);
-      updateSafeAreas(tg); // финальный пересчёт
+      updateSafeAreas(tg);
     }
   }, 50);
 
-  // ── 9. События изменения safe areas ───────────────────────────────────────
+  // ── 9. События Telegram ────────────────────────────────────────────────────
   const onSafeArea        = () => updateSafeAreas(tg);
   const onContentSafeArea = () => updateSafeAreas(tg);
   const onFullscreen      = () => { disableSwipe(); updateSafeAreas(tg); };
@@ -155,7 +179,7 @@ function initTelegramApp(): () => void {
   try { tg.onEvent('fullscreenChanged',      onFullscreen);      } catch {}
   try { tg.onEvent('viewportChanged',        onSafeArea);        } catch {}
 
-  // ── 10. Возврат в приложение ───────────────────────────────────────────────
+  // ── 10. visibilitychange ───────────────────────────────────────────────────
   const onVisible = () => {
     if (document.visibilityState === 'visible') {
       disableSwipe();
@@ -168,9 +192,9 @@ function initTelegramApp(): () => void {
   return () => {
     swipeTimers.forEach(clearTimeout);
     clearInterval(safeAreaPoll);
-    document.removeEventListener('touchstart',        onTouchStart);
-    document.removeEventListener('touchmove',         onTouchMove);
-    document.removeEventListener('visibilitychange',  onVisible);
+    document.removeEventListener('touchstart',       onTouchStart);
+    document.removeEventListener('touchmove',        onTouchMove);
+    document.removeEventListener('visibilitychange', onVisible);
     try { tg.offEvent('safeAreaChanged',        onSafeArea);        } catch {}
     try { tg.offEvent('contentSafeAreaChanged', onContentSafeArea); } catch {}
     try { tg.offEvent('fullscreenChanged',      onFullscreen);      } catch {}

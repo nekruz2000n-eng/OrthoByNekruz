@@ -16,7 +16,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     setIsChecking(false);
   }, []);
 
-  // Демо-доступ
   useEffect(() => {
     if (!isAuthenticated) return;
     const check = () => {
@@ -38,10 +37,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ru">
       <head>
-        {/*
-          viewport-fit=cover — обязательно для того чтобы
-          env(safe-area-inset-*) и TG CSS-переменные работали корректно.
-        */}
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
@@ -50,15 +45,59 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
         {/*
-          Telegram WebApp SDK — beforeInteractive гарантирует загрузку
-          ДО гидрации React. SDK сразу инжектирует CSS-переменные и
-          tg.safeAreaInsets / tg.contentSafeAreaInsets будут доступны
-          в initTelegramApp() (page.tsx).
+          Telegram SDK — beforeInteractive: грузится до гидрации React.
+          После загрузки SDK tg.safeAreaInsets / tg.contentSafeAreaInsets
+          уже заполнены (особенно в BotFather Fullscreen режиме).
         */}
         <Script
           src="https://telegram.org/js/telegram-web-app.js"
           strategy="beforeInteractive"
         />
+
+        {/*
+          КРИТИЧЕСКИЙ inline-скрипт: читает safe areas и пишет CSS-переменные
+          ДО первого рендера React. Так шапка никогда не окажется под
+          системными данными даже при самом быстром рендере.
+
+          Запускается сразу после загрузки SDK (который beforeInteractive).
+        */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            function apply() {
+              var tg = window.Telegram && window.Telegram.WebApp;
+              if (!tg) return false;
+
+              var sysTop   = (tg.safeAreaInsets        && tg.safeAreaInsets.top)        || 0;
+              var tgTop    = (tg.contentSafeAreaInsets  && tg.contentSafeAreaInsets.top) || 0;
+              var tgBottom = (tg.contentSafeAreaInsets  && tg.contentSafeAreaInsets.bottom) || 0;
+
+              var headerPt  = sysTop + tgTop + 16;
+              var scrollPb  = tgBottom + 96;
+              var navBottom = tgBottom + 24;
+
+              var root = document.documentElement;
+              root.style.setProperty('--header-pt',  headerPt  + 'px');
+              root.style.setProperty('--scroll-pb',  scrollPb  + 'px');
+              root.style.setProperty('--nav-bottom', navBottom + 'px');
+
+              return (sysTop + tgTop) > 0;
+            }
+
+            // Первый вызов сразу
+            var gotValue = apply();
+
+            // Если сразу не получили значение — polling каждые 30мс
+            // (inline, без async, с жёстким лимитом 3 сек)
+            if (!gotValue) {
+              var attempts = 0;
+              var poll = setInterval(function() {
+                attempts++;
+                gotValue = apply();
+                if (gotValue || attempts >= 100) clearInterval(poll);
+              }, 30);
+            }
+          })();
+        ` }} />
       </head>
       <body className="antialiased dark">
         {isAuthenticated
