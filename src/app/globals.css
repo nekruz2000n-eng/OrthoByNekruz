@@ -3,68 +3,113 @@
 @tailwind utilities;
 
 @layer base {
-  /* ===========================================
-     СВЕТЛАЯ ТЕМА — зелёный акцент
-     =========================================== */
+  /* ═══════════════════════════════════════════════════
+     СВЕТЛАЯ ТЕМА — тёплая бумага (warm paper)
+     ═══════════════════════════════════════════════════ */
   :root {
-    --background: 150 20% 96%;
-    --foreground: 160 40% 8%;
-    --card: 120 10% 91%;
-    --card-foreground: 160 40% 8%;
-    --popover: 0 0% 98%;
-    --popover-foreground: 160 40% 8%;
-    --primary: 142 65% 35%;
+    --background:         42 28% 93%;
+    --foreground:         222 22% 13%;
+    --card:               42 20% 88%;
+    --card-foreground:    222 22% 13%;
+    --popover:            42 20% 88%;
+    --popover-foreground: 222 22% 13%;
+    --primary:            142 55% 36%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 120 15% 86%;
-    --secondary-foreground: 160 40% 8%;
-    --muted: 120 10% 88%;
-    --muted-foreground: 150 15% 42%;
-    --accent: 142 65% 35%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 50%;
+    --secondary:          42 15% 83%;
+    --secondary-foreground: 222 22% 13%;
+    --muted:              42 15% 85%;
+    --muted-foreground:   220 10% 46%;
+    --accent:             142 55% 36%;
+    --accent-foreground:  0 0% 100%;
+    --destructive:        0 80% 52%;
     --destructive-foreground: 0 0% 100%;
-    --border: 142 20% 72%;
-    --input: 142 20% 72%;
-    --ring: 142 65% 35%;
-    --radius: 0.75rem;
+    --border:             42 14% 74%;
+    --input:              42 14% 74%;
+    --ring:               142 55% 36%;
+    --radius:             0.75rem;
 
-    --safe-top: 0px;
+    /* ─────────────────────────────────────────────────
+       СЕМАНТИЧЕСКИЕ ТОКЕНЫ.
+       Ленивые вычисления через var() — меняются
+       автоматически когда переключается .dark / .bright
+       ───────────────────────────────────────────────── */
+    --c-bg:          hsl(var(--background));
+    --c-card:        hsl(var(--card));
+    --c-border:      hsl(var(--border));
+    --c-text:        hsl(var(--foreground));
+    --c-muted:       hsl(var(--muted-foreground));
+    --c-primary:     hsl(var(--primary));
+    --c-primary-dim: hsl(var(--primary) / 0.12);
+    --c-primary-br:  hsl(var(--primary) / 0.28);
+    --c-primary-glo: hsl(var(--primary) / 0.06);
+    --c-amber:       hsl(38 78% 44%);
+    --c-amber-dim:   hsl(38 78% 44% / 0.1);
+    --c-amber-br:    hsl(38 78% 44% / 0.25);
+
+    /* ─── Safe areas (пишутся из JS) ─── */
+    --safe-top:    0px;
     --safe-bottom: 0px;
-    --header-pt: calc(var(--safe-top) + 16px);
-    --scroll-pb: calc(var(--safe-bottom) + 96px);
-    --nav-bottom: calc(var(--safe-bottom) + 24px);
+    --header-pt:   calc(var(--safe-top) + 16px);
+    --scroll-pb:   calc(var(--safe-bottom) + 96px);
+    --nav-bottom:  calc(var(--safe-bottom) + 24px);
   }
 
-  /* ===========================================
-     ТЁМНАЯ ТЕМА — тёмная с зелёными акцентами
-     =========================================== */
+  /* ═══════════════════════════════════════════════════
+     ТЁМНАЯ ТЕМА — нейтральный тёмный (для чтения)
+     ═══════════════════════════════════════════════════ */
   .dark {
-    --background: 160 28% 4%;
-    --foreground: 130 15% 92%;
-    --card: 160 22% 7%;
-    --card-foreground: 130 15% 92%;
-    --popover: 160 22% 7%;
-    --popover-foreground: 130 15% 92%;
-    --primary: 142 70% 45%;
-    --primary-foreground: 160 80% 4%;
-    --secondary: 160 18% 11%;
-    --secondary-foreground: 130 15% 92%;
-    --muted: 160 18% 9%;
-    --muted-foreground: 150 10% 52%;
-    --accent: 142 70% 45%;
-    --accent-foreground: 160 80% 4%;
-    --destructive: 0 72% 52%;
+    --background:         223 18% 8%;
+    --foreground:         210 15% 88%;
+    --card:               223 15% 11%;
+    --card-foreground:    210 15% 88%;
+    --popover:            223 15% 11%;
+    --popover-foreground: 210 15% 88%;
+    --primary:            142 65% 48%;
+    --primary-foreground: 223 18% 5%;
+    --secondary:          223 12% 15%;
+    --secondary-foreground: 210 15% 88%;
+    --muted:              223 12% 13%;
+    --muted-foreground:   215 10% 52%;
+    --accent:             142 65% 48%;
+    --accent-foreground:  223 18% 5%;
+    --destructive:        0 72% 52%;
     --destructive-foreground: 0 0% 100%;
-    --border: 142 28% 13%;
-    --input: 142 28% 13%;
-    --ring: 142 70% 45%;
+    --border:             223 14% 17%;
+    --input:              223 14% 17%;
+    --ring:               142 65% 48%;
+  }
+
+  /* ═══════════════════════════════════════════════════
+     ЯРКАЯ ТЕМА — AMOLED высокий контраст
+     ═══════════════════════════════════════════════════ */
+  .dark.bright {
+    --background:         228 25% 5%;
+    --foreground:         0 0% 97%;
+    --card:               228 22% 8%;
+    --card-foreground:    0 0% 97%;
+    --popover:            228 22% 8%;
+    --popover-foreground: 0 0% 97%;
+    --primary:            142 78% 54%;
+    --primary-foreground: 228 25% 4%;
+    --secondary:          228 20% 12%;
+    --secondary-foreground: 0 0% 97%;
+    --muted:              228 20% 10%;
+    --muted-foreground:   215 8% 58%;
+    --accent:             142 78% 54%;
+    --accent-foreground:  228 25% 4%;
+    --destructive:        0 80% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border:             228 20% 14%;
+    --input:              228 20% 14%;
+    --ring:               142 78% 54%;
+    --c-amber:     hsl(38 90% 52%);
+    --c-amber-dim: hsl(38 90% 52% / 0.12);
+    --c-amber-br:  hsl(38 90% 52% / 0.28);
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
 
   html, body {
     @apply bg-background text-foreground;
@@ -78,96 +123,38 @@
   }
 }
 
-.glass-nav {
-  @apply bg-background/80 backdrop-blur-xl border-t border-white/5;
-  padding-bottom: calc(var(--safe-bottom) + 20px);
-}
-
 .glass-card {
-  @apply bg-card/50 backdrop-blur-sm;
-  border: 1px solid hsl(142 28% 13% / 0.8);
+  background: var(--c-card);
+  border: 1px solid var(--c-border);
 }
 
-.dark .glass-card {
-  border-color: hsl(142 28% 13% / 0.8);
-}
-
-::-webkit-scrollbar {
-  width: 3px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-background;
-}
-
-::-webkit-scrollbar-thumb {
-  background: hsl(142 40% 25% / 0.4);
-  border-radius: 99px;
-}
-
-.pb-safe {
-  padding-bottom: calc(var(--safe-bottom) + 20px);
-}
+.pb-safe { padding-bottom: calc(var(--safe-bottom) + 20px); }
 
 .scroll-container {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-.tooth-input {
-  color: transparent !important;
-  text-shadow: 0 0 0 transparent !important;
-  caret-color: hsl(142 70% 45%) !important;
-}
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: var(--c-bg); }
+::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 99px; }
 
 .glossary-term {
-  color: hsl(142 65% 50%);
+  color: var(--c-primary);
   cursor: pointer;
   text-decoration: underline dotted;
 }
-.glossary-term:hover {
-  color: hsl(142 65% 65%);
+.glossary-term:hover { opacity: 0.75; }
+
+.tooth-input {
+  color: transparent !important;
+  text-shadow: 0 0 0 transparent !important;
+  caret-color: var(--c-primary) !important;
 }
 
-img {
-  -webkit-user-drag: none;
-  user-select: none;
-}
-
-/* Зелёный shimmer для активной навигации */
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
+  0%   { transform: translateX(-100%); }
   100% { transform: translateX(200%); }
 }
 
-/* Пульс зелёного прогресса */
-@keyframes pulse-green {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-/* ===========================================
-   ЯРКАЯ ТЕМА (dark + bright классы)
-   Повышенный контраст, насыщенный зелёный
-   =========================================== */
-.dark.bright {
-  --background: 165 40% 2%;
-  --foreground: 120 20% 97%;
-  --card: 165 35% 5%;
-  --card-foreground: 120 20% 97%;
-  --popover: 165 35% 5%;
-  --popover-foreground: 120 20% 97%;
-  --primary: 142 80% 50%;
-  --primary-foreground: 165 80% 3%;
-  --secondary: 165 30% 9%;
-  --secondary-foreground: 120 20% 97%;
-  --muted: 165 30% 7%;
-  --muted-foreground: 150 15% 65%;
-  --accent: 142 80% 50%;
-  --accent-foreground: 165 80% 3%;
-  --destructive: 0 80% 58%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 142 40% 16%;
-  --input: 142 40% 16%;
-  --ring: 142 80% 50%;
-}
+img { -webkit-user-drag: none; user-select: none; }

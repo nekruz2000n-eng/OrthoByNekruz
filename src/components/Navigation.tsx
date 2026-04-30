@@ -13,26 +13,24 @@ interface NavigationProps {
 
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }) => {
   const tabs = [
-    { id: 'questions', label: 'Вопросы', icon: BookOpen },
-    { id: 'tests',     label: 'Тесты',   icon: ClipboardList },
-    { id: 'tasks',     label: 'Задачи',  icon: PenTool },
-    { id: 'stats',     label: 'Статистика', icon: BarChart3 },
+    { id: 'questions', label: 'Вопросы',    icon: BookOpen      },
+    { id: 'tests',     label: 'Тесты',      icon: ClipboardList },
+    { id: 'tasks',     label: 'Задачи',     icon: PenTool       },
+    { id: 'stats',     label: 'Статистика', icon: BarChart3     },
   ];
 
   return (
     <div
       className="fixed left-0 right-0 px-6 z-50 flex justify-center"
-      style={{
-        bottom: 'calc(var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 24px)) + 20px)'
-      }}
+      style={{ bottom: 'var(--nav-bottom, 24px)' }}
     >
       <nav
         className="flex items-center gap-1 p-1.5 rounded-[28px] shadow-2xl"
         style={{
-          background: 'hsl(160 28% 4% / 0.85)',
-          backdropFilter: 'blur(24px)',
-          WebkitBackdropFilter: 'blur(24px)',
-          border: '1px solid hsl(142 30% 18% / 0.6)',
+          background: 'color-mix(in srgb, var(--c-bg) 85%, transparent)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid var(--c-border)',
         }}
       >
         {tabs.map((tab) => {
@@ -42,12 +40,10 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id as TabType)}
-              className={cn(
-                "relative flex items-center gap-2 px-4 py-2.5 rounded-full transition-all duration-400 overflow-hidden",
-              )}
+              className="relative flex items-center gap-2 px-4 py-2.5 rounded-full transition-all duration-300 overflow-hidden"
               style={isActive ? {
-                background: 'hsl(142 70% 45% / 0.18)',
-                border: '1px solid hsl(142 70% 45% / 0.35)',
+                background: 'var(--c-primary-dim)',
+                border: '1px solid var(--c-primary-br)',
               } : {
                 background: 'transparent',
                 border: '1px solid transparent',
@@ -56,27 +52,23 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
               <Icon
                 className="w-5 h-5 transition-all duration-300"
                 style={{
-                  color: isActive
-                    ? 'hsl(142 70% 52%)'
-                    : 'hsl(130 10% 50%)',
+                  color: isActive ? 'var(--c-primary)' : 'var(--c-muted)',
                   transform: isActive ? 'scale(1.1)' : 'scale(1)',
                 }}
               />
-
               {isActive && (
                 <span
-                  className="text-[11px] font-bold animate-in fade-in slide-in-from-left-2 duration-300"
-                  style={{ color: 'hsl(142 70% 60%)' }}
+                  className="text-[11px] font-bold animate-in fade-in slide-in-from-left-2 duration-200"
+                  style={{ color: 'var(--c-primary)' }}
                 >
                   {tab.label}
                 </span>
               )}
-
               {isActive && (
                 <div
                   className="absolute inset-0 -translate-x-full pointer-events-none"
                   style={{
-                    background: 'linear-gradient(90deg, transparent, hsl(142 70% 45% / 0.12), transparent)',
+                    background: 'linear-gradient(90deg, transparent, var(--c-primary-dim), transparent)',
                     animation: 'shimmer 2.5s infinite',
                   }}
                 />

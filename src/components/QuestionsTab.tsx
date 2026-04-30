@@ -5,26 +5,16 @@ import questionsData from '@/data/questions.json';
 import glossaryData from '@/data/glossary.json';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Book, CheckCircle2, Circle, BookOpen, X, Pencil, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
-import { 
-  Accordion, 
-  AccordionContent, 
-  AccordionItem, 
-  AccordionTrigger 
+import { Search, BookOpen, CheckCircle2, Circle, X, Pencil, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
+import {
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger
 } from '@/components/ui/accordion';
-
 import { ToothIcon } from './ToothIcon';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 
-interface GlossaryItem {
-  term: string;
-  definition: string;
-  image?: string | string[];
-}
+interface GlossaryItem { term: string; definition: string; image?: string | string[]; }
 
 export const QuestionsTab = () => {
   const [search, setSearch] = useState('');
@@ -38,16 +28,13 @@ export const QuestionsTab = () => {
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
-  const imageRef = useRef<HTMLDivElement>(null);
-  const initialDistance = useRef<number | null>(null);
-  const initialFontSize = useRef<number>(16);
-  const contentRef = useRef<HTMLDivElement>(null);
 
+  const initialDistance = useRef<number | null>(null);
+  const initialFontSize = useRef(16);
+  const tooltipRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
   const tooltipStartPos = useRef({ x: 0, y: 0 });
-  const tooltipRef = useRef<HTMLDivElement>(null);
-
   const [closeBtnPos, setCloseBtnPos] = useState({ x: 0, y: 0 });
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const [closeDragging, setCloseDragging] = useState(false);
@@ -56,678 +43,426 @@ export const QuestionsTab = () => {
   const hasMoved = useRef(false);
 
   useEffect(() => {
-    const savedStudied = localStorage.getItem('studiedQuestions');
-    const savedNotes = localStorage.getItem('userQuestionNotes');
-    if (savedStudied) {
-      try { setStudiedIds(new Set(JSON.parse(savedStudied))); } catch (e) {}
-    }
-    if (savedNotes) {
-      try { setUserNotes(JSON.parse(savedNotes)); } catch (e) {}
-    }
+    try { setStudiedIds(new Set(JSON.parse(localStorage.getItem('studiedQuestions') || '[]'))); } catch {}
+    try { setUserNotes(JSON.parse(localStorage.getItem('userQuestionNotes') || '{}')); } catch {}
     setIsLoaded(true);
   }, []);
 
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('studiedQuestions', JSON.stringify(Array.from(studiedIds)));
-      localStorage.setItem('userQuestionNotes', JSON.stringify(userNotes));
-    }
+    if (!isLoaded) return;
+    localStorage.setItem('studiedQuestions', JSON.stringify(Array.from(studiedIds)));
+    localStorage.setItem('userQuestionNotes', JSON.stringify(userNotes));
   }, [studiedIds, userNotes, isLoaded]);
 
   const toggleStudied = (id: number) => {
-    setStudiedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-    if (readingQuestion && readingQuestion.id === id) setReadingQuestion(null);
+    setStudiedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    if (readingQuestion?.id === id) setReadingQuestion(null);
   };
-
-  const updateNote = (id: number, text: string) => {
-    setUserNotes(prev => ({ ...prev, [id]: text.replace(/<[^>]*>?/gm, '') }));
-  };
-
-  const clearNote = (id: number) => {
-    setUserNotes(prev => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-  };
+  const updateNote = (id: number, text: string) => setUserNotes(p => ({ ...p, [id]: text.replace(/<[^>]*>?/gm, '') }));
+  const clearNote  = (id: number) => setUserNotes(p => { const n = { ...p }; delete n[id]; return n; });
 
   const filtered = useMemo(() => {
-    const term = search.toLowerCase();
-    return questionsData.filter(q => {
-      const idMatch = q.id.toString() === term;
-      const textMatch = q.question.toLowerCase().includes(term);
-      return !search || idMatch || textMatch;
-    });
+    const t = search.toLowerCase();
+    return questionsData.filter(q => !search || q.id.toString() === t || q.question.toLowerCase().includes(t));
   }, [search]);
 
-  const progress = useMemo(() => {
-    if (questionsData.length === 0) return 0;
-    return (studiedIds.size / questionsData.length) * 100;
-  }, [studiedIds]);
+  const progress = useMemo(() => questionsData.length ? (studiedIds.size / questionsData.length) * 100 : 0, [studiedIds]);
 
-  const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-  const glossaryTerms = useMemo(() => {
-    return (glossaryData as GlossaryItem[]).slice().sort((a, b) => b.term.length - a.term.length);
-  }, []);
+  const glossaryTerms = useMemo(() =>
+    (glossaryData as GlossaryItem[]).slice().sort((a, b) => b.term.length - a.term.length), []);
 
   const handleGlossaryClick = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.classList.contains('glossary-term')) {
-      const defEncoded = target.getAttribute('data-definition');
-      if (defEncoded) {
-        setActiveTermDef(decodeURIComponent(defEncoded));
-        setTooltipPos({ x: e.clientX, y: e.clientY });
-        e.stopPropagation();
-      }
+    const t = e.target as HTMLElement;
+    if (t.classList.contains('glossary-term')) {
+      const def = t.getAttribute('data-definition');
+      if (def) { setActiveTermDef(decodeURIComponent(def)); setTooltipPos({ x: e.clientX, y: e.clientY }); e.stopPropagation(); }
     }
   };
 
   useEffect(() => {
-    if (activeTermDef) {
-      const handler = () => setActiveTermDef(null);
-      document.addEventListener('click', handler);
-      return () => document.removeEventListener('click', handler);
-    }
+    if (!activeTermDef) return;
+    const h = () => setActiveTermDef(null);
+    document.addEventListener('click', h);
+    return () => document.removeEventListener('click', h);
   }, [activeTermDef]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       e.preventDefault();
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      initialDistance.current = Math.hypot(dx, dy);
+      initialDistance.current = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
       initialFontSize.current = fontSize;
     }
   };
-
   const handleTouchMove = (e: React.TouchEvent) => {
     if (e.touches.length === 2 && initialDistance.current !== null) {
       e.preventDefault();
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const distance = Math.hypot(dx, dy);
-      const scaleRatio = distance / initialDistance.current;
-      const newSize = Math.max(12, Math.min(28, Math.round(initialFontSize.current * scaleRatio)));
-      setFontSize(newSize);
+      const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      setFontSize(Math.max(12, Math.min(28, Math.round(initialFontSize.current * d / initialDistance.current))));
     }
   };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (e.touches.length < 2) {
-      initialDistance.current = null;
-    }
-  };
+  const handleTouchEnd = (e: React.TouchEvent) => { if (e.touches.length < 2) initialDistance.current = null; };
 
   const handleTooltipMouseDown = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setDragging(true);
+    e.stopPropagation(); setDragging(true);
     dragStartPos.current = { x: e.clientX, y: e.clientY };
     tooltipStartPos.current = { x: tooltipPos.x, y: tooltipPos.y };
   };
-
-  useEffect(() => {
-    if (!dragging) return;
-    const handleMove = (e: MouseEvent) => {
-      const dx = e.clientX - dragStartPos.current.x;
-      const dy = e.clientY - dragStartPos.current.y;
-      let newX = tooltipStartPos.current.x + dx;
-      let newY = tooltipStartPos.current.y + dy;
-      const tooltip = tooltipRef.current;
-      if (tooltip) {
-        const rect = tooltip.getBoundingClientRect();
-        const maxX = window.innerWidth - rect.width - 10;
-        const maxY = window.innerHeight - rect.height - 10;
-        newX = Math.max(10, Math.min(newX, maxX));
-        newY = Math.max(10, Math.min(newY, maxY));
-      }
-      setTooltipPos({ x: newX, y: newY });
-    };
-    const handleUp = () => setDragging(false);
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-    };
-  }, [dragging]);
-
   const handleTooltipTouchStart = (e: React.TouchEvent) => {
-    e.stopPropagation();
-    const touch = e.touches[0];
-    setDragging(true);
-    dragStartPos.current = { x: touch.clientX, y: touch.clientY };
+    e.stopPropagation(); const t = e.touches[0]; setDragging(true);
+    dragStartPos.current = { x: t.clientX, y: t.clientY };
     tooltipStartPos.current = { x: tooltipPos.x, y: tooltipPos.y };
   };
 
   useEffect(() => {
     if (!dragging) return;
-    const handleTouchMove = (e: TouchEvent) => {
-      const touch = e.touches[0];
-      const dx = touch.clientX - dragStartPos.current.x;
-      const dy = touch.clientY - dragStartPos.current.y;
-      let newX = tooltipStartPos.current.x + dx;
-      let newY = tooltipStartPos.current.y + dy;
-      const tooltip = tooltipRef.current;
-      if (tooltip) {
-        const rect = tooltip.getBoundingClientRect();
-        const maxX = window.innerWidth - rect.width - 10;
-        const maxY = window.innerHeight - rect.height - 10;
-        newX = Math.max(10, Math.min(newX, maxX));
-        newY = Math.max(10, Math.min(newY, maxY));
-      }
-      setTooltipPos({ x: newX, y: newY });
+    const move = (e: MouseEvent | TouchEvent) => {
+      const cx = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const cy = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const rect = tooltipRef.current?.getBoundingClientRect();
+      setTooltipPos({
+        x: Math.max(10, Math.min(tooltipStartPos.current.x + cx - dragStartPos.current.x, window.innerWidth  - (rect?.width  || 200) - 10)),
+        y: Math.max(10, Math.min(tooltipStartPos.current.y + cy - dragStartPos.current.y, window.innerHeight - (rect?.height || 100) - 10)),
+      });
     };
-    const handleTouchEnd = () => setDragging(false);
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleTouchEnd);
-    return () => {
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
+    const up = () => setDragging(false);
+    window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', move as any, { passive: false }); window.addEventListener('touchend', up);
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up);
+      window.removeEventListener('touchmove', move as any); window.removeEventListener('touchend', up); };
   }, [dragging]);
 
   useEffect(() => {
-    if (readingQuestion) {
-      setCloseBtnPos({ x: window.innerWidth - 60, y: 60 });
-      hasMoved.current = false;
-    }
+    if (readingQuestion) { setCloseBtnPos({ x: window.innerWidth - 60, y: 60 }); hasMoved.current = false; }
   }, [readingQuestion]);
-
-  const handleCloseMouseDown = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCloseDragging(true);
-    hasMoved.current = false;
-    closeStartPos.current = { x: e.clientX, y: e.clientY };
-    closeBtnStartPos.current = { x: closeBtnPos.x, y: closeBtnPos.y };
-  };
-
-  const handleCloseTouchStart = (e: React.TouchEvent) => {
-    e.stopPropagation();
-    const touch = e.touches[0];
-    setCloseDragging(true);
-    hasMoved.current = false;
-    closeStartPos.current = { x: touch.clientX, y: touch.clientY };
-    closeBtnStartPos.current = { x: closeBtnPos.x, y: closeBtnPos.y };
-  };
 
   useEffect(() => {
     if (!closeDragging) return;
-    const handleMove = (e: MouseEvent | TouchEvent) => {
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      const dx = clientX - closeStartPos.current.x;
-      const dy = clientY - closeStartPos.current.y;
+    const move = (e: MouseEvent | TouchEvent) => {
+      const cx = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const cy = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const dx = cx - closeStartPos.current.x; const dy = cy - closeStartPos.current.y;
       if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved.current = true;
-      let newX = closeBtnStartPos.current.x + dx;
-      let newY = closeBtnStartPos.current.y + dy;
-      const btn = closeBtnRef.current;
-      if (btn) {
-        const rect = btn.getBoundingClientRect();
-        const maxX = window.innerWidth - rect.width - 10;
-        const maxY = window.innerHeight - rect.height - 10;
-        newX = Math.max(10, Math.min(newX, maxX));
-        newY = Math.max(10, Math.min(newY, maxY));
-      }
-      setCloseBtnPos({ x: newX, y: newY });
+      const btn = closeBtnRef.current?.getBoundingClientRect();
+      setCloseBtnPos({
+        x: Math.max(10, Math.min(closeBtnStartPos.current.x + dx, window.innerWidth  - (btn?.width  || 44) - 10)),
+        y: Math.max(10, Math.min(closeBtnStartPos.current.y + dy, window.innerHeight - (btn?.height || 44) - 10)),
+      });
     };
-    const handleUp = () => {
-      setCloseDragging(false);
-      if (!hasMoved.current) setReadingQuestion(null);
-    };
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
-    window.addEventListener('touchmove', handleMove, { passive: false });
-    window.addEventListener('touchend', handleUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-      window.removeEventListener('touchmove', handleMove);
-      window.removeEventListener('touchend', handleUp);
-    };
+    const up = () => { setCloseDragging(false); if (!hasMoved.current) setReadingQuestion(null); };
+    window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', move as any, { passive: false }); window.addEventListener('touchend', up);
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up);
+      window.removeEventListener('touchmove', move as any); window.removeEventListener('touchend', up); };
   }, [closeDragging]);
 
   const renderWithGlossary = (text: string) => {
-    const fragments: { type: 'normal' | 'bold'; content: string }[] = [];
-    let remaining = text;
-    const boldRegex = /\*\*(.*?)\*\*/g;
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-    
-    while ((match = boldRegex.exec(remaining)) !== null) {
-      if (match.index > lastIndex) {
-        fragments.push({ type: 'normal', content: remaining.substring(lastIndex, match.index) });
-      }
-      fragments.push({ type: 'bold', content: match[1] });
-      lastIndex = match.index + match[0].length;
+    const frags: { type: 'normal' | 'bold'; content: string }[] = [];
+    const boldRe = /\*\*(.*?)\*\*/g;
+    let last = 0; let m: RegExpExecArray | null;
+    while ((m = boldRe.exec(text)) !== null) {
+      if (m.index > last) frags.push({ type: 'normal', content: text.substring(last, m.index) });
+      frags.push({ type: 'bold', content: m[1] });
+      last = m.index + m[0].length;
     }
-    if (lastIndex < remaining.length) {
-      fragments.push({ type: 'normal', content: remaining.substring(lastIndex) });
-    }
+    if (last < text.length) frags.push({ type: 'normal', content: text.substring(last) });
 
-    const processNormalText = (normalText: string): string => {
-      let result = normalText;
-      const sortedTerms = [...glossaryTerms].sort((a, b) => b.term.length - a.term.length);
-      for (const termItem of sortedTerms) {
-        const term = termItem.term;
-        const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const termRegex = new RegExp(escapedTerm, 'gi');
-        result = result.replace(termRegex, (match, offset) => {
-          const prevChar = offset > 0 ? result[offset - 1] : '';
-          const nextChar = offset + match.length < result.length ? result[offset + match.length] : '';
-          const isBoundary = (ch: string) => /[\s\p{P}\p{Z}]/u.test(ch) || ch === '';
-          if ((isBoundary(prevChar) || prevChar === '') && (isBoundary(nextChar) || nextChar === '')) {
-            return `<span class="glossary-term" data-definition="${encodeURIComponent(termItem.definition)}">${match}</span>`;
-          }
-          return match;
+    const processNormal = (t: string) => {
+      let r = t;
+      for (const gi of glossaryTerms) {
+        r = r.replace(new RegExp(gi.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), (match, offset) => {
+          const prev = offset > 0 ? r[offset - 1] : '';
+          const next = offset + match.length < r.length ? r[offset + match.length] : '';
+          const b = (c: string) => /[\s\p{P}\p{Z}]/u.test(c) || c === '';
+          return b(prev) && b(next)
+            ? `<span class="glossary-term" data-definition="${encodeURIComponent(gi.definition)}">${match}</span>`
+            : match;
         });
       }
-      return result;
+      return r;
     };
 
-    const processedFragments = fragments.map((frag) => {
-      if (frag.type === 'bold') {
-        return `<span class="font-bold text-amber-300">${frag.content}</span>`;
-      } else {
-        return processNormalText(frag.content);
-      }
-    });
-    const finalHtml = processedFragments.join('');
-    const lines = finalHtml.split('\n').map((line, i) => (
-      <p key={i} className="indent-4 mb-1 last:mb-0" dangerouslySetInnerHTML={{ __html: line }} />
-    ));
-    return <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">{lines}</div>;
-  };
-
-  const PersonalNote = ({ id }: { id: number }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const note = userNotes[id] || '';
-    const [localNote, setLocalNote] = useState(note);
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-    useEffect(() => { setLocalNote(note); }, [note]);
-    useEffect(() => {
-      if (isEditing && textareaRef.current) {
-        textareaRef.current.focus();
-        const len = textareaRef.current.value.length;
-        textareaRef.current.setSelectionRange(len, len);
-      }
-    }, [isEditing, localNote]);
+    const html = frags.map(f => f.type === 'bold'
+      ? `<span style="font-weight:700;color:var(--c-amber)">${f.content}</span>`
+      : processNormal(f.content)
+    ).join('');
 
     return (
-      <div className="mt-6 p-4 rounded-xl bg-amber-900/10 border border-amber-500/20 relative group w-full">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2 text-amber-500 text-xs font-bold uppercase tracking-widest">
-            <Pencil className="w-3.5 h-3.5" /> Моя заметка
-          </div>
-          <div className="flex gap-2">
-            {note && (
-              <button onClick={() => clearNote(id)} className="text-muted-foreground/50 hover:text-destructive transition-colors" title="Очистить заметку">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-            <button onClick={() => setIsEditing(!isEditing)} className="text-amber-500/50 hover:text-amber-500 transition-colors text-xs font-medium">
-              {isEditing ? 'Готово' : 'Править'}
-            </button>
-          </div>
-        </div>
-        {isEditing ? (
-          <textarea
-            ref={textareaRef}
-            value={localNote}
-            onChange={(e) => setLocalNote(e.target.value)}
-            onBlur={() => updateNote(id, localNote)}
-            placeholder=" Добавьте свои примечания здесь... (хранится только в вашем браузере)"
-            className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm text-foreground/90 resize-none min-h-[60px] placeholder:text-amber-500/20"
-            autoFocus
-          />
-        ) : (
-          <div className="text-sm prose prose-invert prose-amber max-w-none break-words whitespace-pre-wrap">
-            {note ? <ReactMarkdown>{note}</ReactMarkdown> : <p className="text-muted-foreground italic">Нет примечаний</p>}
-          </div>
-        )}
+      <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
+        {html.split('\n').map((line, i) => (
+          <p key={i} className="indent-4 mb-1 last:mb-0" dangerouslySetInnerHTML={{ __html: line }} />
+        ))}
       </div>
     );
   };
 
-  const getCleanPreview = (text: string) => text.replace(/\*\*/g, '').trim();
-
-  return (
-    <div className="flex flex-col h-full bg-background pb-0 max-w-full overflow-hidden" onClick={handleGlossaryClick}>
-      {/* ВЕРХНЯЯ ПАНЕЛЬ */}
-      <div 
-        className="p-4 space-y-4 bg-background/50 backdrop-blur-md sticky top-0 z-10 border-b border-white/5"
-        style={{
-          // Используем вычисленную переменную. По умолчанию (до загрузки) ставим 16px
-          paddingTop: 'var(--dynamic-top, 16px)'
-        }}
-      >
-        <div className="flex justify-between items-center px-2">
-          <div className="flex items-center gap-3">
-            <ToothIcon className="w-10 h-10 text-primary" />
-            <h1 className="text-2xl font-bold font-headline tracking-tight text-foreground">OrthoByNekruz</h1>
+  // ── Заметка ────────────────────────────────────────
+  const PersonalNote = ({ id }: { id: number }) => {
+    const [editing, setEditing] = useState(false);
+    const note = userNotes[id] || '';
+    const [local, setLocal] = useState(note);
+    const ref = useRef<HTMLTextAreaElement>(null);
+    useEffect(() => { setLocal(note); }, [note]);
+    useEffect(() => {
+      if (editing && ref.current) { ref.current.focus(); ref.current.setSelectionRange(ref.current.value.length, ref.current.value.length); }
+    }, [editing]);
+    return (
+      <div className="mt-4 p-4 rounded-2xl" style={{ background: 'var(--c-amber-dim)', border: '1px solid var(--c-amber-br)' }}>
+        <div className="flex items-center justify-between mb-2.5">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--c-amber)' }}>
+            <Pencil className="w-3 h-3" /> Моя заметка
           </div>
-          <div className="text-right flex flex-col items-end">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest block mb-1">
-              {studiedIds.size}/{questionsData.length}
-            </span>
-            <Progress value={progress} className="h-0.5 w-10 bg-white/5" />
+          <div className="flex gap-3">
+            {note && <button onClick={() => { clearNote(id); setLocal(''); }} style={{ color: 'hsl(var(--destructive))' }}><Trash2 className="w-3.5 h-3.5" /></button>}
+            <button onClick={() => { if (editing) updateNote(id, local); setEditing(v => !v); }} className="text-xs font-semibold" style={{ color: 'var(--c-amber)' }}>
+              {editing ? 'Готово' : 'Править'}
+            </button>
           </div>
         </div>
-        <div className="relative mx-2">
-          <Input placeholder="Поиск по вопросу или №..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 h-12 glass-card border-none focus-visible:ring-primary/50" />
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+        {editing
+          ? <textarea ref={ref} value={local} onChange={e => setLocal(e.target.value)} onBlur={() => updateNote(id, local)}
+              placeholder="Добавьте примечания..." autoFocus
+              className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm resize-none min-h-[60px]"
+              style={{ color: 'var(--c-text)', caretColor: 'var(--c-amber)' }} />
+          : <div className="text-sm prose prose-invert max-w-none break-words whitespace-pre-wrap min-h-[24px]" onClick={() => setEditing(true)}>
+              {note ? <ReactMarkdown>{note}</ReactMarkdown>
+                : <p className="italic text-sm" style={{ color: 'color-mix(in srgb, var(--c-amber) 40%, transparent)' }}>Нет примечаний. Нажмите «Править»...</p>}
+            </div>}
+      </div>
+    );
+  };
+
+  const getPreview = (t: string) => t.replace(/\*\*/g, '').trim();
+
+  // ════════════════════════════════════════════════════
+  return (
+    <div className="flex flex-col h-full overflow-hidden max-w-full" style={{ background: 'var(--c-bg)' }} onClick={handleGlossaryClick}>
+
+      {/* ── ШАПКА ─────────────────────────────────── */}
+      <div className="px-4 py-3 space-y-3 sticky top-0 z-10"
+        style={{ background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid var(--c-border)', paddingTop: 'var(--header-pt)' }}>
+        <div className="flex justify-between items-center px-1">
+          <div className="flex items-center gap-3">
+            <ToothIcon className="w-9 h-9 text-primary" />
+            <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>OrthoByNekruz</h1>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: 'var(--c-primary)' }}>
+              {studiedIds.size}/{questionsData.length}
+            </span>
+            <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
+              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: 'var(--c-primary)' }} />
+            </div>
+          </div>
+        </div>
+        <div className="relative mx-1">
+          <Input placeholder="Поиск по вопросу или №..." value={search} onChange={e => setSearch(e.target.value)}
+            className="pl-10 h-11 border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
+            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)', caretColor: 'var(--c-primary)' }} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--c-muted)' }} />
+          {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--c-muted)' }}><X className="w-4 h-4" /></button>}
         </div>
       </div>
 
-      {/* СПИСОК ВОПРОСОВ */}
+      {/* ── СПИСОК ────────────────────────────────── */}
       <ScrollArea className="flex-1 scroll-container">
-        <div 
-          className="py-4 px-4 mx-auto max-w-2xl w-full"
-          style={{ paddingBottom: 'calc(var(--tg-safe-area-inset-bottom, 24px) + 100px)' }}
-        >
+        <div className="py-3 px-3 mx-auto max-w-2xl w-full" style={{ paddingBottom: 'var(--scroll-pb)' }}>
           {filtered.length > 0 ? (
-            <Accordion type="single" collapsible className="space-y-3 w-full">
-              {filtered.map((q) => {
-                const isStudied = studiedIds.has(q.id);
+            <Accordion type="single" collapsible className="space-y-2 w-full">
+              {filtered.map(q => {
+                const studied = studiedIds.has(q.id);
                 return (
-                  <AccordionItem key={q.id} value={q.id.toString()} className={cn("border-none glass-card rounded-xl transition-all duration-300 w-full max-w-full", isStudied && "bg-primary/5 border border-primary/20")}>
-                    <AccordionTrigger className="px-5 py-4 hover:no-underline group">
-                      <div className="flex flex-col items-start text-left gap-1 pr-4 w-full break-words whitespace-normal overflow-hidden">
-                        <div className="flex items-center gap-2">
-                          <span className={cn("text-[10px] font-mono px-2 py-0.5 rounded", isStudied ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary")}>
-                            Вопрос № {q.id}
-                          </span>
-                          {isStudied && <CheckCircle2 className="w-3.5 h-3.5 text-primary" />}
+                  <AccordionItem key={q.id} value={q.id.toString()} className="border-none rounded-2xl overflow-hidden w-full transition-all duration-200"
+                    style={{ background: studied ? 'color-mix(in srgb, var(--c-primary) 6%, var(--c-card))' : 'var(--c-card)', border: studied ? '1px solid var(--c-primary-br)' : '1px solid var(--c-border)' }}>
+                    <AccordionTrigger className="px-4 py-3.5 hover:no-underline [&>svg]:hidden">
+                      <div className="flex items-start gap-3 text-left w-full pr-2">
+                        <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border flex items-center justify-center transition-all"
+                          style={studied ? { background: 'var(--c-primary-dim)', borderColor: 'var(--c-primary)' } : { borderColor: 'var(--c-border)' }}>
+                          {studied && <div className="w-2 h-2 rounded-full" style={{ background: 'var(--c-primary)' }} />}
                         </div>
-                        <span className="text-sm font-medium line-clamp-2 text-foreground/90 w-full text-left break-words">
-                          {getCleanPreview(q.question)}
-                        </span>
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <span className="inline-block text-[10px] font-mono font-bold px-2 py-0.5 rounded-md"
+                            style={studied
+                              ? { background: 'var(--c-primary-dim)', color: 'var(--c-primary)', border: '1px solid var(--c-primary-br)' }
+                              : { background: 'color-mix(in srgb, var(--c-border) 60%, transparent)', color: 'var(--c-muted)', border: '1px solid var(--c-border)' }}>
+                            №{q.id}
+                          </span>
+                          <p className="text-sm font-medium leading-snug line-clamp-2 break-words"
+                            style={{ color: studied ? 'color-mix(in srgb, var(--c-text) 75%, transparent)' : 'var(--c-text)' }}>
+                            {getPreview(q.question)}
+                          </p>
+                        </div>
+                        <div className="flex-shrink-0 mt-1" style={{ color: 'var(--c-muted)' }}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 9 6 6 6-6" />
+                          </svg>
+                        </div>
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent className="px-5 pb-5 pt-0 w-full overflow-hidden">
-                      <div className="space-y-4 w-full max-w-full">
-                        <div className="relative">
-                          <div className="text-sm leading-relaxed text-foreground/80 max-h-24 overflow-hidden">
-                            {renderWithGlossary(q.answer)}
-                          </div>
-                          <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
-                        </div>
 
-                        <div className="flex flex-wrap gap-2">
-                          <Button variant="outline" className="flex-1 min-w-[140px] h-11 rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/10" onClick={() => setReadingQuestion(q)}>
-                            <BookOpen className="w-4 h-4" /> Режим чтения
-                          </Button>
-                          <Button variant={isStudied ? "default" : "outline"} className={cn("flex-1 min-w-[140px] h-11 rounded-xl gap-2 transition-all", isStudied ? "bg-primary text-primary-foreground" : "border-primary/30 text-primary hover:bg-primary/10")} onClick={() => toggleStudied(q.id)}>
-                            {isStudied ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
-                            {isStudied ? "Изучено" : "Изучил"}
-                          </Button>
+                    <AccordionContent className="px-4 pb-4 pt-0 w-full overflow-hidden">
+                      {/* Превью ответа */}
+                      <div className="rounded-xl p-3 mb-3 relative overflow-hidden"
+                        style={{ background: 'color-mix(in srgb, var(--c-bg) 60%, var(--c-card))', border: '1px solid var(--c-border)' }}>
+                        <div className="text-sm leading-relaxed max-h-20 overflow-hidden" style={{ color: 'color-mix(in srgb, var(--c-text) 70%, transparent)' }}>
+                          {renderWithGlossary(q.answer)}
                         </div>
-
-                        <PersonalNote id={q.id} />
+                        <div className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none"
+                          style={{ background: 'linear-gradient(to top, color-mix(in srgb, var(--c-bg) 60%, var(--c-card)), transparent)' }} />
                       </div>
+                      {/* Кнопки */}
+                      <div className="flex gap-2">
+                        <button onClick={() => setReadingQuestion(q)}
+                          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold transition-all active:scale-[0.97]"
+                          style={{ background: 'var(--c-primary-dim)', border: '1px solid var(--c-primary-br)', color: 'var(--c-primary)' }}>
+                          <BookOpen className="w-4 h-4" /> Читать
+                        </button>
+                        <button onClick={() => toggleStudied(q.id)}
+                          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold transition-all active:scale-[0.97]"
+                          style={studied
+                            ? { background: 'var(--c-primary)', border: '1px solid var(--c-primary)', color: 'hsl(var(--primary-foreground))' }
+                            : { background: 'transparent', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                          {studied ? <><CheckCircle2 className="w-4 h-4" /> Изучено</> : <><Circle className="w-4 h-4" /> Изучил</>}
+                        </button>
+                      </div>
+                      <PersonalNote id={q.id} />
                     </AccordionContent>
                   </AccordionItem>
                 );
               })}
             </Accordion>
           ) : (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground space-y-2 opacity-50">
-              <Search className="w-12 h-12" />
-              <p>Ничего не найдено</p>
+            <div className="flex flex-col items-center justify-center py-24 space-y-3" style={{ color: 'var(--c-muted)', opacity: 0.5 }}>
+              <Search className="w-12 h-12" /><p className="text-sm">Ничего не найдено</p>
             </div>
           )}
         </div>
       </ScrollArea>
 
-      {/* РЕЖИМ ЧТЕНИЯ */}
+      {/* ══ РЕЖИМ ЧТЕНИЯ ════════════════════════════ */}
       <AnimatePresence>
         {readingQuestion && (
-          <motion.div
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 100 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-0 z-[100] bg-background flex flex-col overflow-hidden max-w-full"
-          >
-            <div className="flex flex-col h-full relative">
-              <div
-                className="flex-1 overflow-y-auto px-5 pt-16 scroll-container"
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                onClick={handleGlossaryClick}
-              >
-                <div className="space-y-4 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
-                  {/* ВОПРОС */}
-                  <div className="space-y-4 w-full">
-                    <h2
-                      className="text-lg md:text-xl font-semibold leading-snug text-foreground/80 break-words whitespace-pre-wrap mb-0"
-                      style={{ fontSize: `${fontSize * 1.2}px` }}
-                    >
-                      {renderWithGlossary(readingQuestion.question)}
-                    </h2>
-                  </div>
-                  {/* ОТВЕТ */}
-                  <div className="space-y-2 w-full">
-                    <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest">
-                      <BookOpen className="w-4 h-4" /> Ответ
-                    </div>
-                    <div
-                      className="leading-relaxed text-foreground/80 font-light selection:bg-primary/30 w-full break-words whitespace-pre-wrap reading-answer"
-                      style={{ fontSize: `${fontSize}px` }}
-                    >
-                      {renderWithGlossary(readingQuestion.answer)}
-                    </div>
-                  </div>
-                  {/* КАРТИНКА */}
-                  {(() => {
-                    const raw = readingQuestion.images || readingQuestion.image;
-                    if (!raw) return null;
-                    const imageList = Array.isArray(raw) ? raw : [raw];
-                    return (
-                      <div className="space-y-4">
-                        {imageList.map((imgUrl: string, idx: number) => (
-                          <div
-                            key={idx}
-                            className="rounded-xl overflow-hidden border border-white/10 cursor-pointer"
-                            onClick={() => setZoomedImage(imgUrl)}
-                          >
-                            <img
-                              src={imgUrl}
-                              alt={`Иллюстрация ${idx + 1}`}
-                              className="w-full h-auto object-contain max-h-80"
-                              loading="lazy"
-                              onContextMenu={(e) => e.preventDefault()}
-                              draggable={false}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                  <PersonalNote id={readingQuestion.id} />
-                </div>
-              </div>
+          <motion.div initial={{ opacity: 0, y: 80 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 80 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+            className="fixed inset-0 z-[100] flex flex-col overflow-hidden" style={{ background: 'var(--c-bg)' }}>
 
-              {/* НИЖНЯЯ ПАНЕЛЬ */}
-              <div className="mt-auto pt-6 border-t border-white/5 bg-background pb-safe px-3">
-                <div className="flex gap-2 items-center">
-                  <button
-                    onClick={() => {
-                      const currentIndex = questionsData.findIndex(q => q.id === readingQuestion.id);
-                      if (currentIndex === -1) return;
-                      const prevIndex = (currentIndex - 1 + questionsData.length) % questionsData.length;
-                      setReadingQuestion(questionsData[prevIndex]);
-                    }}
-                    className="w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0"
-                    title="Предыдущий вопрос"
-                  >
-                    <ArrowLeft className="w-5 h-5 text-white" />
-                  </button>
-                  <Button
-                    variant={studiedIds.has(readingQuestion.id) ? "default" : "outline"}
-                    className={cn(
-                      "flex-1 h-11 rounded-xl gap-2 font-bold",
-                      studiedIds.has(readingQuestion.id)
-                        ? "bg-primary text-primary-foreground"
-                        : "border-primary/30 text-primary hover:bg-primary/10"
-                    )}
-                    onClick={() => toggleStudied(readingQuestion.id)}
-                  >
-                    {studiedIds.has(readingQuestion.id) ? (
-                      <><CheckCircle2 className="w-4 h-4" /> Изучено</>
-                    ) : (
-                      <><Circle className="w-4 h-4" /> Изучил</>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1 h-11 rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/10 font-bold"
-                    onClick={() => setReadingQuestion(null)}
-                  >
-                    <X className="w-4 h-4" /> Выйти
-                  </Button>
-                  <button
-                    onClick={() => {
-                      const currentIndex = questionsData.findIndex(q => q.id === readingQuestion.id);
-                      if (currentIndex === -1) return;
-                      const nextIndex = (currentIndex + 1) % questionsData.length;
-                      setReadingQuestion(questionsData[nextIndex]);
-                    }}
-                    className="w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0"
-                    title="Следующий вопрос"
-                  >
-                    <ArrowRight className="w-5 h-5 text-white" />
-                  </button>
+            {/* Плавающая кнопка X */}
+            <button ref={closeBtnRef}
+              onMouseDown={e => { e.stopPropagation(); setCloseDragging(true); hasMoved.current = false; closeStartPos.current = { x: e.clientX, y: e.clientY }; closeBtnStartPos.current = { x: closeBtnPos.x, y: closeBtnPos.y }; }}
+              onTouchStart={e => { e.stopPropagation(); const t = e.touches[0]; setCloseDragging(true); hasMoved.current = false; closeStartPos.current = { x: t.clientX, y: t.clientY }; closeBtnStartPos.current = { x: closeBtnPos.x, y: closeBtnPos.y }; }}
+              className="fixed z-[110] w-11 h-11 rounded-full flex items-center justify-center shadow-lg select-none cursor-grab active:cursor-grabbing"
+              style={{ left: closeBtnPos.x, top: closeBtnPos.y, background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Контент */}
+            <div className="flex-1 overflow-y-auto px-5 pt-6 scroll-container"
+              onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onClick={handleGlossaryClick}>
+              <div className="space-y-5 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
+                <div className="flex items-center gap-2 pt-2">
+                  <span className="text-[11px] font-mono font-bold px-3 py-1 rounded-lg"
+                    style={{ background: 'var(--c-primary-dim)', color: 'var(--c-primary)', border: '1px solid var(--c-primary-br)' }}>
+                    Вопрос №{readingQuestion.id}
+                  </span>
+                  <span className="text-[10px]" style={{ color: 'var(--c-muted)' }}>Pinch — размер текста</span>
                 </div>
+                <h2 className="font-semibold leading-snug break-words" style={{ fontSize: `${fontSize * 1.15}px`, color: 'var(--c-text)' }}>
+                  {renderWithGlossary(readingQuestion.question)}
+                </h2>
+                <div className="flex items-center gap-3" style={{ borderTop: '1px solid var(--c-border)', paddingTop: '12px' }}>
+                  <BookOpen className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-primary)' }} />
+                  <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-primary)' }}>Ответ</span>
+                </div>
+                <div className="leading-relaxed font-light break-words whitespace-pre-wrap" style={{ fontSize: `${fontSize}px`, color: 'color-mix(in srgb, var(--c-text) 82%, transparent)' }}>
+                  {renderWithGlossary(readingQuestion.answer)}
+                </div>
+                {(() => {
+                  const raw = readingQuestion.images || readingQuestion.image;
+                  if (!raw) return null;
+                  return (Array.isArray(raw) ? raw : [raw]).map((img: string, i: number) => (
+                    <div key={i} className="rounded-2xl overflow-hidden cursor-pointer" style={{ border: '1px solid var(--c-border)' }} onClick={() => setZoomedImage(img)}>
+                      <img src={img} alt="" className="w-full h-auto object-contain max-h-80" loading="lazy" onContextMenu={e => e.preventDefault()} draggable={false} />
+                    </div>
+                  ));
+                })()}
+                <PersonalNote id={readingQuestion.id} />
+              </div>
+            </div>
+
+            {/* Нижняя панель */}
+            <div className="px-4 pt-3 pb-safe" style={{ borderTop: '1px solid var(--c-border)', background: 'color-mix(in srgb, var(--c-bg) 97%, transparent)' }}>
+              <div className="flex gap-2 items-center max-w-2xl mx-auto">
+                {[
+                  { onClick: () => { const i = questionsData.findIndex(q => q.id === readingQuestion.id); setReadingQuestion(questionsData[(i - 1 + questionsData.length) % questionsData.length]); }, icon: <ArrowLeft className="w-5 h-5" />, round: true },
+                ].map((b, i) => (
+                  <button key={i} onClick={b.onClick} className="w-11 h-11 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
+                    style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>{b.icon}</button>
+                ))}
+                <button onClick={() => toggleStudied(readingQuestion.id)}
+                  className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-sm font-bold transition-all active:scale-[0.98]"
+                  style={studiedIds.has(readingQuestion.id)
+                    ? { background: 'var(--c-primary)', color: 'hsl(var(--primary-foreground))', border: '1px solid var(--c-primary)' }
+                    : { background: 'var(--c-primary-dim)', color: 'var(--c-primary)', border: '1px solid var(--c-primary-br)' }}>
+                  {studiedIds.has(readingQuestion.id) ? <><CheckCircle2 className="w-4 h-4" /> Изучено</> : <><Circle className="w-4 h-4" /> Изучил</>}
+                </button>
+                <button onClick={() => setReadingQuestion(null)}
+                  className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-all active:scale-[0.98]"
+                  style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                  <X className="w-4 h-4" /> Выйти
+                </button>
+                <button onClick={() => { const i = questionsData.findIndex(q => q.id === readingQuestion.id); setReadingQuestion(questionsData[(i + 1) % questionsData.length]); }}
+                  className="w-11 h-11 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
+                  style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                  <ArrowRight className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ТУЛТИП ГЛОССАРИЯ */}
+      {/* ── ТУЛТИП ГЛОССАРИЯ ──────────────────────── */}
       {activeTermDef && (() => {
-        const found = glossaryTerms.find((g: GlossaryItem) => g.definition === activeTermDef);
-        const termImage = found?.image;
+        const found = glossaryTerms.find(g => g.definition === activeTermDef);
         return (
-          <div
-            ref={tooltipRef}
-            className="fixed z-[200] bg-card border border-white/10 rounded-2xl p-4 shadow-2xl max-w-xs select-none"
-            style={{ left: tooltipPos.x, top: tooltipPos.y }}
-            onMouseDown={handleTooltipMouseDown}
-            onTouchStart={handleTooltipTouchStart}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {termImage && (
-              <div className="mb-3 space-y-2">
-                {(Array.isArray(termImage) ? termImage : [termImage]).map((imgUrl: string, idx: number) => (
-                  <div
-                    key={idx}
-                    className="rounded-lg overflow-hidden border border-white/10 cursor-pointer"
-                    onClick={(e) => { e.stopPropagation(); setZoomedImage(imgUrl); }}
-                  >
-                    <img
-                      src={imgUrl}
-                      alt={`Иллюстрация термина ${idx + 1}`}
-                      className="w-full h-auto object-contain max-h-32"
-                      loading="lazy"
-                      onContextMenu={(e) => e.preventDefault()}
-                      draggable={false}
-                    />
-                  </div>
-                ))}
+          <div ref={tooltipRef} className="fixed z-[200] rounded-2xl p-4 shadow-2xl max-w-[280px] select-none"
+            style={{ left: tooltipPos.x, top: tooltipPos.y, background: 'var(--c-card)', border: '1px solid var(--c-primary-br)', cursor: dragging ? 'grabbing' : 'grab' }}
+            onMouseDown={handleTooltipMouseDown} onTouchStart={handleTooltipTouchStart} onClick={e => e.stopPropagation()}>
+            {found?.image && (Array.isArray(found.image) ? found.image : [found.image]).map((img, i) => (
+              <div key={i} className="mb-2 rounded-xl overflow-hidden cursor-pointer" style={{ border: '1px solid var(--c-border)' }}
+                onClick={e => { e.stopPropagation(); setZoomedImage(img); }}>
+                <img src={img} alt="" className="w-full h-auto object-contain max-h-32" loading="lazy" onContextMenu={e => e.preventDefault()} draggable={false} />
               </div>
-            )}
-            {activeTermDef && <p className="text-white text-sm">{activeTermDef}</p>}
-            <p className="text-[10px] text-muted-foreground mt-1">↔ перетащите, чтобы переместить</p>
+            ))}
+            <p className="text-sm" style={{ color: 'var(--c-text)' }}>{activeTermDef}</p>
+            <p className="text-[10px] mt-2" style={{ color: 'var(--c-muted)' }}>↔ перетащите</p>
           </div>
         );
       })()}
 
-      {/* МОДАЛЬНОЕ ОКНО ДЛЯ УВЕЛИЧЕННОГО ИЗОБРАЖЕНИЯ */}
+      {/* ── ЗOOM ИЗОБРАЖЕНИЯ ──────────────────────── */}
       {zoomedImage && (
-        <div
-          className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center backdrop-blur-sm"
+        <div className="fixed inset-0 z-[200] flex items-center justify-center"
+          style={{ background: 'hsl(0 0% 0% / 0.92)', backdropFilter: 'blur(8px)' }}
           onClick={() => { setZoomedImage(null); setScale(1); setTranslate({ x: 0, y: 0 }); }}
-          onWheel={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const delta = e.deltaY > 0 ? -0.2 : 0.2;
-            setScale((prev) => Math.min(5, Math.max(1, prev + delta)));
+          onWheel={e => { e.preventDefault(); setScale(p => Math.min(5, Math.max(1, p + (e.deltaY > 0 ? -0.2 : 0.2)))); }}
+          onTouchStart={e => {
+            if (e.touches.length === 2) { const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; (e.currentTarget as any).__ps = { dist: Math.hypot(dx, dy), scale, translate, cx: (e.touches[0].clientX + e.touches[1].clientX) / 2, cy: (e.touches[0].clientY + e.touches[1].clientY) / 2 }; }
+            else if (e.touches.length === 1) (e.currentTarget as any).__pan = { x: e.touches[0].clientX, y: e.touches[0].clientY, translate };
           }}
-          onTouchStart={(e) => {
-            if (e.touches.length === 2) {
-              const dx = e.touches[0].clientX - e.touches[1].clientX;
-              const dy = e.touches[0].clientY - e.touches[1].clientY;
-              const dist = Math.hypot(dx, dy);
-              (e.currentTarget as any).__pinchStart = {
-                dist, scale, translate,
-                cx: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-                cy: (e.touches[0].clientY + e.touches[1].clientY) / 2,
-              };
-            } else if (e.touches.length === 1) {
-              (e.currentTarget as any).__panStart = {
-                x: e.touches[0].clientX,
-                y: e.touches[0].clientY,
-                translate,
-              };
-            }
+          onTouchMove={e => {
+            if (e.touches.length === 2 && (e.currentTarget as any).__ps) { const ps = (e.currentTarget as any).__ps; const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; const ns = Math.min(5, Math.max(1, ps.scale * Math.hypot(dx, dy) / ps.dist)); const r = ns / ps.scale; setScale(ns); setTranslate({ x: ps.translate.x + (ps.cx - ps.translate.x) * (1 - r), y: ps.translate.y + (ps.cy - ps.translate.y) * (1 - r) }); }
+            else if (e.touches.length === 1 && (e.currentTarget as any).__pan && scale > 1) { const p = (e.currentTarget as any).__pan; setTranslate({ x: p.translate.x + e.touches[0].clientX - p.x, y: p.translate.y + e.touches[0].clientY - p.y }); }
           }}
-          onTouchMove={(e) => {
-            if (e.touches.length === 2 && (e.currentTarget as any).__pinchStart) {
-              const ps = (e.currentTarget as any).__pinchStart;
-              const dx = e.touches[0].clientX - e.touches[1].clientX;
-              const dy = e.touches[0].clientY - e.touches[1].clientY;
-              const dist = Math.hypot(dx, dy);
-              const newScale = Math.min(5, Math.max(1, ps.scale * (dist / ps.dist)));
-              const ratio = newScale / ps.scale;
-              const newX = ps.translate.x + (ps.cx - ps.translate.x) * (1 - ratio);
-              const newY = ps.translate.y + (ps.cy - ps.translate.y) * (1 - ratio);
-              setScale(newScale);
-              setTranslate({ x: newX, y: newY });
-            } else if (e.touches.length === 1 && (e.currentTarget as any).__panStart && scale > 1) {
-              const ps = (e.currentTarget as any).__panStart;
-              const dx = e.touches[0].clientX - ps.x;
-              const dy = e.touches[0].clientY - ps.y;
-              setTranslate({ x: ps.translate.x + dx, y: ps.translate.y + dy });
-            }
-          }}
-          onTouchEnd={(e) => {
-            delete (e.currentTarget as any).__pinchStart;
-            delete (e.currentTarget as any).__panStart;
-          }}
-        >
-          <button
-            onClick={(e) => { e.stopPropagation(); setZoomedImage(null); setScale(1); setTranslate({ x: 0, y: 0 }); }}
-            className="absolute top-4 right-4 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors z-10"
-          >
-            <X className="w-6 h-6 text-white" />
+          onTouchEnd={e => { delete (e.currentTarget as any).__ps; delete (e.currentTarget as any).__pan; }}>
+          <button onClick={e => { e.stopPropagation(); setZoomedImage(null); setScale(1); setTranslate({ x: 0, y: 0 }); }}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center z-10"
+            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+            <X className="w-5 h-5" />
           </button>
-          <div
-            ref={imageRef}
-            className="flex items-center justify-center max-w-full max-h-full"
-            onClick={(e) => e.stopPropagation()}
-            onDoubleClick={() => { setScale(1); setTranslate({ x: 0, y: 0 }); }}
-          >
-            <img
-              src={zoomedImage}
-              alt="Просмотр изображения"
-              className="max-w-full max-h-full object-contain rounded-xl select-none"
-              style={{
-                transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
-                transition: 'transform 0.2s ease-out',
-                touchAction: 'none',
-              }}
-              draggable={false}
-              onContextMenu={(e) => e.preventDefault()}
-            />
+          <div className="flex items-center justify-center max-w-full max-h-full" onClick={e => e.stopPropagation()} onDoubleClick={() => { setScale(1); setTranslate({ x: 0, y: 0 }); }}>
+            <img src={zoomedImage} alt="" className="max-w-full max-h-full object-contain rounded-2xl select-none"
+              style={{ transform: `translate(${translate.x}px,${translate.y}px) scale(${scale})`, transition: 'transform .15s ease-out', touchAction: 'none' }}
+              draggable={false} onContextMenu={e => e.preventDefault()} />
           </div>
         </div>
       )}
