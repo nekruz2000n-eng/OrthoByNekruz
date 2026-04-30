@@ -55,21 +55,12 @@
        Используем их прямо здесь — никакого JS,
        никаких гонок при рефреше страницы.
        ───────────────────────────────────────────────── */
-    --tg-safe-area-inset-top:         0px;
-    --tg-safe-area-inset-bottom:      0px;
-    --tg-content-safe-area-inset-top: 0px;
-
-    --header-pt: calc(
-      var(--tg-content-safe-area-inset-top) +
-      var(--tg-safe-area-inset-top) +
-      16px
-    );
-    --scroll-pb: calc(
-      var(--tg-safe-area-inset-bottom) + 96px
-    );
-    --nav-bottom: calc(
-      var(--tg-safe-area-inset-bottom) + 24px
-    );
+    /* Safe areas are written by JS (initTelegramApp)
+       via document.documentElement.style.setProperty.
+       Fallback values for non-Telegram environments: */
+    --header-pt:  16px;
+    --scroll-pb:  96px;
+    --nav-bottom: 24px;
   }
 
   /* ═══════════════════════════════════════════════════
