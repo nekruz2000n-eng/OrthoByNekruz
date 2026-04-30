@@ -14,30 +14,27 @@ interface NavigationProps {
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }) => {
   const tabs = [
     { id: 'questions', label: 'Вопросы', icon: BookOpen },
-    { id: 'tests', label: 'Тесты', icon: ClipboardList },
-    { id: 'tasks', label: 'Задачи', icon: PenTool },
-    { id: 'stats', label: 'Статистика', icon: BarChart3 },
+    { id: 'tests',     label: 'Тесты',   icon: ClipboardList },
+    { id: 'tasks',     label: 'Задачи',  icon: PenTool },
+    { id: 'stats',     label: 'Статистика', icon: BarChart3 },
   ];
 
   return (
     <div
-      className="fixed left-0 right-0 px-8 z-50 flex justify-center"
+      className="fixed left-0 right-0 px-6 z-50 flex justify-center"
       style={{
-        /*
-         * Используем --nav-bottom, вычисленный в globals.css как:
-         *   calc(var(--safe-bottom) + 24px)
-         *
-         * --safe-bottom выставляется в JS через applyTelegramSafeAreas().
-         * Это гарантирует, что pill-навигация:
-         *   — на Desktop: 24px от нижнего края (0 + 24px).
-         *   — на iOS: clearance от home-indicator + 24px.
-         *   — на Android: clearance от системной навигационной панели + 24px.
-         *   — никогда не тонет в чёрной полосе и не висит слишком высоко.
-         */
-        bottom: 'var(--nav-bottom)',
+        bottom: 'calc(var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 24px)) + 20px)'
       }}
     >
-      <nav className="flex items-center gap-1 bg-black/40 dark:bg-black/40 backdrop-blur-2xl p-2 rounded-[26px] border border-white/10 shadow-2xl">
+      <nav
+        className="flex items-center gap-1 p-1.5 rounded-[28px] shadow-2xl"
+        style={{
+          background: 'hsl(160 28% 4% / 0.85)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          border: '1px solid hsl(142 30% 18% / 0.6)',
+        }}
+      >
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -46,27 +43,43 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
               key={tab.id}
               onClick={() => onTabChange(tab.id as TabType)}
               className={cn(
-                "relative flex items-center gap-2 px-4 py-2.5 rounded-full transition-all duration-500 overflow-hidden",
-                isActive ? "bg-primary/20" : "bg-transparent"
+                "relative flex items-center gap-2 px-4 py-2.5 rounded-full transition-all duration-400 overflow-hidden",
               )}
+              style={isActive ? {
+                background: 'hsl(142 70% 45% / 0.18)',
+                border: '1px solid hsl(142 70% 45% / 0.35)',
+              } : {
+                background: 'transparent',
+                border: '1px solid transparent',
+              }}
             >
               <Icon
-                className={cn(
-                  "w-5 h-5 transition-all duration-300",
-                  isActive
-                    ? "text-black dark:text-white scale-110"
-                    : "text-black/50 dark:text-white/40"
-                )}
+                className="w-5 h-5 transition-all duration-300"
+                style={{
+                  color: isActive
+                    ? 'hsl(142 70% 52%)'
+                    : 'hsl(130 10% 50%)',
+                  transform: isActive ? 'scale(1.1)' : 'scale(1)',
+                }}
               />
 
               {isActive && (
-                <span className="text-[11px] font-bold text-black dark:text-white animate-in fade-in slide-in-from-left-2 duration-300">
+                <span
+                  className="text-[11px] font-bold animate-in fade-in slide-in-from-left-2 duration-300"
+                  style={{ color: 'hsl(142 70% 60%)' }}
+                >
                   {tab.label}
                 </span>
               )}
 
               {isActive && (
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite] pointer-events-none" />
+                <div
+                  className="absolute inset-0 -translate-x-full pointer-events-none"
+                  style={{
+                    background: 'linear-gradient(90deg, transparent, hsl(142 70% 45% / 0.12), transparent)',
+                    animation: 'shimmer 2.5s infinite',
+                  }}
+                />
               )}
             </button>
           );

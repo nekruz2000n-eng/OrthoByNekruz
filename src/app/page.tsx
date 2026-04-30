@@ -10,42 +10,24 @@ import { StatsTab } from '@/components/StatsTab';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-// ─── Ядро исправления: вычисляет и записывает --safe-top и --safe-bottom ───────
-//
-// Проблема с CSS var() fallback:
-//   var(--tg-safe-area-inset-top, 45px)  →  работает только если переменная
-//   вообще НЕ ОПРЕДЕЛЕНА. Если Telegram установил её в "0px" — CSS считает это
-//   валидным значением и fallback игнорируется. Поэтому мы читаем значение в JS,
-//   проверяем его программно и пишем правильный результат в наши переменные.
-//
-// Алгоритм:
-//   1. Десктоп (tdesktop/weba/macos/unknown) → 0px всегда.
-//   2. iOS/Android → читаем TG-переменные. Если их сумма > 0 — используем.
-//      Иначе → жёсткий fallback 44px (высота Telegram-шапки на мобильных).
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Safe areas (вычисляются в JS после tg.ready()) ───────────────────────────
 function applyTelegramSafeAreas(tg: any): void {
   const platform: string = tg?.platform ?? 'unknown';
   const isDesktop = ['tdesktop', 'weba', 'macos', 'unknown'].includes(platform);
   const root = document.documentElement;
 
   if (isDesktop) {
-    // На десктопе safe area всегда 0 — Telegram не показывает мобильные кнопки
     root.style.setProperty('--safe-top', '0px');
     root.style.setProperty('--safe-bottom', '0px');
     return;
   }
 
-  // На мобильных читаем CSS-переменные, которые TG SDK устанавливает после tg.ready()
   const style = getComputedStyle(root);
 
-  // --tg-content-safe-area-inset-top: отступ ПОД кнопками Telegram (Закрыть / Меню).
-  //   Это именно то, что нам нужно для шапки контента.
   const tgContentTop = parseFloat(
     style.getPropertyValue('--tg-content-safe-area-inset-top').trim()
   ) || 0;
 
-  // --tg-safe-area-inset-top: отступ системного статус-бара (iOS notch и т.п.).
-  //   На современных версиях TG SDK оба значения суммируются.
   const tgTop = parseFloat(
     style.getPropertyValue('--tg-safe-area-inset-top').trim()
   ) || 0;
@@ -54,11 +36,8 @@ function applyTelegramSafeAreas(tg: any): void {
     style.getPropertyValue('--tg-safe-area-inset-bottom').trim()
   ) || 0;
 
-  // Суммируем: контентный отступ + системный отступ
   const totalTop = tgContentTop + tgTop;
 
-  // Если TG вернул 0 (старый Android TG не поддерживает эти переменные) —
-  // используем фиксированный fallback 44px. Это высота стандартной шапки Telegram.
   root.style.setProperty('--safe-top', totalTop > 0 ? `${totalTop}px` : '44px');
   root.style.setProperty('--safe-bottom', `${tgBottom}px`);
 }
@@ -152,19 +131,25 @@ export default function Home() {
     if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
       const tg = (window as any).Telegram.WebApp;
 
+      // Базовая инициализация
       tg.ready();
+
+      // Полный экран (expand — универсальный, requestFullscreen — SDK 8.0+)
       tg.expand();
-      tg.setHeaderColor('#0B0E14');
-      tg.setBackgroundColor('#0B0E14');
-      try { tg.setBottomBarColor('#0B0E14'); } catch {}
+      try { tg.requestFullscreen(); } catch {}
 
-      // Первая попытка — сразу после tg.ready(). SDK мог уже выставить CSS-vars.
+      // Отключить свайп вниз (чтобы окно не сворачивалось при скролле)
+      try { tg.disableVerticalSwipes(); } catch {}
+
+      // Подтверждение перед закрытием (опционально)
+      // try { tg.enableClosingConfirmation(); } catch {}
+
+      // Цвета шапки и фона под тёмную тему с зелёным акцентом
+      tg.setHeaderColor('#060D09');
+      tg.setBackgroundColor('#060D09');
+      try { tg.setBottomBarColor('#060D09'); } catch {}
+
       applyTelegramSafeAreas(tg);
-
-      // Повторная попытка через 150ms: некоторые версии TG SDK на Android
-      // устанавливают --tg-content-safe-area-inset-top асинхронно.
-      // Пересчёт CSS-переменных — это просто запись числа в style, визуально
-      // незаметно даже если произошёл сдвиг на несколько пикселей.
       setTimeout(() => applyTelegramSafeAreas(tg), 150);
     }
     // ─────────────────────────────────────────────────────────────────────────
@@ -172,8 +157,14 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#0B0E14]">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      <div
+        className="flex items-center justify-center min-h-screen"
+        style={{ background: 'hsl(160 28% 4%)' }}
+      >
+        <Loader2
+          className="w-8 h-8 animate-spin"
+          style={{ color: 'hsl(142 70% 45%)' }}
+        />
       </div>
     );
   }
@@ -184,7 +175,7 @@ export default function Home() {
 
   return (
     <main className="flex flex-col h-[100dvh] w-full relative overflow-hidden animate-in fade-in duration-1000">
-      {/* Невидимая зона для скрытого сброса (8-секундное удержание) */}
+      {/* Скрытая зона для сброса данных (8 секунд удержания) */}
       <div
         className="absolute top-0 right-0 w-15 h-15 z-50"
         onTouchStart={handleLongPressStart}
@@ -196,9 +187,9 @@ export default function Home() {
       />
       <div className="flex-1 overflow-hidden relative">
         {activeTab === 'questions' && <QuestionsTab />}
-        {activeTab === 'tests' && <TestsTab />}
-        {activeTab === 'tasks' && <TasksTab />}
-        {activeTab === 'stats' && <StatsTab />}
+        {activeTab === 'tests'     && <TestsTab />}
+        {activeTab === 'tasks'     && <TasksTab />}
+        {activeTab === 'stats'     && <StatsTab />}
       </div>
       <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
     </main>
