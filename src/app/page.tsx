@@ -10,153 +10,118 @@ import { StatsTab } from '@/components/StatsTab';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-// ── Safe areas ──────────────────────────────────────────────────────────────
-// Читаем TG-переменные ПОСЛЕ tg.ready().
-// Fallback 44px применяем ТОЛЬКО если приложение в fullscreen-режиме
-// (иначе Telegram рисует собственную шапку и отступ не нужен).
-// ───────────────────────────────────────────────────────────────────────────
-function applyTelegramSafeAreas(tg: any): void {
-  const platform: string = tg?.platform ?? 'unknown';
-  const isDesktop = ['tdesktop', 'weba', 'macos', 'unknown'].includes(platform);
-  const root = document.documentElement;
+// ─────────────────────────────────────────────────────────────────────────────
+// Telegram Mini App инициализация.
+// Safe areas живут ТОЛЬКО в CSS (globals.css через --tg-safe-area-inset-*).
+// Здесь только: ready, expand, fullscreen, disableVerticalSwipes, цвета.
+// ─────────────────────────────────────────────────────────────────────────────
+function initTelegramApp(): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const tg = (window as any).Telegram?.WebApp;
+  if (!tg) return () => {};
 
-  if (isDesktop) {
-    root.style.setProperty('--safe-top', '0px');
-    root.style.setProperty('--safe-bottom', '0px');
-    return;
-  }
+  tg.ready();
+  tg.expand();
+  try { tg.requestFullscreen(); } catch {}
 
-  const style = getComputedStyle(root);
-  const tgContentTop = parseFloat(style.getPropertyValue('--tg-content-safe-area-inset-top').trim()) || 0;
-  const tgTop        = parseFloat(style.getPropertyValue('--tg-safe-area-inset-top').trim()) || 0;
-  const tgBottom     = parseFloat(style.getPropertyValue('--tg-safe-area-inset-bottom').trim()) || 0;
-  const totalTop     = tgContentTop + tgTop;
+  const disableSwipe = () => { try { tg.disableVerticalSwipes(); } catch {} };
+  disableSwipe();
+  const t1 = setTimeout(disableSwipe, 200);
+  const t2 = setTimeout(disableSwipe, 700);
+  const t3 = setTimeout(disableSwipe, 1500);
 
-  // Используем 44px fallback только при подтверждённом fullscreen
-  const isFullscreen = tg.isFullscreen === true;
-  root.style.setProperty('--safe-top', totalTop > 0 ? `${totalTop}px` : (isFullscreen ? '44px' : '0px'));
-  root.style.setProperty('--safe-bottom', `${tgBottom}px`);
+  try { tg.enableClosingConfirmation(); } catch {}
+
+  const theme = localStorage.getItem('theme') || 'dark';
+  const bg = theme === 'light' ? '#F0EDE4' : '#111318';
+  try { tg.setHeaderColor(bg); } catch {}
+  try { tg.setBackgroundColor(bg); } catch {}
+  try { tg.setBottomBarColor(bg); } catch {}
+
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') disableSwipe();
+  };
+  document.addEventListener('visibilitychange', onVisible);
+
+  return () => {
+    clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
+    document.removeEventListener('visibilitychange', onVisible);
+  };
 }
 
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<TabType>('questions');
+  const [isLoading,       setIsLoading]       = useState<boolean>(true);
+  const [activeTab,       setActiveTab]       = useState<TabType>('questions');
   const { toast } = useToast();
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ── Telegram: ТОЛЬКО ОДИН РАЗ при монтировании ───────────────────────────
+  useEffect(() => initTelegramApp(), []);
 
-  const handleLongPressStart = useCallback(() => {
-    longPressTimerRef.current = setTimeout(() => {
+  // ── Тема ──────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const saved = localStorage.getItem('theme') || 'dark';
+    const root = document.documentElement;
+    root.classList.remove('dark', 'bright');
+    if (saved === 'dark')   root.classList.add('dark');
+    if (saved === 'bright') root.classList.add('dark', 'bright');
+  }, []);
+
+  // ── Авторизация ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    const authed   = localStorage.getItem('is_authed') === 'true';
+    const demo     = localStorage.getItem('demo_mode')  === 'true';
+    const demoTs   = localStorage.getItem('demo_start');
+    const demoUsed = localStorage.getItem('demo_used')  === 'true';
+
+    if (demo && demoTs) {
+      const LIMIT = 60_000;
+      const check = () => {
+        if (Date.now() - Number(demoTs) >= LIMIT) {
+          ['is_authed','demo_mode','demo_start'].forEach(k => localStorage.removeItem(k));
+          localStorage.setItem('demo_used','true');
+          setIsAuthenticated(false);
+          window.location.reload();
+          return true;
+        }
+        return false;
+      };
+      if (check()) return;
+      setIsAuthenticated(true);
+      setIsLoading(false);
+      const iv = setInterval(check, 1000);
+      return () => clearInterval(iv);
+    }
+
+    if (demoUsed && !authed) { setIsAuthenticated(false); setIsLoading(false); return; }
+
+    if (authed) {
+      const storedId  = localStorage.getItem('user_tg_id');
+      const currentId = (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id;
+      if (currentId && storedId && String(currentId) !== storedId) {
+        localStorage.removeItem('is_authed');
+        setIsAuthenticated(false);
+      } else {
+        setIsAuthenticated(true);
+      }
+    } else {
+      setIsAuthenticated(false);
+    }
+    setIsLoading(false);
+  }, []);
+
+  const pressStart = useCallback(() => {
+    longPressRef.current = setTimeout(() => {
       localStorage.clear();
-      toast({ title: 'Session reset', description: 'All data cleared. Reloading...' });
+      toast({ title: 'Сброс', description: 'Данные очищены. Перезагрузка...' });
       setTimeout(() => window.location.reload(), 500);
     }, 8000);
   }, [toast]);
 
-  const handleLongPressEnd = useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
+  const pressEnd = useCallback(() => {
+    if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
   }, []);
-
-  useEffect(() => {
-    // ── Инициализация темы ────────────────────────────
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    const root = document.documentElement;
-    root.classList.remove('dark', 'bright');
-    if (savedTheme === 'dark')   root.classList.add('dark');
-    if (savedTheme === 'bright') root.classList.add('dark', 'bright');
-
-    // ── Проверка авторизации ───────────────────────────
-    const initAuth = () => {
-      const storedAuthed = localStorage.getItem('is_authed') === 'true';
-      const demoMode   = localStorage.getItem('demo_mode') === 'true';
-      const demoStart  = localStorage.getItem('demo_start');
-      const demoUsed   = localStorage.getItem('demo_used') === 'true';
-
-      if (demoMode && demoStart) {
-        const DEMO_LIMIT = 1 * 60 * 1000;
-        const checkDemoStatus = () => {
-          const elapsed = Date.now() - Number(demoStart);
-          if (elapsed >= DEMO_LIMIT) {
-            localStorage.removeItem('is_authed');
-            localStorage.removeItem('demo_mode');
-            localStorage.removeItem('demo_start');
-            localStorage.setItem('demo_used', 'true');
-            setIsAuthenticated(false);
-            window.location.reload();
-            return true;
-          }
-          return false;
-        };
-        if (checkDemoStatus()) return;
-        setIsAuthenticated(true);
-        setIsLoading(false);
-        const interval = setInterval(() => { checkDemoStatus(); }, 1000);
-        return () => clearInterval(interval);
-      }
-
-      if (demoUsed && !storedAuthed) { setIsAuthenticated(false); setIsLoading(false); return; }
-
-      if (storedAuthed) {
-        const storedTgId = localStorage.getItem('user_tg_id');
-        const tg = (window as any).Telegram?.WebApp;
-        const currentTgId = tg?.initDataUnsafe?.user?.id;
-        if (currentTgId && storedTgId && String(currentTgId) !== storedTgId) {
-          localStorage.removeItem('is_authed');
-          setIsAuthenticated(false);
-        } else {
-          setIsAuthenticated(true);
-        }
-      } else {
-        setIsAuthenticated(false);
-      }
-      setIsLoading(false);
-    };
-
-    initAuth();
-
-    // ── Инициализация Telegram Mini App ───────────────
-    if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
-      const tg = (window as any).Telegram.WebApp;
-
-      tg.ready();
-
-      // Полноэкранный режим
-      tg.expand();
-      try { tg.requestFullscreen(); } catch {}
-
-      // ▶ ГЛАВНОЕ: запрет свайпа вниз
-      try { tg.disableVerticalSwipes(); } catch {}
-
-      // Подтверждение перед закрытием (резервная защита)
-      try { tg.enableClosingConfirmation(); } catch {}
-
-      // Цвет шапки/фона под текущую тему
-      const headerBg = savedTheme === 'light' ? '#EDE9E0' : '#111318';
-      tg.setHeaderColor(headerBg);
-      tg.setBackgroundColor(headerBg);
-      try { tg.setBottomBarColor(headerBg); } catch {}
-
-      // Пересчёт safe areas
-      applyTelegramSafeAreas(tg);
-      setTimeout(() => applyTelegramSafeAreas(tg), 150);
-      setTimeout(() => applyTelegramSafeAreas(tg), 600);
-
-      // Повторный запрет свайпа после паузы (некоторые версии TG требуют этого)
-      setTimeout(() => { try { tg.disableVerticalSwipes(); } catch {} }, 300);
-
-      // При возврате в приложение — снова блокировать свайп
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-          try { (window as any).Telegram?.WebApp?.disableVerticalSwipes?.(); } catch {}
-          applyTelegramSafeAreas((window as any).Telegram.WebApp);
-        }
-      });
-    }
-  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -171,17 +136,10 @@ export default function Home() {
   }
 
   return (
-    <main className="flex flex-col h-[100dvh] w-full relative overflow-hidden animate-in fade-in duration-700">
-      {/* Скрытая зона для сброса данных (8 сек удержание) */}
-      <div
-        className="absolute top-0 right-0 w-16 h-16 z-50"
-        onTouchStart={handleLongPressStart}
-        onTouchEnd={handleLongPressEnd}
-        onTouchCancel={handleLongPressEnd}
-        onMouseDown={handleLongPressStart}
-        onMouseUp={handleLongPressEnd}
-        onMouseLeave={handleLongPressEnd}
-      />
+    <main className="flex flex-col h-[100dvh] w-full relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-16 h-16 z-50"
+        onTouchStart={pressStart} onTouchEnd={pressEnd} onTouchCancel={pressEnd}
+        onMouseDown={pressStart}  onMouseUp={pressEnd}  onMouseLeave={pressEnd} />
       <div className="flex-1 overflow-hidden relative">
         {activeTab === 'questions' && <QuestionsTab />}
         {activeTab === 'tests'     && <TestsTab />}
