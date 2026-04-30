@@ -20,7 +20,6 @@ export const StatsTab = () => {
   const totalTasks = tasksData.length;
   const totalTests = testsData.length;
 
-  // ----- состояние темы -----
   const [isDark, setIsDark] = useState(() => {
     if (typeof window === 'undefined') return true;
     return localStorage.getItem('theme') !== 'light';
@@ -36,38 +35,26 @@ export const StatsTab = () => {
       localStorage.setItem('theme', 'light');
     }
   }, [isDark]);
-  // ---------------------------
 
   const loadStats = () => {
-    // Вопросы
     const studied = localStorage.getItem('studiedQuestions');
     if (studied) {
-      try {
-        const arr = JSON.parse(studied);
-        setStudiedCount(arr.length);
-      } catch (e) {}
+      try { setStudiedCount(JSON.parse(studied).length); } catch (e) {}
     } else {
       setStudiedCount(0);
     }
-    // Задачи
     const resolved = localStorage.getItem('resolvedTasks');
     if (resolved) {
-      try {
-        const arr = JSON.parse(resolved);
-        setResolvedTasksCount(arr.length);
-      } catch (e) {}
+      try { setResolvedTasksCount(JSON.parse(resolved).length); } catch (e) {}
     } else {
       setResolvedTasksCount(0);
     }
-    // Тесты
     const scores = localStorage.getItem('test_block_scores');
     if (scores) {
       try {
         const blockScores = JSON.parse(scores);
         let sum = 0;
-        for (let key in blockScores) {
-          sum += blockScores[key];
-        }
+        for (let key in blockScores) sum += blockScores[key];
         setTestsResolvedCount(Math.min(sum, totalTests));
       } catch (e) {}
     } else {
@@ -78,7 +65,6 @@ export const StatsTab = () => {
   const resetAllProgress = () => {
     const confirmed = window.confirm('⚠️ Вы уверены? Весь прогресс (вопросы, задачи, тесты) будет сброшен. Заметки останутся.');
     if (!confirmed) return;
-
     localStorage.removeItem('studiedQuestions');
     localStorage.removeItem('resolvedTasks');
     localStorage.removeItem('test_block_scores');
@@ -107,32 +93,47 @@ export const StatsTab = () => {
 
   return (
     <div className="flex flex-col h-full bg-background pb-0 overflow-x-hidden max-w-full">
-      {/* Верхняя панель с заголовком и кнопками */}
-      <div className="p-4 border-b border-white/5 bg-background/50 backdrop-blur-md sticky top-0 z-10">
+
+      {/* ── Шапка ──────────────────────────────────────────────────────────────
+       *  paddingTop = --header-pt = calc(var(--safe-top) + 16px)
+       *  Это единственное место, где нам важен отступ сверху.
+       *  На десктопе --safe-top = 0, получается просто 16px.
+       *  На Android/iOS --safe-top = высота шапки Telegram (44–50px),
+       *  итого ~60–66px — шапка не перекрывается кнопкой "Закрыть".
+       * ──────────────────────────────────────────────────────────────────── */}
+      <div
+        className="p-4 border-b border-white/5 bg-background/50 backdrop-blur-md sticky top-0 z-10"
+        style={{ paddingTop: 'var(--header-pt)' }}
+      >
         <div className="flex justify-between items-center px-2">
           <div className="flex items-center gap-3">
             <ToothIcon className="w-10 h-10 text-primary" />
             <h1 className="text-2xl font-bold font-headline tracking-tight text-foreground">OrthoByNekruz</h1>
           </div>
           <div className="flex items-center gap-2">
-            {/* Кнопка сброса прогресса */}
-            
-            {/* Переключатель темы */}
             <Button
-  variant="outline"
-  size="sm"
-  onClick={() => setIsDark(prev => !prev)}
-  className="gap-2 border-primary/30 text-primary hover:bg-primary/10 [&>span]:text-foreground"
->
-  {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-  {isDark ? 'Светлая' : 'Тёмная'}
-</Button>
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDark(prev => !prev)}
+              className="gap-2 border-primary/30 text-primary hover:bg-primary/10 [&>span]:text-foreground"
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {isDark ? 'Светлая' : 'Тёмная'}
+            </Button>
           </div>
         </div>
       </div>
 
+      {/* ── Скролл-контент ──────────────────────────────────────────────────
+       *  ScrollArea занимает всё оставшееся пространство (flex-1).
+       *  Внутренний div получает paddingBottom = --scroll-pb, чтобы
+       *  последний элемент можно было прокрутить выше floating-навигации.
+       * ──────────────────────────────────────────────────────────────────── */}
       <ScrollArea className="flex-1 px-4">
-        <div className="space-y-6 mx-auto max-w-2xl pt-4 pb-32 overflow-hidden">
+        <div
+          className="space-y-6 mx-auto max-w-2xl pt-4 overflow-hidden"
+          style={{ paddingBottom: 'var(--scroll-pb)' }}
+        >
           {/* Круговая диаграмма */}
           <div className="flex flex-col items-center">
             <div className="h-64 w-full relative animate-in fade-in zoom-in-95 duration-700">
@@ -152,27 +153,26 @@ export const StatsTab = () => {
                     {chartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index]} stroke="none" />
                     ))}
-                    <Label 
-                      value={`${Math.round(overallPercent)}%`} 
-                      position="center" 
-                      fill="currentColor" 
+                    <Label
+                      value={`${Math.round(overallPercent)}%`}
+                      position="center"
+                      fill="currentColor"
                       className="text-4xl font-bold font-headline"
                     />
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-            <div className="absolute top-0 right-0 z-10">
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={resetAllProgress}
-      className="gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
-    >
-      <Trash2 className="w-4 h-4" />
-      Сброс
-    </Button>
-  </div>
-
+              <div className="absolute top-0 right-0 z-10">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={resetAllProgress}
+                  className="gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Сброс
+                </Button>
+              </div>
             </div>
             <div className="text-center mt-4">
               <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
@@ -181,15 +181,14 @@ export const StatsTab = () => {
             </div>
           </div>
 
-          {/* Карточки со статистикой */}
+          {/* Карточки статистики */}
           <div className="grid gap-4 px-2">
             {/* Вопросы */}
             <Card className="glass-card border-none overflow-hidden relative group max-w-full">
               <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2 text-blue-400">
-                  <BookOpen className="w-4 h-4" />
-                  Вопросы
+                  <BookOpen className="w-4 h-4" /> Вопросы
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -213,8 +212,7 @@ export const StatsTab = () => {
               <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2 text-emerald-400">
-                  <PenTool className="w-4 h-4" />
-                  Задачи
+                  <PenTool className="w-4 h-4" /> Задачи
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -238,8 +236,7 @@ export const StatsTab = () => {
               <div className="absolute top-0 left-0 w-1 h-full bg-amber-500" />
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2 text-amber-400">
-                  <ClipboardList className="w-4 h-4" />
-                  Тесты
+                  <ClipboardList className="w-4 h-4" /> Тесты
                 </CardTitle>
               </CardHeader>
               <CardContent>

@@ -3,83 +3,112 @@
 @tailwind utilities;
 
 @layer base {
- /* ===========================================
-   СВЕТЛАЯ ТЕМА (по умолчанию, когда нет класса dark)
-   =========================================== */
-:root {
-  --background: 0 0% 100%;
-  --foreground: 220 30% 10%;
-  --card: 0 0% 88%;
-  --card-foreground: 220 30% 10%;
-  --popover: 0 0% 98%;
-  --popover-foreground: 220 30% 10%;
-  --primary: 213 70% 45%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 210 20% 90%;
-  --secondary-foreground: 220 30% 10%;
-  --muted: 210 20% 90%;
-  --muted-foreground: 215 16% 40%;
-  --accent: 213 70% 45%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 0 84% 50%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 210 20% 75%;
-  --input: 210 20% 75%;
-  --ring: 213 70% 45%;
-  --radius: 0.75rem;
-}
+  /* ===========================================
+     СВЕТЛАЯ ТЕМА
+     =========================================== */
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 220 30% 10%;
+    --card: 0 0% 88%;
+    --card-foreground: 220 30% 10%;
+    --popover: 0 0% 98%;
+    --popover-foreground: 220 30% 10%;
+    --primary: 213 70% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 20% 90%;
+    --secondary-foreground: 220 30% 10%;
+    --muted: 210 20% 90%;
+    --muted-foreground: 215 16% 40%;
+    --accent: 213 70% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 20% 75%;
+    --input: 210 20% 75%;
+    --ring: 213 70% 45%;
+    --radius: 0.75rem;
 
-/* ===========================================
-   ТЁМНАЯ ТЕМА (когда на <html> добавлен класс dark)
-   =========================================== */
-.dark {
-  --background: 220 30% 6%;
-  --foreground: 210 40% 96%;
-  --card: 220 20% 10%;
-  --card-foreground: 210 40% 96%;
-  --popover: 220 20% 10%;
-  --popover-foreground: 210 40% 96%;
-  --primary: 213 100% 65%;
-  --primary-foreground: 220 30% 6%;
-  --secondary: 217 32% 17%;
-  --secondary-foreground: 210 40% 96%;
-  --muted: 220 20% 10%;
-  --muted-foreground: 215 16% 60%;
-  --accent: 213 100% 65%;
-  --accent-foreground: 220 30% 6%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217 32% 17%;
-  --input: 217 32% 17%;
-  --ring: 213 100% 65%;
-}
+    /*
+     * ─── ЕДИНСТВЕННЫЙ ИСТОЧНИК ПРАВДЫ ДЛЯ SAFE AREAS ───────────────────────────
+     *
+     * Эти две переменные ВЫЧИСЛЯЮТСЯ в JS (см. page.tsx) после вызова tg.ready().
+     * JS читает --tg-content-safe-area-inset-top / --tg-safe-area-inset-top,
+     * проверяет, что они НЕ равны 0 (CSS-fallback в var() не срабатывает на 0!),
+     * и записывает финальное значение сюда. На десктопе всегда 0px.
+     *
+     * Все компоненты ЧИТАЮТ только эти две переменные — никаких прямых обращений
+     * к --tg-* или env(safe-area-inset-*) в компонентах нет.
+     * ────────────────────────────────────────────────────────────────────────────
+     */
+    --safe-top: 0px;
+    --safe-bottom: 0px;
+
+    /*
+     * Производные переменные — рассчитаны один раз, используются повсюду.
+     *
+     * --header-pt:  padding-top для sticky-шапок вкладок.
+     *               = safe-top + 16px дизайн-отступ.
+     *
+     * --scroll-pb:  padding-bottom для scroll-контейнеров.
+     *               Гарантирует, что последний элемент списка прокручивается
+     *               выше плавающей навигации.
+     *               = safe-bottom + высота pill-nav (~56px) + зазор nav (~24px) + буфер (16px).
+     *
+     * --nav-bottom: расстояние от нижнего края экрана до нижнего края pill-nav.
+     *               = safe-bottom + 24px визуальный отступ.
+     */
+    --header-pt: calc(var(--safe-top) + 16px);
+    --scroll-pb: calc(var(--safe-bottom) + 96px);
+    --nav-bottom: calc(var(--safe-bottom) + 24px);
+  }
+
+  /* ===========================================
+     ТЁМНАЯ ТЕМА
+     =========================================== */
+  .dark {
+    --background: 220 30% 6%;
+    --foreground: 210 40% 96%;
+    --card: 220 20% 10%;
+    --card-foreground: 210 40% 96%;
+    --popover: 220 20% 10%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 213 100% 65%;
+    --primary-foreground: 220 30% 6%;
+    --secondary: 217 32% 17%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 220 20% 10%;
+    --muted-foreground: 215 16% 60%;
+    --accent: 213 100% 65%;
+    --accent-foreground: 220 30% 6%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 32% 17%;
+    --input: 217 32% 17%;
+    --ring: 213 100% 65%;
+  }
 }
 
 @layer base {
   * {
     @apply border-border;
   }
-  
+
   html, body {
     @apply bg-background text-foreground;
     overflow: hidden;
-    /* Используем dvh вместо vh для мобильных браузеров */
-    height: 100dvh; 
+    height: 100dvh;
     width: 100vw;
     position: fixed;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
-    /* ВНИМАНИЕ: отступы (padding) отсюда УДАЛЕНЫ! 
-       Они должны задаваться только локально в компонентах (шапка, навигация),
-       чтобы не сдвигать глобальный фон приложения. */
   }
 }
 
 .glass-nav {
   @apply bg-background/80 backdrop-blur-xl border-t border-white/5;
-  /* Добавлена тройная защита для Телеграма и старых браузеров */
-  padding-bottom: calc(var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 20px);
+  /* Используем нашу переменную -- никаких сложных fallback-цепочек */
+  padding-bottom: calc(var(--safe-bottom) + 20px);
 }
 
 .glass-card {
@@ -98,9 +127,9 @@
   @apply bg-muted-foreground/20 rounded-full;
 }
 
+/* Используется в нижней панели "режима чтения" вопросов/задач */
 .pb-safe {
-  /* Добавлена тройная защита для Телеграма и старых браузеров */
-  padding-bottom: calc(var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 20px);
+  padding-bottom: calc(var(--safe-bottom) + 20px);
 }
 
 .scroll-container {

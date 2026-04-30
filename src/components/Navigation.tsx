@@ -23,7 +23,18 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
     <div
       className="fixed left-0 right-0 px-8 z-50 flex justify-center"
       style={{
-        bottom: 'calc(var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 24px)) + 24px)'
+        /*
+         * Используем --nav-bottom, вычисленный в globals.css как:
+         *   calc(var(--safe-bottom) + 24px)
+         *
+         * --safe-bottom выставляется в JS через applyTelegramSafeAreas().
+         * Это гарантирует, что pill-навигация:
+         *   — на Desktop: 24px от нижнего края (0 + 24px).
+         *   — на iOS: clearance от home-indicator + 24px.
+         *   — на Android: clearance от системной навигационной панели + 24px.
+         *   — никогда не тонет в чёрной полосе и не висит слишком высоко.
+         */
+        bottom: 'var(--nav-bottom)',
       }}
     >
       <nav className="flex items-center gap-1 bg-black/40 dark:bg-black/40 backdrop-blur-2xl p-2 rounded-[26px] border border-white/10 shadow-2xl">
@@ -47,7 +58,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
                     : "text-black/50 dark:text-white/40"
                 )}
               />
-              
+
               {isActive && (
                 <span className="text-[11px] font-bold text-black dark:text-white animate-in fade-in slide-in-from-left-2 duration-300">
                   {tab.label}
