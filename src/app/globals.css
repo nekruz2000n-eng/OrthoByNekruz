@@ -128,7 +128,19 @@
     position: fixed;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    /* Запрет резиновой прокрутки на уровне браузера */
     overscroll-behavior: none;
+    overscroll-behavior-y: none;
+    /* touch-action: pan-x — браузер не обрабатывает
+       вертикальные жесты как scroll/pull-to-close на уровне html/body */
+    touch-action: pan-x;
+  }
+
+  /* Внутри скролл-контейнеров разрешаем вертикальный скролл,
+     но overscroll (bounce/close) по-прежнему заблокирован */
+  .scroll-container {
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
   }
 }
 
@@ -142,6 +154,7 @@
 .scroll-container {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* touch-action и overscroll уже заданы в @layer base выше */
 }
 
 ::-webkit-scrollbar { width: 3px; }
