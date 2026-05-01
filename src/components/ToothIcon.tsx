@@ -1,17 +1,19 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
-interface ToothIconProps {
+// Расширяем через SVGProps — принимает style, onClick и все стандартные SVG-атрибуты
+interface ToothIconProps extends React.SVGProps<SVGSVGElement> {
   className?: string;
   variant?: 'normal' | 'broken' | 'perfect';
 }
 
-export const ToothIcon = ({ className = "w-12 h-12", variant = 'normal' }: ToothIconProps) => (
+export const ToothIcon = ({ className = "w-12 h-12", variant = 'normal', ...props }: ToothIconProps) => (
   <svg 
     viewBox="0 0 24 24" 
     fill="none" 
     xmlns="http://www.w3.org/2000/svg" 
     className={cn(className, "transition-all duration-500")}
+    {...props}
   >
     {/* Main Tooth Body */}
     <path 

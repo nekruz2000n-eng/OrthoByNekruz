@@ -130,28 +130,29 @@ export const TestsTab = () => {
                 )) : <p className="text-center py-10 text-sm" style={{ color: 'var(--c-muted)' }}>Ничего не найдено</p>}
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-4 gap-1.5">
                 {blocks.map(b => (
-                  <button key={b.id} onClick={() => setSelectedBlock(b.id)}
-                    className="flex flex-col items-center justify-center p-2 rounded-2xl transition-all active:scale-95 relative overflow-hidden h-24"
-                    style={{ background: b.status === 'perfect' ? 'color-mix(in srgb, var(--c-primary) 10%, var(--c-card))' : b.status === 'started' ? 'color-mix(in srgb, var(--c-amber) 6%, var(--c-card))' : 'var(--c-card)', border: b.status === 'perfect' ? '1.5px solid var(--c-primary-br)' : b.status === 'started' ? '1.5px solid var(--c-amber-br)' : '1.5px solid var(--c-border)' }}>
-                    <div className="absolute top-0 right-0 p-1 opacity-10">
-                      {b.status === 'perfect' ? <Medal className="w-8 h-8" style={{ color: 'var(--c-primary)' }} /> : <LayoutGrid className="w-8 h-8" style={{ color: 'var(--c-muted)' }} />}
+                  <button key={b.id} onClick={() => { resetTest(); setSelectedBlock(b.id); }}
+                    className="flex flex-col items-center justify-center rounded-xl transition-all active:scale-95 relative overflow-hidden"
+                    style={{
+                      height: '72px', padding: '6px 4px',
+                      background: b.status === 'perfect' ? 'color-mix(in srgb, var(--c-primary) 10%, var(--c-card))' : b.status === 'started' ? 'color-mix(in srgb, var(--c-amber) 6%, var(--c-card))' : 'var(--c-card)',
+                      border: b.status === 'perfect' ? '1.5px solid var(--c-primary-br)' : b.status === 'started' ? '1.5px solid var(--c-amber-br)' : '1.5px solid var(--c-border)'
+                    }}>
+                    <div className="flex items-center gap-0.5 mb-0.5">
+                      <span className="text-lg font-bold leading-none" style={{ color: b.status === 'perfect' ? 'var(--c-primary)' : 'var(--c-text)' }}>{b.id}</span>
+                      {b.status === 'perfect' && <Medal className="w-3 h-3" style={{ color: 'var(--c-amber)' }} />}
                     </div>
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <span className="text-2xl font-bold" style={{ color: b.status === 'perfect' ? 'var(--c-primary)' : 'var(--c-text)' }}>{b.id}</span>
-                      {b.status === 'perfect' && <Medal className="w-3.5 h-3.5" style={{ color: 'var(--c-amber)' }} />}
-                    </div>
-                    <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: 'var(--c-muted)' }}>{b.range}</span>
-                    {b.best > 0 && <span className="text-[9px] mt-1 font-bold" style={{ color: b.status === 'perfect' ? 'var(--c-primary)' : 'var(--c-amber)' }}>{b.best}/20</span>}
+                    <span className="text-[8px] font-mono uppercase tracking-tight leading-none" style={{ color: 'var(--c-muted)' }}>{b.range}</span>
+                    {b.best > 0 && <span className="text-[8px] mt-0.5 font-bold leading-none" style={{ color: b.status === 'perfect' ? 'var(--c-primary)' : 'var(--c-amber)' }}>{b.best}/20</span>}
                   </button>
                 ))}
                 <Dialog>
                   <DialogTrigger asChild>
-                    <button className="flex flex-col items-center justify-center p-2 rounded-2xl transition-all active:scale-95 relative overflow-hidden h-24"
-                      style={{ background: 'color-mix(in srgb, var(--c-amber) 5%, var(--c-card))', border: '1.5px solid var(--c-amber-br)' }}>
-                      <FileText className="w-6 h-6 mb-1" style={{ color: 'var(--c-amber)' }} />
-                      <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: 'var(--c-amber)' }}>Заметки</span>
+                    <button className="flex flex-col items-center justify-center rounded-xl transition-all active:scale-95 relative overflow-hidden"
+                      style={{ height: '72px', padding: '6px 4px', background: 'color-mix(in srgb, var(--c-amber) 5%, var(--c-card))', border: '1.5px solid var(--c-amber-br)' }}>
+                      <FileText className="w-5 h-5 mb-0.5" style={{ color: 'var(--c-amber)' }} />
+                      <span className="text-[8px] font-mono uppercase tracking-tight leading-none" style={{ color: 'var(--c-amber)' }}>Заметки</span>
                     </button>
                   </DialogTrigger>
                   <DialogContent className="max-w-lg w-[95vw] rounded-3xl p-6" style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}>
@@ -188,80 +189,33 @@ export const TestsTab = () => {
     );
   }
 
- /* РЕЗУЛЬТАТЫ */
-if (completed) {
-  const ok = score >= 17;
-  const bad = score < 10;
-  const iconColor = ok
-    ? 'var(--c-primary)'
-    : bad
-    ? 'hsl(var(--destructive))'
-    : 'hsl(210 80% 55%)';
-
-  return (
-    <div
-      className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6 animate-in fade-in zoom-in-95 duration-500"
-      style={{ background: 'var(--c-bg)' }}
-    >
-      {/* стиль перенесён на обёртку, чтобы ToothIcon не ругался */}
-      <span style={{ color: iconColor }}>
-        <ToothIcon
-          variant={ok ? 'perfect' : bad ? 'broken' : 'normal'}
-          className="w-32 h-32"
-        />
-      </span>
-
-      <div className="space-y-2 px-4">
-        <h2
-          className="text-3xl font-bold"
-          style={{ color: iconColor }}
-        >
-          {score === 20
-            ? 'Идеально! 20/20'
-            : `Блок ${selectedBlock} завершён!`}
-        </h2>
-        <p style={{ color: 'var(--c-text)' }}>
-          {ok
-            ? 'Блестяще! Знания крепки, как здоровая эмаль!'
-            : bad
-            ? 'Нужно повторить теорию!'
-            : 'Хороший результат!'}
-        </p>
-        <p className="text-sm" style={{ color: 'var(--c-muted)' }}>
-          Результат:{' '}
-          <span className="font-bold" style={{ color: 'var(--c-text)' }}>
-            {score}
-          </span>{' '}
-          из 20
-        </p>
+  /* РЕЗУЛЬТАТЫ */
+  if (completed) {
+    const ok = score >= 17; const bad = score < 10;
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6 animate-in fade-in zoom-in-95 duration-500" style={{ background: 'var(--c-bg)' }}>
+        <ToothIcon variant={ok ? 'perfect' : bad ? 'broken' : 'normal'} className="w-32 h-32" style={{ color: ok ? 'var(--c-primary)' : bad ? 'hsl(var(--destructive))' : 'hsl(210 80% 55%)' }} />
+        <div className="space-y-2 px-4">
+          <h2 className="text-3xl font-bold" style={{ color: ok ? 'var(--c-primary)' : bad ? 'hsl(var(--destructive))' : 'hsl(210 80% 55%)' }}>
+            {score === 20 ? 'Идеально! 20/20' : `Блок ${selectedBlock} завершён!`}
+          </h2>
+          <p style={{ color: 'var(--c-text)' }}>{ok ? 'Блестяще! Знания крепки, как здоровая эмаль!' : bad ? 'Нужно повторить теорию!' : 'Хороший результат!'}</p>
+          <p className="text-sm" style={{ color: 'var(--c-muted)' }}>Результат: <span className="font-bold" style={{ color: 'var(--c-text)' }}>{score}</span> из 20</p>
+        </div>
+        <div className="w-full max-w-sm space-y-3 pt-4 pb-32">
+          <button onClick={resetTest} className="w-full h-14 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+            style={{ background: 'var(--c-primary)', color: 'hsl(var(--primary-foreground))' }}>
+            <RotateCcw className="w-5 h-5" /> Сначала
+          </button>
+          <button onClick={() => { resetTest(); setSelectedBlock(null); }} className="w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+            <ChevronLeft className="w-5 h-5" /> К выбору блоков
+          </button>
+        </div>
       </div>
+    );
+  }
 
-      <div className="w-full max-w-sm space-y-3 pt-4 pb-32">
-        <button
-          onClick={resetTest}
-          className="w-full h-14 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-          style={{
-            background: 'var(--c-primary)',
-            color: 'hsl(var(--primary-foreground))',
-          }}
-        >
-          <RotateCcw className="w-5 h-5" /> Сначала
-        </button>
-        <button
-          onClick={() => setSelectedBlock(null)}
-          className="w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-          style={{
-            background: 'var(--c-card)',
-            border: '1px solid var(--c-border)',
-            color: 'var(--c-muted)',
-          }}
-        >
-          <ChevronLeft className="w-5 h-5" /> К выбору блоков
-        </button>
-      </div>
-    </div>
-  );
-}
   /* ТЕСТ */
   return (
     <div className="flex flex-col h-full overflow-hidden max-w-full" style={{ background: 'var(--c-bg)' }}>
@@ -270,7 +224,7 @@ if (completed) {
         style={{ background: 'color-mix(in srgb, var(--c-bg) 95%, transparent)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid var(--c-border)', paddingTop: 'var(--header-pt)' }}>
         {/* Прогресс */}
         <div className="flex items-center gap-3 mb-2.5">
-          <button onClick={() => setSelectedBlock(null)} className="p-1.5 rounded-full transition-colors" style={{ color: 'var(--c-muted)' }}>
+          <button onClick={() => { resetTest(); setSelectedBlock(null); }} className="p-1.5 rounded-full transition-colors" style={{ color: 'var(--c-muted)' }}>
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
