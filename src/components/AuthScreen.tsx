@@ -293,7 +293,7 @@ useEffect(() => {
               className="w-full h-12 rounded-xl border-primary/30 text-primary/80 hover:bg-primary/10"
               onClick={handleDemoClick}
             >
-              Попробовать демо (3 мин)
+              Попробовать демо
             </Button>
 {demoMessage && (
   <div
