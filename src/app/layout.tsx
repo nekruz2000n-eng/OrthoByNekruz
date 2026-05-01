@@ -74,7 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               // Fullsize: Telegram обрезает viewport сам — лишний отступ снизу не нужен
               var isFullscreen = tg.isFullscreen === true || tgTop > 0;
 
-              var headerPt  = sysTop + tgTop + 24;
+              var headerPt  = sysTop + tgTop + 36;
               var scrollPb  = tgBottom + (isFullscreen ? 100 : 84);
               var navBottom = tgBottom + (isFullscreen ? 20 : 0);
 

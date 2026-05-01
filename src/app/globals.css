@@ -63,7 +63,7 @@
        via document.documentElement.style.setProperty.
        Fallback values for non-Telegram environments: */
     /* Дефолты для Fullsize-режима (JS перезаписывает при старте) */
-    --header-pt:  24px;
+    --header-pt:  36px;
     --scroll-pb:  84px;
     --nav-bottom: 0px;
   }
