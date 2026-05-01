@@ -22,7 +22,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
   return (
     <div
       className="fixed left-0 right-0 px-6 z-50 flex justify-center"
-      style={{ bottom: 'calc(var(--nav-bottom, 12px) + 8px)' }}
+      style={{ bottom: 'calc(var(--nav-bottom, 12px) + 12px)' }}
     >
       <nav
         className="flex items-center gap-1 p-1.5 rounded-[28px] shadow-2xl"
