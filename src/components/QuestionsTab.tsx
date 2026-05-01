@@ -354,27 +354,57 @@ export const QuestionsTab = () => {
               </div>
             </div>
 
-            {/* Нижняя панель */}
-            <div className="px-4 pt-3 pb-safe" style={{ borderTop: '1px solid var(--c-border)', background: 'color-mix(in srgb, var(--c-bg) 97%, transparent)' }}>
-              <div className="flex gap-2 items-center max-w-2xl mx-auto">
+            {/* Плавающая пилюля навигации режима чтения */}
+            <div
+              className="fixed left-0 right-0 px-5 z-[110] flex justify-center"
+              style={{ bottom: 'calc(var(--nav-bottom, 12px) + 4px)' }}
+            >
+              <div
+                className="flex items-center gap-1.5 p-1.5 rounded-[28px] shadow-2xl"
+                style={{
+                  background: 'color-mix(in srgb, var(--c-bg) 85%, transparent)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid var(--c-border)',
+                }}
+              >
                 {/* ← */}
                 <button
                   onClick={() => { const i = questionsData.findIndex(q => q.id === readingQuestion.id); setReadingQuestion(questionsData[(i - 1 + questionsData.length) % questionsData.length]); }}
-                  className="w-11 h-11 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
-                  style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}
+                  className="w-10 h-10 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
+                  style={{ color: 'var(--c-muted)' }}
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <button onClick={() => toggleStudied(readingQuestion.id)}
-                  className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-sm font-bold transition-all active:scale-[0.98]"
+
+                {/* Изучил / Изучено */}
+                <button
+                  onClick={() => toggleStudied(readingQuestion.id)}
+                  className="flex items-center justify-center gap-2 px-4 h-10 rounded-full text-sm font-bold transition-all active:scale-[0.97]"
                   style={studiedIds.has(readingQuestion.id)
-                    ? { background: 'var(--c-primary)', color: 'hsl(var(--primary-foreground))', border: '1px solid var(--c-primary)' }
-                    : { background: 'var(--c-primary-dim)', color: 'var(--c-primary)', border: '1px solid var(--c-primary-br)' }}>
-                  {studiedIds.has(readingQuestion.id) ? <><CheckCircle2 className="w-4 h-4" /> Изучено</> : <><Circle className="w-4 h-4" /> Изучил</>}
+                    ? { background: 'var(--c-primary)', color: 'hsl(var(--primary-foreground))' }
+                    : { background: 'var(--c-primary-dim)', color: 'var(--c-primary)', border: '1px solid var(--c-primary-br)' }}
+                >
+                  {studiedIds.has(readingQuestion.id)
+                    ? <><CheckCircle2 className="w-4 h-4" /> Изучено</>
+                    : <><Circle className="w-4 h-4" /> Изучил</>}
                 </button>
-                <button onClick={() => { const i = questionsData.findIndex(q => q.id === readingQuestion.id); setReadingQuestion(questionsData[(i + 1) % questionsData.length]); }}
-                  className="w-11 h-11 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
-                  style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+
+                {/* Выйти */}
+                <button
+                  onClick={() => setReadingQuestion(null)}
+                  className="flex items-center justify-center gap-2 px-4 h-10 rounded-full text-sm font-semibold transition-all active:scale-[0.97]"
+                  style={{ color: 'var(--c-muted)', border: '1px solid var(--c-border)' }}
+                >
+                  <X className="w-4 h-4" /> Выйти
+                </button>
+
+                {/* → */}
+                <button
+                  onClick={() => { const i = questionsData.findIndex(q => q.id === readingQuestion.id); setReadingQuestion(questionsData[(i + 1) % questionsData.length]); }}
+                  className="w-10 h-10 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
+                  style={{ color: 'var(--c-muted)' }}
+                >
                   <ArrowRight className="w-5 h-5" />
                 </button>
               </div>
