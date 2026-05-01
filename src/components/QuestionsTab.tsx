@@ -357,12 +357,14 @@ export const QuestionsTab = () => {
             {/* Нижняя панель */}
             <div className="px-4 pt-3 pb-safe" style={{ borderTop: '1px solid var(--c-border)', background: 'color-mix(in srgb, var(--c-bg) 97%, transparent)' }}>
               <div className="flex gap-2 items-center max-w-2xl mx-auto">
-                {[
-                  { onClick: () => { const i = questionsData.findIndex(q => q.id === readingQuestion.id); setReadingQuestion(questionsData[(i - 1 + questionsData.length) % questionsData.length]); }, icon: <ArrowLeft className="w-5 h-5" />, round: true },
-                ].map((b, i) => (
-                  <button key={i} onClick={b.onClick} className="w-11 h-11 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
-                    style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>{b.icon}</button>
-                ))}
+                {/* ← */}
+                <button
+                  onClick={() => { const i = questionsData.findIndex(q => q.id === readingQuestion.id); setReadingQuestion(questionsData[(i - 1 + questionsData.length) % questionsData.length]); }}
+                  className="w-11 h-11 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
+                  style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
                 <button onClick={() => toggleStudied(readingQuestion.id)}
                   className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-sm font-bold transition-all active:scale-[0.98]"
                   style={studiedIds.has(readingQuestion.id)

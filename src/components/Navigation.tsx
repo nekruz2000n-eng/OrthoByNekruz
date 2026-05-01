@@ -21,26 +21,13 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
 
   return (
     <div
-      className="fixed left-0 right-0 z-50 flex justify-center"
-      style={{
-        // bottom: 0 — контейнер всегда доходит до самого края экрана.
-        // Это убирает любую полосу снизу в Fullsize-режиме.
-        // Внутренний отступ задаётся через paddingBottom.
-        bottom: 0,
-        paddingBottom: 'var(--nav-bottom, 8px)',
-        paddingLeft: '24px',
-        paddingRight: '24px',
-        paddingTop: '8px',
-        // Фон закрывает всю область снизу — никакой полосы не видно
-        background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-      }}
+      className="fixed left-0 right-0 px-6 z-50 flex justify-center"
+      style={{ bottom: 'calc(var(--nav-bottom, 12px) + 4px)' }}
     >
       <nav
-        className="flex items-center gap-1 p-1.5 rounded-[28px] shadow-2xl w-full justify-center"
+        className="flex items-center gap-1 p-1.5 rounded-[28px] shadow-2xl"
         style={{
-          background: 'color-mix(in srgb, var(--c-bg) 75%, transparent)',
+          background: 'color-mix(in srgb, var(--c-bg) 85%, transparent)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
           border: '1px solid var(--c-border)',

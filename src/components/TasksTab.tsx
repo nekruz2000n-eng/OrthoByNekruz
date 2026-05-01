@@ -360,7 +360,7 @@ export const TasksTab = () => {
               </div>
             </div>
 
-            {/* Нижняя панель — ← Решено → (без кнопки Выйти, как в QuestionsTab) */}
+            {/* Нижняя панель — ← Решено → */}
             <div
               className="px-4 pt-3 pb-safe"
               style={{ borderTop: '1px solid var(--c-border)', background: 'color-mix(in srgb, var(--c-bg) 97%, transparent)' }}
