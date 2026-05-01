@@ -15,7 +15,7 @@ import { ToothIcon } from './ToothIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 
-export const TasksTab = () => {
+export const TasksTab = ({ onSecretTap }: { onSecretTap?: () => void }) => {
   const [search,      setSearch]      = useState('');
   const [resolvedIds, setResolvedIds] = useState<Set<number>>(new Set());
   const [userNotes,   setUserNotes]   = useState<Record<number, string>>({});

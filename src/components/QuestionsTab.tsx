@@ -328,7 +328,7 @@ export const QuestionsTab = () => {
                     style={{ background: 'var(--c-primary-dim)', color: 'var(--c-primary)', border: '1px solid var(--c-primary-br)' }}>
                     Вопрос №{readingQuestion.id}
                   </span>
-                  <span className="text-[10px]" style={{ color: 'var(--c-muted)' }}>можешь менять размер шрифта как фотку</span>
+                  <span className="text-[10px]" style={{ color: 'var(--c-muted)' }}></span>
                 </div>
                 <h2 className="font-semibold leading-snug break-words" style={{ fontSize: `${fontSize * 1.15}px`, color: 'var(--c-text)' }}>
                   {renderWithGlossary(readingQuestion.question)}

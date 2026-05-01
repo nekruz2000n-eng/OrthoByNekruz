@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AuthScreen }    from '@/components/AuthScreen';
+import { AuthScreen }    from '@/components/AuthScreen (2)';
 import { Navigation, TabType } from '@/components/Navigation';
 import { QuestionsTab }  from '@/components/QuestionsTab';
 import { TestsTab }      from '@/components/TestsTab';
@@ -117,8 +117,8 @@ export default function Home() {
   const [isLoading,       setIsLoading]       = useState<boolean>(true);
   const [activeTab,       setActiveTab]       = useState<TabType>('questions');
   const { toast }    = useToast();
-  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+const tapCountRef = useRef(0);
+const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // ── TG: СТРОГО ОДИН РАЗ при монтировании ─────────────────────────────────
   useEffect(() => initTelegramApp(), []);
 
@@ -166,18 +166,17 @@ export default function Home() {
   }, []);
 
   // ── Сброс (8 сек удержание) ───────────────────────────────────────────────
-  const pressStart = useCallback(() => {
-    longPressRef.current = setTimeout(() => {
-      localStorage.clear();
-      toast({ title: 'Сброс', description: 'Данные очищены. Перезагрузка...' });
-      setTimeout(() => window.location.reload(), 500);
-    }, 8000);
-  }, [toast]);
-
-  const pressEnd = useCallback(() => {
-    if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
-  }, []);
-
+  const handleSecretTap = useCallback(() => {
+  tapCountRef.current += 1;
+  if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+  tapTimerRef.current = setTimeout(() => { tapCountRef.current = 0; }, 3000);
+  if (tapCountRef.current >= 6) {
+    tapCountRef.current = 0;
+    localStorage.clear();
+    toast({ title: '🔄 Сброс', description: 'Данные очищены. Перезагрузка...' });
+    setTimeout(() => window.location.reload(), 600);
+  }
+}, [toast]);
   // ─────────────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -193,17 +192,10 @@ export default function Home() {
 
   return (
     <main className="flex flex-col h-[100dvh] w-full relative overflow-hidden">
-      {/* Скрытая зона 8-сек сброса */}
-      <div
-        className="absolute top-0 right-0 w-16 h-16 z-50"
-        onTouchStart={pressStart} onTouchEnd={pressEnd} onTouchCancel={pressEnd}
-        onMouseDown={pressStart}  onMouseUp={pressEnd}  onMouseLeave={pressEnd}
-      />
+     
       <div className="flex-1 overflow-hidden relative">
-        {activeTab === 'questions' && <QuestionsTab />}
-        {activeTab === 'tests'     && <TestsTab />}
-        {activeTab === 'tasks'     && <TasksTab />}
-        {activeTab === 'stats'     && <StatsTab />}
+        // СТАЛО
+{activeTab === 'tasks'     && <TasksTab     onSecretTap={handleSecretTap} />}
       </div>
       <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
     </main>
