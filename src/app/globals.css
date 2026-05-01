@@ -58,9 +58,10 @@
     /* Safe areas are written by JS (initTelegramApp)
        via document.documentElement.style.setProperty.
        Fallback values for non-Telegram environments: */
+    /* Дефолты для Fullsize-режима (JS перезаписывает при старте) */
     --header-pt:  16px;
-    --scroll-pb:  96px;
-    --nav-bottom: 24px;
+    --scroll-pb:  80px;
+    --nav-bottom: 8px;
   }
 
   /* ═══════════════════════════════════════════════════

@@ -12,27 +12,42 @@ import { useToast }      from '@/hooks/use-toast';
 
 // ─── updateSafeAreas ─────────────────────────────────────────────────────────
 //
-//  sysTop  = статус-бар (notch, Dynamic Island) — из safeAreaInsets.top
-//  tgTop   = Telegram overlay header — из contentSafeAreaInsets.top
-//            В fullscreen-режиме > 0 (TG рисует шапку поверх нашего контента).
-//            В bottom-sheet = 0 (TG шапка вне нашего viewport).
+//  Режимы запуска Mini App:
 //
-//  ДЛЯ НИЗА используем ТОЛЬКО contentSafeAreaInsets.bottom, НЕ safeAreaInsets.bottom:
-//  В bottom-sheet Telegram сам обрезает viewport выше home indicator —
-//  если добавить safeAreaInsets.bottom, получим двойной отступ (баг на фото 1).
+//  FULLSIZE (BotFather → Fullsize):
+//    Telegram рисует свой header сверху и сам обрезает viewport снизу
+//    (home indicator уже учтён Telegram'ом).
+//    contentSafeAreaInsets = {top:0, bottom:0}
+//    safeAreaInsets        = {top:0, bottom:0}
+//    → нам НЕ нужно добавлять отступ снизу — Telegram viewport уже обрезан.
+//    → navBottom = 8px (минимальный зазор под пилюлей навигации)
+//
+//  FULLSCREEN (BotFather → Fullscreen):
+//    Контент рисуется поверх шапки и home indicator.
+//    contentSafeAreaInsets.top > 0  (высота overlay-шапки TG)
+//    contentSafeAreaInsets.bottom может быть > 0 (bottom bar TG)
+//    → navBottom = tgBottom + 24px
 // ─────────────────────────────────────────────────────────────────────────────
 function updateSafeAreas(tg: any): void {
   const root = document.documentElement;
+// Меняй после каждого деплоя
+const APP_VERSION = '1.0.4';
+  const sysTop   = tg?.safeAreaInsets?.top          ?? 0;
+  const tgTop    = tg?.contentSafeAreaInsets?.top   ?? 0;
+  const tgBottom = tg?.contentSafeAreaInsets?.bottom ?? 0;
 
-  const sysTop    = tg?.safeAreaInsets?.top         ?? 0;
-  const tgTop     = tg?.contentSafeAreaInsets?.top  ?? 0;
-  // contentSafeAreaInsets.bottom = Telegram bottom bar в fullscreen.
-  // В bottom-sheet = 0. Не используем safeAreaInsets.bottom — двойной счёт!
-  const tgBottom  = tg?.contentSafeAreaInsets?.bottom ?? 0;
+  // В Fullsize-режиме Telegram сам обрезает viewport снизу —
+  // home indicator уже НЕ входит в наш viewport.
+  // Определяем режим: если isFullscreen=true ИЛИ tgTop>0 — fullscreen.
+  // Иначе — fullsize/bottom-sheet, лишний отступ снизу не нужен.
+  const isFullscreen = tg?.isFullscreen === true || tgTop > 0;
 
   const headerPt  = sysTop + tgTop + 16;
-  const scrollPb  = tgBottom + 96;
-  const navBottom = tgBottom + 24;
+  // Fullscreen: 96px (навигация ~60px + запас). Fullsize: 80px.
+  const scrollPb  = tgBottom + (isFullscreen ? 96 : 80);
+  // Fullscreen: tgBottom + 24px (под bottom bar TG + зазор).
+  // Fullsize: 8px — минимальный зазор, Telegram сам держит viewport над home indicator.
+  const navBottom = tgBottom + (isFullscreen ? 24 : 8);
 
   root.style.setProperty('--header-pt',  `${headerPt}px`);
   root.style.setProperty('--scroll-pb',  `${scrollPb}px`);
@@ -68,9 +83,15 @@ function initTelegramApp(): () => void {
   ];
 
   // ── 4. СЛОЙ 2: DOM touchmove-перехватчик ───────────────────────────────────
-  //    Ищем реальный скролл-элемент: Radix UI ScrollArea использует
-  //    data-radix-scroll-area-viewport, а не сам .scroll-container.
-  //    Также обрабатываем обычные overflow:auto контейнеры.
+  //
+  //  Логика двухуровневая:
+  //  A) Жёсткая блокировка — если касание НАЧАЛОСЬ в верхних 80px экрана
+  //     И палец идёт вниз: блокируем немедленно, не ищем скролл-контейнер.
+  //     Именно так Telegram в Fullsize перехватывает «закрывающий» жест.
+  //
+  //  B) Обычная блокировка — если скролл-контейнер найден и scrollTop=0:
+  //     блокируем, т.к. скролить уже некуда, значит жест — для закрытия.
+  //
   let touchStartY = 0;
   let touchStartX = 0;
 
@@ -86,59 +107,61 @@ function initTelegramApp(): () => void {
     // Горизонтальный свайп — не блокируем
     if (Math.abs(dx) > Math.abs(dy) + 5) return;
 
-    // Только свайп ВНИЗ
-    if (dy <= 8) return;
+    // Только свайп ВНИЗ (dy > 0)
+    if (dy <= 5) return;
 
-    // Ищем реальный прокручиваемый элемент (обходим дерево вверх)
-    let el = e.target as HTMLElement | null;
-    let scrollEl: HTMLElement | null = null;
-    while (el && el !== document.body) {
-      // Radix UI ScrollArea viewport
-      if (el.hasAttribute('data-radix-scroll-area-viewport')) {
-        scrollEl = el;
-        break;
-      }
-      // Наш кастомный скролл
-      if (el.classList.contains('scroll-container')) {
-        scrollEl = el;
-        break;
-      }
-      // Любой overflow-y: auto/scroll элемент
-      const style = window.getComputedStyle(el);
-      const oy = style.overflowY;
-      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) {
-        scrollEl = el;
-        break;
-      }
-      el = el.parentElement;
-    }
-
-    // Если скролл-контейнер не найден — однозначно блокируем
-    if (!scrollEl) {
+    // A) Жёсткая блокировка: касание началось в верхних 80px
+    //    Telegram в этой зоне перехватывает жест для закрытия/сворачивания
+    if (touchStartY < 80) {
       e.preventDefault();
       return;
     }
 
-    // Если скролл-контейнер в самом верху — блокируем (нет куда скролить вверх)
-    if (scrollEl.scrollTop <= 0) {
-      e.preventDefault();
+    // B) Ищем реальный прокручиваемый элемент (обходим DOM вверх)
+    let el = e.target as HTMLElement | null;
+    let scrollEl: HTMLElement | null = null;
+    while (el && el !== document.body) {
+      if (el.hasAttribute('data-radix-scroll-area-viewport')) { scrollEl = el; break; }
+      if (el.classList.contains('scroll-container')) { scrollEl = el; break; }
+      const oy = window.getComputedStyle(el).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) { scrollEl = el; break; }
+      el = el.parentElement;
     }
-    // Если есть куда скролить — позволяем скролл, не блокируем
+
+    // Скролл-контейнера нет — блокируем
+    if (!scrollEl) { e.preventDefault(); return; }
+
+    // Скролл-контейнер в самом верху — блокируем
+    if (scrollEl.scrollTop <= 0) { e.preventDefault(); }
   };
 
   document.addEventListener('touchstart', onTouchStart, { passive: true });
   document.addEventListener('touchmove',  onTouchMove,  { passive: false });
 
-  // ── 5. СЛОЙ 3: BackButton (Android «Назад») + ClosingConfirmation ───────────
-  try {
-    tg.BackButton.show();
-    tg.BackButton.onClick(() => {
+  // ── 5. СЛОЙ 3: Кнопка «Назад» + подтверждение закрытия ─────────────────────
+  //
+  //  Два способа подписаться на BackButton — для разных версий TG:
+  //  • tg.BackButton.onClick()  — новый API (TG 6.1+)
+  //  • tg.onEvent('backButtonClicked') — событийный API, более надёжный
+  //
+  //  enableClosingConfirmation() — показывает диалог при попытке закрыть
+  //  через X-кнопку или свайп (резервная защита).
+  //
+  const onBackButton = () => {
+    try {
       tg.showConfirm(
         'Выйти из OrthoByNekruz?',
         (confirmed: boolean) => { if (confirmed) tg.close(); }
       );
-    });
-  } catch {}
+    } catch {
+      // Если showConfirm недоступен — просто не закрываем
+    }
+  };
+
+  try { tg.BackButton.show(); }   catch {}
+  try { tg.BackButton.onClick(onBackButton); } catch {}  // API-метод
+  try { tg.onEvent('backButtonClicked', onBackButton); } catch {}  // событие
+
   try { tg.enableClosingConfirmation(); } catch {}
 
   // ── 6. Цвет шапки/фона ────────────────────────────────────────────────────
@@ -199,6 +222,8 @@ function initTelegramApp(): () => void {
     try { tg.offEvent('contentSafeAreaChanged', onContentSafeArea); } catch {}
     try { tg.offEvent('fullscreenChanged',      onFullscreen);      } catch {}
     try { tg.offEvent('viewportChanged',        onSafeArea);        } catch {}
+    try { tg.offEvent('backButtonClicked',      onBackButton);      } catch {}
+    try { tg.BackButton.offClick(onBackButton); } catch {}
     try { tg.BackButton.hide(); } catch {}
   };
 }

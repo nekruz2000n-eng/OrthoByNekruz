@@ -71,9 +71,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               var tgTop    = (tg.contentSafeAreaInsets  && tg.contentSafeAreaInsets.top) || 0;
               var tgBottom = (tg.contentSafeAreaInsets  && tg.contentSafeAreaInsets.bottom) || 0;
 
+              // Fullsize: Telegram обрезает viewport сам — лишний отступ снизу не нужен
+              var isFullscreen = tg.isFullscreen === true || tgTop > 0;
+
               var headerPt  = sysTop + tgTop + 16;
-              var scrollPb  = tgBottom + 96;
-              var navBottom = tgBottom + 24;
+              var scrollPb  = tgBottom + (isFullscreen ? 96 : 80);
+              var navBottom = tgBottom + (isFullscreen ? 24 : 8);
 
               var root = document.documentElement;
               root.style.setProperty('--header-pt',  headerPt  + 'px');
