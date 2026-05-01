@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { CheckCircle2, XCircle, RotateCcw, Zap, ChevronLeft, LayoutGrid, Search, Medal, Pencil, Trash2, FileText, Shuffle } from 'lucide-react';
-import { ToothIcon } from './ToothIcon';
+import { ToothIcon } from '@/components/ToothIcon';
 import ReactMarkdown from 'react-markdown';
 
 export const TestsTab = () => {

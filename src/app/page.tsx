@@ -41,7 +41,7 @@ function updateSafeAreas(tg: any): void {
   // Иначе — fullsize/bottom-sheet, лишний отступ снизу не нужен.
   const isFullscreen = tg?.isFullscreen === true || tgTop > 0;
 
-  const headerPt  = sysTop + tgTop + 36;
+  const headerPt  = sysTop + tgTop + 44;
   // навбар ~52px высота + 8px paddingTop + navBottom paddingBottom
   // scroll-pb = навбар + запас чтобы последний элемент не прятался
   const scrollPb  = tgBottom + (isFullscreen ? 100 : 84);
