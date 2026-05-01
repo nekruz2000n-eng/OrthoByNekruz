@@ -9,6 +9,7 @@ import { TasksTab }      from '@/components/TasksTab';
 import { StatsTab }      from '@/components/StatsTab';
 import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
+import {'{ SubjectType }'} from '@/components/SubjectSelectScreen'
 
 // ─── updateSafeAreas ─────────────────────────────────────────────────────────
 //

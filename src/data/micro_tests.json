@@ -1,0 +1,8 @@
+[
+  {
+    "id": "micro_1",
+    "question": "Основной возбудитель кариеса?",
+    "options": ["S. mutans", "S. aureus", "C. albicans", "L. acidophilus"],
+    "correct": "S. mutans"
+  }
+]
