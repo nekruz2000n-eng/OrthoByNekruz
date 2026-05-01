@@ -41,7 +41,7 @@ function updateSafeAreas(tg: any): void {
   // Иначе — fullsize/bottom-sheet, лишний отступ снизу не нужен.
   const isFullscreen = tg?.isFullscreen === true || tgTop > 0;
 
-  const headerPt  = sysTop + tgTop + 44;
+  const headerPt  = sysTop + tgTop + 60;
   // навбар ~52px высота + 8px paddingTop + navBottom paddingBottom
   // scroll-pb = навбар + запас чтобы последний элемент не прятался
   const scrollPb  = tgBottom + (isFullscreen ? 100 : 84);
@@ -59,151 +59,39 @@ function updateSafeAreas(tg: any): void {
 //  initTelegramApp — вызывается СТРОГО ОДИН РАЗ при монтировании.
 //  Возвращает cleanup-функцию.
 // ─────────────────────────────────────────────────────────────────────────────
+// initTelegramApp — только события safe areas и повторная блокировка свайпа.
+// Основная TG-инициализация (ready, expand, disableVerticalSwipes, BackButton)
+// перенесена в layout.tsx inline-скрипт который запускается ДО React
+// на КАЖДОМ запуске — и при первом входе, и при последующих.
 function initTelegramApp(): () => void {
   if (typeof window === 'undefined') return () => {};
   const tg = (window as any).Telegram?.WebApp;
   if (!tg) return () => {};
 
-  // ── 1. Готовность ──────────────────────────────────────────────────────────
-  tg.ready();
+  const disableSwipe    = () => { try { tg.disableVerticalSwipes(); } catch {} };
+  const onSafeArea      = () => updateSafeAreas(tg);
+  const onFullscreen    = () => { disableSwipe(); updateSafeAreas(tg); };
 
-  // ── 2. Полный экран ────────────────────────────────────────────────────────
-  //    BotFather уже выставил Fullscreen — expand() достаточно.
-  //    requestFullscreen() вызываем на случай запуска через inline-кнопку.
-  tg.expand();
-  try { tg.requestFullscreen(); } catch {}
+  // Подписываемся на события изменения safe areas
+  try { tg.onEvent('safeAreaChanged',        onSafeArea);   } catch {}
+  try { tg.onEvent('contentSafeAreaChanged', onSafeArea);   } catch {}
+  try { tg.onEvent('fullscreenChanged',      onFullscreen);  } catch {}
+  try { tg.onEvent('viewportChanged',        onSafeArea);   } catch {}
 
-  // ── 3. СЛОЙ 1: Telegram API — disableVerticalSwipes ────────────────────────
-  const disableSwipe = () => { try { tg.disableVerticalSwipes(); } catch {} };
-  disableSwipe();
-  const swipeTimers = [
-    setTimeout(disableSwipe, 150),
-    setTimeout(disableSwipe, 500),
-    setTimeout(disableSwipe, 1200),
-    setTimeout(disableSwipe, 3000),
-  ];
-
-  // ── 4. СЛОЙ 2: DOM touchmove-перехватчик ───────────────────────────────────
-  //
-  //  Логика двухуровневая:
-  //  A) Жёсткая блокировка — если касание НАЧАЛОСЬ в верхних 80px экрана
-  //     И палец идёт вниз: блокируем немедленно, не ищем скролл-контейнер.
-  //     Именно так Telegram в Fullsize перехватывает «закрывающий» жест.
-  //
-  //  B) Обычная блокировка — если скролл-контейнер найден и scrollTop=0:
-  //     блокируем, т.к. скролить уже некуда, значит жест — для закрытия.
-  //
-  let touchStartY = 0;
-  let touchStartX = 0;
-
-  const onTouchStart = (e: TouchEvent) => {
-    touchStartY = e.touches[0].clientY;
-    touchStartX = e.touches[0].clientX;
-  };
-
-  const onTouchMove = (e: TouchEvent) => {
-    const dy = e.touches[0].clientY - touchStartY;
-    const dx = e.touches[0].clientX - touchStartX;
-
-    // Горизонтальный свайп — не блокируем
-    if (Math.abs(dx) > Math.abs(dy) + 5) return;
-
-    // Только свайп ВНИЗ (dy > 0)
-    if (dy <= 5) return;
-
-    // A) Жёсткая блокировка: касание началось в верхних 80px
-    //    Telegram в этой зоне перехватывает жест для закрытия/сворачивания
-    if (touchStartY < 80) {
-      e.preventDefault();
-      return;
-    }
-
-    // B) Ищем реальный прокручиваемый элемент (обходим DOM вверх)
-    let el = e.target as HTMLElement | null;
-    let scrollEl: HTMLElement | null = null;
-    while (el && el !== document.body) {
-      if (el.hasAttribute('data-radix-scroll-area-viewport')) { scrollEl = el; break; }
-      if (el.classList.contains('scroll-container')) { scrollEl = el; break; }
-      const oy = window.getComputedStyle(el).overflowY;
-      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) { scrollEl = el; break; }
-      el = el.parentElement;
-    }
-
-    // Скролл-контейнера нет — блокируем
-    if (!scrollEl) { e.preventDefault(); return; }
-
-    // Скролл-контейнер в самом верху — блокируем
-    if (scrollEl.scrollTop <= 0) { e.preventDefault(); }
-  };
-
-  document.addEventListener('touchstart', onTouchStart, { passive: true });
-  document.addEventListener('touchmove',  onTouchMove,  { passive: false });
-
-  // ── 5. СЛОЙ 3: Кнопка «Назад» + подтверждение закрытия ─────────────────────
-  //
-  //  Два способа подписаться на BackButton — для разных версий TG:
-  //  • tg.BackButton.onClick()  — новый API (TG 6.1+)
-  //  • tg.onEvent('backButtonClicked') — событийный API, более надёжный
-  //
-  //  enableClosingConfirmation() — показывает диалог при попытке закрыть
-  //  через X-кнопку или свайп (резервная защита).
-  //
-  const onBackButton = () => {
-    try {
-      tg.showConfirm(
-        'Выйти из OrthoByNekruz?',
-        (confirmed: boolean) => { if (confirmed) tg.close(); }
-      );
-    } catch {
-      // Если showConfirm недоступен — просто не закрываем
-    }
-  };
-
-  try { tg.BackButton.show(); }   catch {}
-  try { tg.BackButton.onClick(onBackButton); } catch {}  // API-метод
-  try { tg.onEvent('backButtonClicked', onBackButton); } catch {}  // событие
-
-  try { tg.enableClosingConfirmation(); } catch {}
-
-  // ── 6. Цвет шапки/фона ────────────────────────────────────────────────────
-  const theme = localStorage.getItem('theme') || 'dark';
-  const bg = theme === 'light' ? '#F0EDE4' : '#111318';
-  try { tg.setHeaderColor(bg); }     catch {}
-  try { tg.setBackgroundColor(bg); } catch {}
-  try { tg.setBottomBarColor(bg); }  catch {}
-
-  // ── 7. Safe areas — СРАЗУ, до polling ─────────────────────────────────────
-  //    В BotFather-fullscreen режиме contentSafeAreaInsets доступны
-  //    сразу после tg.ready(). Вызываем немедленно.
-  updateSafeAreas(tg);
-
-  // ── 8. Polling safe areas (50мс, макс 5 сек) ──────────────────────────────
-  //    Для случая inline-кнопки: requestFullscreen() async,
-  //    contentSafeAreaInsets появляются позже.
+  // Polling safe areas (fullscreen async — contentSafeAreaInsets приходят позже)
   let pollCount = 0;
   const safeAreaPoll = setInterval(() => {
     pollCount++;
     updateSafeAreas(tg);
-    const hasValue =
-      (tg?.contentSafeAreaInsets?.top ?? 0) > 0 ||
-      (tg?.safeAreaInsets?.top        ?? 0) > 0;
+    const hasValue = (tg?.contentSafeAreaInsets?.top ?? 0) > 0 ||
+                     (tg?.safeAreaInsets?.top ?? 0) > 0;
     if (hasValue || pollCount >= 100) {
       clearInterval(safeAreaPoll);
       updateSafeAreas(tg);
     }
   }, 50);
 
-  // ── 9. События Telegram ────────────────────────────────────────────────────
-  const onSafeArea        = () => updateSafeAreas(tg);
-  const onContentSafeArea = () => updateSafeAreas(tg);
-  const onFullscreen      = () => { disableSwipe(); updateSafeAreas(tg); };
-
-  try { tg.onEvent('safeAreaChanged',        onSafeArea);        } catch {}
-  try { tg.onEvent('contentSafeAreaChanged', onContentSafeArea); } catch {}
-  try { tg.onEvent('fullscreenChanged',      onFullscreen);      } catch {}
-  try { tg.onEvent('viewportChanged',        onSafeArea);        } catch {}
-
-  // ── 10. visibilitychange ───────────────────────────────────────────────────
+  // При возврате в приложение — пересчёт и повторный запрет свайпа
   const onVisible = () => {
     if (document.visibilityState === 'visible') {
       disableSwipe();
@@ -212,20 +100,13 @@ function initTelegramApp(): () => void {
   };
   document.addEventListener('visibilitychange', onVisible);
 
-  // ── 11. Cleanup ────────────────────────────────────────────────────────────
   return () => {
-    swipeTimers.forEach(clearTimeout);
     clearInterval(safeAreaPoll);
-    document.removeEventListener('touchstart',       onTouchStart);
-    document.removeEventListener('touchmove',        onTouchMove);
     document.removeEventListener('visibilitychange', onVisible);
-    try { tg.offEvent('safeAreaChanged',        onSafeArea);        } catch {}
-    try { tg.offEvent('contentSafeAreaChanged', onContentSafeArea); } catch {}
-    try { tg.offEvent('fullscreenChanged',      onFullscreen);      } catch {}
-    try { tg.offEvent('viewportChanged',        onSafeArea);        } catch {}
-    try { tg.offEvent('backButtonClicked',      onBackButton);      } catch {}
-    try { tg.BackButton.offClick(onBackButton); } catch {}
-    try { tg.BackButton.hide(); } catch {}
+    try { tg.offEvent('safeAreaChanged',        onSafeArea);  } catch {}
+    try { tg.offEvent('contentSafeAreaChanged', onSafeArea);  } catch {}
+    try { tg.offEvent('fullscreenChanged',      onFullscreen); } catch {}
+    try { tg.offEvent('viewportChanged',        onSafeArea);  } catch {}
   };
 }
 
