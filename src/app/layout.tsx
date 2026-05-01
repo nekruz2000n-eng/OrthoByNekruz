@@ -101,8 +101,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }
           })();
         ` }} />
+
+        {/*
+          Тема: читаем из localStorage и ставим классы на <html>
+          ДО первого рендера — без мигания при загрузке.
+          body НЕ имеет захардкоженного класса dark, чтобы
+          переключатель тем работал корректно.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            var theme = localStorage.getItem('theme') || 'dark';
+            var root  = document.documentElement;
+            root.classList.remove('dark', 'bright');
+            if (theme === 'dark')   root.classList.add('dark');
+            if (theme === 'bright') root.classList.add('dark', 'bright');
+          })();
+        ` }} />
       </head>
-      <body className="antialiased dark">
+      <body className="antialiased">
         {isAuthenticated
           ? <main>{children}</main>
           : <AuthScreen onAuthenticated={() => setIsAuthenticated(true)} />

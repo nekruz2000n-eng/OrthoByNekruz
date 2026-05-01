@@ -241,15 +241,6 @@ export default function Home() {
   // ── TG: СТРОГО ОДИН РАЗ при монтировании ─────────────────────────────────
   useEffect(() => initTelegramApp(), []);
 
-  // ── Тема ──────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const saved = localStorage.getItem('theme') || 'dark';
-    const root  = document.documentElement;
-    root.classList.remove('dark', 'bright');
-    if (saved === 'dark')   root.classList.add('dark');
-    if (saved === 'bright') root.classList.add('dark', 'bright');
-  }, []);
-
   // ── Авторизация ───────────────────────────────────────────────────────────
   useEffect(() => {
     const authed   = localStorage.getItem('is_authed') === 'true';
