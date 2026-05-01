@@ -74,7 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               // Fullsize: Telegram обрезает viewport сам — лишний отступ снизу не нужен
               var isFullscreen = tg.isFullscreen === true || tgTop > 0;
 
-              var headerPt  = sysTop + tgTop + 36;
+              var headerPt  = sysTop + tgTop + 28;
               var scrollPb  = tgBottom + (isFullscreen ? 100 : 84);
               var navBottom = tgBottom + (isFullscreen ? 20 : 0);
 
@@ -110,8 +110,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         */}
         <script dangerouslySetInnerHTML={{ __html: `
           (function() {
-            var theme = localStorage.getItem('theme') || 'dark';
-            var root  = document.documentElement;
+            var theme = localStorage.getItem('theme');
+            // По умолчанию — тёмная тема. Сохраняем в localStorage чтобы StatsTab
+            // мог прочитать и синхронизировать кнопки переключателя.
+            if (!theme || !['dark','light','bright'].includes(theme)) {
+              theme = 'dark';
+              localStorage.setItem('theme', 'dark');
+            }
+            var root = document.documentElement;
             root.classList.remove('dark', 'bright');
             if (theme === 'dark')   root.classList.add('dark');
             if (theme === 'bright') root.classList.add('dark', 'bright');

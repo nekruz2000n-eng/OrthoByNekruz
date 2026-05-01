@@ -25,9 +25,19 @@ export const StatsTab = () => {
   const total = { q: questionsData.length, t: tasksData.length, ts: testsData.length };
 
   // ── ТЕМА ────────────────────────────────────────────
-  const [theme, setTheme] = useState<Theme>(() =>
-    (typeof window !== 'undefined' ? (localStorage.getItem('theme') as Theme) : null) || 'dark'
-  );
+  // Читаем текущую тему из классов <html> — это безопасно при SSR,
+  // потому что layout.tsx уже выставил правильные классы до рендера.
+  // useEffect на монтирование НАМЕРЕННО убран — он перетирал тему через SSR-баг
+  // (сервер не знает localStorage → всегда 'dark' → гидрация ломала тему).
+  const [theme, setTheme] = useState<Theme>('dark');
+
+  useEffect(() => {
+    // Читаем тему из <html> классов — они уже правильные после inline-скрипта
+    const root = document.documentElement;
+    if (root.classList.contains('bright')) setTheme('bright');
+    else if (root.classList.contains('dark')) setTheme('dark');
+    else setTheme('light');
+  }, []); // только при монтировании — для синхронизации UI кнопок
 
   const applyTheme = (t: Theme) => {
     const root = document.documentElement;
@@ -41,8 +51,6 @@ export const StatsTab = () => {
     setTheme(t);
     applyTheme(t);
   };
-
-  useEffect(() => { applyTheme(theme); }, []); // применяем тему при монтировании
   // ────────────────────────────────────────────────────
 
   const loadStats = () => {
