@@ -387,7 +387,7 @@ export const QuestionsTab = () => {
                 >
                   {studiedIds.has(readingQuestion.id)
                     ? <><CheckCircle2 className="w-4 h-4" /> Изучено</>
-                    : <><Circle className="w-4 h-4" /> Изучил</>}
+                    : <><Circle className="w-4 h-4" /> Изучить</>}
                 </button>
 
                 {/* Выйти */}
