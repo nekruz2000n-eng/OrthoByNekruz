@@ -357,15 +357,16 @@ export const QuestionsTab = () => {
             {/* Плавающая пилюля навигации режима чтения */}
             <div
               className="fixed left-0 right-0 px-5 z-[110] flex justify-center"
-              style={{ bottom: 'calc(var(--nav-bottom, 12px) + 4px)' }}
+              style={{ bottom: 'calc(var(--nav-bottom, 12px) + 12px)' }}
             >
               <div
                 className="flex items-center gap-1.5 p-1.5 rounded-[28px] shadow-2xl"
                 style={{
-                  background: 'color-mix(in srgb, var(--c-bg) 85%, transparent)',
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
-                  border: '1px solid var(--c-border)',
+                  background: 'hsl(var(--card))',
+                  backdropFilter: 'blur(24px)',
+                  WebkitBackdropFilter: 'blur(24px)',
+                  border: '1.5px solid hsl(var(--border))',
+                  boxShadow: '0 4px 24px hsl(0 0% 0% / 0.35)',
                 }}
               >
                 {/* ← */}
