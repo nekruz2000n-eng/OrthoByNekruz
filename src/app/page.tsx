@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AuthScreen }    from '@/components/AuthScreen (2)';
+import { AuthScreen }    from '@/components/AuthScreen';
 import { Navigation, TabType } from '@/components/Navigation';
 import { QuestionsTab }  from '@/components/QuestionsTab';
 import { TestsTab }      from '@/components/TestsTab';
@@ -194,8 +194,10 @@ const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     <main className="flex flex-col h-[100dvh] w-full relative overflow-hidden">
      
       <div className="flex-1 overflow-hidden relative">
-        // СТАЛО
-{activeTab === 'tasks'     && <TasksTab     onSecretTap={handleSecretTap} />}
+        {activeTab === 'questions' && <QuestionsTab />}
+        {activeTab === 'tests'     && <TestsTab />}
+        {activeTab === 'tasks'     && <TasksTab     onSecretTap={handleSecretTap} />}
+        {activeTab === 'stats'     && <StatsTab />}
       </div>
       <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
     </main>

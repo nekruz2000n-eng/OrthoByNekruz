@@ -1,7 +1,7 @@
 'use client';
 import "./globals.css";
 import React, { useEffect, useState } from 'react';
-import { AuthScreen } from '@/components/AuthScreen (2)';
+import { AuthScreen } from '@/components/AuthScreen';
 import { Toaster }    from '@/components/ui/toaster';
 import { useToast }   from '@/hooks/use-toast';
 import Script         from 'next/script';

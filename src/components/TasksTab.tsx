@@ -171,7 +171,7 @@ export const TasksTab = ({ onSecretTap }: { onSecretTap?: () => void }) => {
       >
         <div className="flex justify-between items-center px-1">
           <div className="flex items-center gap-3">
-            <ToothIcon className="w-9 h-9 text-primary" />
+            <ToothIcon className="w-9 h-9 text-primary" onClick={onSecretTap} />
             <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>
               OrthoByNekruz
             </h1>
