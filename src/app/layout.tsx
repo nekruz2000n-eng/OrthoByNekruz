@@ -119,7 +119,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               var tgTop    = (tg.contentSafeAreaInsets && tg.contentSafeAreaInsets.top)  || 0;
               var tgBottom = (tg.contentSafeAreaInsets && tg.contentSafeAreaInsets.bottom) || 0;
               var isFS     = tg.isFullscreen === true || tgTop > 0;
-              root.style.setProperty('--header-pt',  (sysTop + tgTop + 60) + 'px');
+              root.style.setProperty('--header-pt',  (sysTop + tgTop + 65) + 'px');
               root.style.setProperty('--scroll-pb',  (tgBottom + (isFS ? 100 : 84)) + 'px');
               root.style.setProperty('--nav-bottom', (tgBottom + (isFS ? 20 : 0)) + 'px');
 

@@ -317,7 +317,7 @@ export const TasksTab = () => {
           >
             {/* Контент */}
             <div
-              className="flex-1 overflow-y-auto px-5 pt-6 scroll-container"
+              className="flex-1 overflow-y-auto px-5 pt-10 scroll-container"
               onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
             >
               <div className="space-y-5 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
@@ -329,7 +329,6 @@ export const TasksTab = () => {
                   >
                     Задача №{readingTask.id}
                   </span>
-                  <span className="text-[10px]" style={{ color: 'var(--c-muted)' }}>Pinch — размер текста</span>
                 </div>
 
                 {/* Условие */}
@@ -396,8 +395,8 @@ export const TasksTab = () => {
                     : { background: 'var(--c-primary-dim)', color: 'var(--c-primary)', border: '1px solid var(--c-primary-br)' }}
                 >
                   {resolvedIds.has(readingTask.id)
-                    ? <><CheckCircle2 className="w-4 h-4" /> Решено</>
-                    : <><Circle className="w-4 h-4" /> Решил</>}
+                    ? <><CheckCircle2 className="w-4 h-4" /> Изучено</>
+                    : <><Circle className="w-4 h-4" /> Изучить</>}
                 </button>
 
                 {/* Выйти */}
