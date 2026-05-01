@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ToothIcon } from '@/components/ToothIcon';
+import { ToothIcon } from './ToothIcon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -29,7 +29,8 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [autoTgId, setAutoTgId] = useState<string | null>(null);
   const [idChecked, setIdChecked] = useState(false);
   const [idCheckAttempts, setIdCheckAttempts] = useState(0);
-  const [debugInfo, setDebugInfo] = useState('');
+  const [debugInfo,  setDebugInfo]  = useState('');
+  const [initData,   setInitData]   = useState('');
 
   const maxAttempts = 20;
   const attemptInterval = 500;
@@ -70,6 +71,9 @@ useEffect(() => {
         tg.setHeaderColor('#0B0E14');
       }
       try { tg.setBottomBarColor('#0B0E14'); } catch {}
+      // Сохраняем initData — подписанная строка от Telegram
+      // Используется на сервере для верификации что ID настоящий
+      if (tg.initData) setInitData(tg.initData);
     }
   }
 }, [mounted]);
@@ -137,7 +141,7 @@ useEffect(() => {
         const response = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: inputKey.trim(), telegramId: String(inputTgId) }),
+          body: JSON.stringify({ key: inputKey.trim(), telegramId: String(inputTgId), initData }),
         });
 
         const data = await response.json();
@@ -196,7 +200,7 @@ useEffect(() => {
       const response = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telegramId: String(currentTgId), mode: 'check_demo' }),
+        body: JSON.stringify({ telegramId: String(currentTgId), mode: 'check_demo', initData }),
       });
       const data = await response.json();
       if (data.success) {
