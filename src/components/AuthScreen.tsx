@@ -16,7 +16,13 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [key, setKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [lockoutTime, setLockoutTime] = useState(0);
+  const [lockoutTime, setLockoutTime] = useState(() => {
+    // Восстанавливаем блокировку из localStorage — переживает перезагрузку страницы
+    if (typeof window === 'undefined') return 0;
+    const until = Number(localStorage.getItem('lockout_until') || '0');
+    const left  = Math.ceil((until - Date.now()) / 1000);
+    return left > 0 ? left : 0;
+  });
   const [needsSubscription, setNeedsSubscription] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [manualTgId, setManualTgId] = useState('');
@@ -147,7 +153,10 @@ useEffect(() => {
           if (response.status === 403) {
             setNeedsSubscription(true);
           } else {
-            setLockoutTime(15);
+            // Блокировка сохраняется в localStorage — не сбрасывается при перезагрузке
+            const LOCKOUT_SEC = 60; // увеличиваем до 60 секунд
+            localStorage.setItem('lockout_until', String(Date.now() + LOCKOUT_SEC * 1000));
+            setLockoutTime(LOCKOUT_SEC);
             setError(true);
             toast({ variant: 'destructive', title: 'Access denied', description: data.error || 'Invalid key' });
           }
@@ -164,7 +173,12 @@ useEffect(() => {
   const handleLoginClick = () => {
     const currentTgId = autoTgId || manualTgId.trim();
     if (!currentTgId) {
-      toast({ variant: 'destructive', title: 'ID not found', description: 'Enter ID manually' });
+      toast({ variant: 'destructive', title: 'ID не найден', description: 'Введите ID вручную' });
+      return;
+    }
+    // Базовая валидация формата Telegram ID
+    if (!/^\d{5,12}$/.test(currentTgId) || Number(currentTgId) < 10000) {
+      toast({ variant: 'destructive', title: 'Неверный ID', description: 'Telegram ID должен быть числовым (5-12 цифр)' });
       return;
     }
     handleAuth(key, currentTgId);
@@ -204,9 +218,9 @@ useEffect(() => {
   if (!mounted) return null;
 
   return (
-   <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background relative overflow-hidden pt-16">
+   <div className="dark flex flex-col items-center justify-center min-h-screen p-6 relative overflow-hidden pt-16" style={{ background: '#0B0E14' }}>
       {showWelcome && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl animate-in fade-in zoom-in duration-300">
+        <div className="dark fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-xl animate-in fade-in zoom-in duration-300" style={{ background: 'rgba(11,14,20,0.85)' }}>
           <div className="w-full max-w-sm bg-card border border-white/10 p-8 rounded-[32px] shadow-2xl text-center space-y-6">
             <div className="inline-flex p-3 bg-primary/10 rounded-full text-primary">
               <Heart className="w-8 h-8 fill-primary/20" />
@@ -249,9 +263,12 @@ useEffect(() => {
               <Input
                 type="text"
                 inputMode="numeric"
-                placeholder="Твой Telegram ID"
+                placeholder="Твой Telegram ID (числовой)"
                 value={manualTgId}
-                onChange={(e) => setManualTgId(e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, '').slice(0, 12);
+                  setManualTgId(v);
+                }}
                 className="h-14 text-center text-lg bg-background/40 border-white/10 rounded-2xl text-white animate-in slide-in-from-top-2"
               />
             )}
