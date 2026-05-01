@@ -60,8 +60,8 @@
        Fallback values for non-Telegram environments: */
     /* Дефолты для Fullsize-режима (JS перезаписывает при старте) */
     --header-pt:  16px;
-    --scroll-pb:  80px;
-    --nav-bottom: 8px;
+    --scroll-pb:  84px;
+    --nav-bottom: 0px;
   }
 
   /* ═══════════════════════════════════════════════════

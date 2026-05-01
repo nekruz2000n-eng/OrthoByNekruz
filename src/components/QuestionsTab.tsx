@@ -35,12 +35,7 @@ export const QuestionsTab = () => {
   const [dragging, setDragging] = useState(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
   const tooltipStartPos = useRef({ x: 0, y: 0 });
-  const [closeBtnPos, setCloseBtnPos] = useState({ x: 0, y: 0 });
-  const closeBtnRef = useRef<HTMLButtonElement>(null);
-  const [closeDragging, setCloseDragging] = useState(false);
-  const closeStartPos = useRef({ x: 0, y: 0 });
-  const closeBtnStartPos = useRef({ x: 0, y: 0 });
-  const hasMoved = useRef(false);
+
 
   useEffect(() => {
     try { setStudiedIds(new Set(JSON.parse(localStorage.getItem('studiedQuestions') || '[]'))); } catch {}
@@ -131,29 +126,9 @@ export const QuestionsTab = () => {
       window.removeEventListener('touchmove', move as any); window.removeEventListener('touchend', up); };
   }, [dragging]);
 
-  useEffect(() => {
-    if (readingQuestion) { setCloseBtnPos({ x: window.innerWidth - 60, y: 60 }); hasMoved.current = false; }
-  }, [readingQuestion]);
 
-  useEffect(() => {
-    if (!closeDragging) return;
-    const move = (e: MouseEvent | TouchEvent) => {
-      const cx = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const cy = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      const dx = cx - closeStartPos.current.x; const dy = cy - closeStartPos.current.y;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved.current = true;
-      const btn = closeBtnRef.current?.getBoundingClientRect();
-      setCloseBtnPos({
-        x: Math.max(10, Math.min(closeBtnStartPos.current.x + dx, window.innerWidth  - (btn?.width  || 44) - 10)),
-        y: Math.max(10, Math.min(closeBtnStartPos.current.y + dy, window.innerHeight - (btn?.height || 44) - 10)),
-      });
-    };
-    const up = () => { setCloseDragging(false); if (!hasMoved.current) setReadingQuestion(null); };
-    window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
-    window.addEventListener('touchmove', move as any, { passive: false }); window.addEventListener('touchend', up);
-    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up);
-      window.removeEventListener('touchmove', move as any); window.removeEventListener('touchend', up); };
-  }, [closeDragging]);
+
+
 
   const renderWithGlossary = (text: string) => {
     const frags: { type: 'normal' | 'bold'; content: string }[] = [];
@@ -345,15 +320,6 @@ export const QuestionsTab = () => {
             transition={{ type: 'spring', damping: 28, stiffness: 320 }}
             className="fixed inset-0 z-[100] flex flex-col overflow-hidden" style={{ background: 'var(--c-bg)' }}>
 
-            {/* Плавающая кнопка X */}
-            <button ref={closeBtnRef}
-              onMouseDown={e => { e.stopPropagation(); setCloseDragging(true); hasMoved.current = false; closeStartPos.current = { x: e.clientX, y: e.clientY }; closeBtnStartPos.current = { x: closeBtnPos.x, y: closeBtnPos.y }; }}
-              onTouchStart={e => { e.stopPropagation(); const t = e.touches[0]; setCloseDragging(true); hasMoved.current = false; closeStartPos.current = { x: t.clientX, y: t.clientY }; closeBtnStartPos.current = { x: closeBtnPos.x, y: closeBtnPos.y }; }}
-              className="fixed z-[110] w-11 h-11 rounded-full flex items-center justify-center shadow-lg select-none cursor-grab active:cursor-grabbing"
-              style={{ left: closeBtnPos.x, top: closeBtnPos.y, background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
-              <X className="w-5 h-5" />
-            </button>
-
             {/* Контент */}
             <div className="flex-1 overflow-y-auto px-5 pt-6 scroll-container"
               onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onClick={handleGlossaryClick}>
@@ -403,11 +369,6 @@ export const QuestionsTab = () => {
                     ? { background: 'var(--c-primary)', color: 'hsl(var(--primary-foreground))', border: '1px solid var(--c-primary)' }
                     : { background: 'var(--c-primary-dim)', color: 'var(--c-primary)', border: '1px solid var(--c-primary-br)' }}>
                   {studiedIds.has(readingQuestion.id) ? <><CheckCircle2 className="w-4 h-4" /> Изучено</> : <><Circle className="w-4 h-4" /> Изучил</>}
-                </button>
-                <button onClick={() => setReadingQuestion(null)}
-                  className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-all active:scale-[0.98]"
-                  style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
-                  <X className="w-4 h-4" /> Выйти
                 </button>
                 <button onClick={() => { const i = questionsData.findIndex(q => q.id === readingQuestion.id); setReadingQuestion(questionsData[(i + 1) % questionsData.length]); }}
                   className="w-11 h-11 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"

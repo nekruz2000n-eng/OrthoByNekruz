@@ -30,8 +30,7 @@ import { useToast }      from '@/hooks/use-toast';
 // ─────────────────────────────────────────────────────────────────────────────
 function updateSafeAreas(tg: any): void {
   const root = document.documentElement;
-// Меняй после каждого деплоя
-const APP_VERSION = '1.0.4';
+
   const sysTop   = tg?.safeAreaInsets?.top          ?? 0;
   const tgTop    = tg?.contentSafeAreaInsets?.top   ?? 0;
   const tgBottom = tg?.contentSafeAreaInsets?.bottom ?? 0;
@@ -43,11 +42,13 @@ const APP_VERSION = '1.0.4';
   const isFullscreen = tg?.isFullscreen === true || tgTop > 0;
 
   const headerPt  = sysTop + tgTop + 16;
-  // Fullscreen: 96px (навигация ~60px + запас). Fullsize: 80px.
-  const scrollPb  = tgBottom + (isFullscreen ? 96 : 80);
-  // Fullscreen: tgBottom + 24px (под bottom bar TG + зазор).
-  // Fullsize: 8px — минимальный зазор, Telegram сам держит viewport над home indicator.
-  const navBottom = tgBottom + (isFullscreen ? 24 : 8);
+  // навбар ~52px высота + 8px paddingTop + navBottom paddingBottom
+  // scroll-pb = навбар + запас чтобы последний элемент не прятался
+  const scrollPb  = tgBottom + (isFullscreen ? 100 : 84);
+  // Fullsize: 0px — контейнер навигации сам доходит до bottom:0,
+  // полоса закрыта фоном навигационного div-а.
+  // Fullscreen: tgBottom + 20px (под bottom bar TG).
+  const navBottom = tgBottom + (isFullscreen ? 20 : 0);
 
   root.style.setProperty('--header-pt',  `${headerPt}px`);
   root.style.setProperty('--scroll-pb',  `${scrollPb}px`);

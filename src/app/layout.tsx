@@ -75,8 +75,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               var isFullscreen = tg.isFullscreen === true || tgTop > 0;
 
               var headerPt  = sysTop + tgTop + 16;
-              var scrollPb  = tgBottom + (isFullscreen ? 96 : 80);
-              var navBottom = tgBottom + (isFullscreen ? 24 : 8);
+              var scrollPb  = tgBottom + (isFullscreen ? 100 : 84);
+              var navBottom = tgBottom + (isFullscreen ? 20 : 0);
 
               var root = document.documentElement;
               root.style.setProperty('--header-pt',  headerPt  + 'px');
