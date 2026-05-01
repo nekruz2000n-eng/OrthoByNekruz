@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     const check = () => {
       if (localStorage.getItem('demo_mode') !== 'true') return;
       const start = localStorage.getItem('demo_start');
-      if (start && Date.now() - parseInt(start, 10) >= 4 * 60_000) {
+      if (start && Date.now() - parseInt(start, 10) >= 5 * 60_000) {
         localStorage.setItem('is_authed', 'false');
         localStorage.setItem('demo_expired', 'true');
         setIsAuthenticated(false);
