@@ -23,7 +23,8 @@ import { useToast }      from '@/hooks/use-toast';
 // ─────────────────────────────────────────────────────────────────────────────
 function updateSafeAreas(tg: any): void {
   const root = document.documentElement;
-
+// Меняй после каждого деплоя
+const APP_VERSION = '1.0.1';
   const sysTop    = tg?.safeAreaInsets?.top         ?? 0;
   const tgTop     = tg?.contentSafeAreaInsets?.top  ?? 0;
   // contentSafeAreaInsets.bottom = Telegram bottom bar в fullscreen.
