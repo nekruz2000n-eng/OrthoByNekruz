@@ -31,6 +31,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [idCheckAttempts, setIdCheckAttempts] = useState(0);
   const [debugInfo,  setDebugInfo]  = useState('');
   const [initData,   setInitData]   = useState('');
+  const [demoMessage, setDemoMessage] = useState('');
 
   const maxAttempts = 20;
   const attemptInterval = 500;
@@ -99,7 +100,7 @@ useEffect(() => {
       if (id) {
         setAutoTgId(String(id));
         setIdChecked(true);
-        setDebugInfo(`Detected ID: ${id}`);
+      
       } else {
         setDebugInfo(`Attempt ${idCheckAttempts}: No ID in initData`);
         setIdCheckAttempts(prev => prev + 1);
@@ -210,7 +211,8 @@ useEffect(() => {
         localStorage.setItem('user_tg_id', String(currentTgId));
         onAuthenticated();
       } else {
-        toast({ variant: 'destructive', title: 'Демо недоступно', description: data.message });
+ setDemoMessage(data.message || 'Демо недоступно');
+  setTimeout(() => setDemoMessage(''), 3500);
       }
     } catch (error) {
       toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
@@ -293,7 +295,23 @@ useEffect(() => {
             >
               Попробовать демо (3 мин)
             </Button>
-
+{demoMessage && (
+  <div
+    className="animate-in fade-in slide-in-from-top-2 duration-300"
+    style={{
+      background: 'rgba(220, 38, 38, 0.12)',
+      border: '1px solid rgba(220, 38, 38, 0.3)',
+      borderRadius: '12px',
+      padding: '10px 14px',
+      fontSize: '12px',
+      color: '#fca5a5',
+      textAlign: 'center',
+      animation: 'fadeInOut 3.5s ease forwards',
+    }}
+  >
+    {demoMessage}
+  </div>
+)}
             {needsSubscription && <p className="text-[10px] text-center text-destructive animate-pulse">Subscribe to @nzsdental and try again</p>}
           </div>
           <div className="text-center">
@@ -316,7 +334,14 @@ useEffect(() => {
           75% { transform: translateX(5px); }
         }
         .animate-shake { animation: shake 0.2s ease-in-out 0s 2; }
-      `}</style>
+      @keyframes fadeInOut {
+  0%   { opacity: 0; transform: translateY(-6px); }
+  15%  { opacity: 1; transform: translateY(0); }
+  75%  { opacity: 1; }
+  100% { opacity: 0; }
+}`
+      }</style>
+      
     </div>
   );
 };
