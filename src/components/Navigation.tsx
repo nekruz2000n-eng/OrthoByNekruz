@@ -27,11 +27,11 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
       <nav
         className="flex items-center gap-1 p-1.5 rounded-[28px] shadow-2xl"
         style={{
-          background: 'hsl(var(--card))',
+          background: 'var(--c-nav-bg)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
-          border: '1.5px solid hsl(var(--border))',
-          boxShadow: '0 4px 24px hsl(0 0% 0% / 0.35)',
+          border: '1.5px solid var(--c-nav-border)',
+          boxShadow: '0 8px 32px hsl(0 0% 0% / 0.4)',
         }}
       >
         {tabs.map((tab) => {
