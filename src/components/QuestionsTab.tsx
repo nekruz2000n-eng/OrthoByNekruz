@@ -320,7 +320,7 @@ export const QuestionsTab = () => {
             className="fixed inset-0 z-[100] flex flex-col overflow-hidden" style={{ background: 'var(--c-bg)' }}>
 
             {/* Контент */}
-            <div className="flex-1 overflow-y-auto px-5 pt-10 scroll-container"
+            <div className="flex-1 overflow-y-auto px-5 pt-[var(--header-pt)] scroll-container"
               onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onClick={handleGlossaryClick}>
               <div className="space-y-5 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
                 <div className="flex items-center gap-2 pt-2">
