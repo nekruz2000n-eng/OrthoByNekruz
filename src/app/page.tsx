@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { SubjectType } from '@/components/SubjectSelectScreen';
 import { AuthScreen }    from '@/components/AuthScreen';
 import { Navigation, TabType } from '@/components/Navigation';
 import { QuestionsTab }  from '@/components/QuestionsTab';
@@ -9,7 +10,6 @@ import { TasksTab }      from '@/components/TasksTab';
 import { StatsTab }      from '@/components/StatsTab';
 import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
-import {'{ SubjectType }'} from '@/components/SubjectSelectScreen'
 
 // ─── updateSafeAreas ─────────────────────────────────────────────────────────
 //
@@ -31,7 +31,6 @@ import {'{ SubjectType }'} from '@/components/SubjectSelectScreen'
 // ─────────────────────────────────────────────────────────────────────────────
 function updateSafeAreas(tg: any): void {
   const root = document.documentElement;
-
   const sysTop   = tg?.safeAreaInsets?.top          ?? 0;
   const tgTop    = tg?.contentSafeAreaInsets?.top   ?? 0;
   const tgBottom = tg?.contentSafeAreaInsets?.bottom ?? 0;
@@ -60,10 +59,6 @@ function updateSafeAreas(tg: any): void {
 //  initTelegramApp — вызывается СТРОГО ОДИН РАЗ при монтировании.
 //  Возвращает cleanup-функцию.
 // ─────────────────────────────────────────────────────────────────────────────
-// initTelegramApp — только события safe areas и повторная блокировка свайпа.
-// Основная TG-инициализация (ready, expand, disableVerticalSwipes, BackButton)
-// перенесена в layout.tsx inline-скрипт который запускается ДО React
-// на КАЖДОМ запуске — и при первом входе, и при последующих.
 function initTelegramApp(): () => void {
   if (typeof window === 'undefined') return () => {};
   const tg = (window as any).Telegram?.WebApp;
@@ -114,12 +109,16 @@ function initTelegramApp(): () => void {
 // ═════════════════════════════════════════════════════════════════════════════
 
 export default function Home() {
+  // Хуки состояния теперь находятся на верхнем уровне компонента — там, где и должны быть
+  const [subject, setSubject]                 = useState<SubjectType>('ortho');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading,       setIsLoading]       = useState<boolean>(true);
   const [activeTab,       setActiveTab]       = useState<TabType>('questions');
   const { toast }    = useToast();
-const tapCountRef = useRef(0);
-const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // ── TG: СТРОГО ОДИН РАЗ при монтировании ─────────────────────────────────
   useEffect(() => initTelegramApp(), []);
 
@@ -166,19 +165,21 @@ const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     setIsLoading(false);
   }, []);
 
-  // ── Сброс (8 сек удержание) ───────────────────────────────────────────────
+  // ── Сброс (6 быстрых тапов) ───────────────────────────────────────────────
   const handleSecretTap = useCallback(() => {
-  tapCountRef.current += 1;
-  if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
-  tapTimerRef.current = setTimeout(() => { tapCountRef.current = 0; }, 3000);
-  if (tapCountRef.current >= 6) {
-    tapCountRef.current = 0;
-    localStorage.clear();
-    toast({ title: '🔄 Сброс', description: 'Данные очищены. Перезагрузка...' });
-    setTimeout(() => window.location.reload(), 600);
-  }
-}, [toast]);
+    tapCountRef.current += 1;
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+    tapTimerRef.current = setTimeout(() => { tapCountRef.current = 0; }, 3000);
+    
+    if (tapCountRef.current >= 6) {
+      tapCountRef.current = 0;
+      localStorage.clear();
+      toast({ title: '🔄 Сброс', description: 'Данные очищены. Перезагрузка...' });
+      setTimeout(() => window.location.reload(), 600);
+    }
+  }, [toast]);
   // ─────────────────────────────────────────────────────────────────────────
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -193,12 +194,16 @@ const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   return (
     <main className="flex flex-col h-[100dvh] w-full relative overflow-hidden">
-     
       <div className="flex-1 overflow-hidden relative">
         {activeTab === 'questions' && <QuestionsTab />}
         {activeTab === 'tests'     && <TestsTab />}
-        {activeTab === 'tasks'     && <TasksTab     onSecretTap={handleSecretTap} />}
-        {activeTab === 'stats'     && <StatsTab />}
+        {activeTab === 'tasks'     && <TasksTab onSecretTap={handleSecretTap} />}
+        {activeTab === 'stats'     && (
+          <StatsTab 
+            subject={subject} 
+            onSubjectChange={setSubject} 
+          />
+        )}
       </div>
       <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
     </main>

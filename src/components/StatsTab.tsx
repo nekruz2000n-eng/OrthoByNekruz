@@ -7,7 +7,6 @@ import orthoTestsData     from '@/data/tests.json';
 import microQuestionsData from '@/data/micro_questions.json';
 import microTasksData     from '@/data/micro_tasks.json';
 import microTestsData     from '@/data/micro_tests.json';
-import {'{ SubjectType }'} from '@/components/SubjectSelectScreen';
 import { ScrollArea }     from '@/components/ui/scroll-area';
 import { PieChart, Pie, Cell, ResponsiveContainer, Label } from 'recharts';
 import { BookOpen, ClipboardList, PenTool, Star, Trash2, Sun, Moon, Sparkles } from 'lucide-react';
