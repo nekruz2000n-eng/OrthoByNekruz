@@ -13,10 +13,12 @@ import { ToothIcon } from './ToothIcon';
 import ReactMarkdown from 'react-markdown';
 
 export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
+  const accentColor = subject === 'micro' ? 'var(--c-amber)' : 'var(--c-primary)';
   const testsData = subject === 'ortho' ? orthoTestsData : microTestsData;
   const lsScores  = subject === 'ortho' ? 'test_block_scores' : 'micro_test_block_scores';
   const lsNote    = subject === 'ortho' ? 'tests_personal_note' : 'micro_tests_personal_note';
-  const [selectedBlock, setSelectedBlock] = useState<number | null>(null);
+  const isOrtho       = subject === 'ortho';               
+   const [selectedBlock, setSelectedBlock] = useState<number | null>(null);
   const [currentTestIndex, setCurrentTestIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -108,7 +110,7 @@ export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
           style={{ background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid var(--c-border)', paddingTop: 'var(--header-pt)' }}>
           <div className="flex justify-between items-center px-1">
             <div className="flex items-center gap-3">
-              <ToothIcon className="w-9 h-9 text-primary" />
+            <ToothIcon className="w-9 h-9" style={{ color: accentColor }} />
               <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>{subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}</h1>
             </div>
             <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: 'var(--c-muted)' }}>{TOTAL_TESTS} тестов</span>
@@ -199,9 +201,9 @@ export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
     const ok = score >= 17; const bad = score < 10;
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6 animate-in fade-in zoom-in-95 duration-500" style={{ background: 'var(--c-bg)' }}>
-        <ToothIcon variant={ok ? 'perfect' : bad ? 'broken' : 'normal'} className="w-32 h-32" style={{ color: ok ? 'var(--c-primary)' : bad ? 'hsl(var(--destructive))' : 'hsl(210 80% 55%)' }} />
+        <ToothIcon variant={ok ? 'perfect' : bad ? 'broken' : 'normal'} className="w-32 h-32" style={{ color: ok ? accentColor : bad ? 'hsl(var(--destructive))' : 'hsl(210 80% 55%)' }} />
         <div className="space-y-2 px-4">
-          <h2 className="text-3xl font-bold" style={{ color: ok ? 'var(--c-primary)' : bad ? 'hsl(var(--destructive))' : 'hsl(210 80% 55%)' }}>
+          <h2 className="text-3xl font-bold" style={{ color: ok ? accentColor  : bad ? 'hsl(var(--destructive))' : 'hsl(210 80% 55%)' }}>
             {score === 20 ? 'Идеально! 20/20' : `Блок ${selectedBlock} завершён!`}
           </h2>
           <p style={{ color: 'var(--c-text)' }}>{ok ? 'Блестяще! Знания крепки, как здоровая эмаль!' : bad ? 'Нужно повторить теорию!' : 'Хороший результат!'}</p>
@@ -235,7 +237,7 @@ export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
           <div className="flex-1">
             <div className="flex justify-between items-center mb-1">
               <span className="text-[10px] font-mono uppercase tracking-tighter" style={{ color: 'var(--c-muted)' }}>Блок {selectedBlock} · {currentTestIndex + 1}/{blockTests.length}</span>
-              <span className="text-[11px] font-mono font-bold" style={{ color: 'var(--c-primary)' }}>✓ {score}</span>
+              <span className="text-[11px] font-mono font-bold" style={{ color: accentColor }}>✓ {score}</span>
             </div>
             <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
               <div className="h-full rounded-full transition-all duration-500" style={{ width: `${((currentTestIndex + 1) / blockTests.length) * 100}%`, background: 'var(--c-primary)' }} />

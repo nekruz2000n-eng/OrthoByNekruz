@@ -33,6 +33,7 @@ interface SubjectSheetProps {
 
 const SubjectSheet: React.FC<SubjectSheetProps> = ({ currentSubject, onSelect, onClose }) => {
   const [selected, setSelected] = useState<SubjectType>(currentSubject);
+  
   // Portal guard: document.body недоступен при SSR
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -267,7 +268,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange }) 
             <div className="flex items-center gap-3">
               <ToothIcon className="w-9 h-9" style={{ color: accentColor }} variant={isOrtho ? 'perfect' : 'normal'} />
               <div>
-                <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>OrthoByNekruz</h1>
+                <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>  {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}</h1>
                 <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>
                   {subjectLabel}
                 </p>

@@ -21,6 +21,8 @@ export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
   const tasksData = subject === 'ortho' ? orthoTasksData : microTasksData;
   const lsTasks   = subject === 'ortho' ? 'resolvedTasks'  : 'microResolvedTasks';
   const lsNotes   = subject === 'ortho' ? 'userTaskNotes'  : 'microUserTaskNotes';
+  const isOrtho       = subject === 'ortho';                                            // ← добавь
+
   const [search,      setSearch]      = useState('');
   const [resolvedIds, setResolvedIds] = useState<Set<number>>(new Set());
   const [userNotes,   setUserNotes]   = useState<Record<number, string>>({});
