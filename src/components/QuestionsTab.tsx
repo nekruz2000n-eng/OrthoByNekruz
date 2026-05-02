@@ -220,9 +220,11 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
         style={{ background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid var(--c-border)', paddingTop: 'var(--header-pt)' }}>
         <div className="flex justify-between items-center px-1">
           <div className="flex items-center gap-3">
-<ToothIcon className="w-9 h-9" style={{ color: accentColor }}  variant={isOrtho ? 'perfect' : 'normal'} />
+        <ToothIcon className="w-9 h-9" style={{ color: accentColor }}  variant={isOrtho ? 'perfect' : 'normal'} />
             <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }} > {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}</h1>
           </div>
+                          <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>  {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}</h1>
+
           <div className="flex flex-col items-end gap-1">
             <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: accentColor }}>
               {studiedIds.size}/{questionsData.length}
