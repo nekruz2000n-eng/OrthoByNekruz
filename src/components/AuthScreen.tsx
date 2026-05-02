@@ -71,6 +71,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [debugInfo,         setDebugInfo]         = useState('');
   const [initData,          setInitData]          = useState('');
   const [demoMessage,       setDemoMessage]       = useState('');
+  const [errorMessage,      setErrorMessage]      = useState('');
 
   const maxAttempts     = 20;
   const attemptInterval = 500;
@@ -166,11 +167,14 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           localStorage.setItem('lockout_until', String(Date.now() + LOCKOUT_SEC * 1000));
           setLockoutTime(LOCKOUT_SEC);
           setError(true);
-          toast({ variant: 'destructive', title: 'Access denied', description: data.error || 'Invalid key' });
+          const msg = data.error || 'Неверный ключ доступа';
+          setErrorMessage(msg);
+          setTimeout(() => setErrorMessage(''), 4000);
         }
       }
     } catch {
-      toast({ variant: 'destructive', title: 'Error', description: 'Server unavailable' });
+      setErrorMessage('Ошибка соединения с сервером');
+      setTimeout(() => setErrorMessage(''), 4000);
     } finally {
       setLoading(false);
     }
@@ -377,8 +381,22 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                   background: 'rgba(220,38,38,0.12)',
                   border:     '1px solid rgba(220,38,38,0.3)',
                   color:      '#fca5a5',
+                  animation:  'fadeInOut 4s ease forwards',
                 }}>
                 {demoMessage}
+              </div>
+            )}
+
+            {/* Key error message — same style, shown inline */}
+            {errorMessage && (
+              <div className="animate-in fade-in slide-in-from-top-2 duration-300 rounded-xl p-3 text-center text-xs"
+                style={{
+                  background: 'rgba(220,38,38,0.12)',
+                  border:     '1px solid rgba(220,38,38,0.3)',
+                  color:      '#fca5a5',
+                  animation:  'fadeInOut 4s ease forwards',
+                }}>
+                {errorMessage}
               </div>
             )}
 
