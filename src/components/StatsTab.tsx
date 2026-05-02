@@ -69,7 +69,7 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({ currentSubject, onSelect, o
         </div>
 
         <div className="text-center mb-6">
-          <h3 className="text-base font-bold" style={{ color: 'var(--c-text)' }}>Сменить предмет</h3>
+          <h3 className="text-base font-bold" style={{ color: 'var(--c-text)' }}>Сменить дисциплину</h3>
           <p className="text-xs mt-1" style={{ color: 'var(--c-muted)' }}>Выберите предмет для подготовки</p>
         </div>
 
@@ -402,7 +402,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange }) 
             {/* ── CHANGE SUBJECT BUTTON ── */}
             <button
               onClick={() => setShowSubjectSheet(true)}
-              className="w-full rounded-[20px] p-5 flex items-center gap-4 transition-all duration-200 active:scale-[0.98] mx-1"
+              className="w-full rounded-[20px] p-4 flex items-center gap-4 transition-all duration-200 active:scale-[0.98] mx-1"
               style={{
                 background: isOrtho ? 'var(--c-primary-dim)' : 'var(--c-amber-dim)',
                 border:     `1.5px solid ${isOrtho ? 'var(--c-primary-br)' : 'var(--c-amber-br)'}`,
@@ -410,12 +410,11 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange }) 
             >
               {/* Icon */}
               <div
-                className="w-11 h-11 rounded-[14px] flex items-center justify-center flex-shrink-0"
-                style={{
-                  background: isOrtho ? 'var(--c-primary-dim)' : 'var(--c-amber-dim)',
-                  border:     `1px solid ${isOrtho ? 'var(--c-primary-br)' : 'var(--c-amber-br)'}`,
-                }}
-              >
+  className="p-3 rounded-full flex-shrink-0"
+  style={{
+    background: isOrtho ? 'var(--c-primary-dim)' : 'var(--c-amber-dim)',
+  }}
+>
                 {/* Swap icon */}
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
                   stroke={accentColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -429,7 +428,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange }) 
               </div>
 
               <div className="flex-1 text-left">
-                <div className="text-sm font-bold" style={{ color: 'var(--c-text)' }}>Сменить предмет</div>
+                <div className="text-sm font-bold" style={{ color: 'var(--c-text)' }}>Сменить дисциплину</div>
                 <div className="text-[11px] mt-0.5" style={{ color: 'var(--c-muted)' }}>
                   Сейчас: {subjectLabel}
                 </div>

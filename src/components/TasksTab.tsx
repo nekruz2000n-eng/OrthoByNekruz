@@ -21,6 +21,7 @@ export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
   const tasksData = subject === 'ortho' ? orthoTasksData : microTasksData;
   const lsTasks   = subject === 'ortho' ? 'resolvedTasks'  : 'microResolvedTasks';
   const lsNotes   = subject === 'ortho' ? 'userTaskNotes'  : 'microUserTaskNotes';
+  const accentColor = subject === 'micro' ? 'var(--c-amber)' : 'var(--c-primary)';
   const isOrtho       = subject === 'ortho';                                            // ← добавь
 
   const [search,      setSearch]      = useState('');
@@ -178,7 +179,7 @@ export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
       >
         <div className="flex justify-between items-center px-1">
           <div className="flex items-center gap-3">
-            <ToothIcon className="w-9 h-9 text-primary" onClick={onSecretTap} />
+            <ToothIcon className="w-9 h-9" style={{ color: accentColor }}   variant={subject === 'ortho' ? 'perfect' : 'normal'}  onClick={onSecretTap} />
             <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>
               {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}
             </h1>
