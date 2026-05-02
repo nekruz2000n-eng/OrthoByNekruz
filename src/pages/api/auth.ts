@@ -66,9 +66,18 @@ const isValidTelegramId = (id: string): boolean => {
   return n >= 10000 && n <= 9_999_999_999;
 };
 
-// ── Ключ: только цифры, 4-8 символов ────────────────────────────────────────
-const isValidKeyFormat = (key: string): boolean =>
-  typeof key === 'string' && /^\d{4,8}$/.test(key.trim());
+// ── Ключ: формат + математические условия ───────────────────────────────────
+// Условие 1: ровно 8 цифр
+// Условие 2: сумма 1-й, 2-й и 8-й цифр = 15
+// Условие 3: число % 7 = 3
+const isValidKeyFormat = (key: string): boolean => {
+  const k = key.trim();
+  if (!/^\d{8}$/.test(k)) return false;
+  const d = k.split('').map(Number);
+  const sumCheck = d[0] + d[1] + d[7] === 15;
+  const modCheck = parseInt(k, 10) % 7 === 3;
+  return sumCheck && modCheck;
+};
 
 // ── Подписка на канал ────────────────────────────────────────────────────────
 async function isSubscribed(userId: number): Promise<boolean> {
@@ -85,21 +94,43 @@ async function isSubscribed(userId: number): Promise<boolean> {
 }
 
 // ── Rate limiting ────────────────────────────────────────────────────────────
-const MAX_ATTEMPTS  = 5;
-const BLOCK_SECONDS = 300;
+//  3 попытки → блок 2 часа.
+//  Каждая следующая ошибка после блока → +10 часов сверху.
+//  Храним счётчик нарушений в Redis ключе violations:ip:tgId.
+const MAX_ATTEMPTS      = 3;
+const BASE_BLOCK_SEC    = 2  * 60 * 60;   // 2 часа
+const EXTRA_BLOCK_SEC   = 10 * 60 * 60;   // +10 часов за каждое нарушение сверх первого
 
 async function checkRateLimit(ip: string, tgId: string) {
   const rateKey  = `rate:${ip}:${tgId}`;
   const blockKey = `block:${ip}:${tgId}`;
-  const blocked  = await redis.exists(blockKey);
-  if (blocked) return { blocked: true, remaining: 0 };
-  const attempts = await redis.incr(rateKey);
-  if (attempts === 1) await redis.expire(rateKey, 600);
-  if (attempts >= MAX_ATTEMPTS) {
-    await redis.set(blockKey, 1, { ex: BLOCK_SECONDS });
-    await redis.del(rateKey);
-    return { blocked: true, remaining: 0 };
+  const violKey  = `viol:${ip}:${tgId}`;
+
+  // Проверяем активный блок
+  const blocked = await redis.exists(blockKey);
+  if (blocked) {
+    // Каждое обращение во время блока — +10 часов
+    const viols = await redis.incr(violKey);
+    const newBlock = BASE_BLOCK_SEC + (viols - 1) * EXTRA_BLOCK_SEC;
+    await redis.set(blockKey, viols, { ex: newBlock });
+    const hours = Math.ceil(newBlock / 3600);
+    return { blocked: true, remaining: 0, blockHours: hours };
   }
+
+  const attempts = await redis.incr(rateKey);
+  if (attempts === 1) await redis.expire(rateKey, 3600); // счётчик живёт 1 час
+
+  if (attempts >= MAX_ATTEMPTS) {
+    // Первый блок — 2 часа
+    const viols = await redis.incr(violKey);
+    await redis.expire(violKey, 30 * 24 * 3600); // счётчик нарушений живёт 30 дней
+    const blockSec = BASE_BLOCK_SEC + (viols - 1) * EXTRA_BLOCK_SEC;
+    await redis.set(blockKey, viols, { ex: blockSec });
+    await redis.del(rateKey);
+    const hours = Math.ceil(blockSec / 3600);
+    return { blocked: true, remaining: 0, blockHours: hours };
+  }
+
   return { blocked: false, remaining: MAX_ATTEMPTS - attempts };
 }
 
@@ -252,7 +283,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Rate limit
       const { blocked, remaining } = await checkRateLimit(ip, `micro:${rateLimitKey}`);
       if (blocked) {
-        return res.status(429).json({ error: `Слишком много попыток. Подождите ${BLOCK_SECONDS / 60} мин.` });
+        return res.status(429).json({ error: `Слишком много неверных попыток. Доступ заблокирован.` });
       }
 
       // Проверяем ключ в valid_micro_keys
@@ -330,7 +361,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { blocked, remaining } = await checkRateLimit(ip, rateLimitKey);
     if (blocked) {
-      return res.status(429).json({ error: `Слишком много попыток. Подождите ${BLOCK_SECONDS / 60} мин.` });
+      return res.status(429).json({ error: `Слишком много неверных попыток. Доступ заблокирован.` });
     }
 
     const isKeyValid = await redis.sismember('valid_keys', key.trim());
