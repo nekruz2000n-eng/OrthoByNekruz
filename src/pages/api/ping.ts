@@ -6,7 +6,7 @@ import { createHmac } from 'crypto';
 const redis           = Redis.fromEnv();
 const BOT_TOKEN       = process.env.BOT_TOKEN       || '';
 const ADMIN_TG_ID     = process.env.ADMIN_TG_ID     || '';
-const DAILY_OPEN_LIMIT = 40; // открытий в сутки — подозрительно
+const DAILY_OPEN_LIMIT = 5; // открытий в сутки — подозрительно
 
 function verifyInitData(initData: string): number | null {
   try {
