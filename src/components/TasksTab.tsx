@@ -322,7 +322,7 @@ export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
           >
             {/* Контент */}
             <div
-              className="flex-1 overflow-y-auto px-5 pt-10 scroll-container"
+              className="flex-1 overflow-y-auto px-5 pt-[var(--header-pt)] scroll-container"
               onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
             >
               <div className="space-y-5 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
