@@ -20,6 +20,7 @@ interface GlossaryItem { term: string; definition: string; image?: string | stri
 
 export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
   const questionsData = subject === 'ortho' ? orthoQuestionsData : microQuestionsData;
+  const accentColor = subject === 'micro' ? 'var(--c-amber)' : 'var(--c-primary)';
   const lsKey         = subject === 'ortho' ? 'studiedQuestions'  : 'microStudiedQuestions';
   const lsNoteKey     = subject === 'ortho' ? 'userQuestionNotes' : 'microUserQuestionNotes';
   const [search, setSearch] = useState('');
@@ -217,15 +218,15 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
         style={{ background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid var(--c-border)', paddingTop: 'var(--header-pt)' }}>
         <div className="flex justify-between items-center px-1">
           <div className="flex items-center gap-3">
-            <ToothIcon className="w-9 h-9 text-primary" />
+<ToothIcon className="w-9 h-9" style={{ color: accentColor }} />
             <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>OrthoByNekruz</h1>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: 'var(--c-primary)' }}>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: accentColor }}>
               {studiedIds.size}/{questionsData.length}
             </span>
             <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
-              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: 'var(--c-primary)' }} />
+              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
             </div>
           </div>
         </div>
@@ -334,8 +335,8 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                   {renderWithGlossary(readingQuestion.question)}
                 </h2>
                 <div className="flex items-center gap-3" style={{ borderTop: '1px solid var(--c-border)', paddingTop: '12px' }}>
-                  <BookOpen className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-primary)' }} />
-                  <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-primary)' }}>Ответ</span>
+                  <BookOpen className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
+                  <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>Ответ</span>
                 </div>
                 <div className="leading-relaxed font-light break-words whitespace-pre-wrap" style={{ fontSize: `${fontSize}px`, color: 'color-mix(in srgb, var(--c-text) 82%, transparent)' }}>
                   {renderWithGlossary(readingQuestion.answer)}
