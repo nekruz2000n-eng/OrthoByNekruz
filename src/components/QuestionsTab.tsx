@@ -222,6 +222,10 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
           <div className="flex items-center gap-3">
         <ToothIcon className="w-9 h-9" style={{ color: accentColor }}  variant={isOrtho ? 'perfect' : 'normal'} />
             <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }} > {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}</h1>
+            <p className="text-[10px] font-bold uppercase tracking-widest"
+       style={{ color: accentColor }}>
+      {subject === 'micro' ? 'Микробиология' : 'Ортопедическая стоматология'}
+    </p>         
           </div>
           
           <div className="flex flex-col items-end gap-1">

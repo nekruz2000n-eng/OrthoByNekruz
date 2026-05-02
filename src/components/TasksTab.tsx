@@ -183,6 +183,10 @@ export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
             <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>
               {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}
             </h1>
+            <p className="text-[10px] font-bold uppercase tracking-widest"
+       style={{ color: accentColor }}>
+      {subject === 'micro' ? 'Микробиология' : 'Ортопедическая стоматология'}
+    </p>
           </div>
           <div className="flex flex-col items-end gap-1">
             <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: 'var(--c-primary)' }}>
