@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import questionsData from '@/data/questions.json';
+import orthoQuestionsData from '@/data/questions.json';
+import microQuestionsData from '@/data/micro_questions.json';
+import { SubjectType } from '@/components/SubjectSelectScreen';
 import glossaryData from '@/data/glossary.json';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,7 +18,10 @@ import ReactMarkdown from 'react-markdown';
 
 interface GlossaryItem { term: string; definition: string; image?: string | string[]; }
 
-export const QuestionsTab = () => {
+export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
+  const questionsData = subject === 'ortho' ? orthoQuestionsData : microQuestionsData;
+  const lsKey         = subject === 'ortho' ? 'studiedQuestions'  : 'microStudiedQuestions';
+  const lsNoteKey     = subject === 'ortho' ? 'userQuestionNotes' : 'microUserQuestionNotes';
   const [search, setSearch] = useState('');
   const [studiedIds, setStudiedIds] = useState<Set<number>>(new Set());
   const [userNotes, setUserNotes] = useState<Record<number, string>>({});
@@ -35,23 +40,29 @@ export const QuestionsTab = () => {
   const [dragging, setDragging] = useState(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
   const tooltipStartPos = useRef({ x: 0, y: 0 });
-
+  const [closeBtnPos, setCloseBtnPos] = useState({ x: 0, y: 0 });
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const [closeDragging, setCloseDragging] = useState(false);
+  const closeStartPos = useRef({ x: 0, y: 0 });
+  const closeBtnStartPos = useRef({ x: 0, y: 0 });
+  const hasMoved = useRef(false);
 
   useEffect(() => {
-    try { setStudiedIds(new Set(JSON.parse(localStorage.getItem('studiedQuestions') || '[]'))); } catch {}
-    try { setUserNotes(JSON.parse(localStorage.getItem('userQuestionNotes') || '{}')); } catch {}
+    try { setStudiedIds(new Set(JSON.parse(localStorage.getItem(lsKey) || '[]'))); } catch {}
+    try { setUserNotes(JSON.parse(localStorage.getItem(lsNoteKey) || '{}')); } catch {}
     setIsLoaded(true);
   }, []);
 
   useEffect(() => {
     if (!isLoaded) return;
-    localStorage.setItem('studiedQuestions', JSON.stringify(Array.from(studiedIds)));
-    localStorage.setItem('userQuestionNotes', JSON.stringify(userNotes));
+    localStorage.setItem(lsKey, JSON.stringify(Array.from(studiedIds)));
+    localStorage.setItem(lsNoteKey, JSON.stringify(userNotes));
   }, [studiedIds, userNotes, isLoaded]);
 
   const toggleStudied = (id: number) => {
     setStudiedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-     };
+    if (readingQuestion?.id === id) setReadingQuestion(null);
+  };
   const updateNote = (id: number, text: string) => setUserNotes(p => ({ ...p, [id]: text.replace(/<[^>]*>?/gm, '') }));
   const clearNote  = (id: number) => setUserNotes(p => { const n = { ...p }; delete n[id]; return n; });
 
@@ -125,9 +136,29 @@ export const QuestionsTab = () => {
       window.removeEventListener('touchmove', move as any); window.removeEventListener('touchend', up); };
   }, [dragging]);
 
+  useEffect(() => {
+    if (readingQuestion) { setCloseBtnPos({ x: window.innerWidth - 60, y: 60 }); hasMoved.current = false; }
+  }, [readingQuestion]);
 
-
-
+  useEffect(() => {
+    if (!closeDragging) return;
+    const move = (e: MouseEvent | TouchEvent) => {
+      const cx = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const cy = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const dx = cx - closeStartPos.current.x; const dy = cy - closeStartPos.current.y;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved.current = true;
+      const btn = closeBtnRef.current?.getBoundingClientRect();
+      setCloseBtnPos({
+        x: Math.max(10, Math.min(closeBtnStartPos.current.x + dx, window.innerWidth  - (btn?.width  || 44) - 10)),
+        y: Math.max(10, Math.min(closeBtnStartPos.current.y + dy, window.innerHeight - (btn?.height || 44) - 10)),
+      });
+    };
+    const up = () => { setCloseDragging(false); if (!hasMoved.current) setReadingQuestion(null); };
+    window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', move as any, { passive: false }); window.addEventListener('touchend', up);
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up);
+      window.removeEventListener('touchmove', move as any); window.removeEventListener('touchend', up); };
+  }, [closeDragging]);
 
   const renderWithGlossary = (text: string) => {
     const frags: { type: 'normal' | 'bold'; content: string }[] = [];
@@ -319,8 +350,17 @@ export const QuestionsTab = () => {
             transition={{ type: 'spring', damping: 28, stiffness: 320 }}
             className="fixed inset-0 z-[100] flex flex-col overflow-hidden" style={{ background: 'var(--c-bg)' }}>
 
+            {/* Плавающая кнопка X */}
+            <button ref={closeBtnRef}
+              onMouseDown={e => { e.stopPropagation(); setCloseDragging(true); hasMoved.current = false; closeStartPos.current = { x: e.clientX, y: e.clientY }; closeBtnStartPos.current = { x: closeBtnPos.x, y: closeBtnPos.y }; }}
+              onTouchStart={e => { e.stopPropagation(); const t = e.touches[0]; setCloseDragging(true); hasMoved.current = false; closeStartPos.current = { x: t.clientX, y: t.clientY }; closeBtnStartPos.current = { x: closeBtnPos.x, y: closeBtnPos.y }; }}
+              className="fixed z-[110] w-11 h-11 rounded-full flex items-center justify-center shadow-lg select-none cursor-grab active:cursor-grabbing"
+              style={{ left: closeBtnPos.x, top: closeBtnPos.y, background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+              <X className="w-5 h-5" />
+            </button>
+
             {/* Контент */}
-            <div className="flex-1 overflow-y-auto px-5 pt-[var(--header-pt)] scroll-container"
+            <div className="flex-1 overflow-y-auto px-5 pt-6 scroll-container"
               onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onClick={handleGlossaryClick}>
               <div className="space-y-5 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
                 <div className="flex items-center gap-2 pt-2">
@@ -328,7 +368,7 @@ export const QuestionsTab = () => {
                     style={{ background: 'var(--c-primary-dim)', color: 'var(--c-primary)', border: '1px solid var(--c-primary-br)' }}>
                     Вопрос №{readingQuestion.id}
                   </span>
-                  
+                  <span className="text-[10px]" style={{ color: 'var(--c-muted)' }}>Pinch — размер текста</span>
                 </div>
                 <h2 className="font-semibold leading-snug break-words" style={{ fontSize: `${fontSize * 1.15}px`, color: 'var(--c-text)' }}>
                   {renderWithGlossary(readingQuestion.question)}
@@ -353,58 +393,30 @@ export const QuestionsTab = () => {
               </div>
             </div>
 
-            {/* Плавающая пилюля навигации режима чтения */}
-            <div
-              className="fixed left-0 right-0 px-5 z-[110] flex justify-center"
-              style={{ bottom: 'calc(var(--nav-bottom, 12px) + 12px)' }}
-            >
-              <div
-                className="flex items-center gap-1.5 p-1.5 rounded-[28px] shadow-2xl"
-                style={{
-                  background: 'var(--c-nav-bg)',
-                  backdropFilter: 'blur(24px)',
-                  WebkitBackdropFilter: 'blur(24px)',
-                  border: '1.5px solid var(--c-nav-border)',
-                  boxShadow: '0 8px 32px hsl(0 0% 0% / 0.4)',
-                }}
-              >
-                {/* ← */}
-                <button
-                  onClick={() => { const i = questionsData.findIndex(q => q.id === readingQuestion.id); setReadingQuestion(questionsData[(i - 1 + questionsData.length) % questionsData.length]); }}
-                  className="w-10 h-10 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
-                  style={{ color: 'var(--c-muted)' }}
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-
-                {/* Изучил / Изучено */}
-                <button
-                  onClick={() => toggleStudied(readingQuestion.id)}
-                  className="flex items-center justify-center gap-2 px-4 h-10 rounded-full text-sm font-bold transition-all active:scale-[0.97]"
+            {/* Нижняя панель */}
+            <div className="px-4 pt-3 pb-safe" style={{ borderTop: '1px solid var(--c-border)', background: 'color-mix(in srgb, var(--c-bg) 97%, transparent)' }}>
+              <div className="flex gap-2 items-center max-w-2xl mx-auto">
+                {[
+                  { onClick: () => { const i = questionsData.findIndex(q => q.id === readingQuestion.id); setReadingQuestion(questionsData[(i - 1 + questionsData.length) % questionsData.length]); }, icon: <ArrowLeft className="w-5 h-5" />, round: true },
+                ].map((b, i) => (
+                  <button key={i} onClick={b.onClick} className="w-11 h-11 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
+                    style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>{b.icon}</button>
+                ))}
+                <button onClick={() => toggleStudied(readingQuestion.id)}
+                  className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-sm font-bold transition-all active:scale-[0.98]"
                   style={studiedIds.has(readingQuestion.id)
-                    ? { background: 'var(--c-primary)', color: 'hsl(var(--primary-foreground))' }
-                    : { background: 'var(--c-primary-dim)', color: 'var(--c-primary)', border: '1px solid var(--c-primary-br)' }}
-                >
-                  {studiedIds.has(readingQuestion.id)
-                    ? <><CheckCircle2 className="w-4 h-4" /> Изучено</>
-                    : <><Circle className="w-4 h-4" /> Изучить</>}
+                    ? { background: 'var(--c-primary)', color: 'hsl(var(--primary-foreground))', border: '1px solid var(--c-primary)' }
+                    : { background: 'var(--c-primary-dim)', color: 'var(--c-primary)', border: '1px solid var(--c-primary-br)' }}>
+                  {studiedIds.has(readingQuestion.id) ? <><CheckCircle2 className="w-4 h-4" /> Изучено</> : <><Circle className="w-4 h-4" /> Изучил</>}
                 </button>
-
-                {/* Выйти */}
-                <button
-                  onClick={() => setReadingQuestion(null)}
-                  className="flex items-center justify-center gap-2 px-4 h-10 rounded-full text-sm font-semibold transition-all active:scale-[0.97]"
-                  style={{ color: 'var(--c-muted)', border: '1px solid var(--c-border)' }}
-                >
+                <button onClick={() => setReadingQuestion(null)}
+                  className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-all active:scale-[0.98]"
+                  style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
                   <X className="w-4 h-4" /> Выйти
                 </button>
-
-                {/* → */}
-                <button
-                  onClick={() => { const i = questionsData.findIndex(q => q.id === readingQuestion.id); setReadingQuestion(questionsData[(i + 1) % questionsData.length]); }}
-                  className="w-10 h-10 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
-                  style={{ color: 'var(--c-muted)' }}
-                >
+                <button onClick={() => { const i = questionsData.findIndex(q => q.id === readingQuestion.id); setReadingQuestion(questionsData[(i + 1) % questionsData.length]); }}
+                  className="w-11 h-11 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
+                  style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
                   <ArrowRight className="w-5 h-5" />
                 </button>
               </div>

@@ -2,15 +2,20 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import testsData from '@/data/tests.json';
+import orthoTestsData from '@/data/tests.json';
+import microTestsData from '@/data/micro_tests.json';
+import { SubjectType } from '@/components/SubjectSelectScreen';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { CheckCircle2, XCircle, RotateCcw, Zap, ChevronLeft, LayoutGrid, Search, Medal, Pencil, Trash2, FileText, Shuffle } from 'lucide-react';
-import { ToothIcon } from '@/components/ToothIcon';
+import { ToothIcon } from './ToothIcon';
 import ReactMarkdown from 'react-markdown';
 
-export const TestsTab = () => {
+export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
+  const testsData = subject === 'ortho' ? orthoTestsData : microTestsData;
+  const lsScores  = subject === 'ortho' ? 'test_block_scores' : 'micro_test_block_scores';
+  const lsNote    = subject === 'ortho' ? 'tests_personal_note' : 'micro_tests_personal_note';
   const [selectedBlock, setSelectedBlock] = useState<number | null>(null);
   const [currentTestIndex, setCurrentTestIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -32,13 +37,13 @@ export const TestsTab = () => {
   }, [isEditingNote]);
 
   useEffect(() => {
-    try { setBestScores(JSON.parse(localStorage.getItem('test_block_scores') || '{}')); } catch {}
-    setTestsNote(localStorage.getItem('tests_personal_note') || '');
+    try { setBestScores(JSON.parse(localStorage.getItem(lsScores) || '{}')); } catch {}
+    setTestsNote(localStorage.getItem(lsNote) || '');
   }, []);
 
   const saveNote = (t: string) => {
     const s = t.replace(/<[^>]*>?/gm, '');
-    setTestsNote(s); localStorage.setItem('tests_personal_note', s);
+    setTestsNote(s); localStorage.setItem(lsNote, s);
   };
 
   const TESTS_PER_BLOCK = 20;
@@ -76,7 +81,7 @@ export const TestsTab = () => {
     if (currentTestIndex < blockTests.length - 1) { setCurrentTestIndex(i => i + 1); setSelectedOption(null); setShowResult(false); }
     else {
       if (selectedBlock !== null) {
-        const nb = { ...bestScores }; if (score > (nb[selectedBlock] || 0)) { nb[selectedBlock] = score; setBestScores(nb); localStorage.setItem('test_block_scores', JSON.stringify(nb)); }
+        const nb = { ...bestScores }; if (score > (nb[selectedBlock] || 0)) { nb[selectedBlock] = score; setBestScores(nb); localStorage.setItem(lsScores, JSON.stringify(nb)); }
       }
       setCompleted(true);
     }
@@ -165,7 +170,7 @@ export const TestsTab = () => {
                       <div className="flex justify-between mb-3">
                         <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-amber)' }}>Текст</span>
                         <div className="flex gap-3">
-                          {testsNote && <button onClick={() => { setTestsNote(''); setLocalTestsNote(''); localStorage.removeItem('tests_personal_note'); }} style={{ color: 'hsl(var(--destructive))' }}><Trash2 className="w-3.5 h-3.5" /></button>}
+                          {testsNote && <button onClick={() => { setTestsNote(''); setLocalTestsNote(''); localStorage.removeItem(lsNote); }} style={{ color: 'hsl(var(--destructive))' }}><Trash2 className="w-3.5 h-3.5" /></button>}
                           <button onClick={() => { if (isEditingNote) saveNote(localTestsNote); setIsNoteEditing(v => !v); }} className="text-xs font-semibold" style={{ color: 'var(--c-amber)' }}>
                             {isEditingNote ? 'Готово' : 'Править'}
                           </button>

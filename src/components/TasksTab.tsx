@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import tasksData from '@/data/tasks.json';
+import orthoTasksData from '@/data/tasks.json';
+import microTasksData from '@/data/micro_tasks.json';
+import { SubjectType } from '@/components/SubjectSelectScreen';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -15,7 +17,10 @@ import { ToothIcon } from './ToothIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 
-export const TasksTab = ({ onSecretTap }: { onSecretTap?: () => void }) => {
+export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
+  const tasksData = subject === 'ortho' ? orthoTasksData : microTasksData;
+  const lsTasks   = subject === 'ortho' ? 'resolvedTasks'  : 'microResolvedTasks';
+  const lsNotes   = subject === 'ortho' ? 'userTaskNotes'  : 'microUserTaskNotes';
   const [search,      setSearch]      = useState('');
   const [resolvedIds, setResolvedIds] = useState<Set<number>>(new Set());
   const [userNotes,   setUserNotes]   = useState<Record<number, string>>({});
@@ -28,15 +33,15 @@ export const TasksTab = ({ onSecretTap }: { onSecretTap?: () => void }) => {
 
   // ── Загрузка ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    try { setResolvedIds(new Set(JSON.parse(localStorage.getItem('resolvedTasks') || '[]'))); } catch {}
-    try { setUserNotes(JSON.parse(localStorage.getItem('userTaskNotes') || '{}')); } catch {}
+    try { setResolvedIds(new Set(JSON.parse(localStorage.getItem(lsTasks) || '[]'))); } catch {}
+    try { setUserNotes(JSON.parse(localStorage.getItem(lsNotes) || '{}')); } catch {}
     setIsLoaded(true);
   }, []);
 
   useEffect(() => {
     if (!isLoaded) return;
-    localStorage.setItem('resolvedTasks', JSON.stringify(Array.from(resolvedIds)));
-    localStorage.setItem('userTaskNotes', JSON.stringify(userNotes));
+    localStorage.setItem(lsTasks, JSON.stringify(Array.from(resolvedIds)));
+    localStorage.setItem(lsNotes, JSON.stringify(userNotes));
   }, [resolvedIds, userNotes, isLoaded]);
 
   const toggleResolved = (id: number) =>

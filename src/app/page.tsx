@@ -195,9 +195,9 @@ export default function Home() {
   return (
     <main className="flex flex-col h-[100dvh] w-full relative overflow-hidden">
       <div className="flex-1 overflow-hidden relative">
-        {activeTab === 'questions' && <QuestionsTab />}
-        {activeTab === 'tests'     && <TestsTab />}
-        {activeTab === 'tasks'     && <TasksTab onSecretTap={handleSecretTap} />}
+        {activeTab === 'questions' && <QuestionsTab subject={subject} />}
+        {activeTab === 'tests'     && <TestsTab     subject={subject} />}
+        {activeTab === 'tasks'     && <TasksTab     subject={subject} onSecretTap={handleSecretTap} />}
         {activeTab === 'stats'     && (
           <StatsTab 
             subject={subject} 

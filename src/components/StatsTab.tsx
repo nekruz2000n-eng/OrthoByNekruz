@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import orthoQuestionsData from '@/data/questions.json';
 import orthoTasksData     from '@/data/tasks.json';
 import orthoTestsData     from '@/data/tests.json';
@@ -32,19 +33,24 @@ interface SubjectSheetProps {
 
 const SubjectSheet: React.FC<SubjectSheetProps> = ({ currentSubject, onSelect, onClose }) => {
   const [selected, setSelected] = useState<SubjectType>(currentSubject);
+  // Portal guard: document.body недоступен при SSR
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   const items: { id: SubjectType; label: string; sub: string; color: string; dimVar: string; brVar: string; variant: 'perfect' | 'normal' }[] = [
     { id: 'ortho', label: 'Ортопедическая стоматология', sub: 'Вопросы · Тесты · Задачи', color: 'var(--c-primary)', dimVar: 'var(--c-primary-dim)', brVar: 'var(--c-primary-br)', variant: 'perfect' },
     { id: 'micro', label: 'Микробиология',               sub: 'Вопросы · Тесты · Задачи', color: 'var(--c-amber)',   dimVar: 'var(--c-amber-dim)',   brVar: 'var(--c-amber-br)',   variant: 'normal'  },
   ];
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <motion.div
-      className="fixed inset-0 z-50 flex flex-col justify-end"
+      className="fixed inset-0 flex flex-col justify-end"
+      style={{ zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
     >
       <motion.div
@@ -145,7 +151,8 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({ currentSubject, onSelect, o
             : `→ Переключиться на ${selected === 'ortho' ? 'Ортопедию' : 'Микробиологию'}`}
         </button>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 };
 
