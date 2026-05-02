@@ -75,7 +75,7 @@ export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
       status: best === 20 ? 'perfect' : best > 0 ? 'started' : 'new' as 'perfect' | 'started' | 'new' };
   }), [bestScores, TOTAL_BLOCKS, TOTAL_TESTS]);
 
-  const processed = useMemo(() => testsData.map(t => ({ ...t, correctIndex: t.options.findIndex(o => o === t.correct) })), []);
+  const processed = useMemo(() => testsData.map(t => ({ ...t, correctIndex: t.options.findIndex((o: string) => o === t.correct) })), [testsData]);
   const blockTests = useMemo(() => {
     if (selectedBlock === null) return [];
     return processed.slice((selectedBlock - 1) * TESTS_PER_BLOCK, selectedBlock * TESTS_PER_BLOCK);
@@ -291,7 +291,7 @@ export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
         <div className="space-y-3 pt-5 px-4 pb-40 mx-auto max-w-2xl">
           <h3 className="text-[17px] font-semibold leading-snug" style={{ color: 'var(--c-text)' }}>{currentTest.question}</h3>
           <div className="space-y-2 pt-1">
-            {(shuffleOptions ? shuffled : currentTest.options).map((opt, idx) => {
+            {(shuffleOptions ? shuffled : currentTest.options).map((opt: string, idx: number) => {
               const correct = opt === currentTest.correct; const selected = selectedOption === opt;
               return (
                 <button key={idx} onClick={() => handleSelect(opt)} disabled={showResult}
