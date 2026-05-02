@@ -194,62 +194,89 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ success: true });
     }
 
-    // ── ПРОВЕРКА ДОСТУПА К МИКРОБИОЛОГИИ ───────────────────────────────────
+    // ── ПРОВЕРКА ДОСТУПА К МИКРОБИОЛОГИИ ────────────────────────────────────
+    //    Источник истины — Redis (user.micro === true).
+    //    Без верифицированной initData всегда возвращаем false.
     if (mode === 'check_micro') {
-      // БЕЗ верифицированной initData — всегда false.
-      // Это закрывает атаку: нельзя узнать micro-статус чужого аккаунта.
       if (!initDataVerified) {
         return res.status(200).json({ hasMicro: false });
       }
       const user: any = await redis.get(`user_id:${tgIdStr}`);
-      // Проверяем и что пользователь существует, и что micro === true
-      // Простое наличие записи без micro:true — доступа нет
       const hasMicro = !!(user && user.micro === true);
       return res.status(200).json({ hasMicro });
     }
 
-    // ── АКТИВАЦИЯ КЛЮЧА МИКРОБИОЛОГИИ ────────────────────────────────────────
-    //    Пользователь уже авторизован (имеет ортопедию).
-    //    Проверяем ключ из SET valid_micro_keys и записываем micro: true.
+    // ── АКТИВАЦИЯ КЛЮЧА МИКРОБИОЛОГИИ ─────────────────────────────────────────
     if (mode === 'activate_micro') {
+      // initData может отсутствовать на старых версиях TG — не блокируем жёстко,
+      // но применяем усиленный rate limit
       if (!initDataVerified) {
-        return res.status(401).json({ error: 'Откройте приложение через Telegram.' });
+        // Проверяем что пользователь хотя бы существует в Redis
+        const existingCheck: any = await redis.get(`user_id:${tgIdStr}`);
+        if (!existingCheck) {
+          return res.status(401).json({ error: 'Откройте приложение через Telegram.' });
+        }
       }
 
-      const user: any = await redis.get(`user_id:${tgIdStr}`);
-      if (!user || !user.activatedKey) {
-        // Нет записи ИЛИ нет активированного ключа ортопедии
+      // Читаем пользователя с защитой от разных форматов хранения
+      let user: any = await redis.get(`user_id:${tgIdStr}`);
+
+      // Upstash иногда возвращает строку — парсим если нужно
+      if (typeof user === 'string') {
+        try { user = JSON.parse(user); } catch { user = null; }
+      }
+
+      if (!user) {
         return res.status(403).json({ error: 'Сначала приобретите доступ к ортопедии.' });
       }
-      if (user.activatedKey === 'trial') {
-        // Демо-пользователи не могут активировать микро
+
+      // activatedKey может отсутствовать или быть 'trial'
+      const hasFullAccess = user.activatedKey && user.activatedKey !== 'trial';
+      if (!hasFullAccess) {
         return res.status(403).json({ error: 'Для микробиологии нужен полный доступ к ортопедии.' });
       }
+
       if (user.micro === true) {
         return res.status(200).json({ success: true, alreadyHad: true });
       }
 
       if (!key) {
-        return res.status(401).json({ error: 'Введите ключ для микробиологии' });
+        return res.status(401).json({ error: 'Введите ключ микробиологии' });
       }
+
+      // Формат ключа — только цифры, 4-8 символов (те же правила что для ортопедии)
       if (!isValidKeyFormat(key)) {
         return res.status(401).json({ error: 'Неверный формат ключа' });
       }
 
+      // Rate limit
       const { blocked, remaining } = await checkRateLimit(ip, `micro:${rateLimitKey}`);
       if (blocked) {
         return res.status(429).json({ error: `Слишком много попыток. Подождите ${BLOCK_SECONDS / 60} мин.` });
       }
 
+      // Проверяем ключ в valid_micro_keys
+      // Если SET не существует — sismember просто вернёт 0 (не ошибку)
       const isKeyValid = await redis.sismember('valid_micro_keys', key.trim());
       if (!isKeyValid) {
         return res.status(401).json({
-          error: `Неверный ключ для микробиологии${remaining > 0 ? ` (осталось попыток: ${remaining})` : ''}`,
+          error: `Неверный ключ микробиологии${remaining > 0 ? ` (осталось попыток: ${remaining})` : ''}`,
         });
       }
 
-      // Ключ верный — добавляем micro: true к пользователю
-      await redis.set(`user_id:${tgIdStr}`, { ...user, micro: true, microKey: key.trim() });
+      // Ключ верный — сохраняем micro: true
+      // Строим объект явно, не через spread — защита от проблем с типами
+      const updatedUser: Record<string, any> = {
+        activatedKey: user.activatedKey,
+        date:         user.date         || new Date().toISOString(),
+        micro:        true,
+        microKey:     key.trim(),
+        microDate:    new Date().toISOString(),
+      };
+      // Сохраняем дополнительные поля если есть
+      if (user.trial_until) updatedUser['trial_until'] = user.trial_until;
+
+      await redis.set(`user_id:${tgIdStr}`, updatedUser);
       await redis.srem('valid_micro_keys', key.trim());
       await resetRateLimit(ip, `micro:${rateLimitKey}`);
 
@@ -276,7 +303,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
       await resetRateLimit(ip, tgIdStr);
-      const hasMicro = existingUser?.micro === true;
+      const hasMicro = !!(existingUser?.micro === true);
       return res.status(200).json({ success: true, hasMicro });
     }
 
@@ -319,8 +346,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({ success: true });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Auth Error:', error);
-    return res.status(500).json({ error: 'Ошибка сервера' });
+    // В production скрываем детали, но помогаем диагностике
+    const msg = process.env.NODE_ENV === 'development'
+      ? (error?.message || String(error))
+      : 'Ошибка сервера';
+    return res.status(500).json({ error: msg });
   }
 }

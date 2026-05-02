@@ -489,7 +489,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange, ha
             {/* ── CHANGE SUBJECT BUTTON ── */}
             <button
               onClick={() => setShowSubjectSheet(true)}
-              className="w-full rounded-[20px] p-4 flex items-center gap-4 transition-all duration-200 active:scale-[0.98] mx-1"
+              className="w-full rounded-2xl p-4 flex items-center gap-4 transition-all duration-200 active:scale-[0.98] mx-1"
               style={{
                 background: isOrtho ? 'var(--c-primary-dim)' : 'var(--c-amber-dim)',
                 border:     `1.5px solid ${isOrtho ? 'var(--c-primary-br)' : 'var(--c-amber-br)'}`,
