@@ -131,8 +131,6 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   }, [dragging]);
 
 
- [closeDragging]);
-
   const renderWithGlossary = (text: string) => {
     const frags: { type: 'normal' | 'bold'; content: string }[] = [];
     const boldRe = /\*\*(.*?)\*\*/g;
