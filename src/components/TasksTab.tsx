@@ -178,7 +178,7 @@ export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
           <div className="flex items-center gap-3">
             <ToothIcon className="w-9 h-9 text-primary" onClick={onSecretTap} />
             <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>
-              OrthoByNekruz
+              {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}
             </h1>
           </div>
           <div className="flex flex-col items-end gap-1">

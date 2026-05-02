@@ -219,7 +219,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
         <div className="flex justify-between items-center px-1">
           <div className="flex items-center gap-3">
 <ToothIcon className="w-9 h-9" style={{ color: accentColor }} />
-            <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>OrthoByNekruz</h1>
+            <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }} > {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}</h1>
           </div>
           <div className="flex flex-col items-end gap-1">
             <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: accentColor }}>
