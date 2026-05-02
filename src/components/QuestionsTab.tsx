@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import orthoQuestionsData from '@/data/questions.json';
-import microQuestionsData from '@/data/micro_questions.json';
 import { SubjectType } from '@/components/SubjectSelectScreen';
 import glossaryData from '@/data/glossary.json';
 import { Input } from '@/components/ui/input';
@@ -19,11 +18,15 @@ import ReactMarkdown from 'react-markdown';
 interface GlossaryItem { term: string; definition: string; image?: string | string[]; }
 
 export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
-  const questionsData = subject === 'ortho' ? orthoQuestionsData : microQuestionsData;
   const accentColor = subject === 'micro' ? 'var(--c-amber)' : 'var(--c-primary)';
-  const lsKey         = subject === 'ortho' ? 'studiedQuestions'  : 'microStudiedQuestions';
-  const lsNoteKey     = subject === 'ortho' ? 'userQuestionNotes' : 'microUserQuestionNotes';
-    const isOrtho       = subject === 'ortho';                                            // ← добавь
+  const lsKey       = subject === 'ortho' ? 'studiedQuestions'  : 'microStudiedQuestions';
+  const lsNoteKey   = subject === 'ortho' ? 'userQuestionNotes' : 'microUserQuestionNotes';
+  const isOrtho     = subject === 'ortho';
+
+  // Микро-данные загружаются с сервера (не в бандле — защита от кражи контента)
+  const [microQuestionsData, setMicroQuestionsData] = useState<any[]>([]);
+  const [microLoading,       setMicroLoading]       = useState(false);
+  const questionsData = isOrtho ? orthoQuestionsData : microQuestionsData;
 
   const [search, setSearch] = useState('');
   const [studiedIds, setStudiedIds] = useState<Set<number>>(new Set());
@@ -48,7 +51,24 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     try { setStudiedIds(new Set(JSON.parse(localStorage.getItem(lsKey) || '[]'))); } catch {}
     try { setUserNotes(JSON.parse(localStorage.getItem(lsNoteKey) || '{}')); } catch {}
     setIsLoaded(true);
-  }, []);
+  }, [subject]);
+
+  // Загрузка данных микробиологии с сервера
+  useEffect(() => {
+    if (isOrtho) return;
+    setMicroLoading(true);
+    const tgId    = localStorage.getItem('user_tg_id') || '';
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    fetch('/api/micro-data', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ type: 'questions', telegramId: tgId, initData: initDat }),
+    })
+      .then(r => r.json())
+      .then(d => { if (d.data) setMicroQuestionsData(d.data); })
+      .catch(() => {})
+      .finally(() => setMicroLoading(false));
+  }, [subject]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -251,7 +271,14 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
       {/* ── СПИСОК ────────────────────────────────── */}
       <ScrollArea className="flex-1 scroll-container">
         <div className="py-3 px-3 mx-auto max-w-2xl w-full" style={{ paddingBottom: 'var(--scroll-pb)' }}>
-          {filtered.length > 0 ? (
+          {microLoading && !isOrtho ? (
+              <div className="flex items-center justify-center py-24" style={{ color: 'var(--c-amber)' }}>
+                <svg className="animate-spin w-8 h-8" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
+              </div>
+            ) : filtered.length > 0 ? (
             <Accordion type="single" collapsible className="space-y-2 w-full">
               {filtered.map(q => {
                 const studied = studiedIds.has(q.id);

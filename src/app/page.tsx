@@ -110,8 +110,8 @@ function initTelegramApp(): () => void {
 
 export default function Home() {
   // Хуки состояния теперь находятся на верхнем уровне компонента — там, где и должны быть
-  const [subject,       setSubject]       = useState<SubjectType>('ortho');
-  const [hasMicro,      setHasMicro]     = useState<boolean>(false);
+  const [subject,         setSubject]         = useState<SubjectType>('ortho');
+  const [hasMicro,        setHasMicro]        = useState<boolean>(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading,       setIsLoading]       = useState<boolean>(true);
   const [activeTab,       setActiveTab]       = useState<TabType>('questions');
@@ -120,23 +120,22 @@ export default function Home() {
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Проверка доступа к микробиологии ─────────────────────────────────────────
-  // ВАЖНО: localStorage используется ТОЛЬКО как UI-кэш для быстрого отображения.
-  // Реальный источник истины — СЕРВЕР (Redis).
-  // При каждом запуске сервер проверяет initData (HMAC подпись Telegram) —
-  // нельзя подделать даже через localStorage или React DevTools.
+  // ── TG: СТРОГО ОДИН РАЗ при монтировании ─────────────────────────────────
+  useEffect(() => initTelegramApp(), []);
+
+  // ── Проверка доступа к микробиологии ─────────────────────────────────────
+  //    Сервер — единственный источник истины.
+  //    localStorage — только UI-кэш для быстрого отображения.
+  //    При ответе false — принудительно сбрасываем state и localStorage,
+  //    что закрывает атаку через localStorage.setItem('has_micro','true').
   useEffect(() => {
     if (!isAuthenticated) return;
-
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
     if (!tgId) return;
-
-    // Показываем кэш сразу для UX (пока сервер отвечает)
-    const cached = localStorage.getItem('has_micro') === 'true';
-    if (cached) setHasMicro(true);
-
-    // Всегда проверяем на сервере — это авторитетный источник
+    // Показываем кэш сразу для UX
+    if (localStorage.getItem('has_micro') === 'true') setHasMicro(true);
+    // Всегда проверяем сервер
     fetch('/api/auth', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -148,21 +147,14 @@ export default function Home() {
           setHasMicro(true);
           localStorage.setItem('has_micro', 'true');
         } else {
-          // Сервер сказал НЕТ — принудительно сбрасываем даже если в localStorage было true
-          // Это закрывает атаку через localStorage.setItem('has_micro','true')
+          // Сервер сказал НЕТ — сбрасываем даже если в localStorage было true
           setHasMicro(false);
           localStorage.removeItem('has_micro');
-          // Если студент был на микро — возвращаем на орто
           if (subject === 'micro') setSubject('ortho');
         }
       })
-      .catch(() => {
-        // При ошибке сети — доверяем кэшу, но только временно
-      });
+      .catch(() => {}); // при ошибке сети доверяем кэшу
   }, [isAuthenticated]);
-
-  // ── TG: СТРОГО ОДИН РАЗ при монтировании ─────────────────────────────────
-  useEffect(() => initTelegramApp(), []);
 
   // ── Авторизация ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -172,7 +164,7 @@ export default function Home() {
     const demoUsed = localStorage.getItem('demo_used')  === 'true';
 
     if (demo && demoTs) {
-      const LIMIT = 60_000;
+      const LIMIT = 3*60_000;
       const check = () => {
         if (Date.now() - Number(demoTs) >= LIMIT) {
           ['is_authed', 'demo_mode', 'demo_start'].forEach(k => localStorage.removeItem(k));
@@ -245,7 +237,10 @@ export default function Home() {
             subject={subject}
             onSubjectChange={setSubject}
             hasMicro={hasMicro}
-            onMicroUnlocked={() => { setHasMicro(true); localStorage.setItem('has_micro', 'true'); }}
+            onMicroUnlocked={() => {
+              setHasMicro(true);
+              localStorage.setItem('has_micro', 'true');
+            }}
           />
         )}
       </div>

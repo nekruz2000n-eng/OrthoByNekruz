@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import orthoTasksData from '@/data/tasks.json';
-import microTasksData from '@/data/micro_tasks.json';
 import { SubjectType } from '@/components/SubjectSelectScreen';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -18,11 +17,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 
 export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
-  const tasksData = subject === 'ortho' ? orthoTasksData : microTasksData;
-  const lsTasks   = subject === 'ortho' ? 'resolvedTasks'  : 'microResolvedTasks';
-  const lsNotes   = subject === 'ortho' ? 'userTaskNotes'  : 'microUserTaskNotes';
+  const lsTasks     = subject === 'ortho' ? 'resolvedTasks' : 'microResolvedTasks';
+  const lsNotes     = subject === 'ortho' ? 'userTaskNotes' : 'microUserTaskNotes';
   const accentColor = subject === 'micro' ? 'var(--c-amber)' : 'var(--c-primary)';
-  const isOrtho       = subject === 'ortho';                                            // ← добавь
+  const isOrtho     = subject === 'ortho';
+
+  const [microTasksData, setMicroTasksData] = useState<any[]>([]);
+  const [microLoading,   setMicroLoading]   = useState(false);
+  const tasksData = isOrtho ? orthoTasksData : microTasksData;
 
   const [search,      setSearch]      = useState('');
   const [resolvedIds, setResolvedIds] = useState<Set<number>>(new Set());
@@ -39,7 +41,22 @@ export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
     try { setResolvedIds(new Set(JSON.parse(localStorage.getItem(lsTasks) || '[]'))); } catch {}
     try { setUserNotes(JSON.parse(localStorage.getItem(lsNotes) || '{}')); } catch {}
     setIsLoaded(true);
-  }, []);
+  }, [subject]);
+
+  useEffect(() => {
+    if (isOrtho) return;
+    setMicroLoading(true);
+    const tgId    = localStorage.getItem('user_tg_id') || '';
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    fetch('/api/micro-data', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'tasks', telegramId: tgId, initData: initDat }),
+    })
+      .then(r => r.json())
+      .then(d => { if (d.data) setMicroTasksData(d.data); })
+      .catch(() => {})
+      .finally(() => setMicroLoading(false));
+  }, [subject]);
 
   useEffect(() => {
     if (!isLoaded) return;

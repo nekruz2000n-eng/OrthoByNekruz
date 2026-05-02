@@ -3,7 +3,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import orthoTestsData from '@/data/tests.json';
-import microTestsData from '@/data/micro_tests.json';
 import { SubjectType } from '@/components/SubjectSelectScreen';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,10 +13,13 @@ import ReactMarkdown from 'react-markdown';
 
 export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
   const accentColor = subject === 'micro' ? 'var(--c-amber)' : 'var(--c-primary)';
-  const testsData = subject === 'ortho' ? orthoTestsData : microTestsData;
-  const lsScores  = subject === 'ortho' ? 'test_block_scores' : 'micro_test_block_scores';
-  const lsNote    = subject === 'ortho' ? 'tests_personal_note' : 'micro_tests_personal_note';
-  const isOrtho       = subject === 'ortho';               
+  const lsScores    = subject === 'ortho' ? 'test_block_scores'    : 'micro_test_block_scores';
+  const lsNote      = subject === 'ortho' ? 'tests_personal_note'  : 'micro_tests_personal_note';
+  const isOrtho     = subject === 'ortho';
+
+  const [microTestsData, setMicroTestsData] = useState<any[]>([]);
+  const [microLoading,   setMicroLoading]   = useState(false);
+  const testsData = isOrtho ? orthoTestsData : microTestsData;
    const [selectedBlock, setSelectedBlock] = useState<number | null>(null);
   const [currentTestIndex, setCurrentTestIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -41,7 +43,22 @@ export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
   useEffect(() => {
     try { setBestScores(JSON.parse(localStorage.getItem(lsScores) || '{}')); } catch {}
     setTestsNote(localStorage.getItem(lsNote) || '');
-  }, []);
+  }, [subject]);
+
+  useEffect(() => {
+    if (isOrtho) return;
+    setMicroLoading(true);
+    const tgId    = localStorage.getItem('user_tg_id') || '';
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    fetch('/api/micro-data', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'tests', telegramId: tgId, initData: initDat }),
+    })
+      .then(r => r.json())
+      .then(d => { if (d.data) setMicroTestsData(d.data); })
+      .catch(() => {})
+      .finally(() => setMicroLoading(false));
+  }, [subject]);
 
   const saveNote = (t: string) => {
     const s = t.replace(/<[^>]*>?/gm, '');
