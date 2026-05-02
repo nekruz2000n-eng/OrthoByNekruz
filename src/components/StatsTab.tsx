@@ -112,7 +112,7 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
 
         <div className="text-center mb-6">
           <h3 className="text-base font-bold" style={{ color: 'var(--c-text)' }}>Сменить дисциплину</h3>
-          <p className="text-xs mt-1" style={{ color: 'var(--c-muted)' }}>Выберите предмет для подготовки</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--c-muted)' }}>Выберите дисциплину для подготовки</p>
         </div>
 
         <div className="flex flex-col gap-3 mb-5">
@@ -489,7 +489,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange, ha
             {/* ── CHANGE SUBJECT BUTTON ── */}
             <button
               onClick={() => setShowSubjectSheet(true)}
-              className="w-full rounded-2xl p-4 flex items-center gap-4 transition-all duration-200 active:scale-[0.98] mx-1"
+              className="w-full rounded-[20px] p-4 flex items-center gap-4 transition-all duration-200 active:scale-[0.98]"
               style={{
                 background: isOrtho ? 'var(--c-primary-dim)' : 'var(--c-amber-dim)',
                 border:     `1.5px solid ${isOrtho ? 'var(--c-primary-br)' : 'var(--c-amber-br)'}`,
@@ -497,11 +497,9 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange, ha
             >
               {/* Icon */}
               <div
-  className="p-3 rounded-full flex-shrink-0"
-  style={{
-    background: isOrtho ? 'var(--c-primary-dim)' : 'var(--c-amber-dim)',
-  }}
->
+               className="p-3 rounded-full flex-shrink-0"
+               style={{ background: isOrtho ? 'var(--c-primary-dim)' : 'var(--c-amber-dim)', }}
+              >
                 {/* Swap icon */}
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
                   stroke={accentColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
