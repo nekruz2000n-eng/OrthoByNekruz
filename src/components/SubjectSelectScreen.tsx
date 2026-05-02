@@ -15,7 +15,7 @@ interface SubjectSelectScreenProps {
 const SUBJECTS = [
   {
     id:      'ortho' as SubjectType,
-    label:   'Ортопедическая\nстоматология',
+    label:   'Ортопедия',
     sub:     'Вопросы · Тесты · Задачи',
     badge:   '2 курс',
     color:   'var(--c-primary)',

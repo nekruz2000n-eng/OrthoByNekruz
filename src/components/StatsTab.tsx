@@ -39,7 +39,7 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({ currentSubject, onSelect, o
   useEffect(() => { setMounted(true); }, []);
 
   const items: { id: SubjectType; label: string; sub: string; color: string; dimVar: string; brVar: string; variant: 'perfect' | 'normal' }[] = [
-    { id: 'ortho', label: 'Ортопедическая стоматология', sub: 'Вопросы · Тесты · Задачи', color: 'var(--c-primary)', dimVar: 'var(--c-primary-dim)', brVar: 'var(--c-primary-br)', variant: 'perfect' },
+    { id: 'ortho', label: 'Ортопедия', sub: 'Вопросы · Тесты · Задачи', color: 'var(--c-primary)', dimVar: 'var(--c-primary-dim)', brVar: 'var(--c-primary-br)', variant: 'perfect' },
     { id: 'micro', label: 'Микробиология',               sub: 'Вопросы · Тесты · Задачи', color: 'var(--c-amber)',   dimVar: 'var(--c-amber-dim)',   brVar: 'var(--c-amber-br)',   variant: 'normal'  },
   ];
 
