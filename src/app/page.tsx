@@ -110,7 +110,8 @@ function initTelegramApp(): () => void {
 
 export default function Home() {
   // Хуки состояния теперь находятся на верхнем уровне компонента — там, где и должны быть
-  const [subject, setSubject]                 = useState<SubjectType>('ortho');
+  const [subject,       setSubject]       = useState<SubjectType>('ortho');
+  const [hasMicro,      setHasMicro]     = useState<boolean>(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading,       setIsLoading]       = useState<boolean>(true);
   const [activeTab,       setActiveTab]       = useState<TabType>('questions');
@@ -118,6 +119,47 @@ export default function Home() {
   
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Проверка доступа к микробиологии ─────────────────────────────────────────
+  // ВАЖНО: localStorage используется ТОЛЬКО как UI-кэш для быстрого отображения.
+  // Реальный источник истины — СЕРВЕР (Redis).
+  // При каждом запуске сервер проверяет initData (HMAC подпись Telegram) —
+  // нельзя подделать даже через localStorage или React DevTools.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) return;
+
+    // Показываем кэш сразу для UX (пока сервер отвечает)
+    const cached = localStorage.getItem('has_micro') === 'true';
+    if (cached) setHasMicro(true);
+
+    // Всегда проверяем на сервере — это авторитетный источник
+    fetch('/api/auth', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ telegramId: tgId, mode: 'check_micro', initData: initDat }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.hasMicro) {
+          setHasMicro(true);
+          localStorage.setItem('has_micro', 'true');
+        } else {
+          // Сервер сказал НЕТ — принудительно сбрасываем даже если в localStorage было true
+          // Это закрывает атаку через localStorage.setItem('has_micro','true')
+          setHasMicro(false);
+          localStorage.removeItem('has_micro');
+          // Если студент был на микро — возвращаем на орто
+          if (subject === 'micro') setSubject('ortho');
+        }
+      })
+      .catch(() => {
+        // При ошибке сети — доверяем кэшу, но только временно
+      });
+  }, [isAuthenticated]);
 
   // ── TG: СТРОГО ОДИН РАЗ при монтировании ─────────────────────────────────
   useEffect(() => initTelegramApp(), []);
@@ -199,9 +241,11 @@ export default function Home() {
         {activeTab === 'tests'     && <TestsTab     subject={subject} />}
         {activeTab === 'tasks'     && <TasksTab     subject={subject} onSecretTap={handleSecretTap} />}
         {activeTab === 'stats'     && (
-          <StatsTab 
-            subject={subject} 
-            onSubjectChange={setSubject} 
+          <StatsTab
+            subject={subject}
+            onSubjectChange={setSubject}
+            hasMicro={hasMicro}
+            onMicroUnlocked={() => { setHasMicro(true); localStorage.setItem('has_micro', 'true'); }}
           />
         )}
       </div>

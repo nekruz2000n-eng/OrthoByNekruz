@@ -26,20 +26,59 @@ const THEMES: { id: Theme; label: string; desc: string; icon: React.ReactNode }[
 
 // ─── Subject bottom-sheet ─────────────────────────────────────────────────────
 interface SubjectSheetProps {
-  currentSubject: SubjectType;
-  onSelect:       (s: SubjectType) => void;
-  onClose:        () => void;
+  currentSubject:   SubjectType;
+  onSelect:         (s: SubjectType) => void;
+  onClose:          () => void;
+  hasMicro?:        boolean;
+  onMicroUnlocked?: () => void;
+  telegramId?:      string;
+  initData?:        string;
 }
 
-const SubjectSheet: React.FC<SubjectSheetProps> = ({ currentSubject, onSelect, onClose }) => {
-  const [selected, setSelected] = useState<SubjectType>(currentSubject);
-  
+const SubjectSheet: React.FC<SubjectSheetProps> = ({
+  currentSubject, onSelect, onClose,
+  hasMicro = false, onMicroUnlocked, telegramId = '', initData = '',
+}) => {
+  const [selected,      setSelected]      = useState<SubjectType>(currentSubject);
+  const [microKey,      setMicroKey]      = useState('');
+  const [microLoading,  setMicroLoading]  = useState(false);
+  const [microError,    setMicroError]    = useState('');
+  const [microSuccess,  setMicroSuccess]  = useState(false);
+  // Показываем форму ключа если выбрана микро и доступа нет
+  const showMicroForm = selected === 'micro' && !hasMicro;
+
+  const handleActivateMicro = async () => {
+    if (!microKey.trim()) return;
+    setMicroLoading(true); setMicroError('');
+    try {
+      const res  = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: microKey.trim(), telegramId, initData,
+          mode: 'activate_micro',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMicroSuccess(true);
+        onMicroUnlocked?.();
+        setTimeout(() => { onSelect('micro'); onClose(); }, 1000);
+      } else {
+        setMicroError(data.error || 'Неверный ключ');
+      }
+    } catch {
+      setMicroError('Ошибка соединения');
+    } finally {
+      setMicroLoading(false);
+    }
+  };
   // Portal guard: document.body недоступен при SSR
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
   const items: { id: SubjectType; label: string; sub: string; color: string; dimVar: string; brVar: string; variant: 'perfect' | 'normal' }[] = [
-    { id: 'ortho', label: 'Ортопедия', sub: 'Вопросы · Тесты · Задачи', color: 'var(--c-primary)', dimVar: 'var(--c-primary-dim)', brVar: 'var(--c-primary-br)', variant: 'perfect' },
+    { id: 'ortho', label: 'Ортопедическая стоматология', sub: 'Вопросы · Тесты · Задачи', color: 'var(--c-primary)', dimVar: 'var(--c-primary-dim)', brVar: 'var(--c-primary-br)', variant: 'perfect' },
     { id: 'micro', label: 'Микробиология',               sub: 'Вопросы · Тесты · Задачи', color: 'var(--c-amber)',   dimVar: 'var(--c-amber-dim)',   brVar: 'var(--c-amber-br)',   variant: 'normal'  },
   ];
 
@@ -69,7 +108,7 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({ currentSubject, onSelect, o
         </div>
 
         <div className="text-center mb-6">
-          <h3 className="text-base font-bold" style={{ color: 'var(--c-text)' }}>Сменить дисциплину</h3>
+          <h3 className="text-base font-bold" style={{ color: 'var(--c-text)' }}>Сменить предмет</h3>
           <p className="text-xs mt-1" style={{ color: 'var(--c-muted)' }}>Выберите предмет для подготовки</p>
         </div>
 
@@ -130,9 +169,60 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({ currentSubject, onSelect, o
           })}
         </div>
 
+        {/* Форма активации микробиологии */}
+        {showMicroForm && (
+          <div className="mt-2 space-y-3">
+            <div className="rounded-xl p-3 text-center text-xs"
+              style={{ background: 'var(--c-amber-dim)', border: '1px solid var(--c-amber-br)', color: 'var(--c-amber)' }}>
+              🔒 Для доступа к микробиологии нужен отдельный ключ
+            </div>
+
+            {microSuccess ? (
+              <div className="rounded-xl p-3 text-center text-sm font-bold"
+                style={{ background: 'var(--c-primary-dim)', border: '1px solid var(--c-primary-br)', color: 'var(--c-primary)' }}>
+                ✓ Микробиология открыта! Переключаемся...
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={8}
+                  placeholder="Введите ключ микробиологии"
+                  value={microKey}
+                  onChange={e => { setMicroKey(e.target.value.replace(/\D/g, '')); setMicroError(''); }}
+                  className="w-full h-12 rounded-xl text-center text-base bg-transparent"
+                  style={{
+                    border: `1.5px solid ${microError ? 'hsl(var(--destructive))' : 'var(--c-amber-br)'}`,
+                    color: 'var(--c-text)',
+                    caretColor: 'var(--c-amber)',
+                    outline: 'none',
+                  }}
+                />
+                {microError && (
+                  <p className="text-xs text-center" style={{ color: 'hsl(var(--destructive))' }}>
+                    {microError}
+                  </p>
+                )}
+                <button
+                  onClick={handleActivateMicro}
+                  disabled={microLoading || microKey.length < 4}
+                  className="w-full h-[52px] rounded-[18px] text-[15px] font-bold transition-all active:scale-[0.98] disabled:opacity-50"
+                  style={{
+                    background: 'var(--c-amber)',
+                    color: 'hsl(var(--primary-foreground))',
+                  }}
+                >
+                  {microLoading ? '...' : '🔓 Активировать микробиологию'}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Confirm */}
         <button
-          disabled={selected === currentSubject}
+          disabled={selected === currentSubject || showMicroForm}
           onClick={() => { onSelect(selected); onClose(); }}
           className="w-full h-[52px] rounded-[18px] text-[15px] font-bold transition-all duration-300 active:scale-[0.98]"
           style={selected !== currentSubject ? {
@@ -159,11 +249,18 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({ currentSubject, onSelect, o
 
 // ─── StatsTab ─────────────────────────────────────────────────────────────────
 interface StatsTabProps {
-  subject:         SubjectType;
-  onSubjectChange: (s: SubjectType) => void;
+  subject:          SubjectType;
+  onSubjectChange:  (s: SubjectType) => void;
+  hasMicro?:        boolean;
+  onMicroUnlocked?: () => void;
 }
 
-export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange }) => {
+export const StatsTab: React.FC<StatsTabProps> = ({
+  subject,
+  onSubjectChange,
+  hasMicro       = false,
+  onMicroUnlocked,
+}) => {
   const isOrtho = subject === 'ortho';
 
   // Data sets per subject
@@ -268,7 +365,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange }) 
             <div className="flex items-center gap-3">
               <ToothIcon className="w-9 h-9" style={{ color: accentColor }} variant={isOrtho ? 'perfect' : 'normal'} />
               <div>
-                <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>  {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}</h1>
+                <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>{isOrtho ? 'OrthoByNekruz' : 'MicroByNekruz'}</h1>
                 <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>
                   {subjectLabel}
                 </p>
@@ -402,7 +499,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange }) 
             {/* ── CHANGE SUBJECT BUTTON ── */}
             <button
               onClick={() => setShowSubjectSheet(true)}
-              className="w-full rounded-[20px] p-4 flex items-center gap-4 transition-all duration-200 active:scale-[0.98] mx-1"
+              className="w-full rounded-[20px] p-5 flex items-center gap-4 transition-all duration-200 active:scale-[0.98] mx-1"
               style={{
                 background: isOrtho ? 'var(--c-primary-dim)' : 'var(--c-amber-dim)',
                 border:     `1.5px solid ${isOrtho ? 'var(--c-primary-br)' : 'var(--c-amber-br)'}`,
@@ -410,11 +507,12 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange }) 
             >
               {/* Icon */}
               <div
-  className="p-3 rounded-full flex-shrink-0"
-  style={{
-    background: isOrtho ? 'var(--c-primary-dim)' : 'var(--c-amber-dim)',
-  }}
->
+                className="w-11 h-11 rounded-[14px] flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: isOrtho ? 'var(--c-primary-dim)' : 'var(--c-amber-dim)',
+                  border:     `1px solid ${isOrtho ? 'var(--c-primary-br)' : 'var(--c-amber-br)'}`,
+                }}
+              >
                 {/* Swap icon */}
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
                   stroke={accentColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -428,7 +526,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange }) 
               </div>
 
               <div className="flex-1 text-left">
-                <div className="text-sm font-bold" style={{ color: 'var(--c-text)' }}>Сменить дисциплину</div>
+                <div className="text-sm font-bold" style={{ color: 'var(--c-text)' }}>Сменить предмет</div>
                 <div className="text-[11px] mt-0.5" style={{ color: 'var(--c-muted)' }}>
                   Сейчас: {subjectLabel}
                 </div>
@@ -451,6 +549,10 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange }) 
             currentSubject={subject}
             onSelect={s => { onSubjectChange(s); setShowSubjectSheet(false); }}
             onClose={() => setShowSubjectSheet(false)}
+            hasMicro={hasMicro}
+            onMicroUnlocked={onMicroUnlocked}
+            telegramId={typeof window !== 'undefined' ? localStorage.getItem('user_tg_id') || '' : ''}
+            initData={typeof window !== 'undefined' ? (window as any).Telegram?.WebApp?.initData || '' : ''}
           />
         )}
       </AnimatePresence>

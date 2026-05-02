@@ -194,6 +194,68 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ success: true });
     }
 
+    // ── ПРОВЕРКА ДОСТУПА К МИКРОБИОЛОГИИ ───────────────────────────────────
+    if (mode === 'check_micro') {
+      // БЕЗ верифицированной initData — всегда false.
+      // Это закрывает атаку: нельзя узнать micro-статус чужого аккаунта.
+      if (!initDataVerified) {
+        return res.status(200).json({ hasMicro: false });
+      }
+      const user: any = await redis.get(`user_id:${tgIdStr}`);
+      // Проверяем и что пользователь существует, и что micro === true
+      // Простое наличие записи без micro:true — доступа нет
+      const hasMicro = !!(user && user.micro === true);
+      return res.status(200).json({ hasMicro });
+    }
+
+    // ── АКТИВАЦИЯ КЛЮЧА МИКРОБИОЛОГИИ ────────────────────────────────────────
+    //    Пользователь уже авторизован (имеет ортопедию).
+    //    Проверяем ключ из SET valid_micro_keys и записываем micro: true.
+    if (mode === 'activate_micro') {
+      if (!initDataVerified) {
+        return res.status(401).json({ error: 'Откройте приложение через Telegram.' });
+      }
+
+      const user: any = await redis.get(`user_id:${tgIdStr}`);
+      if (!user || !user.activatedKey) {
+        // Нет записи ИЛИ нет активированного ключа ортопедии
+        return res.status(403).json({ error: 'Сначала приобретите доступ к ортопедии.' });
+      }
+      if (user.activatedKey === 'trial') {
+        // Демо-пользователи не могут активировать микро
+        return res.status(403).json({ error: 'Для микробиологии нужен полный доступ к ортопедии.' });
+      }
+      if (user.micro === true) {
+        return res.status(200).json({ success: true, alreadyHad: true });
+      }
+
+      if (!key) {
+        return res.status(401).json({ error: 'Введите ключ для микробиологии' });
+      }
+      if (!isValidKeyFormat(key)) {
+        return res.status(401).json({ error: 'Неверный формат ключа' });
+      }
+
+      const { blocked, remaining } = await checkRateLimit(ip, `micro:${rateLimitKey}`);
+      if (blocked) {
+        return res.status(429).json({ error: `Слишком много попыток. Подождите ${BLOCK_SECONDS / 60} мин.` });
+      }
+
+      const isKeyValid = await redis.sismember('valid_micro_keys', key.trim());
+      if (!isKeyValid) {
+        return res.status(401).json({
+          error: `Неверный ключ для микробиологии${remaining > 0 ? ` (осталось попыток: ${remaining})` : ''}`,
+        });
+      }
+
+      // Ключ верный — добавляем micro: true к пользователю
+      await redis.set(`user_id:${tgIdStr}`, { ...user, micro: true, microKey: key.trim() });
+      await redis.srem('valid_micro_keys', key.trim());
+      await resetRateLimit(ip, `micro:${rateLimitKey}`);
+
+      return res.status(200).json({ success: true });
+    }
+
     // ── ОБЫЧНАЯ АВТОРИЗАЦИЯ ──────────────────────────────────────────────
     const subscribed = await isSubscribed(Number(tgIdStr));
     if (!subscribed) {
@@ -214,7 +276,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
       await resetRateLimit(ip, tgIdStr);
-      return res.status(200).json({ success: true });
+      const hasMicro = existingUser?.micro === true;
+      return res.status(200).json({ success: true, hasMicro });
     }
 
     // Триал-период
