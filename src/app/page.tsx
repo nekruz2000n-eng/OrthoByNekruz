@@ -123,6 +123,24 @@ export default function Home() {
   // ── TG: СТРОГО ОДИН РАЗ при монтировании ─────────────────────────────────
   useEffect(() => initTelegramApp(), []);
 
+  // ── Ping: считаем открытия приложения ────────────────────────────────────
+  //    Запускается после авторизации — к этому моменту initData точно готова.
+  //    Помогает выявить аккаунты которые шарят несколько человек.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const timer = setTimeout(() => {
+      const tgId    = localStorage.getItem('user_tg_id');
+      const initDat = (window as any).Telegram?.WebApp?.initData || '';
+      if (!tgId || !initDat) return;
+      fetch('/api/ping', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ telegramId: tgId, initData: initDat }),
+      }).catch(() => {});
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [isAuthenticated]);
+
   // ── Проверка доступа к микробиологии ─────────────────────────────────────
   //    Сервер — единственный источник истины.
   //    localStorage — только UI-кэш для быстрого отображения.
