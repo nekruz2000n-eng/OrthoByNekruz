@@ -226,7 +226,7 @@ export default function Home() {
     const demoUsed = localStorage.getItem('demo_used')  === 'true';
 
     if (demo && demoTs) {
-      const LIMIT = 3*60_000;
+      const LIMIT = 5*60_000;
       const check = () => {
         if (Date.now() - Number(demoTs) >= LIMIT) {
           ['is_authed', 'demo_mode', 'demo_start'].forEach(k => localStorage.removeItem(k));

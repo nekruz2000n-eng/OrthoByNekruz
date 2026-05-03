@@ -6,12 +6,12 @@ import { createHmac } from 'crypto';
 const redis            = Redis.fromEnv();
 const BOT_TOKEN        = process.env.BOT_TOKEN    || '';
 const ADMIN_TG_ID      = process.env.ADMIN_TG_ID  || '';
-const DAILY_OPEN_LIMIT = 5;
+const DAILY_OPEN_LIMIT = 30;
 
 function verifyInitData(initData: string): number | null {
   try {
     const params = new URLSearchParams(initData);
-    const hash   = params.get('hash');
+    const hash   = params.get('hash');``
     if (!hash) return null;
     params.delete('hash');
     const str    = [...params.entries()]
