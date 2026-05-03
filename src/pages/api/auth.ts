@@ -132,7 +132,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { key, telegramId, mode, initData } = req.body;
 
-  // СТРОГАЯ ЗАЩИТА: Без initData работа невозможна
+  // СТРОГАЯ ЗАЩИТА: Без initData работа невозможна (Проект только для TG)
   if (!initData) {
     return res.status(403).json({ error: 'Доступ разрешен только через Telegram.' });
   }
@@ -159,6 +159,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const ip = getIp(req);
 
   try {
+    // ── Сначала ищем юзера в базе ──
+    let user: any = await redis.get(`user_id:${tgIdStr}`);
+    if (typeof user === 'string') {
+      try { user = JSON.parse(user); } catch { user = null; }
+    }
+
+    // 1. ПРОВЕРКА БЛОКИРОВКИ (Самый высокий приоритет)
+    if (user?.blocked === true) {
+      return res.status(403).json({ error: 'Твой аккаунт заблокирован. Свяжись с администратором.', blocked: true });
+    }
+
+    // 2. ЖЕСТКАЯ ПРОВЕРКА ПОДПИСКИ (Теперь срабатывает ВСЕГДА при входе/запросе)
+    const subscribed = await isSubscribed(Number(tgIdStr));
+    if (!subscribed) {
+      return res.status(403).json({
+        error: `Подпишитесь на @${CHANNEL_USERNAME} для доступа.`,
+        needSubscription: true,
+      });
+    }
+
+    // --- ПОСЛЕ ЭТОЙ ТОЧКИ ПОЛЬЗОВАТЕЛЬ ТОЧНО НЕ ЗАБАНЕН И ТОЧНО ПОДПИСАН ---
+
     // ── ДЕМО-РЕЖИМ ──
     if (mode === 'check_demo') {
       const { blocked } = await checkRateLimit(ip, `demo_${tgIdStr}`);
@@ -174,7 +196,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // ── ПРОВЕРКА МИКРОБИОЛОГИИ ──
     if (mode === 'check_micro') {
-      const user: any = await redis.get(`user_id:${tgIdStr}`);
       return res.status(200).json({ hasMicro: !!(user && user.micro === true) });
     }
 
@@ -182,23 +203,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (key) {
       const { blocked } = await checkRateLimit(ip, tgIdStr);
       if (blocked) return res.status(429).json({ error: 'Доступ временно заблокирован.' });
-    }
-
-    let user: any = await redis.get(`user_id:${tgIdStr}`);
-    if (typeof user === 'string') {
-      try { user = JSON.parse(user); } catch { user = null; }
-    }
-
-    if (user?.blocked === true) {
-      return res.status(403).json({ error: 'Твой аккаунт заблокирован. Сяжись с администратором.', blocked: true });
-    }
-
-    const subscribed = await isSubscribed(Number(tgIdStr));
-    if (!subscribed) {
-      return res.status(403).json({
-        error: `Подпишитесь на @${CHANNEL_USERNAME} для доступа.`,
-        needSubscription: true,
-      });
     }
 
     // Существующий пользователь: вход + обновление профиля
