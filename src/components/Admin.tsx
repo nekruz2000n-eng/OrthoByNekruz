@@ -145,15 +145,18 @@ export default function AdminPage() {
   // ── Основная панель ───────────────────────────────────────────────────────
   return (
     <div style={{
-      minHeight: '100vh', background: '#0f0f0f',
+      height: '100vh', // Жестко ограничиваем высоту размером окна
+      display: 'flex',
+      flexDirection: 'column', // Выстраиваем элементы сверху вниз
+      background: '#0f0f0f',
       fontFamily: 'system-ui, sans-serif', color: '#e5e5e5',
-      paddingBottom: 40 // Добавим отступ снизу
+      overflow: 'hidden' // Запрещаем скролл всей странице
     }}>
       {/* Header */}
       <div style={{
         background: '#1a1a1a', borderBottom: '1px solid #2a2a2a',
         padding: '16px 32px', display: 'flex', alignItems: 'center', gap: 16,
-        position: 'sticky', top: 0, zIndex: 100 // Шапка сайта тоже липкая
+        flexShrink: 0 // Запрещаем шапке сплющиваться
       }}>
         <span style={{ fontSize: 24 }}>🦷</span>
         <div>
@@ -173,10 +176,18 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div style={{ padding: '24px 32px', maxWidth: 1100, margin: '0 auto' }}>
+      {/* Обертка для контента */}
+      <div style={{ 
+        flex: 1, // Отдаем всё свободное место под этот блок
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '24px 32px', maxWidth: 1100, margin: '0 auto', width: '100%',
+        boxSizing: 'border-box',
+        overflow: 'hidden' // Важно, чтобы ограничить таблицу внутри
+      }}>
 
         {/* Статистика */}
-        <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexShrink: 0 }}>
           {[
             { label: 'Всего',          value: total,           color: '#3b82f6' },
             { label: 'Заблокировано',  value: blockedCount,    color: '#ef4444' },
@@ -194,7 +205,7 @@ export default function AdminPage() {
         </div>
 
         {/* Фильтры + поиск */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexShrink: 0 }}>
           {(['all', 'blocked', 'suspicious'] as Filter[]).map(f => (
             <button
               key={f}
@@ -227,12 +238,13 @@ export default function AdminPage() {
           <div style={{ textAlign: 'center', color: '#555', padding: 80 }}>Загрузка...</div>
         ) : (
           <div style={{ 
+            flex: 1, // Таблица занимает всё оставшееся место до низа экрана
             background: '#1a1a1a', 
             border: '1px solid #2a2a2a', 
             borderRadius: 12, 
-            overflowY: 'auto', // Включаем вертикальный скролл
-            overflowX: 'auto', // Включаем горизонтальный скролл если экран узкий
-            maxHeight: '70vh'  // Ограничиваем высоту таблицы (70% высоты экрана)
+            overflowY: 'auto', // Скролл по вертикали
+            overflowX: 'auto', // Скролл по горизонтали
+            minHeight: 0 // Хак Flexbox для предотвращения растягивания контейнера больше экрана
           }}>
             {/* Шапка таблицы (Sticky) */}
             <div style={{
@@ -258,102 +270,105 @@ export default function AdminPage() {
               </div>
             )}
 
-            {visible.map((u, i) => (
-              <div
-                key={u.tgId}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '140px 90px 90px 80px 80px 90px 1fr 130px',
-                  gap: 8, padding: '14px 20px', alignItems: 'center', fontSize: 13,
-                  borderBottom: i < visible.length - 1 ? '1px solid #222' : 'none',
-                  background: u.blocked ? 'rgba(239,68,68,0.05)' : u.suspicious ? 'rgba(245,158,11,0.05)' : 'transparent',
-                }}
-              >
-                {/* ID */}
-                <span style={{ fontFamily: 'monospace', color: '#93c5fd' }}>{u.tgId}</span>
+            {/* Оборачиваем список юзеров в div с отступом снизу, чтобы элементы не прилипали к самому краю */}
+            <div style={{ paddingBottom: '16px' }}>
+              {visible.map((u, i) => (
+                <div
+                  key={u.tgId}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '140px 90px 90px 80px 80px 90px 1fr 130px',
+                    gap: 8, padding: '14px 20px', alignItems: 'center', fontSize: 13,
+                    borderBottom: i < visible.length - 1 ? '1px solid #222' : 'none',
+                    background: u.blocked ? 'rgba(239,68,68,0.05)' : u.suspicious ? 'rgba(245,158,11,0.05)' : 'transparent',
+                  }}
+                >
+                  {/* ID */}
+                  <span style={{ fontFamily: 'monospace', color: '#93c5fd' }}>{u.tgId}</span>
 
-                {/* Статус */}
-                <span>
-                  {u.blocked ? (
-                    <span style={{ background: '#3f1515', color: '#f87171', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
-                      БЛОК
-                    </span>
-                  ) : u.suspicious ? (
-                    <span style={{ background: '#3d2a00', color: '#fbbf24', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
-                      ⚠ ПОДОЗР
-                    </span>
-                  ) : (
-                    <span style={{ background: '#0d2e1e', color: '#34d399', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
-                      ОК
-                    </span>
-                  )}
-                </span>
-
-                {/* Дата */}
-                <span style={{ color: '#666', fontSize: 12 }}>{fmtDate(u.registeredAt)}</span>
-
-                {/* Открытий */}
-                <span style={{ color: u.opensToday >= 5 ? '#f87171' : u.opensToday >= 3 ? '#fbbf24' : '#aaa' }}>
-                  {u.opensToday}
-                </span>
-
-                {/* FP смен */}
-                <span style={{ color: u.fpChanges >= 3 ? '#f87171' : u.fpChanges >= 1 ? '#fbbf24' : '#555' }}>
-                  {u.fpChanges || '—'}
-                </span>
-
-                {/* Доступ */}
-                <span style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  <span style={{ background: '#1e3a5f', color: '#7dd3fc', borderRadius: 4, padding: '2px 6px', fontSize: 11 }}>
-                    ortho
+                  {/* Статус */}
+                  <span>
+                    {u.blocked ? (
+                      <span style={{ background: '#3f1515', color: '#f87171', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
+                        БЛОК
+                      </span>
+                    ) : u.suspicious ? (
+                      <span style={{ background: '#3d2a00', color: '#fbbf24', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
+                        ⚠ ПОДОЗР
+                      </span>
+                    ) : (
+                      <span style={{ background: '#0d2e1e', color: '#34d399', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
+                        ОК
+                      </span>
+                    )}
                   </span>
-                  {u.hasMicro && (
-                    <span style={{ background: '#14312b', color: '#6ee7b7', borderRadius: 4, padding: '2px 6px', fontSize: 11 }}>
-                      micro
+
+                  {/* Дата */}
+                  <span style={{ color: '#666', fontSize: 12 }}>{fmtDate(u.registeredAt)}</span>
+
+                  {/* Открытий */}
+                  <span style={{ color: u.opensToday >= 5 ? '#f87171' : u.opensToday >= 3 ? '#fbbf24' : '#aaa' }}>
+                    {u.opensToday}
+                  </span>
+
+                  {/* FP смен */}
+                  <span style={{ color: u.fpChanges >= 3 ? '#f87171' : u.fpChanges >= 1 ? '#fbbf24' : '#555' }}>
+                    {u.fpChanges || '—'}
+                  </span>
+
+                  {/* Доступ */}
+                  <span style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    <span style={{ background: '#1e3a5f', color: '#7dd3fc', borderRadius: 4, padding: '2px 6px', fontSize: 11 }}>
+                      ortho
                     </span>
-                  )}
-                </span>
+                    {u.hasMicro && (
+                      <span style={{ background: '#14312b', color: '#6ee7b7', borderRadius: 4, padding: '2px 6px', fontSize: 11 }}>
+                        micro
+                      </span>
+                    )}
+                  </span>
 
-                {/* Причина блок */}
-                <span style={{ color: '#666', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {u.blocked
-                    ? `${u.blockedReason ?? '—'} · ${fmtDate(u.blockedAt)}`
-                    : '—'
-                  }
-                </span>
+                  {/* Причина блок */}
+                  <span style={{ color: '#666', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {u.blocked
+                      ? `${u.blockedReason ?? '—'} · ${fmtDate(u.blockedAt)}`
+                      : '—'
+                    }
+                  </span>
 
-                {/* Действия */}
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                  {u.blocked ? (
-                    <button
-                      onClick={() => doAction(u.tgId, 'unblock')}
-                      disabled={actioning === u.tgId}
-                      style={{
-                        padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
-                        cursor: actioning === u.tgId ? 'default' : 'pointer',
-                        background: '#0d2e1e', color: '#34d399',
-                        border: '1px solid #1a4a30',
-                      }}
-                    >
-                      {actioning === u.tgId ? '...' : '✓ Разблок'}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => doAction(u.tgId, 'block')}
-                      disabled={actioning === u.tgId}
-                      style={{
-                        padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
-                        cursor: actioning === u.tgId ? 'default' : 'pointer',
-                        background: '#3f1515', color: '#f87171',
-                        border: '1px solid #6b2020',
-                      }}
-                    >
-                      {actioning === u.tgId ? '...' : '✕ Блок'}
-                    </button>
-                  )}
+                  {/* Действия */}
+                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    {u.blocked ? (
+                      <button
+                        onClick={() => doAction(u.tgId, 'unblock')}
+                        disabled={actioning === u.tgId}
+                        style={{
+                          padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
+                          cursor: actioning === u.tgId ? 'default' : 'pointer',
+                          background: '#0d2e1e', color: '#34d399',
+                          border: '1px solid #1a4a30',
+                        }}
+                      >
+                        {actioning === u.tgId ? '...' : '✓ Разблок'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => doAction(u.tgId, 'block')}
+                        disabled={actioning === u.tgId}
+                        style={{
+                          padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
+                          cursor: actioning === u.tgId ? 'default' : 'pointer',
+                          background: '#3f1515', color: '#f87171',
+                          border: '1px solid #6b2020',
+                        }}
+                      >
+                        {actioning === u.tgId ? '...' : '✕ Блок'}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </div>
