@@ -2,6 +2,7 @@
 import "./globals.css";
 import React, { useEffect, useState } from 'react';
 import { AuthScreen } from '@/components/AuthScreen';
+import { usePathname }  from 'next/navigation';
 import { Toaster }    from '@/components/ui/toaster';
 import { useToast }   from '@/hooks/use-toast';
 import Script         from 'next/script';
@@ -9,7 +10,8 @@ import Script         from 'next/script';
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isChecking,      setIsChecking]      = useState(true);
-  const { toast } = useToast();
+  const { toast }  = useToast();
+  const pathname    = usePathname();
 
   useEffect(() => {
     setIsAuthenticated(localStorage.getItem('is_authed') === 'true');
@@ -36,6 +38,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   // ── ВАЖНО: НЕ возвращаем null — всегда рендерим <html> ──────────────────
   // Если вернуть null пока isChecking=true, весь <head> не рендерится и
   // inline-скрипты (TG init, тема) не запускаются → свайп не блокируется.
+
+  // Admin-панель не проходит через авторизацию приложения
+  if (pathname?.startsWith('/admin')) {
+    return (
+      <html lang="ru">
+        <body className="antialiased">{children}</body>
+      </html>
+    );
+  }
 
   return (
     <html lang="ru">
