@@ -305,12 +305,24 @@ function UserRow({ u, i, totalLength, expanded, setExpanded, actioning, doAction
             onClick={() => copyId(u.tgId)} title="Нажми чтобы скопировать ID">
             {u.tgId}
           </span>
-          {(u.username || displayName) && (
+         {(u.username || displayName) && (
             <div style={{ fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {u.username ? (
-                <span style={{ color: '#a78bfa' }}>@{u.username}</span>
+                <span 
+                  style={{ color: '#a78bfa', cursor: 'pointer' }} 
+                  onClick={() => copyId(`@${u.username}`)} 
+                  title="Нажми, чтобы скопировать @username"
+                >
+                  @{u.username}
+                </span>
               ) : (
-                <span style={{ color: '#888' }}>{displayName}</span>
+                <span 
+                  style={{ color: '#888', cursor: 'pointer' }}
+                  onClick={() => copyId(displayName || '')}
+                  title="Нажми, чтобы скопировать имя"
+                >
+                  {displayName}
+                </span>
               )}
             </div>
           )}
