@@ -147,11 +147,13 @@ export default function AdminPage() {
     <div style={{
       minHeight: '100vh', background: '#0f0f0f',
       fontFamily: 'system-ui, sans-serif', color: '#e5e5e5',
+      paddingBottom: 40 // Добавим отступ снизу
     }}>
       {/* Header */}
       <div style={{
         background: '#1a1a1a', borderBottom: '1px solid #2a2a2a',
         padding: '16px 32px', display: 'flex', alignItems: 'center', gap: 16,
+        position: 'sticky', top: 0, zIndex: 100 // Шапка сайта тоже липкая
       }}>
         <span style={{ fontSize: 24 }}>🦷</span>
         <div>
@@ -176,8 +178,8 @@ export default function AdminPage() {
         {/* Статистика */}
         <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
           {[
-            { label: 'Всего',          value: total,          color: '#3b82f6' },
-            { label: 'Заблокировано',  value: blockedCount,   color: '#ef4444' },
+            { label: 'Всего',          value: total,           color: '#3b82f6' },
+            { label: 'Заблокировано',  value: blockedCount,    color: '#ef4444' },
             { label: 'Подозрительных', value: suspiciousCount, color: '#f59e0b' },
             { label: 'С Micro',        value: users.filter(u => u.hasMicro).length, color: '#10b981' },
           ].map(s => (
@@ -224,13 +226,21 @@ export default function AdminPage() {
         {loading ? (
           <div style={{ textAlign: 'center', color: '#555', padding: 80 }}>Загрузка...</div>
         ) : (
-          <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 12, overflow: 'hidden' }}>
-            {/* Шапка */}
+          <div style={{ 
+            background: '#1a1a1a', 
+            border: '1px solid #2a2a2a', 
+            borderRadius: 12, 
+            overflowY: 'auto', // Включаем вертикальный скролл
+            overflowX: 'auto', // Включаем горизонтальный скролл если экран узкий
+            maxHeight: '70vh'  // Ограничиваем высоту таблицы (70% высоты экрана)
+          }}>
+            {/* Шапка таблицы (Sticky) */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: '140px 90px 90px 80px 80px 90px 1fr 130px',
               gap: 8, padding: '12px 20px',
               borderBottom: '1px solid #2a2a2a', color: '#555', fontSize: 12,
+              position: 'sticky', top: 0, background: '#1a1a1a', zIndex: 5
             }}>
               <span>Telegram ID</span>
               <span>Статус</span>
