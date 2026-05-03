@@ -150,6 +150,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // ══════════════════════════════════════════════════════════════════════════
   let initDataVerified = false;
   let username: string | null = null; 
+  let firstName: string | null = null; // Добавляем
+  let lastName: string | null = null;  // Добавляем
 
   if (initData && BOT_TOKEN) {
     const tgUser = verifyTelegramInitData(initData, BOT_TOKEN);
@@ -160,6 +162,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     initDataVerified = true;
     username = tgUser.username || null; 
+    firstName = tgUser.first_name || null; 
+    lastName = tgUser.last_name || null;
+    
   }
 
   const ip = getIp(req);

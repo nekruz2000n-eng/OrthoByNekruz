@@ -91,6 +91,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       return {
         tgId:          id,
+        username:      user.username ?? null, 
+        firstName:     user.firstName ?? null, // <-- Добавили Имя
+        lastName:      user.lastName ?? null,  // <-- Добавили Фамилию
         blocked:       user.blocked === true,
         blockedReason: user.blockedReason ?? null,
         blockedAt:     user.blockedAt     ?? null,

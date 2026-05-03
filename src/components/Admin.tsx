@@ -6,6 +6,9 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 // ─── ТИПЫ ─────────────────────────────────────────────────────────────────
 interface User {
   tgId:          string;
+  username?:     string | null;
+  firstName?:    string | null;
+  lastName?:     string | null;
   blocked:       boolean;
   blockedReason: string | null;
   blockedAt:     string | null;
@@ -32,10 +35,10 @@ function daysSince(iso: string | null): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
 
-// Общая сетка для таблицы (чтобы не дублировать длинный стиль)
+// Слегка расширили первую колонку (180px), чтобы влезли длинные имена
 const ROW_GRID_STYLE = {
   display: 'grid',
-  gridTemplateColumns: '150px 90px 105px 65px 55px 110px 1fr 180px',
+  gridTemplateColumns: '180px 90px 105px 65px 55px 110px 1fr 180px',
   gap: 8,
 };
 
@@ -52,7 +55,7 @@ export default function AdminPage() {
   const [expanded,  setExpanded]  = useState<string | null>(null);
   const [toast,     setToast]     = useState('');
   
-  // Ref для таймера уведомлений (защита от багов при быстром клике)
+  // Ref для таймера уведомлений
   const toastTimer = useRef<NodeJS.Timeout | null>(null);
 
   const showToast = useCallback((msg: string) => {
@@ -78,7 +81,7 @@ export default function AdminPage() {
   }, []);
 
   const doAction = async (tgId: string, action: 'block' | 'unblock' | 'give_micro' | 'revoke_micro') => {
-    setActioning(tgId); // Блокируем всю строку по ID
+    setActioning(tgId);
     try {
       const r = await fetch(`/api/admin-users?secret=${encodeURIComponent(secret)}&action=${action}&tgId=${tgId}`);
       if (r.ok) {
@@ -105,12 +108,21 @@ export default function AdminPage() {
     showToast(`Скопировано: ${id}`);
   }, [showToast]);
 
-  // ─── ОПТИМИЗАЦИЯ: Вычисления пересчитываются только при изменении данных ──
+  // ─── ОПТИМИЗАЦИЯ И СМАРТ-ПОИСК ──────────────────────────────────────────
   const visibleUsers = useMemo(() => {
     return users.filter(u => {
       if (filter === 'blocked'    && !u.blocked)                   return false;
       if (filter === 'suspicious' && !u.suspicious && !u.blocked)  return false;
-      if (search && !u.tgId.toLowerCase().includes(search.toLowerCase())) return false;
+      
+      if (search) {
+        const q = search.toLowerCase();
+        const matchId = u.tgId.includes(q);
+        const matchUser = u.username?.toLowerCase().includes(q);
+        const matchName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase().includes(q);
+        
+        // Если не совпадает ни ID, ни юзернейм, ни имя — прячем
+        if (!matchId && !matchUser && !matchName) return false;
+      }
       return true;
     });
   }, [users, filter, search]);
@@ -175,8 +187,11 @@ export default function AdminPage() {
           })}
           
           <div style={{ marginLeft: 'auto', position: 'relative' }}>
-            <input placeholder="🔍  Поиск по ID..." value={search} onChange={e => setSearch(e.target.value)}
-              style={{ padding: '8px 30px 8px 14px', borderRadius: 8, border: '1px solid #1f1f1f', background: '#111', color: '#ddd', fontSize: 13, outline: 'none', width: 200 }} 
+            <input 
+              placeholder="🔍  Поиск по ID, @user или имени..." 
+              value={search} 
+              onChange={e => setSearch(e.target.value)}
+              style={{ padding: '8px 30px 8px 14px', borderRadius: 8, border: '1px solid #1f1f1f', background: '#111', color: '#ddd', fontSize: 13, outline: 'none', width: 260 }} 
             />
             {search && (
               <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: '#888', cursor: 'pointer' }}>
@@ -191,7 +206,7 @@ export default function AdminPage() {
           
           {/* Липкая Шапка */}
           <div style={{ ...ROW_GRID_STYLE, padding: '11px 20px', borderBottom: '1px solid #1f1f1f', color: '#333', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', position: 'sticky', top: 0, background: '#141414', zIndex: 10 }}>
-            <span>TG ID</span><span>Статус</span><span>Регистрация</span>
+            <span>ПОЛЬЗОВАТЕЛЬ</span><span>Статус</span><span>Регистрация</span>
             <span>Откр.</span><span>FP</span><span>Доступ</span>
             <span>Инфо</span><span style={{ textAlign: 'right' }}>Действия</span>
           </div>
@@ -273,7 +288,8 @@ function StatsBoard({ stats }: any) {
 }
 
 function UserRow({ u, i, totalLength, expanded, setExpanded, actioning, doAction, copyId }: any) {
-  const isActioningThis = actioning === u.tgId; // Флаг: работает ли сейчас скрипт с ЭТИМ пользователем
+  const isActioningThis = actioning === u.tgId;
+  const displayName = u.firstName || u.lastName ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : null;
   
   return (
     <div>
@@ -283,11 +299,21 @@ function UserRow({ u, i, totalLength, expanded, setExpanded, actioning, doAction
         borderBottom: i < totalLength - 1 ? '1px solid #111' : 'none',
         background: u.blocked ? 'rgba(239,68,68,0.03)' : u.suspicious ? 'rgba(245,158,11,0.03)' : 'transparent',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontFamily: 'monospace', color: '#7dd3fc', fontSize: 12, cursor: 'pointer' }}
-            onClick={() => copyId(u.tgId)} title="Нажми чтобы скопировать">
+        {/* КОЛОНКА ПОЛЬЗОВАТЕЛЯ: ID + Юзернейм/Имя */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}>
+          <span style={{ fontFamily: 'monospace', color: '#7dd3fc', fontSize: 12, cursor: 'pointer', width: 'fit-content' }}
+            onClick={() => copyId(u.tgId)} title="Нажми чтобы скопировать ID">
             {u.tgId}
           </span>
+          {(u.username || displayName) && (
+            <div style={{ fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {u.username ? (
+                <span style={{ color: '#a78bfa' }}>@{u.username}</span>
+              ) : (
+                <span style={{ color: '#888' }}>{displayName}</span>
+              )}
+            </div>
+          )}
         </div>
 
         <span>
@@ -357,9 +383,11 @@ function UserRow({ u, i, totalLength, expanded, setExpanded, actioning, doAction
       </div>
 
       {expanded === u.tgId && (
-        <div style={{ padding: '14px 20px 16px', background: '#0f0f0f', borderBottom: '1px solid #111', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+        <div style={{ padding: '14px 20px 16px', background: '#0f0f0f', borderBottom: '1px solid #111', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
           {[
             ['Telegram ID',      u.tgId],
+            ['Юзернейм',         u.username ? `@${u.username}` : '—'],
+            ['Имя Фамилия',      displayName || '—'],
             ['Регистрация',      fmtDate(u.registeredAt)],
             ['Дней с регистр.',  daysSince(u.registeredAt) + ' дн.'],
             ['Открытий сегодня', String(u.opensToday)],
