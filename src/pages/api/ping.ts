@@ -1,12 +1,12 @@
-// pages/api/ping.ts
+// pages/api/ping.ts  ← Pages Router формат
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis }      from '@upstash/redis';
 import { createHmac } from 'crypto';
 
-const redis           = Redis.fromEnv();
-const BOT_TOKEN       = process.env.BOT_TOKEN       || '';
-const ADMIN_TG_ID     = process.env.ADMIN_TG_ID     || '';
-const DAILY_OPEN_LIMIT = 5; // открытий в сутки — подозрительно
+const redis            = Redis.fromEnv();
+const BOT_TOKEN        = process.env.BOT_TOKEN    || '';
+const ADMIN_TG_ID      = process.env.ADMIN_TG_ID  || '';
+const DAILY_OPEN_LIMIT = 5;
 
 function verifyInitData(initData: string): number | null {
   try {
@@ -28,18 +28,32 @@ function verifyInitData(initData: string): number | null {
 }
 
 async function notifyAdmin(tgId: string, count: number): Promise<void> {
-  if (!ADMIN_TG_ID || !BOT_TOKEN) return;
+  if (!ADMIN_TG_ID || !BOT_TOKEN) {
+    console.error('[ping] notifyAdmin: BOT_TOKEN или ADMIN_TG_ID не заданы!');
+    return;
+  }
   try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id:    ADMIN_TG_ID,
-        text:       `⚠️ <b>OrthoByNekruz — подозрительная активность</b>\n\nTelegram ID: <code>${tgId}</code>\nОткрытий сегодня: <b>${count}</b>\n\nВозможно аккаунт используется несколькими людьми.\nПользователь автоматически заблокирован.`,
-        parse_mode: 'HTML',
-      }),
-    });
-  } catch {}
+    const resp = await fetch(
+      `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
+      {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id:    ADMIN_TG_ID,
+          text:       `⚠️ <b>OrthoByNekruz — подозрительная активность</b>\n\nTelegram ID: <code>${tgId}</code>\nОткрытий сегодня: <b>${count}</b>\n\nВозможно аккаунт используется несколькими людьми.`,
+          parse_mode: 'HTML',
+        }),
+      }
+    );
+    const data = await resp.json();
+    if (!data.ok) {
+      console.error('[ping] Telegram error:', JSON.stringify(data));
+    } else {
+      console.log('[ping] Уведомление отправлено! userId:', tgId, 'opens:', count);
+    }
+  } catch (e) {
+    console.error('[ping] fetch error:', e);
+  }
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -47,40 +61,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const { telegramId, initData } = req.body;
-    if (!telegramId || !initData) return res.status(400).json({ ok: false });
 
-    // Верифицируем initData
-    const userId = verifyInitData(initData);
-    if (!userId || String(userId) !== String(telegramId)) {
-      return res.status(401).json({ ok: false });
+    if (!telegramId || !initData) {
+      console.error('[ping] Missing telegramId or initData');
+      return res.status(400).json({ ok: false, reason: 'missing' });
     }
 
-    const tgId = String(telegramId);
+    const userId = verifyInitData(initData);
+    if (!userId || String(userId) !== String(telegramId)) {
+      console.error('[ping] auth failed. userId:', userId, 'tgId:', telegramId);
+      return res.status(401).json({ ok: false, reason: 'auth' });
+    }
 
-    // Считаем открытия за сутки
-    const today  = new Date().toISOString().slice(0, 10);
-    const actKey = `opens:${tgId}:${today}`;
-    const count  = await redis.incr(actKey);
+    const tgId  = String(telegramId);
+    const today = new Date().toISOString().slice(0, 10);
+    const actKey      = `opens:${tgId}:${today}`;
+    const notifiedKey = `opens_notified:${tgId}:${today}`;
+
+    const count = await redis.incr(actKey);
     if (count === 1) await redis.expire(actKey, 48 * 3600);
 
-    // При достижении лимита — блокируем и уведомляем
-    if (count === DAILY_OPEN_LIMIT) {
-      const user: any = await redis.get(`user_id:${tgId}`);
-      if (user && typeof user === 'object') {
-        await redis.set(`user_id:${tgId}`, {
-          ...user,
-          blocked:       true,
-          blockedReason: 'activity',
-          blockedAt:     new Date().toISOString(),
-        });
+    console.log(`[ping] userId=${tgId} opens=${count} limit=${DAILY_OPEN_LIMIT}`);
+
+    if (count >= DAILY_OPEN_LIMIT) {
+      const alreadyNotified = await redis.exists(notifiedKey);
+      if (!alreadyNotified) {
+        await redis.set(notifiedKey, '1', { ex: 48 * 3600 });
+
+        const user: any = await redis.get(`user_id:${tgId}`);
+        if (user && typeof user === 'object') {
+          await redis.set(`user_id:${tgId}`, {
+            ...user,
+            blocked:       true,
+            blockedReason: 'activity',
+            blockedAt:     new Date().toISOString(),
+          });
+        }
+
+        await notifyAdmin(tgId, count);
+      } else {
+        console.log('[ping] уже уведомляли сегодня, пропускаем');
       }
-      await notifyAdmin(tgId, count);
     }
 
     return res.status(200).json({ ok: true, opens: count });
 
   } catch (err) {
-    console.error('ping error:', err);
+    console.error('[ping] error:', err);
     return res.status(500).json({ ok: false });
   }
 }
