@@ -155,7 +155,7 @@ export default function Home() {
         if (!tgId || !initDat) return;
 
         // Динамический импорт чтобы не блокировать первый рендер
-        const { collectFingerprint } = await import('@/lib/fingerprint');
+        const { collectFingerprint } = await import('@/lib/fingerprint-util');
         const fp = await collectFingerprint();
 
         await fetch('/api/fingerprint', {
