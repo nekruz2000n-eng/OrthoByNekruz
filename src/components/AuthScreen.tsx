@@ -160,7 +160,13 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           onAuthenticated();
         }
       } else {
-        if (res.status === 403) {
+        if (res.status === 403 && data.blocked) {
+          // Аккаунт заблокирован администратором
+          setError(true);
+          setErrorMessage('Ваш аккаунт заблокирован. Свяжитесь с администратором.');
+          setTimeout(() => setErrorMessage(''), 6000);
+        } else if (res.status === 403) {
+          // Не подписан на канал
           setNeedsSubscription(true);
         } else {
           const LOCKOUT_SEC = 60;
