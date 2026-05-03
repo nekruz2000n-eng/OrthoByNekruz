@@ -85,9 +85,9 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const filtered = useMemo(() => {
     const t = search.toLowerCase();
     return questionsData.filter(q => !search || q.id.toString() === t || q.question.toLowerCase().includes(t));
-  }, [search]);
+  }, [search, questionsData]);
 
-  const progress = useMemo(() => questionsData.length ? (studiedIds.size / questionsData.length) * 100 : 0, [studiedIds]);
+  const progress = useMemo(() => questionsData.length ? (studiedIds.size / questionsData.length) * 100 : 0, [studiedIds, questionsData]);
 
   const glossaryTerms = useMemo(() =>
     (glossaryData as GlossaryItem[]).slice().sort((a, b) => b.term.length - a.term.length), []);

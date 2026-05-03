@@ -78,11 +78,11 @@ export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
     return tasksData.filter(task =>
       !search || task.id.toString() === t || task.question.toLowerCase().includes(t)
     );
-  }, [search]);
+  }, [search, tasksData]);
 
   const progress = useMemo(() =>
     tasksData.length ? (resolvedIds.size / tasksData.length) * 100 : 0,
-  [resolvedIds]);
+  [resolvedIds, tasksData]);
 
   // ── Pinch-to-zoom (размер шрифта в режиме чтения) ────────────────────────
   const handleTouchStart = (e: React.TouchEvent) => {
