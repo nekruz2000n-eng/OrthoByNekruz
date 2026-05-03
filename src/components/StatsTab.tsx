@@ -26,63 +26,27 @@ const THEMES: { id: Theme; label: string; desc: string; icon: React.ReactNode }[
 
 // ─── Subject bottom-sheet ─────────────────────────────────────────────────────
 interface SubjectSheetProps {
-  currentSubject:   SubjectType;
-  onSelect:         (s: SubjectType) => void;
-  onClose:          () => void;
-  hasMicro?:        boolean;
-  onMicroUnlocked?: () => void;
-  telegramId?:      string;
-  initData?:        string;
+  currentSubject: SubjectType;
+  onSelect:       (s: SubjectType) => void;
+  onClose:        () => void;
+  hasMicro?:      boolean;
 }
 
 const SubjectSheet: React.FC<SubjectSheetProps> = ({
   currentSubject, onSelect, onClose,
-  hasMicro = false, onMicroUnlocked, telegramId = '', initData = '',
+  hasMicro = false,
 }) => {
-  const [selected,     setSelected]     = useState<SubjectType>(currentSubject);
-  const [microKey,     setMicroKey]     = useState('');
-  const [microLoading, setMicroLoading] = useState(false);
-  const [microError,   setMicroError]   = useState('');
-  const [microSuccess, setMicroSuccess] = useState(false);
+  const [selected, setSelected] = useState<SubjectType>(currentSubject);
 
-  // Показываем форму ключа если выбрана микро и доступа нет
-  const showMicroForm = selected === 'micro' && !hasMicro;
+  // Микробиология заблокирована если нет доступа
+  const microLocked = selected === 'micro' && !hasMicro;
 
-  const handleActivateMicro = async () => {
-    if (!microKey.trim() || microLoading) return;
-    setMicroLoading(true); setMicroError('');
-    try {
-      const res  = await fetch('/api/auth', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          key: microKey.trim(), telegramId, initData,
-          mode: 'activate_micro',
-        }),
-      });
-      const data = await res.json();
-      if ((res.ok && data.success) || data.alreadyHad) {
-        setMicroSuccess(true);
-        onMicroUnlocked?.();
-        setTimeout(() => { onSelect('micro'); onClose(); }, 900);
-      } else {
-        setMicroError(data.error || 'Неверный ключ');
-        setTimeout(() => setMicroError(''), 3000);
-      }
-    } catch {
-      setMicroError('Ошибка соединения');
-    } finally {
-      setMicroLoading(false);
-    }
-  };
-
-  // Portal guard: document.body недоступен при SSR
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
   const items: { id: SubjectType; label: string; sub: string; color: string; dimVar: string; brVar: string; variant: 'perfect' | 'normal' }[] = [
     { id: 'ortho', label: 'Ортопедия', sub: 'Вопросы · Тесты · Задачи', color: 'var(--c-primary)', dimVar: 'var(--c-primary-dim)', brVar: 'var(--c-primary-br)', variant: 'perfect' },
-    { id: 'micro', label: 'Микробиология',               sub: 'Вопросы · Тесты · Задачи', color: 'var(--c-amber)',   dimVar: 'var(--c-amber-dim)',   brVar: 'var(--c-amber-br)',   variant: 'normal'  },
+    { id: 'micro', label: 'Микробиология', sub: 'Вопросы · Тесты · Задачи', color: 'var(--c-amber)', dimVar: 'var(--c-amber-dim)', brVar: 'var(--c-amber-br)', variant: 'normal' },
   ];
 
   if (!mounted) return null;
@@ -105,7 +69,6 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
         transition={{ type: 'spring', damping: 28, stiffness: 320 }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Handle */}
         <div className="flex justify-center pt-3 pb-5">
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--c-border)' }} />
         </div>
@@ -117,19 +80,23 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
 
         <div className="flex flex-col gap-3 mb-5">
           {items.map(item => {
-            const isSel = selected  === item.id;
+            const isSel = selected === item.id;
             const isCur = currentSubject === item.id;
+            const isLocked = item.id === 'micro' && !hasMicro;
+
             return (
               <button
                 key={item.id}
                 onClick={() => setSelected(item.id)}
+                disabled={isLocked}
                 className="flex items-center gap-4 rounded-[20px] p-4 text-left transition-all duration-200 active:scale-[0.98]"
                 style={{
                   background: isSel ? item.dimVar : 'color-mix(in srgb, var(--c-border) 30%, transparent)',
-                  border:     `1.5px solid ${isSel ? item.brVar : 'var(--c-border)'}`,
+                  border: `1.5px solid ${isSel ? item.brVar : 'var(--c-border)'}`,
+                  opacity: isLocked ? 0.5 : 1,
+                  cursor: isLocked ? 'not-allowed' : 'pointer',
                 }}
               >
-                {/* Icon */}
                 <div
                   className="w-[52px] h-[52px] rounded-[16px] flex items-center justify-center flex-shrink-0"
                   style={{ background: item.dimVar, border: `1px solid ${item.brVar}` }}
@@ -137,7 +104,6 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
                   <ToothIcon className="w-8 h-8" style={{ color: item.color }} variant={item.variant} />
                 </div>
 
-                {/* Text */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                     <span className="text-sm font-bold" style={{ color: 'var(--c-text)' }}>{item.label}</span>
@@ -149,16 +115,23 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
                         Сейчас
                       </span>
                     )}
+                    {isLocked && (
+                      <span
+                        className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
+                        style={{ background: 'var(--c-border)', color: 'var(--c-muted)' }}
+                      >
+                        🔒 Закрыто
+                      </span>
+                    )}
                   </div>
                   <span className="text-[11px]" style={{ color: 'var(--c-muted)' }}>{item.sub}</span>
                 </div>
 
-                {/* Radio */}
                 <div
                   className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center transition-all duration-200"
                   style={{
                     background: isSel ? item.color : 'transparent',
-                    border:     `1.5px solid ${isSel ? item.color : 'var(--c-border)'}`,
+                    border: `1.5px solid ${isSel ? item.color : 'var(--c-border)'}`,
                   }}
                 >
                   {isSel && (
@@ -172,70 +145,54 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
           })}
         </div>
 
-        {/* Форма активации микробиологии */}
-        {showMicroForm && (
-          <div className="mt-1 space-y-2.5">
-            <div className="rounded-2xl p-3 text-center text-xs"
-              style={{ background: 'var(--c-amber-dim)', border: '1px solid var(--c-amber-br)', color: 'var(--c-amber)' }}>
-              🔒 Для доступа нужен отдельный ключ микробиологии
-            </div>
-            {microSuccess ? (
-              <div className="rounded-2xl p-3 text-center text-sm font-bold"
-                style={{ background: 'var(--c-primary-dim)', border: '1px solid var(--c-primary-br)', color: 'var(--c-primary)' }}>
-                ✓ Микробиология открыта!
+        {/* Сообщение о микробиологии */}
+        {microLocked && (
+          <div
+            className="rounded-2xl p-4 mb-5"
+            style={{ background: 'var(--c-amber-dim)', border: '1px solid var(--c-amber-br)' }}
+          >
+            <div className="flex items-start gap-3">
+              <div className="text-lg">🔒</div>
+              <div>
+                <p className="text-sm font-bold mb-1" style={{ color: 'var(--c-text)' }}>
+                  Микробиология недоступна
+                </p>
+                <p className="text-xs" style={{ color: 'var(--c-muted)' }}>
+                  Свяжитесь с администратором для получения доступа к микробиологии
+                </p>
               </div>
-            ) : (
-              <>
-                <input
-                  type="text" inputMode="numeric" maxLength={8}
-                  placeholder="Ключ микробиологии"
-                  value={microKey}
-                  onChange={e => { setMicroKey(e.target.value.replace(/[^0-9]/g, '')); setMicroError(''); }}
-                  className="w-full h-12 rounded-xl text-center text-base bg-transparent outline-none"
-                  style={{
-                    border: `1.5px solid ${microError ? 'hsl(var(--destructive))' : 'var(--c-amber-br)'}`,
-                    color: 'var(--c-text)', caretColor: 'var(--c-amber)',
-                  }}
-                />
-                {microError && (
-                  <p className="text-xs text-center" style={{ color: 'hsl(var(--destructive))' }}>
-                    {microError}
-                  </p>
-                )}
-                <button
-                  onClick={handleActivateMicro}
-                  disabled={microLoading || microKey.length < 4}
-                  className="w-full h-[52px] rounded-[18px] text-[15px] font-bold transition-all active:scale-[0.98] disabled:opacity-50"
-                  style={{ background: 'var(--c-amber)', color: '#1a0a00' }}
-                >
-                  {microLoading ? '...' : '🔓 Активировать микробиологию'}
-                </button>
-              </>
-            )}
+            </div>
           </div>
         )}
 
-        {/* Confirm */}
-        <button
-          disabled={selected === currentSubject || showMicroForm}
-          onClick={() => { onSelect(selected); onClose(); }}
-          className="w-full h-[52px] rounded-[18px] text-[15px] font-bold transition-all duration-300 active:scale-[0.98]"
-          style={selected !== currentSubject ? {
-            background: selected === 'ortho' ? 'hsl(var(--primary))' : 'var(--c-amber)',
-            color:      'hsl(var(--primary-foreground))',
-            boxShadow:  selected === 'ortho'
-              ? '0 8px 24px color-mix(in srgb, var(--c-primary) 30%, transparent)'
-              : '0 8px 24px color-mix(in srgb, var(--c-amber) 30%, transparent)',
-          } : {
-            background: 'var(--c-card)',
-            border:     '1px solid var(--c-border)',
-            color:      'var(--c-muted)',
-          }}
-        >
-          {selected === currentSubject
-            ? 'Выбран текущий предмет'
-            : `→ Переключиться на ${selected === 'ortho' ? 'Ортопедию' : 'Микробиологию'}`}
-        </button>
+        {/* Кнопки */}
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 rounded-[18px] font-bold text-sm transition-all duration-200 active:scale-[0.98]"
+            style={{ background: 'var(--c-border)', color: 'var(--c-text)' }}
+          >
+            Отмена
+          </button>
+          <button
+            onClick={() => {
+              if (!microLocked) {
+                onSelect(selected);
+                onClose();
+              }
+            }}
+            disabled={microLocked}
+            className="flex-1 py-3 rounded-[18px] font-bold text-sm transition-all duration-200 active:scale-[0.98]"
+            style={{
+              background: microLocked ? 'var(--c-border)' : 'var(--c-primary)',
+              color: microLocked ? 'var(--c-muted)' : 'var(--c-bg)',
+              cursor: microLocked ? 'not-allowed' : 'pointer',
+              opacity: microLocked ? 0.5 : 1,
+            }}
+          >
+            Выбрать
+          </button>
+        </div>
       </motion.div>
     </motion.div>,
     document.body
@@ -537,9 +494,6 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange, ha
             onSelect={s => { onSubjectChange(s); setShowSubjectSheet(false); }}
             onClose={() => setShowSubjectSheet(false)}
             hasMicro={hasMicro}
-            onMicroUnlocked={onMicroUnlocked}
-            telegramId={typeof window !== 'undefined' ? (localStorage.getItem('user_tg_id') || '') : ''}
-            initData={typeof window !== 'undefined' ? ((window as any).Telegram?.WebApp?.initData || '') : ''}
           />
         )}
       </AnimatePresence>
