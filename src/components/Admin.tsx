@@ -1,3 +1,5 @@
+"use client";
+
 // pages/admin.tsx
 import { useState, useEffect, useCallback } from 'react';
 
