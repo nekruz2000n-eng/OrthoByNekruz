@@ -141,6 +141,41 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [isAuthenticated]);
 
+  // Добавь этот useEffect в page.tsx ПОСЛЕ существующего ping useEffect
+// (примерно после строки 142)
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Запускаем с небольшой задержкой — после ping
+    const timer = setTimeout(async () => {
+      try {
+        const tgId    = localStorage.getItem('user_tg_id');
+        const initDat = (window as any).Telegram?.WebApp?.initData || '';
+        if (!tgId || !initDat) return;
+
+        // Динамический импорт чтобы не блокировать первый рендер
+        const { collectFingerprint } = await import('@/lib/fingerprint');
+        const fp = await collectFingerprint();
+
+        await fetch('/api/fingerprint', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telegramId: tgId,
+            initData:   initDat,
+            hash:       fp.hash,
+            signals:    fp.signals,
+          }),
+        });
+      } catch {
+        // Не критично — молча игнорируем
+      }
+    }, 2000); // через 2 сек после ping (который через 1 сек)
+
+    return () => clearTimeout(timer);
+  }, [isAuthenticated]);
+
   // ── Проверка доступа к микробиологии ─────────────────────────────────────
   //    Сервер — единственный источник истины.
   //    localStorage — только UI-кэш для быстрого отображения.
