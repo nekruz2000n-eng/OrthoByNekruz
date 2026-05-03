@@ -174,7 +174,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const subscribed = await isSubscribed(Number(tgIdStr));
     if (!subscribed) {
       return res.status(403).json({
-        error: `Подпишитесь на @${CHANNEL_USERNAME} для доступа.`,
+        error: `Подпишись на @${CHANNEL_USERNAME} для доступа.`,
         needSubscription: true,
       });
     }
@@ -229,12 +229,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           if (username !== user.username) await redis.set(`user_id:${tgIdStr}`, { ...user, username, firstName, lastName });
           return res.status(200).json({ success: true, trial: true, trialUntil: trialEnd, hasMicro: !!user.micro });
         }
-        if (!key) return res.status(401).json({ error: 'Пробный период истёк. Введите ключ.' });
+        if (!key) return res.status(401).json({ error: 'Пробный период истёк. Введи ключ.' });
       }
     }
 
     // Активация ключа
-    if (!key) return res.status(401).json({ error: 'Введите ключ активации.' });
+    if (!key) return res.status(401).json({ error: 'Введи ключ активации.' });
     if (!isValidKeyFormat(key)) return res.status(401).json({ error: 'Неверный формат ключа.' });
 
     const isKeyValid = await redis.sismember('valid_keys', key.trim());

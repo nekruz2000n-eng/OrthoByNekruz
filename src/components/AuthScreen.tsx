@@ -163,7 +163,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         if (res.status === 403 && data.blocked) {
           // Аккаунт заблокирован администратором
           setError(true);
-          setErrorMessage('Ваш аккаунт заблокирован. Свяжитесь с администратором.');
+          setErrorMessage('Твой аккаунт заблокирован. Свяжись с администратором.');
           setTimeout(() => setErrorMessage(''), 6000);
         } else if (res.status === 403) {
           // Не подписан на канал
@@ -188,7 +188,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
 
   const handleLoginClick = () => {
     const id = autoTgId || manualTgId.trim();
-    if (!id) { toast({ variant: 'destructive', title: 'ID не найден', description: 'Введите ID вручную' }); return; }
+    if (!id) { toast({ variant: 'destructive', title: 'ID не найден', description: 'Введи ID вручную' }); return; }
     if (!/^\d{5,12}$/.test(id) || Number(id) < 10000) {
       toast({ variant: 'destructive', title: 'Неверный ID', description: 'Telegram ID должен быть числовым (5-12 цифр)' }); return;
     }
@@ -213,7 +213,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         localStorage.setItem('user_tg_id',  String(id));
         onAuthenticated();
       } else {
-        setDemoMessage(data.message || 'Демо недоступно');
+        setDemoMessage(data.message || 'Демо недоступно, ты уже использовал его ранее');
         setTimeout(() => setDemoMessage(''), 3500);
       }
     } catch {
@@ -312,7 +312,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
             >
               {key.length === 0 && (
                 <span className="absolute text-sm" style={{ color: 'rgba(255,255,255,0.25)' }}>
-                  {lockoutTime > 0 ? `Подождите ${lockoutTime}с` : 'Введите ключ доступа'}
+                  {lockoutTime > 0 ? `Подожди ${lockoutTime}с` : 'Введи ключ доступа'}
                 </span>
               )}
               <div className="flex gap-1 items-center z-10">
