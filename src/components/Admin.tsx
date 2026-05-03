@@ -1,6 +1,4 @@
-"use client";
-
-// pages/admin.tsx
+// pages/admin.tsx - С КНОПКАМИ ДЛЯ МИКРОБИОЛОГИИ
 import { useState, useEffect, useCallback } from 'react';
 
 interface User {
@@ -18,7 +16,6 @@ interface User {
 
 type Filter = 'all' | 'blocked' | 'suspicious';
 
-// Форматируем дату
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -60,27 +57,36 @@ export default function AdminPage() {
     fetchUsers(secret);
   };
 
-  const doAction = async (tgId: string, action: 'block' | 'unblock') => {
+  const doAction = async (tgId: string, action: 'block' | 'unblock' | 'give_micro' | 'revoke_micro') => {
     setActioning(tgId);
     try {
       const r = await fetch(
         `/api/admin-users?secret=${encodeURIComponent(secret)}&action=${action}&tgId=${tgId}`
       );
       if (r.ok) {
-        setUsers(prev => prev.map(u =>
-          u.tgId === tgId
-            ? action === 'block'
-              ? { ...u, blocked: true,  blockedReason: 'manual', blockedAt: new Date().toISOString() }
-              : { ...u, blocked: false, blockedReason: null, blockedAt: null }
-            : u
-        ));
+        setUsers(prev => prev.map(u => {
+          if (u.tgId !== tgId) return u;
+          
+          if (action === 'block') {
+            return { ...u, blocked: true, blockedReason: 'manual', blockedAt: new Date().toISOString() };
+          }
+          if (action === 'unblock') {
+            return { ...u, blocked: false, blockedReason: null, blockedAt: null };
+          }
+          if (action === 'give_micro') {
+            return { ...u, hasMicro: true };
+          }
+          if (action === 'revoke_micro') {
+            return { ...u, hasMicro: false };
+          }
+          return u;
+        }));
       }
     } finally {
       setActioning(null);
     }
   };
 
-  // Фильтрация
   const visible = users.filter(u => {
     if (filter === 'blocked'    && !u.blocked)    return false;
     if (filter === 'suspicious' && !u.suspicious && !u.blocked) return false;
@@ -91,7 +97,6 @@ export default function AdminPage() {
   const blockedCount    = users.filter(u => u.blocked).length;
   const suspiciousCount = users.filter(u => u.suspicious && !u.blocked).length;
 
-  // ── Экран логина ──────────────────────────────────────────────────────────
   if (!authed) {
     return (
       <div style={{
@@ -142,21 +147,14 @@ export default function AdminPage() {
     );
   }
 
-  // ── Основная панель ───────────────────────────────────────────────────────
   return (
     <div style={{
-      height: '100vh', // Жестко ограничиваем высоту размером окна
-      display: 'flex',
-      flexDirection: 'column', // Выстраиваем элементы сверху вниз
-      background: '#0f0f0f',
+      minHeight: '100vh', background: '#0f0f0f',
       fontFamily: 'system-ui, sans-serif', color: '#e5e5e5',
-      overflow: 'hidden' // Запрещаем скролл всей странице
     }}>
-      {/* Header */}
       <div style={{
         background: '#1a1a1a', borderBottom: '1px solid #2a2a2a',
         padding: '16px 32px', display: 'flex', alignItems: 'center', gap: 16,
-        flexShrink: 0 // Запрещаем шапке сплющиваться
       }}>
         <span style={{ fontSize: 24 }}>🦷</span>
         <div>
@@ -176,21 +174,12 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Обертка для контента */}
-      <div style={{ 
-        flex: 1, // Отдаем всё свободное место под этот блок
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '24px 32px', maxWidth: 1100, margin: '0 auto', width: '100%',
-        boxSizing: 'border-box',
-        overflow: 'hidden' // Важно, чтобы ограничить таблицу внутри
-      }}>
+      <div style={{ padding: '24px 32px', maxWidth: 1200, margin: '0 auto' }}>
 
-        {/* Статистика */}
-        <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
           {[
-            { label: 'Всего',          value: total,           color: '#3b82f6' },
-            { label: 'Заблокировано',  value: blockedCount,    color: '#ef4444' },
+            { label: 'Всего',          value: total,          color: '#3b82f6' },
+            { label: 'Заблокировано',  value: blockedCount,   color: '#ef4444' },
             { label: 'Подозрительных', value: suspiciousCount, color: '#f59e0b' },
             { label: 'С Micro',        value: users.filter(u => u.hasMicro).length, color: '#10b981' },
           ].map(s => (
@@ -204,8 +193,7 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* Фильтры + поиск */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
           {(['all', 'blocked', 'suspicious'] as Filter[]).map(f => (
             <button
               key={f}
@@ -233,26 +221,16 @@ export default function AdminPage() {
           />
         </div>
 
-        {/* Таблица */}
         {loading ? (
           <div style={{ textAlign: 'center', color: '#555', padding: 80 }}>Загрузка...</div>
         ) : (
-          <div style={{ 
-            flex: 1, // Таблица занимает всё оставшееся место до низа экрана
-            background: '#1a1a1a', 
-            border: '1px solid #2a2a2a', 
-            borderRadius: 12, 
-            overflowY: 'auto', // Скролл по вертикали
-            overflowX: 'auto', // Скролл по горизонтали
-            minHeight: 0 // Хак Flexbox для предотвращения растягивания контейнера больше экрана
-          }}>
-            {/* Шапка таблицы (Sticky) */}
+          <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 12, overflow: 'hidden' }}>
+            {/* ШИРЕ GRID ДЛЯ НОВЫХ КНОПОК */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '140px 90px 90px 80px 80px 90px 1fr 130px',
+              gridTemplateColumns: '120px 80px 80px 70px 70px 90px 1fr 180px',
               gap: 8, padding: '12px 20px',
               borderBottom: '1px solid #2a2a2a', color: '#555', fontSize: 12,
-              position: 'sticky', top: 0, background: '#1a1a1a', zIndex: 5
             }}>
               <span>Telegram ID</span>
               <span>Статус</span>
@@ -270,105 +248,125 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* Оборачиваем список юзеров в div с отступом снизу, чтобы элементы не прилипали к самому краю */}
-            <div style={{ paddingBottom: '16px' }}>
-              {visible.map((u, i) => (
-                <div
-                  key={u.tgId}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '140px 90px 90px 80px 80px 90px 1fr 130px',
-                    gap: 8, padding: '14px 20px', alignItems: 'center', fontSize: 13,
-                    borderBottom: i < visible.length - 1 ? '1px solid #222' : 'none',
-                    background: u.blocked ? 'rgba(239,68,68,0.05)' : u.suspicious ? 'rgba(245,158,11,0.05)' : 'transparent',
-                  }}
-                >
-                  {/* ID */}
-                  <span style={{ fontFamily: 'monospace', color: '#93c5fd' }}>{u.tgId}</span>
+            {visible.map((u, i) => (
+              <div
+                key={u.tgId}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '120px 80px 80px 70px 70px 90px 1fr 180px',
+                  gap: 8, padding: '14px 20px', alignItems: 'center', fontSize: 13,
+                  borderBottom: i < visible.length - 1 ? '1px solid #222' : 'none',
+                  background: u.blocked ? 'rgba(239,68,68,0.05)' : u.suspicious ? 'rgba(245,158,11,0.05)' : 'transparent',
+                }}
+              >
+                <span style={{ fontFamily: 'monospace', color: '#93c5fd' }}>{u.tgId}</span>
 
-                  {/* Статус */}
-                  <span>
-                    {u.blocked ? (
-                      <span style={{ background: '#3f1515', color: '#f87171', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
-                        БЛОК
-                      </span>
-                    ) : u.suspicious ? (
-                      <span style={{ background: '#3d2a00', color: '#fbbf24', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
-                        ⚠ ПОДОЗР
-                      </span>
-                    ) : (
-                      <span style={{ background: '#0d2e1e', color: '#34d399', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
-                        ОК
-                      </span>
-                    )}
-                  </span>
-
-                  {/* Дата */}
-                  <span style={{ color: '#666', fontSize: 12 }}>{fmtDate(u.registeredAt)}</span>
-
-                  {/* Открытий */}
-                  <span style={{ color: u.opensToday >= 5 ? '#f87171' : u.opensToday >= 3 ? '#fbbf24' : '#aaa' }}>
-                    {u.opensToday}
-                  </span>
-
-                  {/* FP смен */}
-                  <span style={{ color: u.fpChanges >= 3 ? '#f87171' : u.fpChanges >= 1 ? '#fbbf24' : '#555' }}>
-                    {u.fpChanges || '—'}
-                  </span>
-
-                  {/* Доступ */}
-                  <span style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    <span style={{ background: '#1e3a5f', color: '#7dd3fc', borderRadius: 4, padding: '2px 6px', fontSize: 11 }}>
-                      ortho
+                <span>
+                  {u.blocked ? (
+                    <span style={{ background: '#3f1515', color: '#f87171', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
+                      БЛОК
                     </span>
-                    {u.hasMicro && (
-                      <span style={{ background: '#14312b', color: '#6ee7b7', borderRadius: 4, padding: '2px 6px', fontSize: 11 }}>
-                        micro
-                      </span>
-                    )}
-                  </span>
+                  ) : u.suspicious ? (
+                    <span style={{ background: '#3d2a00', color: '#fbbf24', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
+                      ⚠ ПОДОЗР
+                    </span>
+                  ) : (
+                    <span style={{ background: '#0d2e1e', color: '#34d399', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
+                      ОК
+                    </span>
+                  )}
+                </span>
 
-                  {/* Причина блок */}
-                  <span style={{ color: '#666', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {u.blocked
-                      ? `${u.blockedReason ?? '—'} · ${fmtDate(u.blockedAt)}`
-                      : '—'
-                    }
-                  </span>
+                <span style={{ color: '#666', fontSize: 12 }}>{fmtDate(u.registeredAt)}</span>
 
-                  {/* Действия */}
-                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                    {u.blocked ? (
-                      <button
-                        onClick={() => doAction(u.tgId, 'unblock')}
-                        disabled={actioning === u.tgId}
-                        style={{
-                          padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
-                          cursor: actioning === u.tgId ? 'default' : 'pointer',
-                          background: '#0d2e1e', color: '#34d399',
-                          border: '1px solid #1a4a30',
-                        }}
-                      >
-                        {actioning === u.tgId ? '...' : '✓ Разблок'}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => doAction(u.tgId, 'block')}
-                        disabled={actioning === u.tgId}
-                        style={{
-                          padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
-                          cursor: actioning === u.tgId ? 'default' : 'pointer',
-                          background: '#3f1515', color: '#f87171',
-                          border: '1px solid #6b2020',
-                        }}
-                      >
-                        {actioning === u.tgId ? '...' : '✕ Блок'}
-                      </button>
-                    )}
-                  </div>
+                <span style={{ color: u.opensToday >= 5 ? '#f87171' : u.opensToday >= 3 ? '#fbbf24' : '#aaa' }}>
+                  {u.opensToday}
+                </span>
+
+                <span style={{ color: u.fpChanges >= 3 ? '#f87171' : u.fpChanges >= 1 ? '#fbbf24' : '#555' }}>
+                  {u.fpChanges || '—'}
+                </span>
+
+                <span style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  <span style={{ background: '#1e3a5f', color: '#7dd3fc', borderRadius: 4, padding: '2px 6px', fontSize: 11 }}>
+                    ortho
+                  </span>
+                  {u.hasMicro && (
+                    <span style={{ background: '#14312b', color: '#6ee7b7', borderRadius: 4, padding: '2px 6px', fontSize: 11 }}>
+                      micro
+                    </span>
+                  )}
+                </span>
+
+                <span style={{ color: '#666', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {u.blocked
+                    ? `${u.blockedReason ?? '—'} · ${fmtDate(u.blockedAt)}`
+                    : '—'
+                  }
+                </span>
+
+                {/* ДЕЙСТВИЯ: БЛОК + МИКРОБИОЛОГИЯ */}
+                <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                  {/* Кнопка блокировки */}
+                  {u.blocked ? (
+                    <button
+                      onClick={() => doAction(u.tgId, 'unblock')}
+                      disabled={actioning === u.tgId}
+                      style={{
+                        padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                        cursor: actioning === u.tgId ? 'default' : 'pointer',
+                        background: '#0d2e1e', color: '#34d399',
+                        border: '1px solid #1a4a30',
+                      }}
+                    >
+                      {actioning === u.tgId ? '...' : '✓ Разблок'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => doAction(u.tgId, 'block')}
+                      disabled={actioning === u.tgId}
+                      style={{
+                        padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                        cursor: actioning === u.tgId ? 'default' : 'pointer',
+                        background: '#3f1515', color: '#f87171',
+                        border: '1px solid #6b2020',
+                      }}
+                    >
+                      {actioning === u.tgId ? '...' : '✕ Блок'}
+                    </button>
+                  )}
+
+                  {/* Кнопка микробиологии */}
+                  {u.hasMicro ? (
+                    <button
+                      onClick={() => doAction(u.tgId, 'revoke_micro')}
+                      disabled={actioning === u.tgId}
+                      style={{
+                        padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                        cursor: actioning === u.tgId ? 'default' : 'pointer',
+                        background: '#3d2a00', color: '#fbbf24',
+                        border: '1px solid #5a4000',
+                      }}
+                    >
+                      {actioning === u.tgId ? '...' : '− Micro'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => doAction(u.tgId, 'give_micro')}
+                      disabled={actioning === u.tgId}
+                      style={{
+                        padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                        cursor: actioning === u.tgId ? 'default' : 'pointer',
+                        background: '#14312b', color: '#6ee7b7',
+                        border: '1px solid #1a4a30',
+                      }}
+                    >
+                      {actioning === u.tgId ? '...' : '+ Micro'}
+                    </button>
+                  )}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
