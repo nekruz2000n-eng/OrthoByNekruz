@@ -325,6 +325,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const existingUser: any = await redis.get(`user_id:${tgIdStr}`);
 
+    // ── ПРОВЕРКА БЛОКИРОВКИ ──────────────────────────────────────────────────
+    if (existingUser?.blocked === true) {
+      return res.status(403).json({
+        error: 'Ваш аккаунт заблокирован. Свяжитесь с администратором.',
+        blocked: true,
+      });
+    }
+
     // Существующий пользователь — пускаем только если initData верифицирована
     if (existingUser && !existingUser.trial_until) {
       if (!initDataVerified) {

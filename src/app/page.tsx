@@ -136,7 +136,16 @@ export default function Home() {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ telegramId: tgId, initData: initDat }),
-      }).catch(() => {});
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data?.blocked === true) {
+            // Пользователь заблокирован — сбрасываем localStorage и выкидываем
+            localStorage.clear();
+            setIsAuthenticated(false);
+          }
+        })
+        .catch(() => {});
     }, 1000);
     return () => clearTimeout(timer);
   }, [isAuthenticated]);

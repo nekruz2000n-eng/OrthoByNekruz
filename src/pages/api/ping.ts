@@ -74,6 +74,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const tgId  = String(telegramId);
+
+    // ── ПРОВЕРКА БЛОКИРОВКИ ──────────────────────────────────────────────────
+    const userData: any = await redis.get(`user_id:${tgId}`);
+    if (userData?.blocked === true) {
+      console.log(`[ping] blocked user: ${tgId}`);
+      return res.status(200).json({ ok: true, blocked: true });
+    }
+
     const today = new Date().toISOString().slice(0, 10);
     const actKey      = `opens:${tgId}:${today}`;
     const notifiedKey = `opens_notified:${tgId}:${today}`;
