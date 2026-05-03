@@ -37,10 +37,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         delete updated.blockedReason;
         delete updated.blockedAt;
         await redis.set(`user_id:${tgId}`, updated);
-        // Сбрасываем счётчик — чистый старт
         const today = new Date().toISOString().slice(0, 10);
         await redis.del(`opens:${tgId}:${today}`);
         await redis.del(`opens_notified:${tgId}:${today}`);
+        return res.status(200).json({ ok: true });
+      }
+
+      if (action === 'give_micro') {
+        await redis.set(`user_id:${tgId}`, { ...user, micro: true, microGrantedAt: new Date().toISOString() });
+        return res.status(200).json({ ok: true });
+      }
+
+      if (action === 'revoke_micro') {
+        const u: Record<string, any> = { ...user };
+        delete u.micro; delete u.microGrantedAt;
+        await redis.set(`user_id:${tgId}`, u);
         return res.status(200).json({ ok: true });
       }
 
