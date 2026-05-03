@@ -11,13 +11,12 @@ const TRIAL_DAYS       = Number(process.env.TRIAL_DAYS) || 0;
 // ═══════════════════════════════════════════════════════════════════════════
 //  verifyTelegramInitData
 //
-//  Проверяет что initData пришла от настоящего Telegram, а не подделана.
-//  Возвращает объект пользователя если подпись верна, null если нет.
+//  Проверяет, что initData пришла от настоящего Telegram.
 // ═══════════════════════════════════════════════════════════════════════════
 function verifyTelegramInitData(
   initData: string,
   botToken: string
-): { id: number; username?: string; [key: string]: any } | null {
+): { id: number; username?: string; first_name?: string; last_name?: string; [key: string]: any } | null {
   try {
     const params = new URLSearchParams(initData);
     const hash   = params.get('hash');
@@ -51,14 +50,14 @@ function verifyTelegramInitData(
   }
 }
 
-// ── Telegram IDs ─────────────────────────────────────────────────────────────
+// ── Валидация Telegram ID ──
 const isValidTelegramId = (id: string): boolean => {
   if (!/^\d{5,12}$/.test(id)) return false;
   const n = Number(id);
   return n >= 10000 && n <= 9_999_999_999;
 };
 
-// ── Ключ: формат + математические условия ───────────────────────────────────
+// ── Валидация формата ключа ──
 const isValidKeyFormat = (key: string): boolean => {
   const k = key.trim();
   if (!/^\d{8}$/.test(k)) return false;
@@ -68,7 +67,7 @@ const isValidKeyFormat = (key: string): boolean => {
   return sumCheck && modCheck;
 };
 
-// ── Подписка на канал ────────────────────────────────────────────────────────
+// ── Проверка подписки ──
 async function isSubscribed(userId: number): Promise<boolean> {
   if (!BOT_TOKEN) return false;
   try {
@@ -82,10 +81,10 @@ async function isSubscribed(userId: number): Promise<boolean> {
   }
 }
 
-// ── Rate limiting ────────────────────────────────────────────────────────────
+// ── Rate Limiting ──
 const MAX_ATTEMPTS      = 3;
-const BASE_BLOCK_SEC    = 2  * 60 * 60;   // 2 часа
-const EXTRA_BLOCK_SEC   = 10 * 60 * 60;   // +10 часов
+const BASE_BLOCK_SEC    = 2  * 60 * 60;
+const EXTRA_BLOCK_SEC   = 10 * 60 * 60;
 
 async function checkRateLimit(ip: string, tgId: string) {
   const rateKey  = `rate:${ip}:${tgId}`;
@@ -97,8 +96,7 @@ async function checkRateLimit(ip: string, tgId: string) {
     const viols = await redis.incr(violKey);
     const newBlock = BASE_BLOCK_SEC + (viols - 1) * EXTRA_BLOCK_SEC;
     await redis.set(blockKey, viols, { ex: newBlock });
-    const hours = Math.ceil(newBlock / 3600);
-    return { blocked: true, remaining: 0, blockHours: hours };
+    return { blocked: true };
   }
 
   const attempts = await redis.incr(rateKey);
@@ -110,11 +108,9 @@ async function checkRateLimit(ip: string, tgId: string) {
     const blockSec = BASE_BLOCK_SEC + (viols - 1) * EXTRA_BLOCK_SEC;
     await redis.set(blockKey, viols, { ex: blockSec });
     await redis.del(rateKey);
-    const hours = Math.ceil(blockSec / 3600);
-    return { blocked: true, remaining: 0, blockHours: hours };
+    return { blocked: true };
   }
-
-  return { blocked: false, remaining: MAX_ATTEMPTS - attempts };
+  return { blocked: false };
 }
 
 async function resetRateLimit(ip: string, tgId: string) {
@@ -129,185 +125,132 @@ function getIp(req: NextApiRequest): string {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+//  MAIN HANDLER
+// ════════════════════════════════════════════════════════════════════════════
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Метод не разрешен' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { key, telegramId, mode, initData } = req.body;
 
-  if (!telegramId) {
-    return res.status(400).json({ error: 'Telegram ID не найден' });
+  // СТРОГАЯ ЗАЩИТА: Без initData работа невозможна
+  if (!initData) {
+    return res.status(403).json({ error: 'Доступ разрешен только через Telegram.' });
   }
 
-  const tgIdStr = String(telegramId).trim();
+  const tgIdStr = String(telegramId || '').trim();
   if (!isValidTelegramId(tgIdStr)) {
-    return res.status(400).json({ error: 'Неверный запрос' });
+    return res.status(400).json({ error: 'Некорректный Telegram ID.' });
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  //  ВЕРИФИКАЦИЯ initData
-  // ══════════════════════════════════════════════════════════════════════════
-  let initDataVerified = false;
-  let username: string | null = null; 
-  let firstName: string | null = null; // Добавляем
-  let lastName: string | null = null;  // Добавляем
+  // ВЕРИФИКАЦИЯ ДАННЫХ TELEGRAM
+  let username: string | null = null;
+  let firstName: string | null = null;
+  let lastName: string | null = null;
 
-  if (initData && BOT_TOKEN) {
-    const tgUser = verifyTelegramInitData(initData, BOT_TOKEN);
-
-    if (!tgUser || String(tgUser.id) !== tgIdStr) {
-      return res.status(401).json({ error: 'Неверный запрос' });
-    }
-
-    initDataVerified = true;
-    username = tgUser.username || null; 
-    firstName = tgUser.first_name || null; 
-    lastName = tgUser.last_name || null;
-    
+  const tgUser = verifyTelegramInitData(initData, BOT_TOKEN || '');
+  if (!tgUser || String(tgUser.id) !== tgIdStr) {
+    return res.status(401).json({ error: 'Ошибка верификации данных.' });
   }
+
+  username = tgUser.username || null;
+  firstName = tgUser.first_name || null;
+  lastName = tgUser.last_name || null;
 
   const ip = getIp(req);
-  const rateLimitKey = initDataVerified ? tgIdStr : `manual:${ip}`;
 
   try {
-    // ── ДЕМО-РЕЖИМ ────────────────────────────────────────────────────────
+    // ── ДЕМО-РЕЖИМ ──
     if (mode === 'check_demo') {
-      if (!initDataVerified) {
-        return res.status(401).json({
-          success: false,
-          message: 'Не удалось подтвердить личность. Откройте приложение через Telegram.',
-        });
-      }
-
       const { blocked } = await checkRateLimit(ip, `demo_${tgIdStr}`);
-      if (blocked) {
-        return res.status(429).json({ success: false, message: 'Слишком много попыток. Попробуйте позже.' });
-      }
+      if (blocked) return res.status(429).json({ error: 'Слишком много попыток.' });
 
       const alreadyUsed = await redis.sismember('used_demo_ids', tgIdStr);
-      if (alreadyUsed) {
-        return res.status(403).json({
-          success: false,
-          message: 'Вы уже использовали пробный период. Приобретите ключ для продолжения.',
-        });
-      }
+      if (alreadyUsed) return res.status(403).json({ error: 'Демо-период уже использован.' });
+
       await redis.sadd('used_demo_ids', tgIdStr);
       await resetRateLimit(ip, `demo_${tgIdStr}`);
       return res.status(200).json({ success: true });
     }
 
-    // ── ПРОВЕРКА ДОСТУПА К МИКРОБИОЛОГИИ ────────────────────────────────────
+    // ── ПРОВЕРКА МИКРОБИОЛОГИИ ──
     if (mode === 'check_micro') {
-      if (!initDataVerified) {
-        return res.status(200).json({ hasMicro: false });
-      }
       const user: any = await redis.get(`user_id:${tgIdStr}`);
-      const hasMicro = !!(user && user.micro === true);
-      return res.status(200).json({ hasMicro });
+      return res.status(200).json({ hasMicro: !!(user && user.micro === true) });
     }
 
-    // ── ОБЫЧНАЯ АВТОРИЗАЦИЯ И АКТИВАЦИЯ КЛЮЧА ─────────────────────────────
-    
-    // Защита от спама (Rate Limit) ПЕРЕД тяжелыми проверками
-    if (key || !initDataVerified) {
-        const { blocked } = await checkRateLimit(ip, rateLimitKey);
-        if (blocked) {
-            return res.status(429).json({ error: 'Слишком много попыток. Доступ временно заблокирован.' });
-        }
+    // ── ОБЩАЯ АВТОРИЗАЦИЯ ──
+    if (key) {
+      const { blocked } = await checkRateLimit(ip, tgIdStr);
+      if (blocked) return res.status(429).json({ error: 'Доступ временно заблокирован.' });
     }
 
-    // Безопасное чтение пользователя
-    let existingUser: any = await redis.get(`user_id:${tgIdStr}`);
-    if (typeof existingUser === 'string') {
-        try { existingUser = JSON.parse(existingUser); } catch { existingUser = null; }
+    let user: any = await redis.get(`user_id:${tgIdStr}`);
+    if (typeof user === 'string') {
+      try { user = JSON.parse(user); } catch { user = null; }
     }
 
-    // Проверка блокировки
-    if (existingUser?.blocked === true) {
-      return res.status(403).json({
-        error: 'Ваш аккаунт заблокирован. Свяжитесь с администратором.',
-        blocked: true,
-      });
+    if (user?.blocked === true) {
+      return res.status(403).json({ error: 'Твой аккаунт заблокирован. Сяжись с администратором.', blocked: true });
     }
 
-    // Дергаем Telegram API
     const subscribed = await isSubscribed(Number(tgIdStr));
     if (!subscribed) {
       return res.status(403).json({
-        error: `Для доступа необходимо подписаться на канал https://t.me/${CHANNEL_USERNAME}`,
+        error: `Подпишитесь на @${CHANNEL_USERNAME} для доступа.`,
         needSubscription: true,
       });
     }
 
-    // Существующий пользователь (не триал)
-    if (existingUser && !existingUser.trial_until) {
-      if (!initDataVerified) {
-        return res.status(401).json({ error: 'Откройте приложение через Telegram для входа.' });
+    // Существующий пользователь: вход + обновление профиля
+    if (user && !user.trial_until) {
+      if (username !== user.username || firstName !== user.firstName || lastName !== user.lastName) {
+        await redis.set(`user_id:${tgIdStr}`, { ...user, username, firstName, lastName });
       }
-      
-      if (username && existingUser.username !== username) {
-         await redis.set(`user_id:${tgIdStr}`, { ...existingUser, username });
-      }
-
       await resetRateLimit(ip, tgIdStr);
-      const hasMicro = !!(existingUser?.micro === true);
-      return res.status(200).json({ success: true, hasMicro });
+      return res.status(200).json({ success: true, hasMicro: !!user.micro });
     }
 
     // Триал-период
     if (TRIAL_DAYS > 0) {
       const now = new Date();
-      if (!existingUser && !key) {
+      if (!user && !key) {
         const trialUntil = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
-        await redis.set(`user_id:${tgIdStr}`, {
-          activatedKey: 'trial', 
-          date: now.toISOString(), 
-          trial_until: trialUntil.toISOString(),
-          username: username
-        });
+        const newUser = { activatedKey: 'trial', date: now.toISOString(), trial_until: trialUntil.toISOString(), username, firstName, lastName };
+        await redis.set(`user_id:${tgIdStr}`, newUser);
         return res.status(200).json({ success: true, trial: true, trialUntil, hasMicro: false });
       }
-      if (existingUser?.trial_until) {
-        const trialEnd = new Date(existingUser.trial_until);
+      if (user?.trial_until) {
+        const trialEnd = new Date(user.trial_until);
         if (now < trialEnd) {
-           if (username && existingUser.username !== username) {
-             await redis.set(`user_id:${tgIdStr}`, { ...existingUser, username });
-           }
-           const hasMicro = !!(existingUser?.micro === true);
-           return res.status(200).json({ success: true, trial: true, trialUntil: trialEnd, hasMicro });
+          if (username !== user.username) await redis.set(`user_id:${tgIdStr}`, { ...user, username, firstName, lastName });
+          return res.status(200).json({ success: true, trial: true, trialUntil: trialEnd, hasMicro: !!user.micro });
         }
-        if (!key) return res.status(401).json({ error: 'Пробный период закончился. Приобретите ключ.' });
+        if (!key) return res.status(401).json({ error: 'Пробный период истёк. Введите ключ.' });
       }
     }
 
-    // ── АКТИВАЦИЯ КЛЮЧА ──────────────────────────────────────────────────
-    if (!key) return res.status(401).json({ error: 'Введите ключ активации' });
-    if (!isValidKeyFormat(key)) return res.status(401).json({ error: 'Неверный формат ключа' });
+    // Активация ключа
+    if (!key) return res.status(401).json({ error: 'Введите ключ активации.' });
+    if (!isValidKeyFormat(key)) return res.status(401).json({ error: 'Неверный формат ключа.' });
 
     const isKeyValid = await redis.sismember('valid_keys', key.trim());
-    if (!isKeyValid) {
-      return res.status(401).json({ error: 'Неверный или уже использованный ключ' });
-    }
+    if (!isKeyValid) return res.status(401).json({ error: 'Неверный ключ.' });
 
-    // Активация ключа: сохраняем пользователя
-    await redis.set(`user_id:${tgIdStr}`, { 
+    const activatedUser = { 
       activatedKey: key.trim(), 
-      date: new Date().toISOString(),
-      username: username || existingUser?.username,
-      micro: existingUser?.micro || false 
-    });
+      date: new Date().toISOString(), 
+      username, firstName, lastName,
+      micro: user?.micro || false 
+    };
     
+    await redis.set(`user_id:${tgIdStr}`, activatedUser);
     await redis.srem('valid_keys', key.trim());
-    await resetRateLimit(ip, rateLimitKey);
+    await resetRateLimit(ip, tgIdStr);
 
-    return res.status(200).json({ success: true, hasMicro: !!(existingUser?.micro) });
+    return res.status(200).json({ success: true, hasMicro: !!user?.micro });
 
-  } catch (error: any) {
-    console.error('Auth Error:', error);
-    const msg = process.env.NODE_ENV === 'development'
-      ? (error?.message || String(error))
-      : 'Ошибка сервера';
-    return res.status(500).json({ error: msg });
+  } catch (error) {
+    console.error('API Error:', error);
+    return res.status(500).json({ error: 'Ошибка сервера.' });
   }
 }
