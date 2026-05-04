@@ -317,13 +317,21 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
           chunks.push(value); received += value.length;
           if (total) setCacheProgress(Math.round((received / total) * 100));
         }
-        const blob  = new Blob(chunks as unknown as BlobPart[], { type: 'audio/mpeg' });
+        const mime  = getMime(src);
+        const blob  = new Blob(chunks as unknown as BlobPart[], { type: mime });
         const url   = URL.createObjectURL(blob);
         const cache = await caches.open(CACHE_NAME);
-        await cache.put(src, new Response(blob, { headers: { 'Content-Type': 'audio/mpeg' } }));
+        await cache.put(src, new Response(blob, { headers: { 'Content-Type': mime } }));
         setBlobUrl(url); setCached(true);
       } catch {}
       setCaching(false);
+    };
+
+    const getMime = (url: string) => {
+      if (url.includes('.m4a')) return 'audio/mp4';
+      if (url.includes('.ogg')) return 'audio/ogg';
+      if (url.includes('.wav')) return 'audio/wav';
+      return 'audio/mpeg';
     };
 
     const pct = duration ? (current / duration) * 100 : 0;
@@ -332,25 +340,17 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
       <div className="mt-3 p-3 rounded-2xl"
         style={{ background: `color-mix(in srgb, ${accentColor} 8%, var(--c-card))`, border: `1px solid color-mix(in srgb, ${accentColor} 25%, transparent)` }}>
 
-        <audio ref={audioRef} src={src} preload="metadata"
+        <audio ref={audioRef} preload="metadata"
           onLoadedMetadata={handleLoaded}
           onTimeUpdate={handleTimeUpdate}
           onEnded={() => { setPlaying(false); setCurrent(0); try { localStorage.removeItem(posKey); } catch {} }}
           onWaiting={() => setLoading(true)}
-          onCanPlay={() => setLoading(false)} />
+          onCanPlay={() => setLoading(false)}>
+          <source src={blobUrl || src} type={getMime(src)} />
+        </audio>
 
-        {/* Строка 1: SkipBack + Play + SkipForward + прогресс */}
+        {/* Строка 1: Play + прогресс */}
         <div className="flex items-center gap-2">
-
-          {/* -10с */}
-          <button onClick={() => skip(-10)} disabled={loading}
-            className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center transition-all active:scale-90"
-            style={{ color: loading ? 'var(--c-border)' : 'var(--c-muted)' }}>
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 5V2L7 7l5 5V9c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
-              <text x="8.5" y="16" fontSize="5" fontWeight="bold" fill="currentColor">10</text>
-            </svg>
-          </button>
 
           {/* Play / Pause */}
           <button onClick={toggle} disabled={loading}
@@ -370,16 +370,6 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                 <path d="M8 5.14v14l11-7-11-7z"/>
               </svg>
             )}
-          </button>
-
-          {/* +10с */}
-          <button onClick={() => skip(10)} disabled={loading}
-            className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center transition-all active:scale-90"
-            style={{ color: loading ? 'var(--c-border)' : 'var(--c-muted)' }}>
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 5V2l5 5-5 5V9c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/>
-              <text x="8.5" y="16" fontSize="5" fontWeight="bold" fill="currentColor">10</text>
-            </svg>
           </button>
 
           {/* Прогресс + метаданные */}
@@ -402,12 +392,13 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
           </div>
         </div>
 
-        {/* Строка 2: Скорость + Кэш */}
-        <div className="flex items-center justify-between mt-2.5 pt-2.5"
+        {/* Строка 2: Скорость + −10с + +10с + Кэш */}
+        <div className="flex items-center gap-1.5 mt-2.5 pt-2.5"
           style={{ borderTop: `1px solid color-mix(in srgb, ${accentColor} 15%, transparent)` }}>
 
+          {/* Скорость */}
           <button onClick={cycleSpeed}
-            className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg text-[11px] font-bold transition-all active:scale-95"
+            className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-[11px] font-bold transition-all active:scale-95 flex-shrink-0"
             style={{ background: `color-mix(in srgb, ${accentColor} 12%, transparent)`, color: accentColor, border: `1px solid color-mix(in srgb, ${accentColor} 20%, transparent)` }}>
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/>
@@ -415,17 +406,38 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             {speed}×
           </button>
 
+          {/* −10с */}
+          <button onClick={() => skip(-10)} disabled={loading}
+            className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-[11px] font-bold transition-all active:scale-95 flex-1"
+            style={{ background: 'color-mix(in srgb, var(--c-border) 40%, transparent)', color: loading ? 'var(--c-border)' : 'var(--c-muted)', border: '1px solid var(--c-border)' }}>
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/>
+            </svg>
+            −10с
+          </button>
+
+          {/* +10с */}
+          <button onClick={() => skip(10)} disabled={loading}
+            className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-[11px] font-bold transition-all active:scale-95 flex-1"
+            style={{ background: 'color-mix(in srgb, var(--c-border) 40%, transparent)', color: loading ? 'var(--c-border)' : 'var(--c-muted)', border: '1px solid var(--c-border)' }}>
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M11.5 8c2.65 0 5.05.99 6.9 2.6L22 7v9h-9l3.62-3.62C15.13 11.22 13.36 10.5 11.4 10.5c-3.54 0-6.55 2.31-7.6 5.5l-2.37-.78C2.92 11.03 6.85 8 11.5 8z"/>
+            </svg>
+            +10с
+          </button>
+
+          {/* В кэш */}
           <button onClick={cacheAudio} disabled={cached || caching}
-            className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg text-[11px] font-bold transition-all active:scale-95"
+            className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-[11px] font-bold transition-all active:scale-95 flex-shrink-0"
             style={cached
               ? { background: `color-mix(in srgb, ${accentColor} 15%, transparent)`, color: accentColor, border: `1px solid color-mix(in srgb, ${accentColor} 25%, transparent)` }
               : { background: 'color-mix(in srgb, var(--c-border) 50%, transparent)', color: 'var(--c-muted)', border: '1px solid var(--c-border)' }}>
             {caching ? (
               <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>{cacheProgress > 0 ? `${cacheProgress}%` : '...'}</>
             ) : cached ? (
-              <><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>В кэше</>
+              <><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>Кэш</>
             ) : (
-              <><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>В кэш</>
+              <><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>Кэш</>
             )}
           </button>
         </div>
