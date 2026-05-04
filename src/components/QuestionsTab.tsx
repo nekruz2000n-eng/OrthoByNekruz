@@ -193,6 +193,92 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     );
   };
 
+  // ── Аудио-плеер ────────────────────────────────────
+  const AudioPlayer = ({ src }: { src: string }) => {
+    const audioRef = useRef<HTMLAudioElement>(null);
+    const [playing, setPlaying]   = useState(false);
+    const [current, setCurrent]   = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [loading, setLoading]   = useState(true);
+
+    const fmt = (s: number) => {
+      if (!isFinite(s) || isNaN(s)) return '0:00';
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return `${m}:${sec.toString().padStart(2, '0')}`;
+    };
+
+    const toggle = () => {
+      const a = audioRef.current;
+      if (!a) return;
+      if (playing) { a.pause(); setPlaying(false); }
+      else { a.play().then(() => setPlaying(true)).catch(() => {}); }
+    };
+
+    const seek = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const a = audioRef.current;
+      if (!a) return;
+      a.currentTime = Number(e.target.value);
+      setCurrent(Number(e.target.value));
+    };
+
+    const pct = duration ? (current / duration) * 100 : 0;
+
+    return (
+      <div className="mt-3 p-3 rounded-2xl"
+        style={{ background: `color-mix(in srgb, ${accentColor} 8%, var(--c-card))`, border: `1px solid color-mix(in srgb, ${accentColor} 25%, transparent)` }}>
+
+        <audio ref={audioRef} src={src} preload="metadata"
+          onLoadedMetadata={e => { setDuration((e.target as HTMLAudioElement).duration); setLoading(false); }}
+          onTimeUpdate={e  => setCurrent((e.target as HTMLAudioElement).currentTime)}
+          onEnded={() => { setPlaying(false); setCurrent(0); }}
+          onWaiting={() => setLoading(true)}
+          onCanPlay={() => setLoading(false)} />
+
+        <div className="flex items-center gap-3">
+          {/* Play / Pause */}
+          <button onClick={toggle} disabled={loading}
+            className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center transition-all active:scale-90"
+            style={{ background: accentColor, color: '#fff', opacity: loading ? 0.5 : 1 }}>
+            {loading ? (
+              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+            ) : playing ? (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5.14v14l11-7-11-7z"/>
+              </svg>
+            )}
+          </button>
+
+          {/* Прогресс + время */}
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-widest"
+                style={{ color: accentColor }}>🎧 NotebookLM</span>
+              <span className="text-[10px] font-mono" style={{ color: 'var(--c-muted)' }}>
+                {fmt(current)} / {fmt(duration)}
+              </span>
+            </div>
+            <div className="relative h-1.5 rounded-full" style={{ background: 'var(--c-border)' }}>
+              <div className="absolute left-0 top-0 h-full rounded-full transition-all duration-100"
+                style={{ width: `${pct}%`, background: accentColor }} />
+              <input type="range" min={0} max={duration || 100} step={0.5} value={current}
+                onChange={seek}
+                className="absolute inset-0 w-full opacity-0 h-full cursor-pointer"
+                style={{ touchAction: 'none' }} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ── Заметка ────────────────────────────────────────
   const PersonalNote = ({ id }: { id: number }) => {
     const [editing, setEditing] = useState(false);
@@ -336,7 +422,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                           {studied ? <><CheckCircle2 className="w-4 h-4" /> Изучено</> : <><Circle className="w-4 h-4" /> Изучил</>}
                         </button>
                       </div>
-                      <PersonalNote id={q.id} />
+                      {(q as any).audio && <AudioPlayer src={(q as any).audio} />}
                     </AccordionContent>
                   </AccordionItem>
                 );
