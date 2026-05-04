@@ -181,7 +181,7 @@ export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
     if (correct) {
       setScore(s => s + 1);
       clearMistake(currentTest);
-      if (autoNext && currentTestIndex < blockTests.length - 1) setTimeout(nextQuestion, 800);
+      if (autoNext && currentTestIndex < blockTests.length - 1) setTimeout(nextQuestion, 200);
     } else {
       recordMistake(currentTest);
     }
