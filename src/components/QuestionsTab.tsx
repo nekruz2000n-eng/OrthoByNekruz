@@ -11,7 +11,6 @@ import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger
 } from '@/components/ui/accordion';
 import { ToothIcon } from './ToothIcon';
-import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 
@@ -29,6 +28,8 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const questionsData = isOrtho ? orthoQuestionsData : microQuestionsData;
 
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'unstudied' | 'audio'>('all');
+  const [openAccordionId, setOpenAccordionId] = useState<string>('');
   const [studiedIds, setStudiedIds] = useState<Set<number>>(new Set());
   const [userNotes, setUserNotes] = useState<Record<number, string>>({});
   const [isLoaded, setIsLoaded] = useState(false);
@@ -84,8 +85,16 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
 
   const filtered = useMemo(() => {
     const t = search.toLowerCase();
-    return questionsData.filter(q => !search || q.id.toString() === t || q.question.toLowerCase().includes(t));
-  }, [search, questionsData]);
+    return questionsData.filter(q => {
+      const matchSearch = !search || q.id.toString() === t || q.question.toLowerCase().includes(t);
+      const matchFilter =
+        filter === 'all'      ? true :
+        filter === 'unstudied' ? !studiedIds.has(q.id) :
+        filter === 'audio'    ? !!(q as any).audio :
+        true;
+      return matchSearch && matchFilter;
+    });
+  }, [search, filter, questionsData, studiedIds]);
 
   const progress = useMemo(() => questionsData.length ? (studiedIds.size / questionsData.length) * 100 : 0, [studiedIds, questionsData]);
 
@@ -198,18 +207,19 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 
   const AudioPlayer = ({ src }: { src: string }) => {
-    const audioRef                        = useRef<HTMLAudioElement>(null);
-    const [playing, setPlaying]           = useState(false);
-    const [current, setCurrent]           = useState(0);
-    const [duration, setDuration]         = useState(0);
-    const [loading, setLoading]           = useState(true);
-    const [speed, setSpeed]               = useState(1);
-    const [cached, setCached]             = useState(false);
-    const [caching, setCaching]           = useState(false);
+    const audioRef                          = useRef<HTMLAudioElement>(null);
+    const [playing, setPlaying]             = useState(false);
+    const [current, setCurrent]             = useState(0);
+    const [duration, setDuration]           = useState(0);
+    const [loading, setLoading]             = useState(true);
+    const [speed, setSpeed]                 = useState(1);
+    const [cached, setCached]               = useState(false);
+    const [caching, setCaching]             = useState(false);
     const [cacheProgress, setCacheProgress] = useState(0);
-    const [blobUrl, setBlobUrl]           = useState<string | null>(null);
+    const [blobUrl, setBlobUrl]             = useState<string | null>(null);
+    const posKey = `audio-pos:${src}`;
 
-    // Проверяем кэш при монтировании
+    // Проверяем кэш + восстанавливаем позицию
     useEffect(() => {
       (async () => {
         try {
@@ -257,6 +267,14 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
       setCurrent(Number(e.target.value));
     };
 
+    const skip = (sec: number) => {
+      const a = audioRef.current;
+      if (!a) return;
+      const next = Math.max(0, Math.min(a.duration, a.currentTime + sec));
+      a.currentTime = next;
+      setCurrent(next);
+    };
+
     const cycleSpeed = () => {
       const a = audioRef.current;
       const next = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
@@ -264,31 +282,46 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
       if (a) a.playbackRate = next;
     };
 
-    // Скачать в кэш браузера через fetch со стримом прогресса
+    const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+      const t = (e.target as HTMLAudioElement).currentTime;
+      setCurrent(t);
+      // Сохраняем позицию каждые 5 секунд
+      if (Math.round(t) % 5 === 0) {
+        try { localStorage.setItem(posKey, String(t)); } catch {}
+      }
+    };
+
+    const handleLoaded = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+      const a = e.target as HTMLAudioElement;
+      setDuration(a.duration);
+      setLoading(false);
+      // Восстанавливаем сохранённую позицию
+      try {
+        const saved = parseFloat(localStorage.getItem(posKey) || '0');
+        if (saved > 0 && saved < a.duration - 3) { a.currentTime = saved; setCurrent(saved); }
+      } catch {}
+    };
+
     const cacheAudio = async () => {
       if (cached || caching) return;
-      setCaching(true);
-      setCacheProgress(0);
+      setCaching(true); setCacheProgress(0);
       try {
-        const resp = await fetch(src);
-        const total = Number(resp.headers.get('content-length') || 0);
+        const resp   = await fetch(src);
+        const total  = Number(resp.headers.get('content-length') || 0);
         const reader = resp.body!.getReader();
         const chunks: Uint8Array[] = [];
         let received = 0;
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          chunks.push(value);
-          received += value.length;
+          chunks.push(value); received += value.length;
           if (total) setCacheProgress(Math.round((received / total) * 100));
         }
-        const blob    = new Blob(chunks as unknown as BlobPart[], { type: 'audio/mpeg' });
-        const url     = URL.createObjectURL(blob);
-        // Сохраняем в Cache API
-        const cache   = await caches.open(CACHE_NAME);
+        const blob  = new Blob(chunks as unknown as BlobPart[], { type: 'audio/mpeg' });
+        const url   = URL.createObjectURL(blob);
+        const cache = await caches.open(CACHE_NAME);
         await cache.put(src, new Response(blob, { headers: { 'Content-Type': 'audio/mpeg' } }));
-        setBlobUrl(url);
-        setCached(true);
+        setBlobUrl(url); setCached(true);
       } catch {}
       setCaching(false);
     };
@@ -300,14 +333,25 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
         style={{ background: `color-mix(in srgb, ${accentColor} 8%, var(--c-card))`, border: `1px solid color-mix(in srgb, ${accentColor} 25%, transparent)` }}>
 
         <audio ref={audioRef} src={src} preload="metadata"
-          onLoadedMetadata={e => { setDuration((e.target as HTMLAudioElement).duration); setLoading(false); }}
-          onTimeUpdate={e  => setCurrent((e.target as HTMLAudioElement).currentTime)}
-          onEnded={() => { setPlaying(false); setCurrent(0); }}
+          onLoadedMetadata={handleLoaded}
+          onTimeUpdate={handleTimeUpdate}
+          onEnded={() => { setPlaying(false); setCurrent(0); try { localStorage.removeItem(posKey); } catch {} }}
           onWaiting={() => setLoading(true)}
           onCanPlay={() => setLoading(false)} />
 
-        {/* Строка 1: Play + прогресс */}
-        <div className="flex items-center gap-3">
+        {/* Строка 1: SkipBack + Play + SkipForward + прогресс */}
+        <div className="flex items-center gap-2">
+
+          {/* -10с */}
+          <button onClick={() => skip(-10)} disabled={loading}
+            className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center transition-all active:scale-90"
+            style={{ color: loading ? 'var(--c-border)' : 'var(--c-muted)' }}>
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 5V2L7 7l5 5V9c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+              <text x="8.5" y="16" fontSize="5" fontWeight="bold" fill="currentColor">10</text>
+            </svg>
+          </button>
+
           {/* Play / Pause */}
           <button onClick={toggle} disabled={loading}
             className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center transition-all active:scale-90"
@@ -326,6 +370,16 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                 <path d="M8 5.14v14l11-7-11-7z"/>
               </svg>
             )}
+          </button>
+
+          {/* +10с */}
+          <button onClick={() => skip(10)} disabled={loading}
+            className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center transition-all active:scale-90"
+            style={{ color: loading ? 'var(--c-border)' : 'var(--c-muted)' }}>
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 5V2l5 5-5 5V9c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/>
+              <text x="8.5" y="16" fontSize="5" fontWeight="bold" fill="currentColor">10</text>
+            </svg>
           </button>
 
           {/* Прогресс + метаданные */}
@@ -352,7 +406,6 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
         <div className="flex items-center justify-between mt-2.5 pt-2.5"
           style={{ borderTop: `1px solid color-mix(in srgb, ${accentColor} 15%, transparent)` }}>
 
-          {/* Скорость воспроизведения */}
           <button onClick={cycleSpeed}
             className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg text-[11px] font-bold transition-all active:scale-95"
             style={{ background: `color-mix(in srgb, ${accentColor} 12%, transparent)`, color: accentColor, border: `1px solid color-mix(in srgb, ${accentColor} 20%, transparent)` }}>
@@ -362,39 +415,21 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             {speed}×
           </button>
 
-          {/* Кнопка кэширования */}
           <button onClick={cacheAudio} disabled={cached || caching}
             className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg text-[11px] font-bold transition-all active:scale-95"
             style={cached
               ? { background: `color-mix(in srgb, ${accentColor} 15%, transparent)`, color: accentColor, border: `1px solid color-mix(in srgb, ${accentColor} 25%, transparent)` }
               : { background: 'color-mix(in srgb, var(--c-border) 50%, transparent)', color: 'var(--c-muted)', border: '1px solid var(--c-border)' }}>
             {caching ? (
-              <>
-                <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                </svg>
-                {cacheProgress > 0 ? `${cacheProgress}%` : '...'}
-              </>
+              <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>{cacheProgress > 0 ? `${cacheProgress}%` : '...'}</>
             ) : cached ? (
-              <>
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
-                </svg>
-                В кэше
-              </>
+              <><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>В кэше</>
             ) : (
-              <>
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                </svg>
-                В кэш
-              </>
+              <><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>В кэш</>
             )}
           </button>
         </div>
 
-        {/* Прогресс-бар кэширования */}
         {caching && (
           <div className="mt-2 h-0.5 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
             <div className="h-full rounded-full transition-all duration-200"
@@ -404,7 +439,6 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
       </div>
     );
   };
-
   // ── Заметка ────────────────────────────────────────
   const PersonalNote = ({ id }: { id: number }) => {
     const [editing, setEditing] = useState(false);
@@ -478,6 +512,18 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--c-muted)' }} />
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--c-muted)' }}><X className="w-4 h-4" /></button>}
         </div>
+        {/* Фильтр-табы */}
+        <div className="flex gap-1.5 mx-1">
+          {([['all', 'Все'], ['unstudied', 'Не изучены'], ['audio', '🎧 С аудио']] as const).map(([val, label]) => (
+            <button key={val} onClick={() => setFilter(val)}
+              className="flex-1 h-7 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all active:scale-95"
+              style={filter === val
+                ? { background: accentColor, color: '#fff' }
+                : { background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── СПИСОК ────────────────────────────────── */}
@@ -491,9 +537,11 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                 </svg>
               </div>
             ) : filtered.length > 0 ? (
-            <Accordion type="single" collapsible className="space-y-2 w-full">
+            <Accordion type="single" collapsible className="space-y-2 w-full"
+              onValueChange={val => setOpenAccordionId(val ?? '')}>
               {filtered.map(q => {
                 const studied = studiedIds.has(q.id);
+                const hasAudio = !!(q as any).audio;
                 return (
                   <AccordionItem key={q.id} value={q.id.toString()} className="border-none rounded-2xl overflow-hidden w-full transition-all duration-200"
                     style={{ background: studied ? 'color-mix(in srgb, var(--c-primary) 6%, var(--c-card))' : 'var(--c-card)', border: studied ? '1px solid var(--c-primary-br)' : '1px solid var(--c-border)' }}>
@@ -504,12 +552,20 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                           {studied && <div className="w-2 h-2 rounded-full" style={{ background: 'var(--c-primary)' }} />}
                         </div>
                         <div className="flex-1 min-w-0 space-y-1">
-                          <span className="inline-block text-[10px] font-mono font-bold px-2 py-0.5 rounded-md"
-                            style={studied
-                              ? { background: 'var(--c-primary-dim)', color: 'var(--c-primary)', border: '1px solid var(--c-primary-br)' }
-                              : { background: 'color-mix(in srgb, var(--c-border) 60%, transparent)', color: 'var(--c-muted)', border: '1px solid var(--c-border)' }}>
-                            №{q.id}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-block text-[10px] font-mono font-bold px-2 py-0.5 rounded-md"
+                              style={studied
+                                ? { background: 'var(--c-primary-dim)', color: 'var(--c-primary)', border: '1px solid var(--c-primary-br)' }
+                                : { background: 'color-mix(in srgb, var(--c-border) 60%, transparent)', color: 'var(--c-muted)', border: '1px solid var(--c-border)' }}>
+                              №{q.id}
+                            </span>
+                            {hasAudio && (
+                              <span className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded-md"
+                                style={{ background: `color-mix(in srgb, ${accentColor} 12%, transparent)`, color: accentColor, border: `1px solid color-mix(in srgb, ${accentColor} 25%, transparent)` }}>
+                                🎧
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm font-medium leading-snug line-clamp-2 break-words"
                             style={{ color: studied ? 'color-mix(in srgb, var(--c-text) 75%, transparent)' : 'var(--c-text)' }}>
                             {getPreview(q.question)}
@@ -607,6 +663,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                   ));
                 })()}
                 <PersonalNote id={readingQuestion.id} />
+                {readingQuestion.audio && <AudioPlayer src={readingQuestion.audio} />}
               </div>
             </div>
 
