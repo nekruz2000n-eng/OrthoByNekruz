@@ -425,7 +425,9 @@ export default function AdminPage() {
 
   return (
     <div style={{
-      minHeight: '100svh', background: '#0a0a0a',
+      height: '100svh', // Изменено: фиксированная высота
+      display: 'flex', flexDirection: 'column', overflow: 'hidden', // Изменено: flex и скрываем внешний скролл
+      background: '#0a0a0a',
       fontFamily: "-apple-system, 'SF Pro Display', system-ui, sans-serif",
       color: '#e5e5e5',
     }}>
@@ -450,6 +452,7 @@ export default function AdminPage() {
         padding: '10px 13px',
         display: 'flex', alignItems: 'center', gap: 10,
         position: 'sticky', top: 0, zIndex: 100,
+        flexShrink: 0, // Изменено: защищаем шапку от сжатия
       }}>
         <span style={{ fontSize: 20 }}>🦷</span>
         <div style={{ flex: 1 }}>
@@ -471,7 +474,12 @@ export default function AdminPage() {
         </button>
       </div>
 
-      <div style={{ padding: '12px 12px 80px', maxWidth: 680, margin: '0 auto' }}>
+      {/* Контентная часть со скроллом */}
+      <div style={{ 
+        padding: '12px 12px 80px', maxWidth: 680, margin: '0 auto',
+        width: '100%', boxSizing: 'border-box', // Изменено: 100% ширина с учетом паддингов
+        flex: 1, overflowY: 'auto' // Изменено: ВКЛЮЧАЕМ СКРОЛЛ ЗДЕСЬ
+      }}>
 
         {/* Статистика */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>

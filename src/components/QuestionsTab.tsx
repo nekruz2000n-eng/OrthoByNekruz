@@ -16,6 +16,279 @@ import ReactMarkdown from 'react-markdown';
 
 interface GlossaryItem { term: string; definition: string; image?: string | string[]; }
 
+// ── AudioPlayer вынесен НА УРОВЕНЬ МОДУЛЯ ────────────────────────────────────
+// Если оставить внутри QuestionsTab, React при каждом setState родителя
+// (глоссарий, зум картинки) видит новый тип компонента → ремонтирует →
+// аудио обрывается. Вынос фиксирует это раз и навсегда.
+const _AUDIO_CACHE = 'ortho-audio-v1';
+const _AUDIO_SPEEDS = [0.75, 1, 1.25, 1.5, 2];
+
+const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string }) => {
+  const audioRef                          = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying]             = useState(false);
+  const [current, setCurrent]             = useState(0);
+  const [duration, setDuration]           = useState(0);
+  const [loading, setLoading]             = useState(true);
+  const [speed, setSpeed]                 = useState(1);
+  const [cached, setCached]               = useState(false);
+  const [caching, setCaching]             = useState(false);
+  const [cacheProgress, setCacheProgress] = useState(0);
+  const [blobUrl, setBlobUrl]             = useState<string | null>(null);
+  const posKey = `audio-pos:${src}`;
+
+  // Проверяем кэш + восстанавливаем позицию
+  useEffect(() => {
+    (async () => {
+      try {
+        const cache = await caches.open(_AUDIO_CACHE);
+        const hit   = await cache.match(src);
+        if (hit) {
+          const blob = await hit.blob();
+          const url  = URL.createObjectURL(blob);
+          setBlobUrl(url);
+          setCached(true);
+        }
+      } catch {}
+    })();
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
+  }, [src]);
+
+  // Когда blobUrl появился — ставим в audio
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a || !blobUrl) return;
+    const wasPlaying = !a.paused;
+    const t = a.currentTime;
+    a.src = blobUrl;
+    a.load();
+    a.currentTime = t;
+    if (wasPlaying) a.play().catch(() => {});
+  }, [blobUrl]);
+
+  const fmt = (s: number) => {
+    if (!isFinite(s) || isNaN(s)) return '0:00';
+    return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
+  };
+
+  const toggle = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (playing) { a.pause(); setPlaying(false); }
+    else { a.play().then(() => setPlaying(true)).catch(() => {}); }
+  };
+
+  const seek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const a = audioRef.current;
+    if (!a) return;
+    a.currentTime = Number(e.target.value);
+    setCurrent(Number(e.target.value));
+  };
+
+  const skip = (sec: number) => {
+    const a = audioRef.current;
+    if (!a) return;
+    const next = Math.max(0, Math.min(a.duration, a.currentTime + sec));
+    a.currentTime = next;
+    setCurrent(next);
+  };
+
+  const cycleSpeed = () => {
+    const a = audioRef.current;
+    const next = _AUDIO_SPEEDS[(_AUDIO_SPEEDS.indexOf(speed) + 1) % _AUDIO_SPEEDS.length];
+    setSpeed(next);
+    if (a) a.playbackRate = next;
+  };
+
+  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+    const t = (e.target as HTMLAudioElement).currentTime;
+    setCurrent(t);
+    if (Math.round(t) % 5 === 0) {
+      try { localStorage.setItem(posKey, String(t)); } catch {}
+    }
+  };
+
+  const handleLoaded = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+    const a = e.target as HTMLAudioElement;
+    setDuration(a.duration);
+    setLoading(false);
+    try {
+      const saved = parseFloat(localStorage.getItem(posKey) || '0');
+      if (saved > 0 && saved < a.duration - 3) { a.currentTime = saved; setCurrent(saved); }
+    } catch {}
+  };
+
+  const getMime = (url: string) => {
+    if (url.includes('.m4a')) return 'audio/mp4';
+    if (url.includes('.ogg')) return 'audio/ogg';
+    if (url.includes('.wav')) return 'audio/wav';
+    return 'audio/mpeg';
+  };
+
+  const cacheAudio = async () => {
+    if (cached || caching) return;
+    setCaching(true); setCacheProgress(0);
+    try {
+      const resp   = await fetch(src);
+      const total  = Number(resp.headers.get('content-length') || 0);
+      const reader = resp.body!.getReader();
+      const chunks: Uint8Array[] = [];
+      let received = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value); received += value.length;
+        if (total) setCacheProgress(Math.round((received / total) * 100));
+      }
+      const mime  = getMime(src);
+      const blob  = new Blob(chunks as unknown as BlobPart[], { type: mime });
+      const url   = URL.createObjectURL(blob);
+      const cache = await caches.open(_AUDIO_CACHE);
+      await cache.put(src, new Response(blob, { headers: { 'Content-Type': mime } }));
+      setBlobUrl(url); setCached(true);
+    } catch {}
+    setCaching(false);
+  };
+
+  const pct = duration ? (current / duration) * 100 : 0;
+
+  return (
+    <div className="mt-3 rounded-2xl overflow-hidden"
+      style={{ border: `1.5px solid color-mix(in srgb, ${accentColor} 30%, transparent)`, background: `color-mix(in srgb, ${accentColor} 6%, var(--c-card))` }}>
+
+      <audio ref={audioRef} preload="metadata"
+        onLoadedMetadata={handleLoaded}
+        onTimeUpdate={handleTimeUpdate}
+        onEnded={() => { setPlaying(false); setCurrent(0); try { localStorage.removeItem(posKey); } catch {} }}
+        onWaiting={() => setLoading(true)}
+        onCanPlay={() => setLoading(false)}>
+        <source src={blobUrl || src} type={getMime(src)} />
+      </audio>
+
+      {/* Шапка плеера */}
+      <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
+        <div className="flex items-center gap-1.5">
+          <span className="text-base">🎧</span>
+          <span className="text-[10px] font-black uppercase tracking-widest"
+            style={{ color: accentColor }}>NotebookLM</span>
+          {cached && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+              style={{ background: `color-mix(in srgb, ${accentColor} 15%, transparent)`, color: accentColor }}>
+              ✓ кэш
+            </span>
+          )}
+        </div>
+        <span className="text-[11px] font-mono font-semibold tabular-nums"
+          style={{ color: 'var(--c-muted)' }}>
+          {fmt(current)} / {fmt(duration)}
+        </span>
+      </div>
+
+      {/* Прогресс-бар */}
+      <div className="px-3 pb-2">
+        <div className="relative h-2 rounded-full" style={{ background: 'var(--c-border)' }}>
+          <div className="absolute left-0 top-0 h-full rounded-full transition-all duration-100"
+            style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${accentColor}, color-mix(in srgb, ${accentColor} 70%, #fff))` }} />
+          {duration > 0 && (
+            <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full shadow-md pointer-events-none"
+              style={{ left: `calc(${pct}% - 6px)`, background: '#fff', border: `2px solid ${accentColor}` }} />
+          )}
+          <input type="range" min={0} max={duration || 100} step={0.5} value={current}
+            onChange={seek}
+            className="absolute inset-0 w-full opacity-0 h-full cursor-pointer"
+            style={{ touchAction: 'none' }} />
+        </div>
+      </div>
+
+      {/* Кнопки управления */}
+      <div className="flex items-center gap-2 px-3 pb-3">
+        <button onClick={toggle} disabled={loading}
+          className="w-11 h-11 rounded-2xl flex-shrink-0 flex items-center justify-center transition-all active:scale-90 shadow-md"
+          style={{
+            background: loading ? 'var(--c-border)' : accentColor,
+            color: '#fff',
+            border: `1.5px solid color-mix(in srgb, ${accentColor} 60%, #000 40%)`,
+          }}>
+          {loading ? (
+            <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+          ) : playing ? (
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <rect x="6" y="4" width="4" height="16" rx="1.5"/><rect x="14" y="4" width="4" height="16" rx="1.5"/>
+            </svg>
+          ) : (
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5.14v14l11-7-11-7z"/>
+            </svg>
+          )}
+        </button>
+
+        <button onClick={() => skip(-10)} disabled={loading}
+          className="flex-1 h-11 rounded-2xl flex items-center justify-center gap-1.5 text-[11px] font-bold transition-all active:scale-95"
+          style={{ background: 'var(--c-card)', color: loading ? 'var(--c-border)' : 'var(--c-text)', border: '1.5px solid var(--c-border)' }}>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+            <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.85"/>
+          </svg>
+          10с
+        </button>
+
+        <button onClick={() => skip(10)} disabled={loading}
+          className="flex-1 h-11 rounded-2xl flex items-center justify-center gap-1.5 text-[11px] font-bold transition-all active:scale-95"
+          style={{ background: 'var(--c-card)', color: loading ? 'var(--c-border)' : 'var(--c-text)', border: '1.5px solid var(--c-border)' }}>
+          10с
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+            <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-3.85"/>
+          </svg>
+        </button>
+
+        <button onClick={cycleSpeed}
+          className="h-11 px-3 rounded-2xl flex items-center justify-center gap-1 text-[12px] font-black transition-all active:scale-95 flex-shrink-0"
+          style={{
+            background: `color-mix(in srgb, ${accentColor} 12%, var(--c-card))`,
+            color: accentColor,
+            border: `1.5px solid color-mix(in srgb, ${accentColor} 35%, transparent)`,
+            minWidth: '52px',
+          }}>
+          {speed}×
+        </button>
+
+        <button onClick={cacheAudio} disabled={cached || caching}
+          className="h-11 px-3 rounded-2xl flex items-center justify-center gap-1.5 text-[11px] font-bold transition-all active:scale-95 flex-shrink-0"
+          style={cached
+            ? { background: `color-mix(in srgb, ${accentColor} 12%, var(--c-card))`, color: accentColor, border: `1.5px solid color-mix(in srgb, ${accentColor} 35%, transparent)` }
+            : { background: 'var(--c-card)', color: 'var(--c-muted)', border: '1.5px solid var(--c-border)' }}>
+          {caching ? (
+            <>
+              <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              {cacheProgress > 0 ? `${cacheProgress}%` : '…'}
+            </>
+          ) : cached ? (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+          )}
+        </button>
+      </div>
+
+      {caching && (
+        <div className="h-0.5 mx-3 mb-3 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
+          <div className="h-full rounded-full transition-all duration-200"
+            style={{ width: `${cacheProgress}%`, background: accentColor }} />
+        </div>
+      )}
+    </div>
+  );
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
   const accentColor = subject === 'micro' ? 'var(--c-amber)' : 'var(--c-primary)';
   const lsKey       = subject === 'ortho' ? 'studiedQuestions'  : 'microStudiedQuestions';
@@ -202,292 +475,6 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     );
   };
 
-  // ── Аудио-плеер ────────────────────────────────────
-  const CACHE_NAME = 'ortho-audio-v1';
-  const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
-
-  const AudioPlayer = ({ src }: { src: string }) => {
-    const audioRef                          = useRef<HTMLAudioElement>(null);
-    const [playing, setPlaying]             = useState(false);
-    const [current, setCurrent]             = useState(0);
-    const [duration, setDuration]           = useState(0);
-    const [loading, setLoading]             = useState(true);
-    const [speed, setSpeed]                 = useState(1);
-    const [cached, setCached]               = useState(false);
-    const [caching, setCaching]             = useState(false);
-    const [cacheProgress, setCacheProgress] = useState(0);
-    const [blobUrl, setBlobUrl]             = useState<string | null>(null);
-    const posKey = `audio-pos:${src}`;
-
-    // Проверяем кэш + восстанавливаем позицию
-    useEffect(() => {
-      (async () => {
-        try {
-          const cache = await caches.open(CACHE_NAME);
-          const hit   = await cache.match(src);
-          if (hit) {
-            const blob = await hit.blob();
-            const url  = URL.createObjectURL(blob);
-            setBlobUrl(url);
-            setCached(true);
-          }
-        } catch {}
-      })();
-      return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
-    }, [src]);
-
-    // Когда blobUrl появился — ставим в audio
-    useEffect(() => {
-      const a = audioRef.current;
-      if (!a || !blobUrl) return;
-      const wasPlaying = !a.paused;
-      const t = a.currentTime;
-      a.src = blobUrl;
-      a.load();
-      a.currentTime = t;
-      if (wasPlaying) a.play().catch(() => {});
-    }, [blobUrl]);
-
-    const fmt = (s: number) => {
-      if (!isFinite(s) || isNaN(s)) return '0:00';
-      return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
-    };
-
-    const toggle = () => {
-      const a = audioRef.current;
-      if (!a) return;
-      if (playing) { a.pause(); setPlaying(false); }
-      else { a.play().then(() => setPlaying(true)).catch(() => {}); }
-    };
-
-    const seek = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const a = audioRef.current;
-      if (!a) return;
-      a.currentTime = Number(e.target.value);
-      setCurrent(Number(e.target.value));
-    };
-
-    const skip = (sec: number) => {
-      const a = audioRef.current;
-      if (!a) return;
-      const next = Math.max(0, Math.min(a.duration, a.currentTime + sec));
-      a.currentTime = next;
-      setCurrent(next);
-    };
-
-    const cycleSpeed = () => {
-      const a = audioRef.current;
-      const next = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
-      setSpeed(next);
-      if (a) a.playbackRate = next;
-    };
-
-    const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
-      const t = (e.target as HTMLAudioElement).currentTime;
-      setCurrent(t);
-      // Сохраняем позицию каждые 5 секунд
-      if (Math.round(t) % 5 === 0) {
-        try { localStorage.setItem(posKey, String(t)); } catch {}
-      }
-    };
-
-    const handleLoaded = (e: React.SyntheticEvent<HTMLAudioElement>) => {
-      const a = e.target as HTMLAudioElement;
-      setDuration(a.duration);
-      setLoading(false);
-      // Восстанавливаем сохранённую позицию
-      try {
-        const saved = parseFloat(localStorage.getItem(posKey) || '0');
-        if (saved > 0 && saved < a.duration - 3) { a.currentTime = saved; setCurrent(saved); }
-      } catch {}
-    };
-
-    const cacheAudio = async () => {
-      if (cached || caching) return;
-      setCaching(true); setCacheProgress(0);
-      try {
-        const resp   = await fetch(src);
-        const total  = Number(resp.headers.get('content-length') || 0);
-        const reader = resp.body!.getReader();
-        const chunks: Uint8Array[] = [];
-        let received = 0;
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value); received += value.length;
-          if (total) setCacheProgress(Math.round((received / total) * 100));
-        }
-        const mime  = getMime(src);
-        const blob  = new Blob(chunks as unknown as BlobPart[], { type: mime });
-        const url   = URL.createObjectURL(blob);
-        const cache = await caches.open(CACHE_NAME);
-        await cache.put(src, new Response(blob, { headers: { 'Content-Type': mime } }));
-        setBlobUrl(url); setCached(true);
-      } catch {}
-      setCaching(false);
-    };
-
-    const getMime = (url: string) => {
-      if (url.includes('.m4a')) return 'audio/mp4';
-      if (url.includes('.ogg')) return 'audio/ogg';
-      if (url.includes('.wav')) return 'audio/wav';
-      return 'audio/mpeg';
-    };
-
-    const pct = duration ? (current / duration) * 100 : 0;
-
-    return (
-      <div className="mt-3 rounded-2xl overflow-hidden"
-        style={{ border: `1.5px solid color-mix(in srgb, ${accentColor} 30%, transparent)`, background: `color-mix(in srgb, ${accentColor} 6%, var(--c-card))` }}>
-
-        <audio ref={audioRef} preload="metadata"
-          onLoadedMetadata={handleLoaded}
-          onTimeUpdate={handleTimeUpdate}
-          onEnded={() => { setPlaying(false); setCurrent(0); try { localStorage.removeItem(posKey); } catch {} }}
-          onWaiting={() => setLoading(true)}
-          onCanPlay={() => setLoading(false)}>
-          <source src={blobUrl || src} type={getMime(src)} />
-        </audio>
-
-        {/* Шапка плеера */}
-        <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
-          <div className="flex items-center gap-1.5">
-            <span className="text-base">🎧</span>
-            <span className="text-[10px] font-black uppercase tracking-widest"
-              style={{ color: accentColor }}>NotebookLM</span>
-            {cached && (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                style={{ background: `color-mix(in srgb, ${accentColor} 15%, transparent)`, color: accentColor }}>
-                ✓ кэш
-              </span>
-            )}
-          </div>
-          <span className="text-[11px] font-mono font-semibold tabular-nums"
-            style={{ color: 'var(--c-muted)' }}>
-            {fmt(current)} / {fmt(duration)}
-          </span>
-        </div>
-
-        {/* Прогресс-бар */}
-        <div className="px-3 pb-2">
-          <div className="relative h-2 rounded-full" style={{ background: 'var(--c-border)' }}>
-            <div className="absolute left-0 top-0 h-full rounded-full transition-all duration-100"
-              style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${accentColor}, color-mix(in srgb, ${accentColor} 70%, #fff))` }} />
-            {/* Ползунок-точка */}
-            {duration > 0 && (
-              <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full shadow-md pointer-events-none"
-                style={{ left: `calc(${pct}% - 6px)`, background: '#fff', border: `2px solid ${accentColor}` }} />
-            )}
-            <input type="range" min={0} max={duration || 100} step={0.5} value={current}
-              onChange={seek}
-              className="absolute inset-0 w-full opacity-0 h-full cursor-pointer"
-              style={{ touchAction: 'none' }} />
-          </div>
-        </div>
-
-        {/* Кнопки управления */}
-        <div className="flex items-center gap-2 px-3 pb-3">
-
-          {/* Play / Pause — большая центральная кнопка */}
-          <button onClick={toggle} disabled={loading}
-            className="w-11 h-11 rounded-2xl flex-shrink-0 flex items-center justify-center transition-all active:scale-90 shadow-md"
-            style={{
-              background: loading ? 'var(--c-border)' : accentColor,
-              color: '#fff',
-              border: `1.5px solid color-mix(in srgb, ${accentColor} 60%, #000 40%)`,
-            }}>
-            {loading ? (
-              <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-              </svg>
-            ) : playing ? (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <rect x="6" y="4" width="4" height="16" rx="1.5"/><rect x="14" y="4" width="4" height="16" rx="1.5"/>
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5.14v14l11-7-11-7z"/>
-              </svg>
-            )}
-          </button>
-
-          {/* −10с */}
-          <button onClick={() => skip(-10)} disabled={loading}
-            className="flex-1 h-11 rounded-2xl flex items-center justify-center gap-1.5 text-[11px] font-bold transition-all active:scale-95"
-            style={{
-              background: 'var(--c-card)',
-              color: loading ? 'var(--c-border)' : 'var(--c-text)',
-              border: '1.5px solid var(--c-border)',
-            }}>
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-              <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.85"/>
-            </svg>
-            10с
-          </button>
-
-          {/* +10с */}
-          <button onClick={() => skip(10)} disabled={loading}
-            className="flex-1 h-11 rounded-2xl flex items-center justify-center gap-1.5 text-[11px] font-bold transition-all active:scale-95"
-            style={{
-              background: 'var(--c-card)',
-              color: loading ? 'var(--c-border)' : 'var(--c-text)',
-              border: '1.5px solid var(--c-border)',
-            }}>
-            10с
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-              <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-3.85"/>
-            </svg>
-          </button>
-
-          {/* Скорость */}
-          <button onClick={cycleSpeed}
-            className="h-11 px-3 rounded-2xl flex items-center justify-center gap-1 text-[12px] font-black transition-all active:scale-95 flex-shrink-0"
-            style={{
-              background: `color-mix(in srgb, ${accentColor} 12%, var(--c-card))`,
-              color: accentColor,
-              border: `1.5px solid color-mix(in srgb, ${accentColor} 35%, transparent)`,
-              minWidth: '52px',
-            }}>
-            {speed}×
-          </button>
-
-          {/* Кэш */}
-          <button onClick={cacheAudio} disabled={cached || caching}
-            className="h-11 px-3 rounded-2xl flex items-center justify-center gap-1.5 text-[11px] font-bold transition-all active:scale-95 flex-shrink-0"
-            style={cached
-              ? { background: `color-mix(in srgb, ${accentColor} 12%, var(--c-card))`, color: accentColor, border: `1.5px solid color-mix(in srgb, ${accentColor} 35%, transparent)` }
-              : { background: 'var(--c-card)', color: 'var(--c-muted)', border: '1.5px solid var(--c-border)' }}>
-            {caching ? (
-              <>
-                <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                </svg>
-                {cacheProgress > 0 ? `${cacheProgress}%` : '…'}
-              </>
-            ) : cached ? (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-              </svg>
-            )}
-          </button>
-        </div>
-
-        {/* Прогресс кэширования */}
-        {caching && (
-          <div className="h-0.5 mx-3 mb-3 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
-            <div className="h-full rounded-full transition-all duration-200"
-              style={{ width: `${cacheProgress}%`, background: accentColor }} />
-          </div>
-        )}
-      </div>
-    );
-  };
   // ── Заметка ────────────────────────────────────────
   const PersonalNote = ({ id }: { id: number }) => {
     const [editing, setEditing] = useState(false);
@@ -653,7 +640,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                           {studied ? <><CheckCircle2 className="w-4 h-4" /> Изучено</> : <><Circle className="w-4 h-4" /> Изучил</>}
                         </button>
                       </div>
-                      {(q as any).audio && <AudioPlayer src={(q as any).audio} />}
+                      {(q as any).audio && <AudioPlayer src={(q as any).audio} accentColor={accentColor} />}
                     </AccordionContent>
                   </AccordionItem>
                 );
@@ -712,7 +699,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                   ));
                 })()}
                 <PersonalNote id={readingQuestion.id} />
-                {readingQuestion.audio && <AudioPlayer src={readingQuestion.audio} />}
+                {readingQuestion.audio && <AudioPlayer src={readingQuestion.audio} accentColor={accentColor} />}
               </div>
             </div>
 
