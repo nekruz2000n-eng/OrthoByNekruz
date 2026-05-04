@@ -224,4 +224,16 @@
   100% { transform: translateX(200%); }
 }
 
-img { -webkit-user-drag: none; user-select: none; }
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-touch-callout: none;   /* ← блокирует iOS-меню при долгом нажатии */
+  pointer-events: none;          /* ← блокирует нативный клик по img */
+}
+
+/* Обёртки картинок должны перехватывать клики вместо самого img */
+.img-protected-wrapper {
+  -webkit-touch-callout: none;
+  user-select: none;
+  touch-action: manipulation;
+}

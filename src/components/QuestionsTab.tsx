@@ -381,9 +381,17 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                   const raw = readingQuestion.images || readingQuestion.image;
                   if (!raw) return null;
                   return (Array.isArray(raw) ? raw : [raw]).map((img: string, i: number) => (
-                    <div key={i} className="rounded-2xl overflow-hidden cursor-pointer" style={{ border: '1px solid var(--c-border)' }} onClick={() => setZoomedImage(img)}>
-                      <img src={img} alt="" className="w-full h-auto object-contain max-h-80" loading="lazy" onContextMenu={e => e.preventDefault()} draggable={false} />
-                    </div>
+                    <div key={i}
+  className="img-protected-wrapper rounded-2xl overflow-hidden cursor-pointer relative"
+  style={{ border: '1px solid var(--c-border)' }}
+  onClick={() => setZoomedImage(img)}
+  onTouchStart={e => e.preventDefault()}
+  onContextMenu={e => e.preventDefault()}>
+  <img src={img} alt="" className="w-full h-auto object-contain max-h-80"
+    loading="lazy" draggable={false} />
+  {/* Прозрачный оверлей — перехватывает долгое нажатие на iOS */}
+  <div className="absolute inset-0" style={{ WebkitTouchCallout: 'none' }} />
+</div>
                   ));
                 })()}
                 <PersonalNote id={readingQuestion.id} />
@@ -458,10 +466,16 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             style={{ left: tooltipPos.x, top: tooltipPos.y, background: 'var(--c-card)', border: '1px solid var(--c-primary-br)', cursor: dragging ? 'grabbing' : 'grab' }}
             onMouseDown={handleTooltipMouseDown} onTouchStart={handleTooltipTouchStart} onClick={e => e.stopPropagation()}>
             {found?.image && (Array.isArray(found.image) ? found.image : [found.image]).map((img, i) => (
-              <div key={i} className="mb-2 rounded-xl overflow-hidden cursor-pointer" style={{ border: '1px solid var(--c-border)' }}
-                onClick={e => { e.stopPropagation(); setZoomedImage(img); }}>
-                <img src={img} alt="" className="w-full h-auto object-contain max-h-32" loading="lazy" onContextMenu={e => e.preventDefault()} draggable={false} />
-              </div>
+              <div key={i}
+  className="img-protected-wrapper mb-2 rounded-xl overflow-hidden cursor-pointer relative"
+  style={{ border: '1px solid var(--c-border)' }}
+  onClick={e => { e.stopPropagation(); setZoomedImage(img); }}
+  onTouchStart={e => e.preventDefault()}
+  onContextMenu={e => e.preventDefault()}>
+  <img src={img} alt="" className="w-full h-auto object-contain max-h-32"
+    loading="lazy" draggable={false} />
+  <div className="absolute inset-0" />
+</div>
             ))}
             <p className="text-sm" style={{ color: 'var(--c-text)' }}>{activeTermDef}</p>
             <p className="text-[10px] mt-2" style={{ color: 'var(--c-muted)' }}>↔ перетащите</p>
@@ -489,11 +503,21 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
             <X className="w-5 h-5" />
           </button>
-          <div className="flex items-center justify-center max-w-full max-h-full" onClick={e => e.stopPropagation()} onDoubleClick={() => { setScale(1); setTranslate({ x: 0, y: 0 }); }}>
-            <img src={zoomedImage} alt="" className="max-w-full max-h-full object-contain rounded-2xl select-none"
-              style={{ transform: `translate(${translate.x}px,${translate.y}px) scale(${scale})`, transition: 'transform .15s ease-out', touchAction: 'none' }}
-              draggable={false} onContextMenu={e => e.preventDefault()} />
-          </div>
+          <div
+  className="img-protected-wrapper flex items-center justify-center max-w-full max-h-full"
+  onClick={e => e.stopPropagation()}
+  onDoubleClick={() => { setScale(1); setTranslate({ x: 0, y: 0 }); }}
+  onContextMenu={e => e.preventDefault()}>
+  <img
+    src={zoomedImage}
+    alt=""
+    className="max-w-full max-h-full object-contain rounded-2xl select-none"
+    style={{ transform: `translate(${translate.x}px,${translate.y}px) scale(${scale})`, transition: 'transform .15s ease-out', touchAction: 'none' }}
+    draggable={false}
+  />
+  {/* Прозрачный оверлей — блокирует нативное iOS-меню */}
+  <div className="absolute inset-0" style={{ WebkitTouchCallout: 'none' }} />
+</div>
         </div>
       )}
     </div>
