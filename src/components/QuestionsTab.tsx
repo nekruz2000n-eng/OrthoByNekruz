@@ -282,7 +282,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
           received += value.length;
           if (total) setCacheProgress(Math.round((received / total) * 100));
         }
-        const blob    = new Blob(chunks, { type: 'audio/mpeg' });
+        const blob    = new Blob(chunks as unknown as BlobPart[], { type: 'audio/mpeg' });
         const url     = URL.createObjectURL(blob);
         // Сохраняем в Cache API
         const cache   = await caches.open(CACHE_NAME);
