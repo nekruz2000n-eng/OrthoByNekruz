@@ -194,18 +194,53 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   };
 
   // ── Аудио-плеер ────────────────────────────────────
+  const CACHE_NAME = 'ortho-audio-v1';
+  const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
+
   const AudioPlayer = ({ src }: { src: string }) => {
-    const audioRef = useRef<HTMLAudioElement>(null);
-    const [playing, setPlaying]   = useState(false);
-    const [current, setCurrent]   = useState(0);
-    const [duration, setDuration] = useState(0);
-    const [loading, setLoading]   = useState(true);
+    const audioRef                        = useRef<HTMLAudioElement>(null);
+    const [playing, setPlaying]           = useState(false);
+    const [current, setCurrent]           = useState(0);
+    const [duration, setDuration]         = useState(0);
+    const [loading, setLoading]           = useState(true);
+    const [speed, setSpeed]               = useState(1);
+    const [cached, setCached]             = useState(false);
+    const [caching, setCaching]           = useState(false);
+    const [cacheProgress, setCacheProgress] = useState(0);
+    const [blobUrl, setBlobUrl]           = useState<string | null>(null);
+
+    // Проверяем кэш при монтировании
+    useEffect(() => {
+      (async () => {
+        try {
+          const cache = await caches.open(CACHE_NAME);
+          const hit   = await cache.match(src);
+          if (hit) {
+            const blob = await hit.blob();
+            const url  = URL.createObjectURL(blob);
+            setBlobUrl(url);
+            setCached(true);
+          }
+        } catch {}
+      })();
+      return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
+    }, [src]);
+
+    // Когда blobUrl появился — ставим в audio
+    useEffect(() => {
+      const a = audioRef.current;
+      if (!a || !blobUrl) return;
+      const wasPlaying = !a.paused;
+      const t = a.currentTime;
+      a.src = blobUrl;
+      a.load();
+      a.currentTime = t;
+      if (wasPlaying) a.play().catch(() => {});
+    }, [blobUrl]);
 
     const fmt = (s: number) => {
       if (!isFinite(s) || isNaN(s)) return '0:00';
-      const m = Math.floor(s / 60);
-      const sec = Math.floor(s % 60);
-      return `${m}:${sec.toString().padStart(2, '0')}`;
+      return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
     };
 
     const toggle = () => {
@@ -222,6 +257,42 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
       setCurrent(Number(e.target.value));
     };
 
+    const cycleSpeed = () => {
+      const a = audioRef.current;
+      const next = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
+      setSpeed(next);
+      if (a) a.playbackRate = next;
+    };
+
+    // Скачать в кэш браузера через fetch со стримом прогресса
+    const cacheAudio = async () => {
+      if (cached || caching) return;
+      setCaching(true);
+      setCacheProgress(0);
+      try {
+        const resp = await fetch(src);
+        const total = Number(resp.headers.get('content-length') || 0);
+        const reader = resp.body!.getReader();
+        const chunks: Uint8Array[] = [];
+        let received = 0;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          received += value.length;
+          if (total) setCacheProgress(Math.round((received / total) * 100));
+        }
+        const blob    = new Blob(chunks, { type: 'audio/mpeg' });
+        const url     = URL.createObjectURL(blob);
+        // Сохраняем в Cache API
+        const cache   = await caches.open(CACHE_NAME);
+        await cache.put(src, new Response(blob, { headers: { 'Content-Type': 'audio/mpeg' } }));
+        setBlobUrl(url);
+        setCached(true);
+      } catch {}
+      setCaching(false);
+    };
+
     const pct = duration ? (current / duration) * 100 : 0;
 
     return (
@@ -235,6 +306,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
           onWaiting={() => setLoading(true)}
           onCanPlay={() => setLoading(false)} />
 
+        {/* Строка 1: Play + прогресс */}
         <div className="flex items-center gap-3">
           {/* Play / Pause */}
           <button onClick={toggle} disabled={loading}
@@ -256,7 +328,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             )}
           </button>
 
-          {/* Прогресс + время */}
+          {/* Прогресс + метаданные */}
           <div className="flex-1 min-w-0 space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-widest"
@@ -275,6 +347,60 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             </div>
           </div>
         </div>
+
+        {/* Строка 2: Скорость + Кэш */}
+        <div className="flex items-center justify-between mt-2.5 pt-2.5"
+          style={{ borderTop: `1px solid color-mix(in srgb, ${accentColor} 15%, transparent)` }}>
+
+          {/* Скорость воспроизведения */}
+          <button onClick={cycleSpeed}
+            className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg text-[11px] font-bold transition-all active:scale-95"
+            style={{ background: `color-mix(in srgb, ${accentColor} 12%, transparent)`, color: accentColor, border: `1px solid color-mix(in srgb, ${accentColor} 20%, transparent)` }}>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            {speed}×
+          </button>
+
+          {/* Кнопка кэширования */}
+          <button onClick={cacheAudio} disabled={cached || caching}
+            className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg text-[11px] font-bold transition-all active:scale-95"
+            style={cached
+              ? { background: `color-mix(in srgb, ${accentColor} 15%, transparent)`, color: accentColor, border: `1px solid color-mix(in srgb, ${accentColor} 25%, transparent)` }
+              : { background: 'color-mix(in srgb, var(--c-border) 50%, transparent)', color: 'var(--c-muted)', border: '1px solid var(--c-border)' }}>
+            {caching ? (
+              <>
+                <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
+                {cacheProgress > 0 ? `${cacheProgress}%` : '...'}
+              </>
+            ) : cached ? (
+              <>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
+                </svg>
+                В кэше
+              </>
+            ) : (
+              <>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                В кэш
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Прогресс-бар кэширования */}
+        {caching && (
+          <div className="mt-2 h-0.5 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
+            <div className="h-full rounded-full transition-all duration-200"
+              style={{ width: `${cacheProgress}%`, background: accentColor }} />
+          </div>
+        )}
       </div>
     );
   };
