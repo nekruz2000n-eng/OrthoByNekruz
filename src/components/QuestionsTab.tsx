@@ -337,8 +337,8 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     const pct = duration ? (current / duration) * 100 : 0;
 
     return (
-      <div className="mt-3 p-3 rounded-2xl"
-        style={{ background: `color-mix(in srgb, ${accentColor} 8%, var(--c-card))`, border: `1px solid color-mix(in srgb, ${accentColor} 25%, transparent)` }}>
+      <div className="mt-3 rounded-2xl overflow-hidden"
+        style={{ border: `1.5px solid color-mix(in srgb, ${accentColor} 30%, transparent)`, background: `color-mix(in srgb, ${accentColor} 6%, var(--c-card))` }}>
 
         <audio ref={audioRef} preload="metadata"
           onLoadedMetadata={handleLoaded}
@@ -349,101 +349,138 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
           <source src={blobUrl || src} type={getMime(src)} />
         </audio>
 
-        {/* Строка 1: Play + прогресс */}
-        <div className="flex items-center gap-2">
+        {/* Шапка плеера */}
+        <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-base">🎧</span>
+            <span className="text-[10px] font-black uppercase tracking-widest"
+              style={{ color: accentColor }}>NotebookLM</span>
+            {cached && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: `color-mix(in srgb, ${accentColor} 15%, transparent)`, color: accentColor }}>
+                ✓ кэш
+              </span>
+            )}
+          </div>
+          <span className="text-[11px] font-mono font-semibold tabular-nums"
+            style={{ color: 'var(--c-muted)' }}>
+            {fmt(current)} / {fmt(duration)}
+          </span>
+        </div>
 
-          {/* Play / Pause */}
+        {/* Прогресс-бар */}
+        <div className="px-3 pb-2">
+          <div className="relative h-2 rounded-full" style={{ background: 'var(--c-border)' }}>
+            <div className="absolute left-0 top-0 h-full rounded-full transition-all duration-100"
+              style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${accentColor}, color-mix(in srgb, ${accentColor} 70%, #fff))` }} />
+            {/* Ползунок-точка */}
+            {duration > 0 && (
+              <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full shadow-md pointer-events-none"
+                style={{ left: `calc(${pct}% - 6px)`, background: '#fff', border: `2px solid ${accentColor}` }} />
+            )}
+            <input type="range" min={0} max={duration || 100} step={0.5} value={current}
+              onChange={seek}
+              className="absolute inset-0 w-full opacity-0 h-full cursor-pointer"
+              style={{ touchAction: 'none' }} />
+          </div>
+        </div>
+
+        {/* Кнопки управления */}
+        <div className="flex items-center gap-2 px-3 pb-3">
+
+          {/* Play / Pause — большая центральная кнопка */}
           <button onClick={toggle} disabled={loading}
-            className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center transition-all active:scale-90"
-            style={{ background: accentColor, color: '#fff', opacity: loading ? 0.5 : 1 }}>
+            className="w-11 h-11 rounded-2xl flex-shrink-0 flex items-center justify-center transition-all active:scale-90 shadow-md"
+            style={{
+              background: loading ? 'var(--c-border)' : accentColor,
+              color: '#fff',
+              border: `1.5px solid color-mix(in srgb, ${accentColor} 60%, #000 40%)`,
+            }}>
             {loading ? (
-              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
               </svg>
             ) : playing ? (
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <rect x="6" y="4" width="4" height="16" rx="1.5"/><rect x="14" y="4" width="4" height="16" rx="1.5"/>
               </svg>
             ) : (
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5.14v14l11-7-11-7z"/>
               </svg>
             )}
           </button>
 
-          {/* Прогресс + метаданные */}
-          <div className="flex-1 min-w-0 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-widest"
-                style={{ color: accentColor }}>🎧 NotebookLM</span>
-              <span className="text-[10px] font-mono" style={{ color: 'var(--c-muted)' }}>
-                {fmt(current)} / {fmt(duration)}
-              </span>
-            </div>
-            <div className="relative h-1.5 rounded-full" style={{ background: 'var(--c-border)' }}>
-              <div className="absolute left-0 top-0 h-full rounded-full transition-all duration-100"
-                style={{ width: `${pct}%`, background: accentColor }} />
-              <input type="range" min={0} max={duration || 100} step={0.5} value={current}
-                onChange={seek}
-                className="absolute inset-0 w-full opacity-0 h-full cursor-pointer"
-                style={{ touchAction: 'none' }} />
-            </div>
-          </div>
-        </div>
-
-        {/* Строка 2: Скорость + −10с + +10с + Кэш */}
-        <div className="flex items-center gap-1.5 mt-2.5 pt-2.5"
-          style={{ borderTop: `1px solid color-mix(in srgb, ${accentColor} 15%, transparent)` }}>
-
-          {/* Скорость */}
-          <button onClick={cycleSpeed}
-            className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-[11px] font-bold transition-all active:scale-95 flex-shrink-0"
-            style={{ background: `color-mix(in srgb, ${accentColor} 12%, transparent)`, color: accentColor, border: `1px solid color-mix(in srgb, ${accentColor} 20%, transparent)` }}>
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            </svg>
-            {speed}×
-          </button>
-
           {/* −10с */}
           <button onClick={() => skip(-10)} disabled={loading}
-            className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-[11px] font-bold transition-all active:scale-95 flex-1"
-            style={{ background: 'color-mix(in srgb, var(--c-border) 40%, transparent)', color: loading ? 'var(--c-border)' : 'var(--c-muted)', border: '1px solid var(--c-border)' }}>
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/>
+            className="flex-1 h-11 rounded-2xl flex items-center justify-center gap-1.5 text-[11px] font-bold transition-all active:scale-95"
+            style={{
+              background: 'var(--c-card)',
+              color: loading ? 'var(--c-border)' : 'var(--c-text)',
+              border: '1.5px solid var(--c-border)',
+            }}>
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.85"/>
             </svg>
-            −10с
+            10с
           </button>
 
           {/* +10с */}
           <button onClick={() => skip(10)} disabled={loading}
-            className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-[11px] font-bold transition-all active:scale-95 flex-1"
-            style={{ background: 'color-mix(in srgb, var(--c-border) 40%, transparent)', color: loading ? 'var(--c-border)' : 'var(--c-muted)', border: '1px solid var(--c-border)' }}>
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M11.5 8c2.65 0 5.05.99 6.9 2.6L22 7v9h-9l3.62-3.62C15.13 11.22 13.36 10.5 11.4 10.5c-3.54 0-6.55 2.31-7.6 5.5l-2.37-.78C2.92 11.03 6.85 8 11.5 8z"/>
+            className="flex-1 h-11 rounded-2xl flex items-center justify-center gap-1.5 text-[11px] font-bold transition-all active:scale-95"
+            style={{
+              background: 'var(--c-card)',
+              color: loading ? 'var(--c-border)' : 'var(--c-text)',
+              border: '1.5px solid var(--c-border)',
+            }}>
+            10с
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-3.85"/>
             </svg>
-            +10с
           </button>
 
-          {/* В кэш */}
+          {/* Скорость */}
+          <button onClick={cycleSpeed}
+            className="h-11 px-3 rounded-2xl flex items-center justify-center gap-1 text-[12px] font-black transition-all active:scale-95 flex-shrink-0"
+            style={{
+              background: `color-mix(in srgb, ${accentColor} 12%, var(--c-card))`,
+              color: accentColor,
+              border: `1.5px solid color-mix(in srgb, ${accentColor} 35%, transparent)`,
+              minWidth: '52px',
+            }}>
+            {speed}×
+          </button>
+
+          {/* Кэш */}
           <button onClick={cacheAudio} disabled={cached || caching}
-            className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-[11px] font-bold transition-all active:scale-95 flex-shrink-0"
+            className="h-11 px-3 rounded-2xl flex items-center justify-center gap-1.5 text-[11px] font-bold transition-all active:scale-95 flex-shrink-0"
             style={cached
-              ? { background: `color-mix(in srgb, ${accentColor} 15%, transparent)`, color: accentColor, border: `1px solid color-mix(in srgb, ${accentColor} 25%, transparent)` }
-              : { background: 'color-mix(in srgb, var(--c-border) 50%, transparent)', color: 'var(--c-muted)', border: '1px solid var(--c-border)' }}>
+              ? { background: `color-mix(in srgb, ${accentColor} 12%, var(--c-card))`, color: accentColor, border: `1.5px solid color-mix(in srgb, ${accentColor} 35%, transparent)` }
+              : { background: 'var(--c-card)', color: 'var(--c-muted)', border: '1.5px solid var(--c-border)' }}>
             {caching ? (
-              <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>{cacheProgress > 0 ? `${cacheProgress}%` : '...'}</>
+              <>
+                <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
+                {cacheProgress > 0 ? `${cacheProgress}%` : '…'}
+              </>
             ) : cached ? (
-              <><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>Кэш</>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
+              </svg>
             ) : (
-              <><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>Кэш</>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
             )}
           </button>
         </div>
 
+        {/* Прогресс кэширования */}
         {caching && (
-          <div className="mt-2 h-0.5 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
+          <div className="h-0.5 mx-3 mb-3 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
             <div className="h-full rounded-full transition-all duration-200"
               style={{ width: `${cacheProgress}%`, background: accentColor }} />
           </div>
