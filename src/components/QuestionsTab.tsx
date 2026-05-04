@@ -470,11 +470,9 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   className="img-protected-wrapper mb-2 rounded-xl overflow-hidden cursor-pointer relative"
   style={{ border: '1px solid var(--c-border)' }}
   onClick={e => { e.stopPropagation(); setZoomedImage(img); }}
-  onTouchStart={e => e.preventDefault()}
-  onContextMenu={e => e.preventDefault()}>
-  <img src={img} alt="" className="w-full h-auto object-contain max-h-32"
-    loading="lazy" draggable={false} />
-  <div className="absolute inset-0" />
+  onContextMenu={e => e.preventDefault()}
+  onTouchStart={e => { e.stopPropagation(); }}>
+  <img src={img} alt="" className="w-full h-auto object-contain max-h-32" loading="lazy" draggable={false} />
 </div>
             ))}
             <p className="text-sm" style={{ color: 'var(--c-text)' }}>{activeTermDef}</p>
@@ -484,42 +482,53 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
       })()}
 
       {/* ── ЗOOM ИЗОБРАЖЕНИЯ ──────────────────────── */}
-      {zoomedImage && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center"
-          style={{ background: 'hsl(0 0% 0% / 0.92)', backdropFilter: 'blur(8px)' }}
-          onClick={() => { setZoomedImage(null); setScale(1); setTranslate({ x: 0, y: 0 }); }}
-          onWheel={e => { e.preventDefault(); setScale(p => Math.min(5, Math.max(1, p + (e.deltaY > 0 ? -0.2 : 0.2)))); }}
-          onTouchStart={e => {
-            if (e.touches.length === 2) { const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; (e.currentTarget as any).__ps = { dist: Math.hypot(dx, dy), scale, translate, cx: (e.touches[0].clientX + e.touches[1].clientX) / 2, cy: (e.touches[0].clientY + e.touches[1].clientY) / 2 }; }
-            else if (e.touches.length === 1) (e.currentTarget as any).__pan = { x: e.touches[0].clientX, y: e.touches[0].clientY, translate };
-          }}
-          onTouchMove={e => {
-            if (e.touches.length === 2 && (e.currentTarget as any).__ps) { const ps = (e.currentTarget as any).__ps; const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; const ns = Math.min(5, Math.max(1, ps.scale * Math.hypot(dx, dy) / ps.dist)); const r = ns / ps.scale; setScale(ns); setTranslate({ x: ps.translate.x + (ps.cx - ps.translate.x) * (1 - r), y: ps.translate.y + (ps.cy - ps.translate.y) * (1 - r) }); }
-            else if (e.touches.length === 1 && (e.currentTarget as any).__pan && scale > 1) { const p = (e.currentTarget as any).__pan; setTranslate({ x: p.translate.x + e.touches[0].clientX - p.x, y: p.translate.y + e.touches[0].clientY - p.y }); }
-          }}
-          onTouchEnd={e => { delete (e.currentTarget as any).__ps; delete (e.currentTarget as any).__pan; }}>
-          <button onClick={e => { e.stopPropagation(); setZoomedImage(null); setScale(1); setTranslate({ x: 0, y: 0 }); }}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center z-10"
-            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
-            <X className="w-5 h-5" />
-          </button>
-          <div
-  className="img-protected-wrapper flex items-center justify-center max-w-full max-h-full"
-  onClick={e => e.stopPropagation()}
-  onDoubleClick={() => { setScale(1); setTranslate({ x: 0, y: 0 }); }}
-  onContextMenu={e => e.preventDefault()}>
-  <img
-    src={zoomedImage}
-    alt=""
-    className="max-w-full max-h-full object-contain rounded-2xl select-none"
-    style={{ transform: `translate(${translate.x}px,${translate.y}px) scale(${scale})`, transition: 'transform .15s ease-out', touchAction: 'none' }}
-    draggable={false}
-  />
-  {/* Прозрачный оверлей — блокирует нативное iOS-меню */}
-  <div className="absolute inset-0" style={{ WebkitTouchCallout: 'none' }} />
-</div>
-        </div>
-      )}
+      {/* ── ЗOOM ИЗОБРАЖЕНИЯ ──────────────────────── */}
+{zoomedImage && (
+  <div
+    className="fixed inset-0 z-[200] flex items-center justify-center"
+    style={{ background: 'hsl(0 0% 0% / 0.92)', backdropFilter: 'blur(8px)' }}
+    onClick={() => { setZoomedImage(null); setScale(1); setTranslate({ x: 0, y: 0 }); }}
+    onWheel={e => { e.preventDefault(); setScale(p => Math.min(5, Math.max(1, p + (e.deltaY > 0 ? -0.2 : 0.2)))); }}
+    onTouchStart={e => {
+      if (e.touches.length === 2) { const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; (e.currentTarget as any).__ps = { dist: Math.hypot(dx, dy), scale, translate, cx: (e.touches[0].clientX + e.touches[1].clientX) / 2, cy: (e.touches[0].clientY + e.touches[1].clientY) / 2 }; }
+      else if (e.touches.length === 1) (e.currentTarget as any).__pan = { x: e.touches[0].clientX, y: e.touches[0].clientY, translate };
+    }}
+    onTouchMove={e => {
+      if (e.touches.length === 2 && (e.currentTarget as any).__ps) { const ps = (e.currentTarget as any).__ps; const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; const ns = Math.min(5, Math.max(1, ps.scale * Math.hypot(dx, dy) / ps.dist)); const r = ns / ps.scale; setScale(ns); setTranslate({ x: ps.translate.x + (ps.cx - ps.translate.x) * (1 - r), y: ps.translate.y + (ps.cy - ps.translate.y) * (1 - r) }); }
+      else if (e.touches.length === 1 && (e.currentTarget as any).__pan && scale > 1) { const p = (e.currentTarget as any).__pan; setTranslate({ x: p.translate.x + e.touches[0].clientX - p.x, y: p.translate.y + e.touches[0].clientY - p.y }); }
+    }}
+    onTouchEnd={e => { delete (e.currentTarget as any).__ps; delete (e.currentTarget as any).__pan; }}>
+
+    {/* Картинка */}
+    <div
+      className="img-protected-wrapper flex items-center justify-center max-w-full max-h-full"
+      onClick={e => e.stopPropagation()}
+      onDoubleClick={() => { setScale(1); setTranslate({ x: 0, y: 0 }); }}
+      onContextMenu={e => e.preventDefault()}
+      onTouchStart={e => e.stopPropagation()}>
+      <img
+        src={zoomedImage}
+        alt=""
+        className="max-w-full max-h-full object-contain rounded-2xl select-none"
+        style={{ transform: `translate(${translate.x}px,${translate.y}px) scale(${scale})`, transition: 'transform .15s ease-out', touchAction: 'none' }}
+        draggable={false}
+      />
+    </div>
+
+    {/* Кнопка закрыть — снизу по центру, всегда видна */}
+    <div
+      className="fixed left-0 right-0 flex justify-center z-[201]"
+      style={{ bottom: 'calc(var(--nav-bottom, 12px) + 16px)' }}
+      onClick={e => e.stopPropagation()}>
+      <button
+        onClick={() => { setZoomedImage(null); setScale(1); setTranslate({ x: 0, y: 0 }); }}
+        className="flex items-center gap-2 px-6 h-11 rounded-full text-sm font-semibold transition-all active:scale-95 shadow-2xl"
+        style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)' }}>
+        <X className="w-4 h-4" /> Закрыть
+      </button>
+    </div>
+  </div>
+)}
     </div>
   );
 };
