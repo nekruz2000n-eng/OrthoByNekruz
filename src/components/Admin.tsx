@@ -1,18 +1,17 @@
 "use client";
-// src/app/admin/page.tsx
 
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
-// ─── ТИПЫ ─────────────────────────────────────────────────────────────────
 interface User {
   tgId:          string;
-  username?:     string | null;
-  firstName?:    string | null;
-  lastName?:     string | null;
+  username:      string | null;
+  firstName:     string | null;
+  lastName:      string | null;
   blocked:       boolean;
   blockedReason: string | null;
   blockedAt:     string | null;
   hasMicro:      boolean;
+  usedDemo:      boolean;
   activatedKey:  string | null;
   registeredAt:  string | null;
   opensToday:    number;
@@ -20,9 +19,9 @@ interface User {
   suspicious:    boolean;
 }
 
-type Filter = 'all' | 'blocked' | 'suspicious';
+type Filter = 'all' | 'blocked' | 'suspicious' | 'demo';
+type Action = 'block' | 'unblock' | 'give_micro' | 'revoke_micro' | 'reset_demo';
 
-// ─── УТИЛИТЫ ──────────────────────────────────────────────────────────────
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -30,19 +29,212 @@ function fmtDate(iso: string | null): string {
     + ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
 
-function daysSince(iso: string | null): number {
-  if (!iso) return 0;
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+function displayName(u: User): string {
+  const parts = [u.firstName, u.lastName].filter(Boolean).join(' ');
+  if (parts) return parts;
+  if (u.username) return `@${u.username}`;
+  return u.tgId;
 }
 
-// Слегка расширили первую колонку (180px), чтобы влезли длинные имена
-const ROW_GRID_STYLE = {
-  display: 'grid',
-  gridTemplateColumns: '180px 90px 105px 65px 55px 110px 1fr 180px',
-  gap: 8,
-};
+// ── Кнопка действия ───────────────────────────────────────────────────────────
+function ActionBtn({
+  onClick, disabled, children, color,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  children: React.ReactNode;
+  color: 'red' | 'green' | 'blue' | 'yellow' | 'gray';
+}) {
+  const palette: Record<string, { bg: string; text: string; border: string }> = {
+    red:    { bg: '#3f1515', text: '#f87171', border: '#6b2020' },
+    green:  { bg: '#0d2e1e', text: '#34d399', border: '#1a4a30' },
+    blue:   { bg: '#1a3060', text: '#93c5fd', border: '#2a4a8a' },
+    yellow: { bg: '#3d2a00', text: '#fbbf24', border: '#5a3d00' },
+    gray:   { bg: '#222',    text: '#888',    border: '#333'    },
+  };
+  const p = palette[color];
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        padding: '8px 14px',
+        borderRadius: 8,
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: disabled ? 'default' : 'pointer',
+        background: disabled ? '#1a1a1a' : p.bg,
+        color: disabled ? '#444' : p.text,
+        border: `1px solid ${disabled ? '#2a2a2a' : p.border}`,
+        whiteSpace: 'nowrap',
+        transition: 'opacity 0.15s',
+        opacity: disabled ? 0.5 : 1,
+        minHeight: 36,
+        flex: '0 0 auto',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
-// ─── ГЛАВНЫЙ КОМПОНЕНТ ────────────────────────────────────────────────────
+// ── Карточка пользователя ─────────────────────────────────────────────────────
+function UserCard({
+  user,
+  actioning,
+  onAction,
+}: {
+  user: User;
+  actioning: string | null;
+  onAction: (tgId: string, action: Action) => void;
+}) {
+  const busy = actioning === user.tgId;
+  const name = displayName(user);
+  const isDemo = user.activatedKey === 'trial' || (!user.activatedKey && user.usedDemo);
+
+  const borderColor = user.blocked
+    ? 'rgba(239,68,68,0.35)'
+    : user.suspicious
+    ? 'rgba(245,158,11,0.3)'
+    : '#252525';
+
+  const bgColor = user.blocked
+    ? 'rgba(239,68,68,0.06)'
+    : user.suspicious
+    ? 'rgba(245,158,11,0.04)'
+    : '#1a1a1a';
+
+  return (
+    <div style={{
+      background: bgColor,
+      border: `1px solid ${borderColor}`,
+      borderRadius: 14,
+      padding: '14px 16px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10,
+    }}>
+      {/* ── Строка 1: имя + статус ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 15, fontWeight: 600, color: '#e5e5e5',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {name !== user.tgId && name}
+          </div>
+          <div style={{ fontSize: 12, color: '#555', fontFamily: 'monospace', marginTop: 1 }}>
+            {user.tgId}
+            {user.username && name !== `@${user.username}` && (
+              <span style={{ color: '#444', marginLeft: 6 }}>@{user.username}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Статус-бейдж */}
+        <div>
+          {user.blocked ? (
+            <span style={{ background: '#3f1515', color: '#f87171', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>
+              🚫 БЛОК
+            </span>
+          ) : user.suspicious ? (
+            <span style={{ background: '#3d2a00', color: '#fbbf24', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>
+              ⚠ ПОДОЗР
+            </span>
+          ) : (
+            <span style={{ background: '#0d2e1e', color: '#34d399', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>
+              ✓ ОК
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Строка 2: чипы доступа ── */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {/* Ортопедия */}
+        {user.activatedKey && user.activatedKey !== 'trial' ? (
+          <span style={{ background: '#1e3a5f', color: '#7dd3fc', borderRadius: 5, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
+            🦷 ортопедия
+          </span>
+        ) : isDemo ? (
+          <span style={{ background: '#2a1f00', color: '#f59e0b', borderRadius: 5, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
+            🕐 триал
+          </span>
+        ) : (
+          <span style={{ background: '#1f1f1f', color: '#444', borderRadius: 5, padding: '3px 8px', fontSize: 11 }}>
+            без ключа
+          </span>
+        )}
+
+        {/* Микробиология */}
+        {user.hasMicro && (
+          <span style={{ background: '#14312b', color: '#6ee7b7', borderRadius: 5, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
+            🧫 микро
+          </span>
+        )}
+
+        {/* Демо */}
+        {user.usedDemo && (
+          <span style={{ background: '#1a1030', color: '#a78bfa', borderRadius: 5, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
+            👁 демо исп.
+          </span>
+        )}
+      </div>
+
+      {/* ── Строка 3: мета-инфо ── */}
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: '#555' }}>
+        <span>📅 {fmtDate(user.registeredAt)}</span>
+        <span style={{ color: user.opensToday >= 5 ? '#f87171' : user.opensToday >= 3 ? '#fbbf24' : '#555' }}>
+          👁 {user.opensToday} откр.
+        </span>
+        {user.fpChanges > 0 && (
+          <span style={{ color: user.fpChanges >= 3 ? '#f87171' : '#fbbf24' }}>
+            🔁 {user.fpChanges} FP
+          </span>
+        )}
+        {user.blocked && user.blockedAt && (
+          <span style={{ color: '#f87171' }}>
+            🔒 {fmtDate(user.blockedAt)}
+          </span>
+        )}
+      </div>
+
+      {/* ── Строка 4: кнопки действий ── */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {/* Блок / Разблок */}
+        {user.blocked ? (
+          <ActionBtn color="green" disabled={busy} onClick={() => onAction(user.tgId, 'unblock')}>
+            {busy ? '...' : '✓ Разблокировать'}
+          </ActionBtn>
+        ) : (
+          <ActionBtn color="red" disabled={busy} onClick={() => onAction(user.tgId, 'block')}>
+            {busy ? '...' : '🚫 Заблокировать'}
+          </ActionBtn>
+        )}
+
+        {/* Micro */}
+        {user.hasMicro ? (
+          <ActionBtn color="gray" disabled={busy} onClick={() => onAction(user.tgId, 'revoke_micro')}>
+            {busy ? '...' : '✕ Откл. микро'}
+          </ActionBtn>
+        ) : (
+          <ActionBtn color="blue" disabled={busy} onClick={() => onAction(user.tgId, 'give_micro')}>
+            {busy ? '...' : '+ Дать микро'}
+          </ActionBtn>
+        )}
+
+        {/* Демо-сброс */}
+        {user.usedDemo && (
+          <ActionBtn color="yellow" disabled={busy} onClick={() => onAction(user.tgId, 'reset_demo')}>
+            {busy ? '...' : '🔄 Дать демо снова'}
+          </ActionBtn>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Главный компонент ─────────────────────────────────────────────────────────
 export default function AdminPage() {
   const [secret,    setSecret]    = useState('');
   const [authed,    setAuthed]    = useState(false);
@@ -51,371 +243,383 @@ export default function AdminPage() {
   const [filter,    setFilter]    = useState<Filter>('all');
   const [search,    setSearch]    = useState('');
   const [error,     setError]     = useState('');
+  const [total,     setTotal]     = useState(0);
+  const [demoCount, setDemoCount] = useState(0);
   const [actioning, setActioning] = useState<string | null>(null);
-  const [expanded,  setExpanded]  = useState<string | null>(null);
-  const [toast,     setToast]     = useState('');
-  
-  // Ref для таймера уведомлений
-  const toastTimer = useRef<NodeJS.Timeout | null>(null);
+  const [toast,     setToast]     = useState<string | null>(null);
 
-  const showToast = useCallback((msg: string) => {
+  const showToast = (msg: string) => {
     setToast(msg);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(''), 3000);
-  }, []);
+    setTimeout(() => setToast(null), 2500);
+  };
 
   const fetchUsers = useCallback(async (s: string) => {
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
     try {
       const r = await fetch(`/api/admin-users?secret=${encodeURIComponent(s)}`);
       if (r.status === 401) { setError('Неверный пароль'); setAuthed(false); return; }
-      if (!r.ok)            { setError('Ошибка сервера'); return; }
+      if (!r.ok) { setError('Ошибка сервера'); return; }
       const data = await r.json();
       setUsers(data.users ?? []);
+      setTotal(data.total ?? 0);
+      setDemoCount(data.demoCount ?? 0);
       setAuthed(true);
-    } catch { 
-      setError('Ошибка соединения'); 
-    } finally { 
-      setLoading(false); 
+    } catch {
+      setError('Ошибка соединения');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  const doAction = async (tgId: string, action: 'block' | 'unblock' | 'give_micro' | 'revoke_micro') => {
-    setActioning(tgId);
-    try {
-      const r = await fetch(`/api/admin-users?secret=${encodeURIComponent(secret)}&action=${action}&tgId=${tgId}`);
-      if (r.ok) {
-        setUsers(prev => prev.map(u => {
-          if (u.tgId !== tgId) return u;
-          if (action === 'block')       return { ...u, blocked: true,  blockedReason: 'manual', blockedAt: new Date().toISOString() };
-          if (action === 'unblock')     return { ...u, blocked: false, blockedReason: null, blockedAt: null };
-          if (action === 'give_micro')  return { ...u, hasMicro: true };
-          if (action === 'revoke_micro') return { ...u, hasMicro: false };
-          return u;
-        }));
-        showToast(
-          action === 'block'        ? `✕ ${tgId} заблокирован` :
-          action === 'unblock'      ? `✓ ${tgId} разблокирован` :
-          action === 'give_micro'   ? `✓ ${tgId} получил Micro` :
-                                      `✕ ${tgId} — Micro отозван`
-        );
-      }
-    } finally { setActioning(null); }
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (secret) fetchUsers(secret);
   };
 
-  const copyId = useCallback((id: string) => {
-    navigator.clipboard.writeText(id);
-    showToast(`Скопировано: ${id}`);
-  }, [showToast]);
+  const doAction = async (tgId: string, action: Action) => {
+    setActioning(tgId);
+    try {
+      const r = await fetch(
+        `/api/admin-users?secret=${encodeURIComponent(secret)}&action=${action}&tgId=${tgId}`
+      );
+      if (!r.ok) { showToast('Ошибка действия'); return; }
 
-  // ─── ОПТИМИЗАЦИЯ И СМАРТ-ПОИСК ──────────────────────────────────────────
-  const visibleUsers = useMemo(() => {
+      // Оптимистичное обновление стейта
+      setUsers(prev => prev.map(u => {
+        if (u.tgId !== tgId) return u;
+        switch (action) {
+          case 'block':
+            return { ...u, blocked: true, blockedReason: 'manual', blockedAt: new Date().toISOString() };
+          case 'unblock':
+            return { ...u, blocked: false, blockedReason: null, blockedAt: null, opensToday: 0, suspicious: u.fpChanges >= 2 };
+          case 'give_micro':
+            return { ...u, hasMicro: true };
+          case 'revoke_micro':
+            return { ...u, hasMicro: false };
+          case 'reset_demo':
+            return { ...u, usedDemo: false };
+          default:
+            return u;
+        }
+      }));
+
+      // Обновляем счётчик демо
+      if (action === 'reset_demo') {
+        setDemoCount(c => Math.max(0, c - 1));
+        showToast('✓ Демо-доступ выдан повторно');
+      } else if (action === 'block') {
+        showToast('🚫 Пользователь заблокирован');
+      } else if (action === 'unblock') {
+        showToast('✓ Пользователь разблокирован');
+      } else if (action === 'give_micro') {
+        showToast('✓ Микро-доступ выдан');
+      } else if (action === 'revoke_micro') {
+        showToast('Микро-доступ отозван');
+      }
+    } finally {
+      setActioning(null);
+    }
+  };
+
+  const blockedCount    = useMemo(() => users.filter(u => u.blocked).length, [users]);
+  const suspiciousCount = useMemo(() => users.filter(u => u.suspicious && !u.blocked).length, [users]);
+  const microCount      = useMemo(() => users.filter(u => u.hasMicro).length, [users]);
+
+  const visible = useMemo(() => {
     return users.filter(u => {
       if (filter === 'blocked'    && !u.blocked)                   return false;
       if (filter === 'suspicious' && !u.suspicious && !u.blocked)  return false;
-      
-      if (search) {
-        const q = search.toLowerCase();
-        const matchId = u.tgId.includes(q);
-        const matchUser = u.username?.toLowerCase().includes(q);
-        const matchName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase().includes(q);
-        
-        // Если не совпадает ни ID, ни юзернейм, ни имя — прячем
-        if (!matchId && !matchUser && !matchName) return false;
+      if (filter === 'demo'       && !u.usedDemo)                  return false;
+      const q = search.trim().toLowerCase();
+      if (q) {
+        const hay = [u.tgId, u.username, u.firstName, u.lastName]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
       }
       return true;
     });
   }, [users, filter, search]);
 
-  const stats = useMemo(() => {
-    return {
-      total: users.length,
-      blocked: users.filter(u => u.blocked).length,
-      suspicious: users.filter(u => u.suspicious && !u.blocked).length,
-      withMicro: users.filter(u => u.hasMicro).length,
-      activeToday: users.filter(u => u.opensToday > 0).length,
-    };
-  }, [users]);
-
-  // ─── РЕНДЕР ЭКРАНОВ ───────────────────────────────────────────────────────
+  // ── Экран входа ────────────────────────────────────────────────────────────
   if (!authed) {
-    return <LoginScreen secret={secret} setSecret={setSecret} onLogin={() => fetchUsers(secret)} loading={loading} error={error} />;
+    return (
+      <div style={{
+        minHeight: '100dvh', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', background: '#0a0a0a',
+        fontFamily: "'SF Pro Display', -apple-system, system-ui, sans-serif",
+        padding: '20px',
+      }}>
+        <div style={{
+          background: '#141414', border: '1px solid #252525',
+          borderRadius: 20, padding: '40px 32px', width: '100%', maxWidth: 360,
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>🦷</div>
+            <div style={{ color: '#fff', fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px' }}>
+              OrthoByNekruz
+            </div>
+            <div style={{ color: '#444', fontSize: 13, marginTop: 4 }}>Admin Panel</div>
+          </div>
+
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <input
+              type="password"
+              placeholder="Введите ADMIN_SECRET"
+              value={secret}
+              onChange={e => setSecret(e.target.value)}
+              autoComplete="current-password"
+              style={{
+                width: '100%', padding: '14px 16px', borderRadius: 12,
+                border: '1px solid #2a2a2a', background: '#0f0f0f', color: '#fff',
+                fontSize: 16, outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+            {error && (
+              <div style={{
+                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                borderRadius: 8, padding: '10px 14px',
+                color: '#f87171', fontSize: 14, textAlign: 'center',
+              }}>
+                {error}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={loading || !secret}
+              style={{
+                padding: '14px', borderRadius: 12,
+                background: loading || !secret ? '#1e1e1e' : '#2563eb',
+                color: loading || !secret ? '#444' : '#fff',
+                border: 'none', fontSize: 16, fontWeight: 700,
+                cursor: loading || !secret ? 'default' : 'pointer',
+                minHeight: 48,
+              }}
+            >
+              {loading ? 'Вход...' : 'Войти'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
   }
 
+  // ── Основная панель ────────────────────────────────────────────────────────
+  const TABS: { id: Filter; label: string; count: number; color: string }[] = [
+    { id: 'all',        label: 'Все',       count: total,          color: '#3b82f6' },
+    { id: 'blocked',    label: '🚫 Блок',  count: blockedCount,   color: '#ef4444' },
+    { id: 'suspicious', label: '⚠ Подозр', count: suspiciousCount, color: '#f59e0b' },
+    { id: 'demo',       label: '👁 Демо',  count: demoCount,      color: '#a78bfa' },
+  ];
+
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0a0a0a', fontFamily: 'system-ui,sans-serif', color: '#e5e5e5', overflow: 'hidden' }}>
-      
-      {/* Уведомления */}
+    <div style={{
+      minHeight: '100dvh', background: '#0a0a0a',
+      fontFamily: "'SF Pro Display', -apple-system, system-ui, sans-serif",
+      color: '#e5e5e5',
+    }}>
+      {/* Toast уведомление */}
       {toast && (
-        <div style={{ position: 'fixed', bottom: 24, right: 24, background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, padding: '12px 20px', fontSize: 14, zIndex: 999, boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
+        <div style={{
+          position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
+          background: '#1a1a1a', border: '1px solid #333',
+          borderRadius: 10, padding: '10px 20px',
+          color: '#e5e5e5', fontSize: 14, fontWeight: 500,
+          zIndex: 1000, whiteSpace: 'nowrap',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+        }}>
           {toast}
         </div>
       )}
 
-      {/* Header */}
-      <div style={{ flexShrink: 0, background: '#111', borderBottom: '1px solid #1f1f1f', padding: '14px 28px', display: 'flex', alignItems: 'center', gap: 14 }}>
+      {/* ── Шапка ────────────────────────────────────────────────────────── */}
+      <div style={{
+        background: '#111', borderBottom: '1px solid #1e1e1e',
+        padding: '12px 16px',
+        display: 'flex', alignItems: 'center', gap: 12,
+        position: 'sticky', top: 0, zIndex: 100,
+      }}>
         <span style={{ fontSize: 22 }}>🦷</span>
-        <div>
-          <span style={{ fontWeight: 700, fontSize: 16 }}>OrthoByNekruz</span>
-          <span style={{ color: '#444', fontSize: 12, marginLeft: 10 }}>Admin Panel</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 16, lineHeight: 1.2 }}>OrthoByNekruz</div>
+          <div style={{ color: '#444', fontSize: 11 }}>Admin Panel</div>
         </div>
-        <div style={{ marginLeft: 'auto' }}>
-          <button onClick={() => fetchUsers(secret)} disabled={loading} style={{ padding: '8px 16px', borderRadius: 8, background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#888', cursor: 'pointer', fontSize: 13 }}>
-            {loading ? '...' : '↻ Обновить'}
-          </button>
-        </div>
+        <button
+          onClick={() => fetchUsers(secret)}
+          disabled={loading}
+          style={{
+            padding: '8px 14px', borderRadius: 8,
+            background: '#1a1a1a', border: '1px solid #2a2a2a',
+            color: loading ? '#444' : '#888', cursor: loading ? 'default' : 'pointer',
+            fontSize: 13, minHeight: 36,
+          }}
+        >
+          {loading ? '⏳' : '↻ Обновить'}
+        </button>
       </div>
 
-      {/* Контентная часть */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '24px 28px', maxWidth: 1300, margin: '0 auto', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
-        
-        <StatsBoard stats={stats} />
+      <div style={{ padding: '16px', maxWidth: 700, margin: '0 auto' }}>
 
-        {/* Фильтры + поиск */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexShrink: 0 }}>
-          {(['all', 'blocked', 'suspicious'] as Filter[]).map((f) => {
-            const label = f === 'all' ? `Все (${stats.total})` : f === 'blocked' ? `Заблок. (${stats.blocked})` : `Подозрит. (${stats.suspicious})`;
-            const isActive = filter === f;
-            return (
-              <button key={f} onClick={() => setFilter(f)} style={{
-                padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                border: `1px solid ${isActive ? '#3b82f6' : '#1f1f1f'}`,
-                background: isActive ? '#1d3a6a' : '#141414',
-                color: isActive ? '#93c5fd' : '#555',
-              }}>{label}</button>
-            );
-          })}
-          
-          <div style={{ marginLeft: 'auto', position: 'relative' }}>
-            <input 
-              placeholder="🔍  Поиск по ID, @user или имени..." 
-              value={search} 
-              onChange={e => setSearch(e.target.value)}
-              style={{ padding: '8px 30px 8px 14px', borderRadius: 8, border: '1px solid #1f1f1f', background: '#111', color: '#ddd', fontSize: 13, outline: 'none', width: 260 }} 
-            />
-            {search && (
-              <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: '#888', cursor: 'pointer' }}>
-                ✕
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Таблица с идеальным скроллом */}
-        <div style={{ flex: 1, background: '#141414', border: '1px solid #1f1f1f', borderRadius: 12, overflowY: 'auto', minHeight: 0 }}>
-          
-          {/* Липкая Шапка */}
-          <div style={{ ...ROW_GRID_STYLE, padding: '11px 20px', borderBottom: '1px solid #1f1f1f', color: '#333', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', position: 'sticky', top: 0, background: '#141414', zIndex: 10 }}>
-            <span>ПОЛЬЗОВАТЕЛЬ</span><span>Статус</span><span>Регистрация</span>
-            <span>Откр.</span><span>FP</span><span>Доступ</span>
-            <span>Инфо</span><span style={{ textAlign: 'right' }}>Действия</span>
-          </div>
-
-          {loading && <div style={{ textAlign: 'center', color: '#333', padding: 60, fontSize: 14 }}>Загрузка...</div>}
-          {!loading && visibleUsers.length === 0 && <div style={{ textAlign: 'center', color: '#333', padding: 60, fontSize: 14 }}>Пользователи не найдены</div>}
-
-          {/* Список */}
-          <div style={{ paddingBottom: '16px' }}>
-            {visibleUsers.map((u, i) => (
-              <UserRow key={u.tgId} u={u} i={i} totalLength={visibleUsers.length} expanded={expanded} setExpanded={setExpanded} actioning={actioning} doAction={doAction} copyId={copyId} />
-            ))}
-          </div>
-        </div>
-
-        {/* Подвал (Легенда) */}
-        <div style={{ marginTop: 20, padding: '14px 18px', background: '#111', border: '1px solid #1a1a1a', borderRadius: 10, display: 'flex', gap: 24, flexWrap: 'wrap', flexShrink: 0 }}>
+        {/* ── Плитки статистики ─────────────────────────────────────────── */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr',
+          gap: 10, marginBottom: 16,
+        }}>
           {[
-            ['Откр.', 'Сколько раз открыл приложение сегодня. ≥5 = подозрительно'],
-            ['FP',    'Смены устройства (device fingerprint). ≥2 = возможный шаринг'],
-            ['⋯',    'Раскрыть подробную карточку пользователя'],
-          ].map(([key, desc]) => (
-            <div key={key} style={{ fontSize: 12 }}>
-              <span style={{ color: '#555', fontWeight: 600 }}>{key}</span>
-              <span style={{ color: '#333', marginLeft: 6 }}>{desc}</span>
+            { label: 'Пользователей', value: total,          color: '#3b82f6', icon: '👤' },
+            { label: 'Заблокировано', value: blockedCount,   color: '#ef4444', icon: '🚫' },
+            { label: 'Подозрительных', value: suspiciousCount, color: '#f59e0b', icon: '⚠️' },
+            { label: 'С Микро',        value: microCount,    color: '#10b981', icon: '🧫' },
+          ].map(s => (
+            <div key={s.label} style={{
+              background: '#141414', border: '1px solid #1e1e1e',
+              borderRadius: 12, padding: '14px 16px',
+              display: 'flex', alignItems: 'center', gap: 12,
+            }}>
+              <div style={{ fontSize: 22 }}>{s.icon}</div>
+              <div>
+                <div style={{ color: s.color, fontSize: 26, fontWeight: 700, lineHeight: 1 }}>
+                  {s.value}
+                </div>
+                <div style={{ color: '#444', fontSize: 11, marginTop: 3 }}>{s.label}</div>
+              </div>
             </div>
           ))}
         </div>
-      </div>
-    </div>
-  );
-}
 
-// ─── ВЫДЕЛЕННЫЕ КОМПОНЕНТЫ ────────────────────────────────────────────────
-
-function LoginScreen({ secret, setSecret, onLogin, loading, error }: any) {
-  return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', fontFamily: 'system-ui,sans-serif' }}>
-      <div style={{ background: '#141414', border: '1px solid #242424', borderRadius: 16, padding: '40px 48px', width: 360 }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 40 }}>🦷</div>
-          <div style={{ color: '#fff', fontSize: 20, fontWeight: 700, marginTop: 10 }}>OrthoByNekruz</div>
-          <div style={{ color: '#444', fontSize: 13, marginTop: 4 }}>Admin Panel</div>
-        </div>
-        <form onSubmit={e => { e.preventDefault(); onLogin(); }}>
-          <input type="password" placeholder="ADMIN_SECRET" value={secret} onChange={e => setSecret(e.target.value)}
-            style={{ width: '100%', padding: '12px 16px', borderRadius: 10, border: '1px solid #2a2a2a', background: '#0a0a0a', color: '#fff', fontSize: 15, outline: 'none', boxSizing: 'border-box' }} />
-          {error && <div style={{ color: '#f87171', fontSize: 13, marginTop: 10, textAlign: 'center' }}>{error}</div>}
-          <button type="submit" disabled={loading || !secret}
-            style={{ width: '100%', marginTop: 14, padding: '12px', borderRadius: 10, background: secret && !loading ? '#2563eb' : '#1a1a1a', color: secret && !loading ? '#fff' : '#444', border: 'none', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-            {loading ? 'Проверка...' : 'Войти →'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function StatsBoard({ stats }: any) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14, marginBottom: 24, flexShrink: 0 }}>
-      {[
-        { label: 'Всего',          value: stats.total,       color: '#60a5fa', icon: '👥' },
-        { label: 'Активны сегодня', value: stats.activeToday, color: '#a78bfa', icon: '📱' },
-        { label: 'Заблокировано',  value: stats.blocked,     color: '#f87171', icon: '🚫' },
-        { label: 'Подозрительных', value: stats.suspicious,  color: '#fbbf24', icon: '⚠️' },
-        { label: 'Есть Micro',     value: stats.withMicro,   color: '#34d399', icon: '🧬' },
-      ].map(s => (
-        <div key={s.label} style={{ background: '#141414', border: '1px solid #1f1f1f', borderRadius: 12, padding: '16px 18px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <div style={{ color: s.color, fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{s.value}</div>
-            <span style={{ fontSize: 18 }}>{s.icon}</span>
+        {/* Демо-баннер отдельно, чтобы выделить */}
+        <div style={{
+          background: 'rgba(167,139,250,0.06)', border: '1px solid rgba(167,139,250,0.2)',
+          borderRadius: 12, padding: '14px 16px',
+          display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16,
+        }}>
+          <div style={{ fontSize: 22 }}>👁</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: '#a78bfa', fontSize: 22, fontWeight: 700, lineHeight: 1 }}>
+              {demoCount}
+            </div>
+            <div style={{ color: '#6d5aad', fontSize: 11, marginTop: 3 }}>
+              использовали демо-доступ (можно выдать повторно)
+            </div>
           </div>
-          <div style={{ color: '#444', fontSize: 12, marginTop: 8 }}>{s.label}</div>
+          <button
+            onClick={() => setFilter('demo')}
+            style={{
+              padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+              background: filter === 'demo' ? 'rgba(167,139,250,0.2)' : '#1a1a1a',
+              border: '1px solid rgba(167,139,250,0.3)',
+              color: '#a78bfa', cursor: 'pointer',
+            }}
+          >
+            Смотреть
+          </button>
         </div>
-      ))}
-    </div>
-  );
-}
 
-function UserRow({ u, i, totalLength, expanded, setExpanded, actioning, doAction, copyId }: any) {
-  const isActioningThis = actioning === u.tgId;
-  const displayName = u.firstName || u.lastName ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : null;
-  
-  return (
-    <div>
-      <div style={{
-        ...ROW_GRID_STYLE,
-        padding: '13px 20px', alignItems: 'center', fontSize: 13,
-        borderBottom: i < totalLength - 1 ? '1px solid #111' : 'none',
-        background: u.blocked ? 'rgba(239,68,68,0.03)' : u.suspicious ? 'rgba(245,158,11,0.03)' : 'transparent',
-      }}>
-        {/* КОЛОНКА ПОЛЬЗОВАТЕЛЯ: ID + Юзернейм/Имя */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}>
-          <span style={{ fontFamily: 'monospace', color: '#7dd3fc', fontSize: 12, cursor: 'pointer', width: 'fit-content' }}
-            onClick={() => copyId(u.tgId)} title="Нажми чтобы скопировать ID">
-            {u.tgId}
-          </span>
-         {(u.username || displayName) && (
-            <div style={{ fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {u.username ? (
-                <span 
-                  style={{ color: '#a78bfa', cursor: 'pointer' }} 
-                  onClick={() => copyId(`@${u.username}`)} 
-                  title="Нажми, чтобы скопировать @username"
-                >
-                  @{u.username}
-                </span>
-              ) : (
-                <span 
-                  style={{ color: '#888', cursor: 'pointer' }}
-                  onClick={() => copyId(displayName || '')}
-                  title="Нажми, чтобы скопировать имя"
-                >
-                  {displayName}
+        {/* ── Вкладки-фильтры ───────────────────────────────────────────── */}
+        <div style={{
+          display: 'flex', gap: 8, marginBottom: 12,
+          overflowX: 'auto', paddingBottom: 4,
+          // скрываем скроллбар визуально
+          msOverflowStyle: 'none', scrollbarWidth: 'none',
+        }}>
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setFilter(tab.id)}
+              style={{
+                padding: '8px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600,
+                cursor: 'pointer', whiteSpace: 'nowrap', flex: '0 0 auto',
+                border: '1px solid',
+                borderColor: filter === tab.id ? tab.color : '#222',
+                background:  filter === tab.id ? `rgba(${hexToRgb(tab.color)},0.15)` : '#141414',
+                color:       filter === tab.id ? tab.color : '#555',
+                transition: 'all 0.15s',
+              }}
+            >
+              {tab.label}
+              {tab.count > 0 && (
+                <span style={{
+                  marginLeft: 6, background: filter === tab.id
+                    ? `rgba(${hexToRgb(tab.color)},0.3)` : '#222',
+                  borderRadius: 10, padding: '1px 6px', fontSize: 11,
+                }}>
+                  {tab.count}
                 </span>
               )}
-            </div>
+            </button>
+          ))}
+        </div>
+
+        {/* ── Поиск ─────────────────────────────────────────────────────── */}
+        <div style={{ position: 'relative', marginBottom: 16 }}>
+          <span style={{
+            position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+            color: '#444', fontSize: 16, pointerEvents: 'none',
+          }}>🔍</span>
+          <input
+            placeholder="Поиск по ID, имени, @username..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              width: '100%', padding: '11px 14px 11px 36px',
+              borderRadius: 10, border: '1px solid #1e1e1e',
+              background: '#111', color: '#ddd',
+              fontSize: 14, outline: 'none', boxSizing: 'border-box',
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              style={{
+                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', color: '#555',
+                cursor: 'pointer', fontSize: 18, lineHeight: 1,
+              }}
+            >
+              ×
+            </button>
           )}
         </div>
 
-        <span>
-          {u.blocked
-            ? <span style={{ background: '#3f1515', color: '#f87171', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>БЛОК</span>
-            : u.suspicious
-            ? <span style={{ background: '#3d2a00', color: '#fbbf24', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>⚠ ПОДОЗР</span>
-            : <span style={{ background: '#0d2e1e', color: '#34d399', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>ОК</span>
-          }
-        </span>
-
-        <div>
-          <div style={{ color: '#555', fontSize: 11 }}>{fmtDate(u.registeredAt)}</div>
-          <div style={{ color: '#333', fontSize: 10, marginTop: 2 }}>
-            {daysSince(u.registeredAt) === 0 ? 'сегодня' : `${daysSince(u.registeredAt)} дн. назад`}
+        {/* ── Список пользователей ──────────────────────────────────────── */}
+        {loading ? (
+          <div style={{ textAlign: 'center', color: '#333', padding: '60px 0', fontSize: 15 }}>
+            Загрузка...
           </div>
-        </div>
-
-        <span style={{ color: u.opensToday >= 5 ? '#f87171' : u.opensToday >= 3 ? '#fbbf24' : '#444', fontWeight: 600 }}>
-          {u.opensToday}
-        </span>
-
-        <span style={{ color: u.fpChanges >= 3 ? '#f87171' : u.fpChanges >= 1 ? '#fbbf24' : '#2a2a2a' }}>
-          {u.fpChanges || '—'}
-        </span>
-
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          <span style={{ background: '#1e3a5f', color: '#7dd3fc', borderRadius: 4, padding: '2px 7px', fontSize: 11 }}>ortho</span>
-          {u.hasMicro && <span style={{ background: '#14312b', color: '#6ee7b7', borderRadius: 4, padding: '2px 7px', fontSize: 11 }}>micro</span>}
-        </div>
-
-        <div style={{ color: '#333', fontSize: 11 }}>
-          {u.blocked
-            ? <span style={{ color: '#f87171' }}>{u.blockedReason} · {fmtDate(u.blockedAt)}</span>
-            : u.activatedKey
-            ? <span>ключ: <span style={{ fontFamily: 'monospace', color: '#555' }}>{u.activatedKey}</span></span>
-            : '—'
-          }
-        </div>
-
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-          {u.blocked
-            ? <button onClick={() => doAction(u.tgId, 'unblock')} disabled={!!actioning}
-                style={{ padding: '5px 11px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: '#0d2e1e', color: '#34d399', border: '1px solid #1a4a30', opacity: actioning ? 0.5 : 1 }}>
-                {isActioningThis ? '...' : '✓ Разблок'}
-              </button>
-            : <button onClick={() => doAction(u.tgId, 'block')} disabled={!!actioning}
-                style={{ padding: '5px 11px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: '#3f1515', color: '#f87171', border: '1px solid #6b2020', opacity: actioning ? 0.5 : 1 }}>
-                {isActioningThis ? '...' : '✕ Блок'}
-              </button>
-          }
-          {u.hasMicro
-            ? <button onClick={() => doAction(u.tgId, 'revoke_micro')} disabled={!!actioning}
-                style={{ padding: '5px 11px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: '#1a1a1a', color: '#555', border: '1px solid #2a2a2a', opacity: actioning ? 0.5 : 1 }}>
-                {isActioningThis ? '...' : '− Micro'}
-              </button>
-            : <button onClick={() => doAction(u.tgId, 'give_micro')} disabled={!!actioning}
-                style={{ padding: '5px 11px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: '#14312b', color: '#6ee7b7', border: '1px solid #1a4a30', opacity: actioning ? 0.5 : 1 }}>
-                {isActioningThis ? '...' : '+ Micro'}
-              </button>
-          }
-          <button onClick={() => setExpanded(expanded === u.tgId ? null : u.tgId)}
-            style={{ padding: '5px 11px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: '#1a1a1a', color: expanded === u.tgId ? '#93c5fd' : '#444', border: `1px solid ${expanded === u.tgId ? '#3b82f6' : '#2a2a2a'}` }}>
-            ⋯
-          </button>
-        </div>
-      </div>
-
-      {expanded === u.tgId && (
-        <div style={{ padding: '14px 20px 16px', background: '#0f0f0f', borderBottom: '1px solid #111', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
-          {[
-            ['Telegram ID',      u.tgId],
-            ['Юзернейм',         u.username ? `@${u.username}` : '—'],
-            ['Имя Фамилия',      displayName || '—'],
-            ['Регистрация',      fmtDate(u.registeredAt)],
-            ['Дней с регистр.',  daysSince(u.registeredAt) + ' дн.'],
-            ['Открытий сегодня', String(u.opensToday)],
-            ['Смен устройства',  String(u.fpChanges || 0)],
-            ['Ключ активации',   u.activatedKey || '—'],
-            ['Доступ Ortho',     'есть'],
-            ['Доступ Micro',     u.hasMicro ? 'есть' : 'нет'],
-            ['Причина блок.',    u.blockedReason || '—'],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <div style={{ color: '#333', fontSize: 11, marginBottom: 3 }}>{label}</div>
-              <div style={{ color: '#888', fontSize: 13, fontFamily: label.includes('ID') || label.includes('ключ') ? 'monospace' : 'inherit' }}>{value}</div>
+        ) : visible.length === 0 ? (
+          <div style={{
+            textAlign: 'center', color: '#333', padding: '60px 0',
+            fontSize: 15, background: '#141414', borderRadius: 14,
+            border: '1px solid #1e1e1e',
+          }}>
+            {search ? 'Ничего не найдено' : 'Нет пользователей'}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ color: '#333', fontSize: 12, marginBottom: 2 }}>
+              Показано: {visible.length} из {total}
             </div>
-          ))}
-        </div>
-      )}
+            {visible.map(u => (
+              <UserCard
+                key={u.tgId}
+                user={u}
+                actioning={actioning}
+                onAction={doAction}
+              />
+            ))}
+          </div>
+        )}
+
+        <div style={{ height: 40 }} />
+      </div>
     </div>
   );
+}
+
+// Вспомогательная утилита для прозрачных цветов в inline-стилях
+function hexToRgb(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `${r},${g},${b}`;
 }

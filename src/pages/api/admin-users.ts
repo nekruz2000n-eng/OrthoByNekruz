@@ -16,10 +16,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // ── Действие: block / unblock ────────────────────────────────────────────
+    // ── Действие: block / unblock / give_micro / revoke_micro / reset_demo ────
     if (action && tgId) {
       let user: any = await redis.get(`user_id:${tgId}`);
-      if (!user) return res.status(404).json({ error: 'User not found' });
+      if (!user && action !== 'reset_demo') {
+        return res.status(404).json({ error: 'User not found' });
+      }
 
       if (action === 'block') {
         await redis.set(`user_id:${tgId}`, {
@@ -44,14 +46,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (action === 'give_micro') {
-        await redis.set(`user_id:${tgId}`, { ...user, micro: true, microGrantedAt: new Date().toISOString() });
+        await redis.set(`user_id:${tgId}`, {
+          ...user,
+          micro:          true,
+          microGrantedAt: new Date().toISOString(),
+        });
         return res.status(200).json({ ok: true });
       }
 
       if (action === 'revoke_micro') {
         const u: Record<string, any> = { ...user };
-        delete u.micro; delete u.microGrantedAt;
+        delete u.micro;
+        delete u.microGrantedAt;
+        delete u.microKey;
+        delete u.microDate;
         await redis.set(`user_id:${tgId}`, u);
+        return res.status(200).json({ ok: true });
+      }
+
+      // ── Сбросить демо-доступ (убираем из used_demo_ids) ─────────────────
+      if (action === 'reset_demo') {
+        await redis.srem('used_demo_ids', tgId as string);
         return res.status(200).json({ ok: true });
       }
 
@@ -60,16 +75,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // ── Получить список всех пользователей ──────────────────────────────────
     const keys = await redis.keys('user_id:*');
-    if (!keys.length) return res.status(200).json({ users: [] });
+    if (!keys.length) return res.status(200).json({ users: [], total: 0 });
 
     const today = new Date().toISOString().slice(0, 10);
 
-    // Читаем всех за одну multi-get операцию
-    const pipeline = redis.pipeline();
-    for (const key of keys) pipeline.get(key);
-    const rawUsers = await pipeline.exec();
+    // Pipeline 1: читаем данные пользователей
+    const pipeline1 = redis.pipeline();
+    for (const key of keys) pipeline1.get(key);
+    const rawUsers = await pipeline1.exec();
 
-    // Читаем opens + fingerprint_changes параллельно
+    // Pipeline 2: opens + fingerprint_changes
     const pipeline2 = redis.pipeline();
     for (const key of keys) {
       const id = key.replace('user_id:', '');
@@ -78,26 +93,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const extraData = await pipeline2.exec();
 
-    const users = keys.map((key, i) => {
-      const id   = key.replace('user_id:', '');
-      const user = (rawUsers[i] as any) ?? {};
-      const opens          = Number(extraData[i * 2])    || 0;
-      const fpChanges      = Number(extraData[i * 2 + 1]) || 0;
+    // Pipeline 3: demo status (sismember 'used_demo_ids')
+    const pipeline3 = redis.pipeline();
+    for (const key of keys) {
+      const id = key.replace('user_id:', '');
+      pipeline3.sismember('used_demo_ids', id);
+    }
+    const demoData = await pipeline3.exec();
 
-      // Определяем уровень подозрительности
+    const users = keys.map((key, i) => {
+      const id        = key.replace('user_id:', '');
+      const user      = (rawUsers[i] as any) ?? {};
+      const opens     = Number(extraData[i * 2])     || 0;
+      const fpChanges = Number(extraData[i * 2 + 1]) || 0;
+      const usedDemo  = Boolean(demoData[i]);
+
+      // Уровень подозрительности
       let suspicious = false;
-      if (opens >= 5)    suspicious = true;
+      if (opens >= 5)     suspicious = true;
       if (fpChanges >= 2) suspicious = true;
 
       return {
         tgId:          id,
-        username:      user.username ?? null, 
-        firstName:     user.firstName ?? null, // <-- Добавили Имя
-        lastName:      user.lastName ?? null,  // <-- Добавили Фамилию
+        username:      user.username      ?? null,
+        firstName:     user.firstName     ?? null,
+        lastName:      user.lastName      ?? null,
         blocked:       user.blocked === true,
         blockedReason: user.blockedReason ?? null,
         blockedAt:     user.blockedAt     ?? null,
         hasMicro:      user.micro === true,
+        usedDemo,
         activatedKey:  user.activatedKey  ?? null,
         registeredAt:  user.date          ?? null,
         opensToday:    opens,
@@ -113,7 +138,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return scoreB - scoreA;
     });
 
-    return res.status(200).json({ users, total: users.length });
+    const demoCount = users.filter(u => u.usedDemo).length;
+
+    return res.status(200).json({ users, total: users.length, demoCount });
 
   } catch (err) {
     console.error('[admin-users] error:', err);
