@@ -64,9 +64,10 @@ function fmtDate(iso: string | null): string {
 
 function displayName(u: User): string {
   const parts = [u.firstName, u.lastName].filter(Boolean).join(' ');
+  if (parts && u.username) return `${parts} (@${u.username})`;
   if (parts) return parts;
   if (u.username) return `@${u.username}`;
-  return u.tgId;
+  return 'Без имени';
 }
 
 // ── Кнопка действия ───────────────────────────────────────────────────────────
@@ -110,6 +111,7 @@ function ActionBtn({
   );
 }
 
+// ── Карточка пользователя (сворачиваемая) ─────────────────────────────────────
 // ── Карточка пользователя (сворачиваемая) ─────────────────────────────────────
 function UserCard({
   user, actioning, onAction, expanded, onToggle,
@@ -159,7 +161,8 @@ function UserCard({
             {name}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'nowrap', overflow: 'hidden' }}>
-            <span style={{ fontSize: 11, color: '#2e2e2e', fontFamily: 'monospace', flexShrink: 0 }}>
+            {/* ИСПРАВЛЕНО: Сделал ID светлее (#888 вместо #2e2e2e), чтобы его было видно */}
+            <span style={{ fontSize: 11, color: '#888', fontFamily: 'monospace', flexShrink: 0 }}>
               {user.tgId}
             </span>
             {hasFullKey && <Chip bg="#1a3050" color="#60a5fa">🦷</Chip>}
@@ -186,6 +189,13 @@ function UserCard({
       {/* Раскрытое содержимое */}
       {expanded && (
         <div style={{ borderTop: '1px solid #1e1e1e', padding: '12px 13px', display: 'flex', flexDirection: 'column', gap: 11 }}>
+
+          {/* НОВЫЙ БЛОК: Детальная информация по юзеру */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 16px', fontSize: 12, background: '#111', padding: '8px 10px', borderRadius: 8 }}>
+            {user.firstName && <MetaItem label="Имя" value={user.firstName} />}
+            {user.lastName && <MetaItem label="Фамилия" value={user.lastName} />}
+            {user.username && <MetaItem label="Юзернейм" value={`@${user.username}`} />}
+          </div>
 
           {/* Мета-инфо */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 16px', fontSize: 12 }}>
@@ -236,7 +246,6 @@ function UserCard({
     </div>
   );
 }
-
 function Chip({ children, bg, color }: { children: React.ReactNode; bg: string; color: string }) {
   return (
     <span style={{ background: bg, color, borderRadius: 4, padding: '1px 5px', fontSize: 10, fontWeight: 600, flexShrink: 0 }}>

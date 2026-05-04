@@ -23,6 +23,11 @@ interface GlossaryItem { term: string; definition: string; image?: string | stri
 const _AUDIO_CACHE = 'ortho-audio-v1';
 const _AUDIO_SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 
+// Глобальный указатель на текущий играющий <audio> элемент.
+// Позволяет остановить аккордион-плеер при входе в режим чтения
+// и не запускать два плеера одновременно.
+let _activeAudio: HTMLAudioElement | null = null;
+
 const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string }) => {
   const audioRef                          = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying]             = useState(false);
@@ -73,8 +78,15 @@ const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string })
   const toggle = () => {
     const a = audioRef.current;
     if (!a) return;
-    if (playing) { a.pause(); setPlaying(false); }
-    else { a.play().then(() => setPlaying(true)).catch(() => {}); }
+    if (playing) {
+      a.pause();
+      // setPlaying(false) придёт через onPause на <audio>
+    } else {
+      // Останавливаем любой другой играющий плеер
+      if (_activeAudio && _activeAudio !== a) _activeAudio.pause();
+      _activeAudio = a;
+      a.play().catch(() => {});
+    }
   };
 
   const seek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -158,7 +170,9 @@ const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string })
       <audio ref={audioRef} preload="metadata"
         onLoadedMetadata={handleLoaded}
         onTimeUpdate={handleTimeUpdate}
-        onEnded={() => { setPlaying(false); setCurrent(0); try { localStorage.removeItem(posKey); } catch {} }}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => { setPlaying(false); setCurrent(0); if (_activeAudio === audioRef.current) _activeAudio = null; try { localStorage.removeItem(posKey); } catch {} }}
         onWaiting={() => setLoading(true)}
         onCanPlay={() => setLoading(false)}>
         <source src={blobUrl || src} type={getMime(src)} />
@@ -627,7 +641,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                       </div>
                       {/* Кнопки */}
                       <div className="flex gap-2">
-                        <button onClick={() => setReadingQuestion(q)}
+                        <button onClick={() => { _activeAudio?.pause(); setReadingQuestion(q); }}
                           className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold transition-all active:scale-[0.97]"
                           style={{ background: 'var(--c-primary-dim)', border: '1px solid var(--c-primary-br)', color: 'var(--c-primary)' }}>
                           <BookOpen className="w-4 h-4" /> Читать
