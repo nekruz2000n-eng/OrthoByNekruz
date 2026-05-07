@@ -223,7 +223,7 @@ export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
               <ToothIcon className="w-9 h-9" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} />
               <div>
                 <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>
-                  {isOrtho ? 'OrthoByNekruz' : `${cfg?.label || subject}ByNekruz`}
+                  {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}
                 </h1>
                 <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>
                   {cfg?.label || subject}
