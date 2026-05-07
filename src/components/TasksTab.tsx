@@ -201,7 +201,7 @@ export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
             <ToothIcon className="w-9 h-9" style={{ color: accentColor }}   variant={cfg?.iconVariant || 'perfect'}  onClick={onSecretTap} />
                <div>
                   <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>
-                     {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}
+                     {cfg?.brandName || 'OrthoByNekruz'}
                   </h1>
                   <p className="text-[10px] font-bold uppercase tracking-widest"
                    style={{ color: accentColor }}>

@@ -1,12 +1,13 @@
 // ════════════════════════════════════════════════════════════════════════════
 //  /api/subject-data
 //
-//  Универсальный endpoint для отдачи контента дисциплин (вопросы / тесты /
-//  задачи / глоссарий) после проверки доступа.
+//  Универсальный endpoint для отдачи контента ЛЮБОЙ дисциплины из SUBJECTS.
+//  Не требует правок при добавлении новых предметов — берёт имя файла из
+//  конфига и грузит соответствующий JSON.
 //
 //  Тело запроса (JSON):
 //    {
-//      subject:    'micro' | 'pharma' | ...      (id из SUBJECTS)
+//      subject:    'micro' | 'bio' | 'fizo' | ...   (id из SUBJECTS)
 //      type:       'questions' | 'tests' | 'tasks' | 'glossary'
 //      telegramId: <id пользователя>
 //      initData:   <window.Telegram.WebApp.initData>
@@ -16,12 +17,14 @@
 //    1. Криптографическая проверка initData (HMAC-SHA256 по BOT_TOKEN)
 //    2. Сверка tgUser.id с telegramId из тела
 //    3. Проверка user.subjects[subjectId] === true в Redis
+//    4. Whitelist имён файлов через getAllDataFileNames() — защита от
+//       path traversal даже теоретически
 // ════════════════════════════════════════════════════════════════════════════
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis }      from '@upstash/redis';
 import { createHmac } from 'crypto';
-import { getSubject } from '@/lib/subjects';
+import { getSubject, getAllDataFileNames } from '@/lib/subjects';
 
 const redis     = Redis.fromEnv();
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
@@ -47,7 +50,6 @@ function verifyInitData(initData: string): number | null {
 
 function userHasSubject(user: any, subjectId: string): boolean {
   if (!user) return false;
-  // Новый формат
   if (user.subjects && typeof user.subjects === 'object') {
     return user.subjects[subjectId] === true;
   }
@@ -57,21 +59,18 @@ function userHasSubject(user: any, subjectId: string): boolean {
   return false;
 }
 
-// ─── Жёсткая таблица соответствия имени файла → импорт ─────────────────────
-// Выбран явный switch вместо `require(\`../../data/${name}\`)` чтобы избежать
-// проблем со сборкой webpack на Vercel (динамические require иногда ломают
-// бандл и приводят к 500 в проде).
+// ─── Динамическая загрузка JSON по имени файла ─────────────────────────────
+// Имя строго whitelist'ится через getAllDataFileNames(), так что в require
+// попадает только зарегистрированный в SUBJECTS файл. Если JSON ещё не
+// создан — отдаём null, и хендлер вернёт 404 с осмысленным сообщением.
 function loadDataFile(fileName: string): unknown | null {
-  switch (fileName) {
-    case 'questions.json':       return require('../../data/questions.json');
-    case 'tasks.json':           return require('../../data/tasks.json');
-    case 'tests.json':           return require('../../data/tests.json');
-    case 'glossary.json':        return require('../../data/glossary.json');
-    case 'micro_questions.json': return require('../../data/micro_questions.json');
-    case 'micro_tasks.json':     return require('../../data/micro_tasks.json');
-    case 'micro_tests.json':     return require('../../data/micro_tests.json');
-    case 'micro_glossary.json':  return require('../../data/micro_glossary.json');
-    default: return null;
+  const allowed = getAllDataFileNames();
+  if (!allowed.includes(fileName)) return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require(`../../data/${fileName}`);
+  } catch {
+    return null;
   }
 }
 
@@ -114,7 +113,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const data = loadDataFile(fileName);
     if (data === null) {
-      return res.status(404).json({ error: `Data file not found: ${fileName}` });
+      return res.status(404).json({
+        error: `Data file not found: ${fileName}`,
+        hint:  'Положите JSON в src/data/ и пересоберите приложение.',
+      });
     }
 
     return res.status(200).json({ data });

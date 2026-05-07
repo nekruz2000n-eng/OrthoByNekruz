@@ -308,8 +308,8 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   };
   const overall = (pct.q + pct.t + pct.ts) / 3;
 
-  const accentColor    = isOrtho ? 'var(--c-primary)' : 'var(--c-amber)';
-  const subjectLabel   = isOrtho ? 'Ортопедия'        : 'Микробиология';
+  const accentColor    = cfg?.color || 'var(--c-primary)';
+  const subjectLabel   = cfg?.label || 'Ортопедия';
 
   const stats = [
     { label: 'Вопросы', icon: <BookOpen     className="w-4 h-4" />, count: studiedCount,       tot: total.q,  p: pct.q,  barVar: 'hsl(210 70% 55%)' },
@@ -334,9 +334,9 @@ export const StatsTab: React.FC<StatsTabProps> = ({
         >
           <div className="flex justify-between items-center px-1">
             <div className="flex items-center gap-3">
-              <ToothIcon className="w-9 h-9" style={{ color: accentColor }} variant={isOrtho ? 'perfect' : 'normal'} />
+              <ToothIcon className="w-9 h-9" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} />
               <div>
-                <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>  {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}</h1>
+                <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>  {cfg?.brandName || 'OrthoByNekruz'}</h1>
                 <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>
                   {subjectLabel}
                 </p>
@@ -472,14 +472,14 @@ export const StatsTab: React.FC<StatsTabProps> = ({
               onClick={() => setShowSubjectSheet(true)}
               className="w-full rounded-[20px] p-4 flex items-center gap-4 transition-all duration-200 active:scale-[0.98]"
               style={{
-                background: isOrtho ? 'var(--c-primary-dim)' : 'var(--c-amber-dim)',
-                border:     `1.5px solid ${isOrtho ? 'var(--c-primary-br)' : 'var(--c-amber-br)'}`,
+                background: cfg?.dimColor    || 'var(--c-primary-dim)',
+                border:     `1.5px solid ${cfg?.borderColor || 'var(--c-primary-br)'}`,
               }}
             >
               {/* Icon */}
               <div
                className="p-3 rounded-full flex-shrink-0"
-               style={{ background: isOrtho ? 'var(--c-primary-dim)' : 'var(--c-amber-dim)', }}
+               style={{ background: cfg?.dimColor || 'var(--c-primary-dim)' }}
               >
                 {/* Swap icon */}
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none"

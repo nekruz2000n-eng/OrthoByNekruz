@@ -539,13 +539,13 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
         style={{ background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid var(--c-border)', paddingTop: 'var(--header-pt)' }}>
         <div className="flex justify-between items-center px-1">
           <div className="flex items-center gap-3">
-        <ToothIcon className="w-9 h-9" style={{ color: accentColor }}  variant={isOrtho ? 'perfect' : 'normal'} />
+        <ToothIcon className="w-9 h-9" style={{ color: accentColor }}  variant={cfg?.iconVariant || 'perfect'} />
             <div>
-            <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }} > {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}</h1>
+            <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }} > {cfg?.brandName || 'OrthoByNekruz'}</h1>
             <p className="text-[10px] font-bold uppercase tracking-widest"
        style={{ color: accentColor }}>
-      {subject === 'micro' ? 'Микробиология' : 'Ортопедия'}
-             </p>    
+      {cfg?.label || 'Ортопедия'}
+             </p>
              </div>     
           </div>
           
