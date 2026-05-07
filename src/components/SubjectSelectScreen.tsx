@@ -68,7 +68,6 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
   useReleaseScroll();
   const [selected, setSelected] = useState<string | null>(null);
 
-  // Фильтруем только доступные. Сохраняем порядок из SUBJECTS.
   const visibleSubjects: SubjectConfig[] = SUBJECTS.filter(s =>
     availableSubjects.includes(s.id)
   );
@@ -78,7 +77,6 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
       className="flex flex-col w-full relative overflow-hidden"
       style={{ background: 'var(--c-bg)', height: '100dvh' }}
     >
-      {/* CSS keyframes */}
       <style>{`
         @keyframes subjectToothFloat {
           0%,100% { transform: translateY(0px) rotate(-3deg); }
@@ -97,12 +95,13 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
       <FloatingTooth x={300} y={620} size={24} delay={1.5} color="color-mix(in srgb, var(--c-amber)  10%, transparent)" />
       <FloatingTooth x={160} y={40}  size={14} delay={2}   color="color-mix(in srgb, var(--c-primary)  8%, transparent)" />
 
-      {/* ── Большая центральная шапка (большой зуб над надписью) ── */}
+      {/* ── Большая центральная шапка (положение чуть выше центра) ── */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45 }}
-        className="flex flex-col items-center text-center px-6 pt-8 pb-4 flex-shrink-0 relative z-10"
+        className="flex flex-col items-center text-center px-6 flex-shrink-0 relative z-10"
+        style={{ paddingTop: '12vh', paddingBottom: '1.5vh' }}
       >
         <div
           className="w-[72px] h-[72px] rounded-[24px] flex items-center justify-center mb-4"
@@ -127,57 +126,44 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
 
       {/* ── Скроллируемый список карточек ── */}
       <div
-        className="flex-1 overflow-y-auto overscroll-contain relative z-10"
+        className="flex-1 overflow-y-auto overscroll-contain relative z-10 mt-2"
         style={{ WebkitOverflowScrolling: 'touch' as any }}
       >
-        <div className="flex flex-col gap-3 w-full max-w-xs mx-auto px-5 pt-2 pb-4">
+        <div className="flex flex-col gap-3 w-full max-w-xs mx-auto px-5 pb-4">
           {visibleSubjects.map((item, i) => {
             const isSelected = selected === item.id;
             return (
               <motion.button
                 key={item.id}
-                initial={{ opacity: 0, y: 16 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: Math.min(0.08 * i, 0.5) }}
+                transition={{ duration: 0.35, delay: Math.min(0.05 * i, 0.4) }}
                 onClick={() => setSelected(item.id)}
-                className="flex items-center gap-4 rounded-[24px] p-5 transition-all duration-200 active:scale-[0.97] text-left"
+                className="flex items-center gap-3 rounded-[20px] p-4 transition-all duration-200 active:scale-[0.97] text-left"
                 style={{
                   background: isSelected ? item.dimColor : 'var(--c-card)',
                   border:     `1.5px solid ${isSelected ? item.borderColor : 'var(--c-border)'}`,
                   boxShadow:  isSelected ? `0 8px 32px color-mix(in srgb, ${item.color} 20%, transparent)` : 'none',
                 }}
               >
-                {/* Icon */}
-                <div
-                  className="w-16 h-16 rounded-[20px] flex items-center justify-center flex-shrink-0 transition-all duration-300"
-                  style={{
-                    background: item.dimColor,
-                    border:     `1px solid ${item.borderColor}`,
-                    filter:     isSelected ? `drop-shadow(0 0 10px ${item.color})` : 'none',
-                  }}
-                >
-                  <ToothIcon
-                    className="w-9 h-9"
-                    style={{ color: item.color }}
-                    variant={item.iconVariant}
-                  />
-                </div>
-
-                {/* Text */}
+                {/* Текст: курс / название / Вопросы · Тесты · Задачи */}
                 <div className="flex-1 min-w-0">
                   <div
-                    className="text-[11px] font-bold uppercase tracking-widest mb-1"
+                    className="text-[10px] font-bold uppercase tracking-widest mb-0.5"
                     style={{ color: item.color }}
                   >
                     {item.badge}
                   </div>
                   <div
-                    className="text-sm font-bold leading-snug mb-1 whitespace-pre-line"
+                    className="text-[15px] font-bold leading-snug mb-0.5 whitespace-pre-line"
                     style={{ color: 'var(--c-text)' }}
                   >
                     {item.label}
                   </div>
-                  <div className="text-[11px]" style={{ color: 'var(--c-muted)' }}>
+                  <div
+                    className="text-[11px] whitespace-nowrap overflow-hidden text-ellipsis"
+                    style={{ color: 'var(--c-muted)' }}
+                  >
                     {item.sub}
                   </div>
                 </div>
