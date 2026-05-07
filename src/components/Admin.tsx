@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import Script from 'next/script';
 
 interface User {
   tgId:          string;
@@ -33,6 +34,7 @@ type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject';
 // ── Читает initData из Telegram WebApp ────────────────────────────────────────
 function getTelegramInitData(): string {
   if (typeof window === 'undefined') return '';
+  // @ts-ignore - игнорируем ошибку типов для глобального объекта Telegram
   return window.Telegram?.WebApp?.initData ?? '';
 }
 
@@ -467,73 +469,64 @@ export default function AdminPage() {
     return true;
   }), [users, filter, search]);
 
-  // ── Экран входа ────────────────────────────────────────────────────────────
-  if (!authed) {
-    return (
+  // ── Рендер экранов ─────────────────────────────────────────────────────────
+
+  const loginScreen = (
+    <div style={{
+      minHeight: '100svh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: '#0a0a0a', padding: '20px',
+      fontFamily: "-apple-system, 'SF Pro Display', system-ui, sans-serif",
+    }}>
       <div style={{
-        minHeight: '100svh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: '#0a0a0a', padding: '20px',
-        fontFamily: "-apple-system, 'SF Pro Display', system-ui, sans-serif",
+        background: '#141414', border: '1px solid #222',
+        borderRadius: 20, padding: '40px 28px', width: '100%', maxWidth: 340,
       }}>
-        <div style={{
-          background: '#141414', border: '1px solid #222',
-          borderRadius: 20, padding: '40px 28px', width: '100%', maxWidth: 340,
-        }}>
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <div style={{ fontSize: 42, marginBottom: 10 }}>🦷</div>
-            <div style={{ color: '#fff', fontSize: 21, fontWeight: 700, letterSpacing: '-0.4px' }}>
-              OrthoByNekruz
-            </div>
-            <div style={{ color: '#333', fontSize: 12, marginTop: 4 }}>Admin Panel</div>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{ fontSize: 42, marginBottom: 10 }}>🦷</div>
+          <div style={{ color: '#fff', fontSize: 21, fontWeight: 700, letterSpacing: '-0.4px' }}>
+            OrthoByNekruz
           </div>
-          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <input
-              type="password" placeholder="ADMIN_SECRET"
-              value={secret} onChange={e => setSecret(e.target.value)}
-              autoComplete="current-password"
-              style={{
-                width: '100%', padding: '14px 16px', borderRadius: 12,
-                border: `1px solid ${error ? 'rgba(239,68,68,0.4)' : '#222'}`,
-                background: '#0f0f0f', color: '#fff',
-                fontSize: 16, outline: 'none', boxSizing: 'border-box',
-              }}
-            />
-            {error && (
-              <div style={{
-                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
-                borderRadius: 8, padding: '9px 14px',
-                color: '#f87171', fontSize: 13, textAlign: 'center',
-              }}>
-                {error}
-              </div>
-            )}
-            <button
-              type="submit" disabled={loading || !secret}
-              style={{
-                padding: '14px', borderRadius: 12, marginTop: 2,
-                background: loading || !secret ? '#1a1a1a' : '#2563eb',
-                color: loading || !secret ? '#444' : '#fff',
-                border: 'none', fontSize: 15, fontWeight: 700,
-                cursor: loading || !secret ? 'default' : 'pointer', minHeight: 50,
-              }}
-            >
-              {loading ? '...' : 'Войти'}
-            </button>
-          </form>
+          <div style={{ color: '#333', fontSize: 12, marginTop: 4 }}>Admin Panel</div>
         </div>
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <input
+            type="password" placeholder="ADMIN_SECRET"
+            value={secret} onChange={e => setSecret(e.target.value)}
+            autoComplete="current-password"
+            style={{
+              width: '100%', padding: '14px 16px', borderRadius: 12,
+              border: `1px solid ${error ? 'rgba(239,68,68,0.4)' : '#222'}`,
+              background: '#0f0f0f', color: '#fff',
+              fontSize: 16, outline: 'none', boxSizing: 'border-box',
+            }}
+          />
+          {error && (
+            <div style={{
+              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+              borderRadius: 8, padding: '9px 14px',
+              color: '#f87171', fontSize: 13, textAlign: 'center',
+            }}>
+              {error}
+            </div>
+          )}
+          <button
+            type="submit" disabled={loading || !secret}
+            style={{
+              padding: '14px', borderRadius: 12, marginTop: 2,
+              background: loading || !secret ? '#1a1a1a' : '#2563eb',
+              color: loading || !secret ? '#444' : '#fff',
+              border: 'none', fontSize: 15, fontWeight: 700,
+              cursor: loading || !secret ? 'default' : 'pointer', minHeight: 50,
+            }}
+          >
+            {loading ? '...' : 'Войти'}
+          </button>
+        </form>
       </div>
-    );
-  }
+    </div>
+  );
 
-  // ── Основная панель ────────────────────────────────────────────────────────
-  const TABS: { id: Filter; label: string; count: number; color: string }[] = [
-    { id: 'all',        label: 'Все',       count: total,           color: '#3b82f6' },
-    { id: 'blocked',    label: '🚫 Блок',  count: blockedCount,    color: '#ef4444' },
-    { id: 'suspicious', label: '⚠ Подозр', count: suspiciousCount, color: '#f59e0b' },
-    { id: 'demo',       label: '👁 Демо',  count: demoCount,       color: '#a78bfa' },
-  ];
-
-  return (
+  const mainPanel = (
     <div style={{
       height: '100svh',
       display: 'flex', flexDirection: 'column', overflow: 'hidden',
@@ -541,8 +534,6 @@ export default function AdminPage() {
       fontFamily: "-apple-system, 'SF Pro Display', system-ui, sans-serif",
       color: '#e5e5e5',
     }}>
-
-      {/* Toast снизу */}
       {toast && (
         <div style={{
           position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
@@ -556,7 +547,6 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Sticky шапка */}
       <div style={{
         background: '#101010', borderBottom: '1px solid #1a1a1a',
         padding: '10px 13px',
@@ -584,14 +574,11 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {/* Контентная область со скроллом */}
       <div style={{
         padding: '12px 12px 80px', maxWidth: 680, margin: '0 auto',
         width: '100%', boxSizing: 'border-box',
         flex: 1, overflowY: 'auto',
       }}>
-
-        {/* Статистика */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
           {[
             { label: 'Всего',  value: total,           color: '#3b82f6' },
@@ -609,7 +596,6 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* Демо-баннер */}
         <div
           onClick={() => setFilter('demo')}
           style={{
@@ -631,13 +617,17 @@ export default function AdminPage() {
           </span>
         </div>
 
-        {/* Фильтры */}
         <div style={{
           display: 'flex', gap: 7, marginBottom: 10,
           overflowX: 'auto', paddingBottom: 2,
           scrollbarWidth: 'none', msOverflowStyle: 'none',
         } as React.CSSProperties}>
-          {TABS.map(tab => (
+          {[
+            { id: 'all' as Filter,        label: 'Все',      count: total,           color: '#3b82f6' },
+            { id: 'blocked' as Filter,    label: '🚫 Блок',  count: blockedCount,    color: '#ef4444' },
+            { id: 'suspicious' as Filter, label: '⚠ Подозр', count: suspiciousCount, color: '#f59e0b' },
+            { id: 'demo' as Filter,       label: '👁 Демо',  count: demoCount,       color: '#a78bfa' },
+          ].map(tab => (
             <button key={tab.id} onClick={() => setFilter(tab.id)} style={{
               padding: '7px 14px', borderRadius: 20,
               fontSize: 13, fontWeight: 600,
@@ -661,7 +651,6 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* Поиск */}
         <div style={{ position: 'relative', marginBottom: 12 }}>
           <span style={{
             position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)',
@@ -686,7 +675,6 @@ export default function AdminPage() {
           )}
         </div>
 
-        {/* Список пользователей */}
         {loading ? (
           <div style={{ textAlign: 'center', color: '#222', padding: '60px 0' }}>Загрузка...</div>
         ) : visible.length === 0 ? (
@@ -711,5 +699,12 @@ export default function AdminPage() {
         )}
       </div>
     </div>
+  );
+
+  return (
+    <>
+      <Script src="https://telegram.org/js/telegram-web-app.js" strategy="afterInteractive" />
+      {!authed ? loginScreen : mainPanel}
+    </>
   );
 }
