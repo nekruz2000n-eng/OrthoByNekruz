@@ -10,8 +10,8 @@ interface User {
   blocked:       boolean;
   blockedReason: string | null;
   blockedAt:     string | null;
-  subjects:      string[];   // ID открытых дисциплин: ['ortho', 'micro', ...]
-  hasMicro:      boolean;    // legacy, для обратной совместимости
+  subjects:      string[];
+  hasMicro:      boolean;
   usedDemo:      boolean;
   activatedKey:  string | null;
   registeredAt:  string | null;
@@ -30,7 +30,13 @@ interface SubjectInfo {
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo';
 type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject';
 
-// ── Хук: снимает блокировку скролла из globals.css (нужна для Telegram Mini App) ──
+// ── Читает initData из Telegram WebApp ────────────────────────────────────────
+function getTelegramInitData(): string {
+  if (typeof window === 'undefined') return '';
+  return window.Telegram?.WebApp?.initData ?? '';
+}
+
+// ── Хук: снимает блокировку скролла из globals.css ───────────────────────────
 function useAdminScroll() {
   useEffect(() => {
     const html = document.documentElement;
@@ -120,7 +126,6 @@ function ActionBtn({
 }
 
 // ── Карточка пользователя (сворачиваемая) ─────────────────────────────────────
-// ── Карточка пользователя (сворачиваемая) ─────────────────────────────────────
 function UserCard({
   user, actioning, onAction, expanded, onToggle, availableSubjects,
 }: {
@@ -154,13 +159,11 @@ function UserCard({
           WebkitTapHighlightColor: 'transparent',
         }}
       >
-        {/* Цветная точка статуса */}
         <div style={{
           width: 8, height: 8, borderRadius: '50%', flexShrink: 0, marginTop: 1,
           background: user.blocked ? '#ef4444' : user.suspicious ? '#f59e0b' : '#22c55e',
         }} />
 
-        {/* Имя + ID + чипы */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontSize: 14, fontWeight: 600, color: '#ddd',
@@ -170,13 +173,11 @@ function UserCard({
             {name}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'nowrap', overflow: 'hidden' }}>
-            {/* ИСПРАВЛЕНО: Сделал ID светлее (#888 вместо #2e2e2e), чтобы его было видно */}
             <span style={{ fontSize: 11, color: '#888', fontFamily: 'monospace', flexShrink: 0 }}>
               {user.tgId}
             </span>
             {hasFullKey && <Chip bg="#1a3050" color="#60a5fa">🦷</Chip>}
             {isTrial    && <Chip bg="#2a1f00" color="#d97706">триал</Chip>}
-            {/* Чипы открытых дисциплин (кроме ortho — она везде по умолчанию) */}
             {availableSubjects
               .filter(s => s.id !== 'ortho' && user.subjects.includes(s.id))
               .map(s => (
@@ -193,7 +194,6 @@ function UserCard({
           </div>
         </div>
 
-        {/* Стрелка */}
         <span style={{
           color: '#2a2a2a', fontSize: 20, flexShrink: 0, lineHeight: 1,
           transform: expanded ? 'rotate(180deg)' : 'none',
@@ -206,14 +206,12 @@ function UserCard({
       {expanded && (
         <div style={{ borderTop: '1px solid #1e1e1e', padding: '12px 13px', display: 'flex', flexDirection: 'column', gap: 11 }}>
 
-          {/* НОВЫЙ БЛОК: Детальная информация по юзеру */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 16px', fontSize: 12, background: '#111', padding: '8px 10px', borderRadius: 8 }}>
             {user.firstName && <MetaItem label="Имя" value={user.firstName} />}
             {user.lastName && <MetaItem label="Фамилия" value={user.lastName} />}
             {user.username && <MetaItem label="Юзернейм" value={`@${user.username}`} />}
           </div>
 
-          {/* Мета-инфо */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 16px', fontSize: 12 }}>
             <MetaItem label="Зарег." value={fmtDate(user.registeredAt)} />
             <MetaItem label="Открытий"  value={String(user.opensToday)}
@@ -229,7 +227,6 @@ function UserCard({
             )}
           </div>
 
-          {/* Кнопки блок/разблок */}
           <div style={{ display: 'flex', gap: 8 }}>
             {user.blocked ? (
               <ActionBtn color="green" disabled={busy} onClick={() => onAction(user.tgId, 'unblock')} fullWidth>
@@ -242,7 +239,6 @@ function UserCard({
             )}
           </div>
 
-          {/* Динамические кнопки для всех дисциплин из конфига */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {availableSubjects.map(s => {
               const enabled = user.subjects.includes(s.id);
@@ -270,7 +266,6 @@ function UserCard({
             })}
           </div>
 
-          {/* Кнопка демо */}
           {user.usedDemo && (
             <ActionBtn color="yellow" disabled={busy} onClick={() => onAction(user.tgId, 'reset_demo')}>
               {busy ? '...' : '🔄 Выдать демо повторно'}
@@ -281,6 +276,7 @@ function UserCard({
     </div>
   );
 }
+
 function Chip({ children, bg, color }: { children: React.ReactNode; bg: string; color: string }) {
   return (
     <span style={{ background: bg, color, borderRadius: 4, padding: '1px 5px', fontSize: 10, fontWeight: 600, flexShrink: 0 }}>
@@ -302,19 +298,25 @@ function MetaItem({ label, value, color }: { label: string; value: string; color
 export default function AdminPage() {
   useAdminScroll();
 
-  const [secret,      setSecret]      = useState('');
-  const [authed,      setAuthed]      = useState(false);
-  const [users,       setUsers]       = useState<User[]>([]);
-  const [availableSubjects, setAvailableSubjects] = useState<SubjectInfo[]>([]);
-  const [loading,     setLoading]     = useState(false);
-  const [filter,      setFilter]      = useState<Filter>('all');
-  const [search,      setSearch]      = useState('');
-  const [error,       setError]       = useState('');
-  const [total,       setTotal]       = useState(0);
-  const [demoCount,   setDemoCount]   = useState(0);
-  const [actioning,   setActioning]   = useState<string | null>(null);
-  const [toast,       setToast]       = useState<string | null>(null);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [secret,             setSecret]             = useState('');
+  const [authed,             setAuthed]             = useState(false);
+  const [users,              setUsers]              = useState<User[]>([]);
+  const [availableSubjects,  setAvailableSubjects]  = useState<SubjectInfo[]>([]);
+  const [loading,            setLoading]            = useState(false);
+  const [filter,             setFilter]             = useState<Filter>('all');
+  const [search,             setSearch]             = useState('');
+  const [error,              setError]              = useState('');
+  const [total,              setTotal]              = useState(0);
+  const [demoCount,          setDemoCount]          = useState(0);
+  const [actioning,          setActioning]          = useState<string | null>(null);
+  const [toast,              setToast]              = useState<string | null>(null);
+  const [expandedIds,        setExpandedIds]        = useState<Set<string>>(new Set());
+
+  // Восстанавливаем пароль из sessionStorage при монтировании
+  useEffect(() => {
+    const saved = sessionStorage.getItem('admin_secret');
+    if (saved) setSecret(saved);
+  }, []);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -329,18 +331,38 @@ export default function AdminPage() {
     });
   }, []);
 
+  // ── POST-запрос: получить список пользователей ────────────────────────────
   const fetchUsers = useCallback(async (s: string) => {
+    const initData = getTelegramInitData();
+    if (!initData) {
+      setError('Вход только через Telegram Mini App');
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
-      const r = await fetch(`/api/admin-users?secret=${encodeURIComponent(s)}`);
-      if (r.status === 401) { setError('Неверный пароль'); setAuthed(false); return; }
+      const r = await fetch('/api/admin-users', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ secret: s, initData }),
+      });
+
+      if (r.status === 403 || r.status === 401) {
+        setError('Нет доступа: неверный пароль или Telegram ID');
+        setAuthed(false);
+        return;
+      }
       if (!r.ok) { setError('Ошибка сервера'); return; }
+
       const data = await r.json();
       setUsers(data.users ?? []);
       setTotal(data.total ?? 0);
       setDemoCount(data.demoCount ?? 0);
       setAvailableSubjects(data.availableSubjects ?? []);
+
+      // Кэшируем пароль в рамках сессии
+      sessionStorage.setItem('admin_secret', s);
       setAuthed(true);
     } catch {
       setError('Ошибка соединения');
@@ -351,31 +373,48 @@ export default function AdminPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (secret) fetchUsers(secret);
+    if (!secret) return;
+
+    const initData = getTelegramInitData();
+    if (!initData) {
+      setError('Откройте панель через Telegram — вход из браузера заблокирован');
+      return;
+    }
+
+    fetchUsers(secret);
   };
 
+  // ── POST-запрос: выполнить действие над пользователем ────────────────────
   const doAction = async (
     tgId: string,
     action: Action,
     subjectId?: string,
     enabled?: boolean,
   ) => {
+    const initData = getTelegramInitData();
+    if (!initData) { showToast('Нет доступа: не в Telegram'); return; }
+
     setActioning(tgId);
     try {
-      // Формируем URL с дополнительными параметрами для toggle_subject
-      let url = `/api/admin-users?secret=${encodeURIComponent(secret)}&action=${action}&tgId=${tgId}`;
+      const body: Record<string, unknown> = { secret, initData, action, tgId };
       if (action === 'toggle_subject' && subjectId !== undefined) {
-        url += `&subject=${encodeURIComponent(subjectId)}&enable=${enabled ? 'true' : 'false'}`;
+        body.subject = subjectId;
+        body.enable  = enabled;
       }
 
-      const r = await fetch(url);
+      const r = await fetch('/api/admin-users', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+      });
+
       if (!r.ok) { showToast('Ошибка действия'); return; }
 
       setUsers(prev => prev.map(u => {
         if (u.tgId !== tgId) return u;
         switch (action) {
           case 'block':
-            return { ...u, blocked: true,  blockedReason: 'manual', blockedAt: new Date().toISOString() };
+            return { ...u, blocked: true, blockedReason: 'manual', blockedAt: new Date().toISOString() };
           case 'unblock':
             return { ...u, blocked: false, blockedReason: null, blockedAt: null, opensToday: 0, suspicious: u.fpChanges >= 2 };
           case 'reset_demo':
@@ -385,11 +424,7 @@ export default function AdminPage() {
             const newSubjects = enabled
               ? Array.from(new Set([...u.subjects, subjectId]))
               : u.subjects.filter(s => s !== subjectId);
-            return {
-              ...u,
-              subjects: newSubjects,
-              hasMicro: newSubjects.includes('micro'), // legacy sync
-            };
+            return { ...u, subjects: newSubjects, hasMicro: newSubjects.includes('micro') };
           }
           default:
             return u;
@@ -398,14 +433,13 @@ export default function AdminPage() {
 
       if (action === 'reset_demo') setDemoCount(c => Math.max(0, c - 1));
 
-      // Сообщение для toast
       let msg = '';
       switch (action) {
-        case 'block':           msg = '🚫 Заблокирован'; break;
-        case 'unblock':         msg = '✓ Разблокирован'; break;
-        case 'reset_demo':      msg = '✓ Демо выдан повторно'; break;
+        case 'block':          msg = '🚫 Заблокирован'; break;
+        case 'unblock':        msg = '✓ Разблокирован'; break;
+        case 'reset_demo':     msg = '✓ Демо выдан повторно'; break;
         case 'toggle_subject': {
-          const subj = availableSubjects.find(s => s.id === subjectId);
+          const subj  = availableSubjects.find(s => s.id === subjectId);
           const label = subj?.shortLabel || subjectId;
           msg = enabled ? `✓ ${label} выдано` : `${label} отозвано`;
           break;
@@ -419,7 +453,6 @@ export default function AdminPage() {
 
   const blockedCount    = useMemo(() => users.filter(u => u.blocked).length, [users]);
   const suspiciousCount = useMemo(() => users.filter(u => u.suspicious && !u.blocked).length, [users]);
-  // Кол-во пользователей с доп. дисциплиной (любой кроме ortho)
   const microCount      = useMemo(() => users.filter(u => u.subjects.some(s => s !== 'ortho')).length, [users]);
 
   const visible = useMemo(() => users.filter(u => {
@@ -502,8 +535,8 @@ export default function AdminPage() {
 
   return (
     <div style={{
-      height: '100svh', // Изменено: фиксированная высота
-      display: 'flex', flexDirection: 'column', overflow: 'hidden', // Изменено: flex и скрываем внешний скролл
+      height: '100svh',
+      display: 'flex', flexDirection: 'column', overflow: 'hidden',
       background: '#0a0a0a',
       fontFamily: "-apple-system, 'SF Pro Display', system-ui, sans-serif",
       color: '#e5e5e5',
@@ -523,13 +556,13 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* ── Sticky шапка ── */}
+      {/* Sticky шапка */}
       <div style={{
         background: '#101010', borderBottom: '1px solid #1a1a1a',
         padding: '10px 13px',
         display: 'flex', alignItems: 'center', gap: 10,
         position: 'sticky', top: 0, zIndex: 100,
-        flexShrink: 0, // Изменено: защищаем шапку от сжатия
+        flexShrink: 0,
       }}>
         <span style={{ fontSize: 20 }}>🦷</span>
         <div style={{ flex: 1 }}>
@@ -551,11 +584,11 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {/* Контентная часть со скроллом */}
-      <div style={{ 
+      {/* Контентная область со скроллом */}
+      <div style={{
         padding: '12px 12px 80px', maxWidth: 680, margin: '0 auto',
-        width: '100%', boxSizing: 'border-box', // Изменено: 100% ширина с учетом паддингов
-        flex: 1, overflowY: 'auto' // Изменено: ВКЛЮЧАЕМ СКРОЛЛ ЗДЕСЬ
+        width: '100%', boxSizing: 'border-box',
+        flex: 1, overflowY: 'auto',
       }}>
 
         {/* Статистика */}
@@ -653,7 +686,7 @@ export default function AdminPage() {
           )}
         </div>
 
-        {/* Список */}
+        {/* Список пользователей */}
         {loading ? (
           <div style={{ textAlign: 'center', color: '#222', padding: '60px 0' }}>Загрузка...</div>
         ) : visible.length === 0 ? (
