@@ -86,7 +86,7 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
         }
         @keyframes subjectToothPulse {
           0%,100% { transform: scale(1); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--c-primary) 40%, transparent)); }
-          50%      { transform: scale(1.07); filter: drop-shadow(0 0 16px color-mix(in srgb, var(--c-primary) 75%, transparent)); }
+          50%      { transform: scale(1.07); filter: drop-shadow(0 0 20px color-mix(in srgb, var(--c-primary) 80%, transparent)); }
         }
       `}</style>
 
@@ -97,54 +97,50 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
       <FloatingTooth x={300} y={620} size={24} delay={1.5} color="color-mix(in srgb, var(--c-amber)  10%, transparent)" />
       <FloatingTooth x={160} y={40}  size={14} delay={2}   color="color-mix(in srgb, var(--c-primary)  8%, transparent)" />
 
-      {/* ── Компактная шапка: иконка + "ByNekruz" в один ряд ── */}
+      {/* ── Большая центральная шапка (большой зуб над надписью) ── */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45 }}
-        className="flex items-center justify-center gap-3 px-6 pt-6 pb-2 flex-shrink-0 relative z-10"
+        className="flex flex-col items-center text-center px-6 pt-8 pb-4 flex-shrink-0 relative z-10"
       >
         <div
-          className="w-12 h-12 rounded-[16px] flex items-center justify-center"
+          className="w-[72px] h-[72px] rounded-[24px] flex items-center justify-center mb-4"
           style={{
             background: 'var(--c-primary-dim)',
             border: '1.5px solid var(--c-primary-br)',
             animation: 'subjectToothPulse 2.5s ease-in-out infinite',
           }}
         >
-          <ToothIcon className="w-7 h-7 text-primary" variant="perfect" />
+          <ToothIcon className="w-10 h-10 text-primary" variant="perfect" />
         </div>
         <h1
-          className="text-2xl font-extrabold tracking-tight"
+          className="text-2xl font-extrabold tracking-tight mb-2"
           style={{ color: 'var(--c-text)' }}
         >
           ByNekruz
         </h1>
+        <p className="text-sm" style={{ color: 'var(--c-muted)' }}>
+          Выберите предмет для подготовки
+        </p>
       </motion.div>
-
-      <p
-        className="text-center text-[13px] flex-shrink-0 pb-3 relative z-10"
-        style={{ color: 'var(--c-muted)' }}
-      >
-        Выберите предмет для подготовки
-      </p>
 
       {/* ── Скроллируемый список карточек ── */}
       <div
         className="flex-1 overflow-y-auto overscroll-contain relative z-10"
         style={{ WebkitOverflowScrolling: 'touch' as any }}
       >
-        <div className="flex flex-col gap-3 w-full max-w-xs mx-auto px-5 pb-4">
+        <div className="flex flex-col gap-3 w-full max-w-xs mx-auto px-5 pt-2 pb-4">
           {visibleSubjects.map((item, i) => {
             const isSelected = selected === item.id;
             return (
               <motion.button
                 key={item.id}
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: Math.min(0.06 * i, 0.5) }}
+                transition={{ duration: 0.4, delay: Math.min(0.08 * i, 0.5) }}
                 onClick={() => setSelected(item.id)}
-                className="flex items-center gap-4 rounded-[24px] p-4 transition-all duration-200 active:scale-[0.97] text-left"
+                className="flex items-center gap-4 rounded-[24px] p-5 transition-all duration-200 active:scale-[0.97] text-left"
                 style={{
                   background: isSelected ? item.dimColor : 'var(--c-card)',
                   border:     `1.5px solid ${isSelected ? item.borderColor : 'var(--c-border)'}`,
@@ -153,7 +149,7 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
               >
                 {/* Icon */}
                 <div
-                  className="w-14 h-14 rounded-[18px] flex items-center justify-center flex-shrink-0 transition-all duration-300"
+                  className="w-16 h-16 rounded-[20px] flex items-center justify-center flex-shrink-0 transition-all duration-300"
                   style={{
                     background: item.dimColor,
                     border:     `1px solid ${item.borderColor}`,
@@ -161,7 +157,7 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
                   }}
                 >
                   <ToothIcon
-                    className="w-8 h-8"
+                    className="w-9 h-9"
                     style={{ color: item.color }}
                     variant={item.iconVariant}
                   />
@@ -170,18 +166,18 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
                 {/* Text */}
                 <div className="flex-1 min-w-0">
                   <div
-                    className="text-[10px] font-bold uppercase tracking-widest mb-0.5"
+                    className="text-[11px] font-bold uppercase tracking-widest mb-1"
                     style={{ color: item.color }}
                   >
                     {item.badge}
                   </div>
                   <div
-                    className="text-sm font-bold leading-snug mb-0.5 whitespace-pre-line"
+                    className="text-sm font-bold leading-snug mb-1 whitespace-pre-line"
                     style={{ color: 'var(--c-text)' }}
                   >
                     {item.label}
                   </div>
-                  <div className="text-[10px]" style={{ color: 'var(--c-muted)' }}>
+                  <div className="text-[11px]" style={{ color: 'var(--c-muted)' }}>
                     {item.sub}
                   </div>
                 </div>
