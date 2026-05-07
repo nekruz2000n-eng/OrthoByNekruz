@@ -74,141 +74,178 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
       onClick={onClose}
     >
       <motion.div
-        className="rounded-t-[28px] px-5 pb-10"
-        style={{ background: 'var(--c-card)', borderTop: '1px solid var(--c-border)' }}
+        className="rounded-t-[28px] flex flex-col"
+        style={{
+          background: 'var(--c-card)',
+          borderTop: '1px solid var(--c-border)',
+          maxHeight:  '85vh',
+        }}
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 320 }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex justify-center pt-3 pb-5">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--c-border)' }} />
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
+          <div className="w-10 h-1 rounded-full" style={{ background: 'var(--c-border)' }} />
         </div>
 
-        <div className="text-center mb-6">
+        {/* Заголовок */}
+        <div className="text-center px-5 pb-3 pt-1 flex-shrink-0">
           <h3 className="text-base font-bold" style={{ color: 'var(--c-text)' }}>Сменить дисциплину</h3>
-          <p className="text-xs mt-1" style={{ color: 'var(--c-muted)' }}>Выберите дисциплину для подготовки</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--c-muted)' }}>
+            {userSubjects.length} {userSubjects.length === 1 ? 'предмет открыт' : 'предметов открыто'} · всего {items.length}
+          </p>
         </div>
 
-        <div className="flex flex-col gap-3 mb-5">
-          {items.map(item => {
-            const isSel = selected === item.id;
-            const isCur = currentSubject === item.id;
-            // Дисциплина заблокирована если её нет в списке доступных пользователю
-            const isLocked = !userSubjects.includes(item.id);
+        {/* Скроллируемый список карточек */}
+        <div
+          className="flex-1 overflow-y-auto overscroll-contain px-5"
+          style={{ WebkitOverflowScrolling: 'touch' as any }}
+        >
+          <div className="flex flex-col gap-2.5 py-2">
+            {items.map(item => {
+              const isSel = selected === item.id;
+              const isCur = currentSubject === item.id;
+              const isLocked = !userSubjects.includes(item.id);
 
-            return (
-              <button
-                key={item.id}
-                onClick={() => setSelected(item.id)}
-                disabled={isLocked}
-                className="flex items-center gap-4 rounded-[20px] p-4 text-left transition-all duration-200 active:scale-[0.98]"
-                style={{
-                  background: isSel ? item.dimVar : 'color-mix(in srgb, var(--c-border) 30%, transparent)',
-                  border: `1.5px solid ${isSel ? item.brVar : 'var(--c-border)'}`,
-                  opacity: isLocked ? 0.5 : 1,
-                  cursor: isLocked ? 'not-allowed' : 'pointer',
-                }}
-              >
-                <div
-                  className="w-[52px] h-[52px] rounded-[16px] flex items-center justify-center flex-shrink-0"
-                  style={{ background: item.dimVar, border: `1px solid ${item.brVar}` }}
-                >
-                  <ToothIcon className="w-8 h-8" style={{ color: item.color }} variant={item.variant} />
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                    <span className="text-sm font-bold" style={{ color: 'var(--c-text)' }}>{item.label}</span>
-                    {isCur && (
-                      <span
-                        className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
-                        style={{ background: item.dimVar, color: item.color }}
-                      >
-                        Сейчас
-                      </span>
-                    )}
-                    {isLocked && (
-                      <span
-                        className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
-                        style={{ background: 'var(--c-border)', color: 'var(--c-muted)' }}
-                      >
-                        🔒 Закрыто
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[11px]" style={{ color: 'var(--c-muted)' }}>{item.sub}</span>
-                </div>
-
-                <div
-                  className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center transition-all duration-200"
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setSelected(item.id)}
+                  disabled={isLocked}
+                  className="flex items-center gap-3 rounded-[18px] p-3.5 text-left transition-all duration-200 active:scale-[0.98]"
                   style={{
-                    background: isSel ? item.color : 'transparent',
-                    border: `1.5px solid ${isSel ? item.color : 'var(--c-border)'}`,
+                    background: isSel
+                      ? item.dimVar
+                      : isLocked
+                        ? 'transparent'
+                        : 'color-mix(in srgb, var(--c-border) 25%, transparent)',
+                    border: `1.5px solid ${isSel ? item.brVar : 'var(--c-border)'}`,
+                    opacity: isLocked ? 0.45 : 1,
+                    cursor: isLocked ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  {isSel && (
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path d="M2 5l2.5 2.5 3.5-4" stroke="var(--c-bg)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </div>
-              </button>
-            );
-          })}
+                  {/* Левая мини-иконка с цветной точкой */}
+                  <div
+                    className="w-11 h-11 rounded-[13px] flex items-center justify-center flex-shrink-0"
+                    style={{ background: item.dimVar, border: `1px solid ${item.brVar}` }}
+                  >
+                    <ToothIcon className="w-6 h-6" style={{ color: item.color }} variant={item.variant} />
+                  </div>
+
+                  {/* Текст: название (+ бейдж "Сейчас" / "🔒") и подпись */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                      <span
+                        className="text-[13px] font-bold leading-tight"
+                        style={{ color: 'var(--c-text)' }}
+                      >
+                        {item.label}
+                      </span>
+                      {isCur && (
+                        <span
+                          className="text-[8.5px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0"
+                          style={{ background: item.dimVar, color: item.color }}
+                        >
+                          Сейчас
+                        </span>
+                      )}
+                      {isLocked && (
+                        <span
+                          className="text-[8.5px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0"
+                          style={{ background: 'color-mix(in srgb, var(--c-border) 60%, transparent)', color: 'var(--c-muted)' }}
+                        >
+                          🔒
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className="text-[10.5px] block whitespace-nowrap overflow-hidden text-ellipsis"
+                      style={{ color: 'var(--c-muted)' }}
+                    >
+                      {item.sub}
+                    </span>
+                  </div>
+
+                  {/* Радио-чекбокс справа */}
+                  <div
+                    className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center transition-all duration-200"
+                    style={{
+                      background: isSel ? item.color : 'transparent',
+                      border: `1.5px solid ${isSel ? item.color : 'var(--c-border)'}`,
+                    }}
+                  >
+                    {isSel && (
+                      <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                        <path d="M2 5l2.5 2.5 3.5-4" stroke="var(--c-bg)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Сообщение о заблокированной дисциплине */}
-        {subjectLocked && (
-          <div
-            className="rounded-2xl p-4 mb-5"
-            style={{
-              background: getSubject(selected)?.dimColor || 'var(--c-amber-dim)',
-              border: `1px solid ${getSubject(selected)?.borderColor || 'var(--c-amber-br)'}`,
-            }}
-          >
-            <div className="flex items-start gap-3">
-              <div className="text-lg">🔒</div>
-              <div>
-                <p className="text-sm font-bold mb-1" style={{ color: 'var(--c-text)' }}>
-                  {getSubject(selected)?.label || 'Дисциплина'} недоступна
-                </p>
-                <p className="text-xs" style={{ color: 'var(--c-muted)' }}>
-                  Свяжитесь с администратором для получения доступа
-                </p>
+        {/* Низ: уведомление о блокировке + кнопки */}
+        <div
+          className="flex-shrink-0 px-5 pt-2 pb-5"
+          style={{
+            background: 'linear-gradient(to top, var(--c-card) 70%, transparent)',
+            borderTop: '1px solid color-mix(in srgb, var(--c-border) 50%, transparent)',
+          }}
+        >
+          {subjectLocked && (
+            <div
+              className="rounded-2xl p-3 mb-3"
+              style={{
+                background: getSubject(selected)?.dimColor || 'var(--c-amber-dim)',
+                border: `1px solid ${getSubject(selected)?.borderColor || 'var(--c-amber-br)'}`,
+              }}
+            >
+              <div className="flex items-start gap-2.5">
+                <div className="text-base flex-shrink-0">🔒</div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold mb-0.5" style={{ color: 'var(--c-text)' }}>
+                    {getSubject(selected)?.label || 'Дисциплина'} недоступна
+                  </p>
+                  <p className="text-[11px]" style={{ color: 'var(--c-muted)' }}>
+                    Свяжитесь с администратором для получения доступа
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Кнопки */}
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 rounded-[18px] font-bold text-sm transition-all duration-200 active:scale-[0.98]"
-            style={{ background: 'var(--c-border)', color: 'var(--c-text)' }}
-          >
-            Отмена
-          </button>
-          <button
-            onClick={() => {
-              if (!subjectLocked) {
-                onSelect(selected);
-                onClose();
-              }
-            }}
-            disabled={subjectLocked}
-            className="flex-1 py-3 rounded-[18px] font-bold text-sm transition-all duration-200 active:scale-[0.98]"
-            style={{
-              background: subjectLocked ? 'var(--c-border)' : 'var(--c-primary)',
-              color: subjectLocked ? 'var(--c-muted)' : 'var(--c-bg)',
-              cursor: subjectLocked ? 'not-allowed' : 'pointer',
-              opacity: subjectLocked ? 0.5 : 1,
-            }}
-          >
-            Выбрать
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-[16px] font-bold text-[13px] transition-all duration-200 active:scale-[0.98]"
+              style={{ background: 'var(--c-border)', color: 'var(--c-text)' }}
+            >
+              Отмена
+            </button>
+            <button
+              onClick={() => {
+                if (!subjectLocked) {
+                  onSelect(selected);
+                  onClose();
+                }
+              }}
+              disabled={subjectLocked}
+              className="flex-1 py-3 rounded-[16px] font-bold text-[13px] transition-all duration-200 active:scale-[0.98]"
+              style={{
+                background: subjectLocked ? 'var(--c-border)' : (getSubject(selected)?.color || 'var(--c-primary)'),
+                color: subjectLocked ? 'var(--c-muted)' : 'var(--c-bg)',
+                cursor: subjectLocked ? 'not-allowed' : 'pointer',
+                opacity: subjectLocked ? 0.5 : 1,
+              }}
+            >
+              Выбрать
+            </button>
+          </div>
         </div>
       </motion.div>
     </motion.div>,
