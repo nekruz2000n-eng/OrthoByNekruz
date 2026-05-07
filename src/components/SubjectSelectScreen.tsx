@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ToothIcon } from '@/components/ToothIcon';
 import { motion } from 'framer-motion';
 import { SUBJECTS, getSubject, SubjectConfig } from '@/lib/subjects';
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
-// SubjectType больше не объединение литералов — это просто string (ID из конфига)
 export type SubjectType = string;
 
 interface SubjectSelectScreenProps {
@@ -14,6 +13,33 @@ interface SubjectSelectScreenProps {
   availableSubjects: string[];
   /** Колбэк при выборе дисциплины */
   onSelect: (subject: string) => void;
+}
+
+// ─── Хук: разблокирует скролл (нужен для Telegram Mini App) ───────────────────
+function useReleaseScroll() {
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = {
+      htmlOverflow: html.style.overflow,
+      htmlHeight:   html.style.height,
+      bodyOverflow: body.style.overflow,
+      bodyHeight:   body.style.height,
+      bodyTouch:    body.style.touchAction,
+    };
+    html.style.overflow = 'hidden';
+    html.style.height   = '100%';
+    body.style.overflow = 'hidden';
+    body.style.height   = '100%';
+    body.style.touchAction = 'auto';
+    return () => {
+      html.style.overflow = prev.htmlOverflow;
+      html.style.height   = prev.htmlHeight;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.height   = prev.bodyHeight;
+      body.style.touchAction = prev.bodyTouch;
+    };
+  }, []);
 }
 
 // ─── Floating tooth background ────────────────────────────────────────────────
@@ -39,20 +65,20 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
   availableSubjects,
   onSelect,
 }) => {
+  useReleaseScroll();
   const [selected, setSelected] = useState<string | null>(null);
 
-  // Фильтруем только те дисциплины, которые доступны пользователю.
-  // Сохраняем порядок из SUBJECTS (чтобы ortho всегда была первой).
+  // Фильтруем только доступные. Сохраняем порядок из SUBJECTS.
   const visibleSubjects: SubjectConfig[] = SUBJECTS.filter(s =>
     availableSubjects.includes(s.id)
   );
 
   return (
     <div
-      className="flex flex-col items-center justify-center h-[100dvh] w-full relative overflow-hidden"
-      style={{ background: 'var(--c-bg)' }}
+      className="flex flex-col w-full relative overflow-hidden"
+      style={{ background: 'var(--c-bg)', height: '100dvh' }}
     >
-      {/* CSS: floating tooth keyframes — inject once */}
+      {/* CSS keyframes */}
       <style>{`
         @keyframes subjectToothFloat {
           0%,100% { transform: translateY(0px) rotate(-3deg); }
@@ -60,7 +86,7 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
         }
         @keyframes subjectToothPulse {
           0%,100% { transform: scale(1); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--c-primary) 40%, transparent)); }
-          50%      { transform: scale(1.07); filter: drop-shadow(0 0 20px color-mix(in srgb, var(--c-primary) 80%, transparent)); }
+          50%      { transform: scale(1.07); filter: drop-shadow(0 0 16px color-mix(in srgb, var(--c-primary) 75%, transparent)); }
         }
       `}</style>
 
@@ -71,118 +97,130 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
       <FloatingTooth x={300} y={620} size={24} delay={1.5} color="color-mix(in srgb, var(--c-amber)  10%, transparent)" />
       <FloatingTooth x={160} y={40}  size={14} delay={2}   color="color-mix(in srgb, var(--c-primary)  8%, transparent)" />
 
-      {/* Header */}
+      {/* ── Компактная шапка: иконка + "ByNekruz" в один ряд ── */}
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45 }}
-        className="flex flex-col items-center mb-10 text-center px-6"
+        className="flex items-center justify-center gap-3 px-6 pt-6 pb-2 flex-shrink-0 relative z-10"
       >
         <div
-          className="w-[72px] h-[72px] rounded-[24px] flex items-center justify-center mb-4"
+          className="w-12 h-12 rounded-[16px] flex items-center justify-center"
           style={{
             background: 'var(--c-primary-dim)',
             border: '1.5px solid var(--c-primary-br)',
             animation: 'subjectToothPulse 2.5s ease-in-out infinite',
           }}
         >
-          <ToothIcon className="w-10 h-10 text-primary" variant="perfect" />
+          <ToothIcon className="w-7 h-7 text-primary" variant="perfect" />
         </div>
         <h1
-          className="text-2xl font-extrabold tracking-tight mb-2"
+          className="text-2xl font-extrabold tracking-tight"
           style={{ color: 'var(--c-text)' }}
         >
-          OrthoByNekruz
+          ByNekruz
         </h1>
-        <p className="text-sm" style={{ color: 'var(--c-muted)' }}>
-          Выберите предмет для подготовки
-        </p>
       </motion.div>
 
-      {/* Subject cards */}
-      <div className="flex flex-col gap-3 w-full max-w-xs px-5">
-        {visibleSubjects.map((item, i) => {
-          const isSelected = selected === item.id;
-          return (
-            <motion.button
-              key={item.id}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, delay: 0.1 + i * 0.12 }}
-              onClick={() => setSelected(item.id)}
-              className="flex items-center gap-4 rounded-[24px] p-5 transition-all duration-200 active:scale-[0.97] text-left"
-              style={{
-                background: isSelected ? item.dimColor : 'var(--c-card)',
-                border:     `1.5px solid ${isSelected ? item.borderColor : 'var(--c-border)'}`,
-                boxShadow:  isSelected ? `0 8px 32px color-mix(in srgb, ${item.color} 20%, transparent)` : 'none',
-              }}
-            >
-              {/* Icon */}
-              <div
-                className="w-16 h-16 rounded-[20px] flex items-center justify-center flex-shrink-0 transition-all duration-300"
+      <p
+        className="text-center text-[13px] flex-shrink-0 pb-3 relative z-10"
+        style={{ color: 'var(--c-muted)' }}
+      >
+        Выберите предмет для подготовки
+      </p>
+
+      {/* ── Скроллируемый список карточек ── */}
+      <div
+        className="flex-1 overflow-y-auto overscroll-contain relative z-10"
+        style={{ WebkitOverflowScrolling: 'touch' as any }}
+      >
+        <div className="flex flex-col gap-3 w-full max-w-xs mx-auto px-5 pb-4">
+          {visibleSubjects.map((item, i) => {
+            const isSelected = selected === item.id;
+            return (
+              <motion.button
+                key={item.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: Math.min(0.06 * i, 0.5) }}
+                onClick={() => setSelected(item.id)}
+                className="flex items-center gap-4 rounded-[24px] p-4 transition-all duration-200 active:scale-[0.97] text-left"
                 style={{
-                  background: item.dimColor,
-                  border:     `1px solid ${item.borderColor}`,
-                  filter:     isSelected ? `drop-shadow(0 0 10px ${item.color})` : 'none',
+                  background: isSelected ? item.dimColor : 'var(--c-card)',
+                  border:     `1.5px solid ${isSelected ? item.borderColor : 'var(--c-border)'}`,
+                  boxShadow:  isSelected ? `0 8px 32px color-mix(in srgb, ${item.color} 20%, transparent)` : 'none',
                 }}
               >
-                <ToothIcon
-                  className="w-9 h-9"
-                  style={{ color: item.color }}
-                  variant={item.iconVariant}
-                />
-              </div>
-
-              {/* Text */}
-              <div className="flex-1 min-w-0">
+                {/* Icon */}
                 <div
-                  className="text-[11px] font-bold uppercase tracking-widest mb-1"
-                  style={{ color: item.color }}
+                  className="w-14 h-14 rounded-[18px] flex items-center justify-center flex-shrink-0 transition-all duration-300"
+                  style={{
+                    background: item.dimColor,
+                    border:     `1px solid ${item.borderColor}`,
+                    filter:     isSelected ? `drop-shadow(0 0 10px ${item.color})` : 'none',
+                  }}
                 >
-                  {item.badge}
-                </div>
-                <div
-                  className="text-sm font-bold leading-snug mb-1 whitespace-pre-line"
-                  style={{ color: 'var(--c-text)' }}
-                >
-                  {item.label}
-                </div>
-                <div className="text-[11px]" style={{ color: 'var(--c-muted)' }}>
-                  {item.sub}
-                </div>
-              </div>
-
-              {/* Chevron */}
-              <div
-                className="w-7 h-7 rounded-[10px] flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                style={{
-                  background: isSelected ? item.color : 'color-mix(in srgb, var(--c-border) 60%, transparent)',
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path
-                    d="M5 3L9 7L5 11"
-                    stroke={isSelected ? 'var(--c-bg)' : 'var(--c-muted)'}
-                    strokeWidth="1.8" strokeLinecap="round"
+                  <ToothIcon
+                    className="w-8 h-8"
+                    style={{ color: item.color }}
+                    variant={item.iconVariant}
                   />
-                </svg>
-              </div>
-            </motion.button>
-          );
-        })}
+                </div>
+
+                {/* Text */}
+                <div className="flex-1 min-w-0">
+                  <div
+                    className="text-[10px] font-bold uppercase tracking-widest mb-0.5"
+                    style={{ color: item.color }}
+                  >
+                    {item.badge}
+                  </div>
+                  <div
+                    className="text-sm font-bold leading-snug mb-0.5 whitespace-pre-line"
+                    style={{ color: 'var(--c-text)' }}
+                  >
+                    {item.label}
+                  </div>
+                  <div className="text-[10px]" style={{ color: 'var(--c-muted)' }}>
+                    {item.sub}
+                  </div>
+                </div>
+
+                {/* Chevron */}
+                <div
+                  className="w-7 h-7 rounded-[10px] flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                  style={{
+                    background: isSelected ? item.color : 'color-mix(in srgb, var(--c-border) 60%, transparent)',
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path
+                      d="M5 3L9 7L5 11"
+                      stroke={isSelected ? 'var(--c-bg)' : 'var(--c-muted)'}
+                      strokeWidth="1.8" strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
+              </motion.button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* CTA button */}
-      <motion.div
-        className="w-full max-w-xs px-5 mt-7"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, delay: 0.42 }}
+      {/* ── Зафиксированный низ: CTA + подпись ── */}
+      <div
+        className="flex-shrink-0 w-full px-5 pt-3 pb-5 relative z-10"
+        style={{
+          background: 'linear-gradient(to top, var(--c-bg) 70%, transparent)',
+        }}
       >
-        <button
+        <motion.button
           onClick={() => selected && onSelect(selected)}
           disabled={!selected}
-          className="w-full h-[52px] rounded-[18px] text-[15px] font-bold transition-all duration-300 active:scale-[0.98]"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="w-full max-w-xs mx-auto block h-[52px] rounded-[18px] text-[15px] font-bold transition-all duration-300 active:scale-[0.98]"
           style={selected ? {
             background: getSubject(selected)?.color || 'var(--c-primary)',
             color:      'var(--c-bg)',
@@ -196,18 +234,15 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
           {selected
             ? `→ Войти в ${getSubject(selected)?.label || 'дисциплину'}`
             : 'Выберите предмет'}
-        </button>
-      </motion.div>
+        </motion.button>
 
-      <motion.p
-        className="mt-4 text-[11px] text-center"
-        style={{ color: 'var(--c-muted)', opacity: 0.6 }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.6 }}
-        transition={{ delay: 0.6 }}
-      >
-        Можно сменить предмет в любое время
-      </motion.p>
+        <p
+          className="mt-3 text-[10px] text-center"
+          style={{ color: 'var(--c-muted)', opacity: 0.55 }}
+        >
+          Можно сменить предмет в любое время
+        </p>
+      </div>
     </div>
   );
 };
