@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import orthoTasksData from '@/data/tasks.json';
 import { SubjectType } from '@/components/SubjectSelectScreen';
+import { getSubject } from '@/lib/subjects';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -17,9 +18,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 
 export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
-  const lsTasks     = subject === 'ortho' ? 'resolvedTasks' : 'microResolvedTasks';
-  const lsNotes     = subject === 'ortho' ? 'userTaskNotes' : 'microUserTaskNotes';
-  const accentColor = subject === 'micro' ? 'var(--c-amber)' : 'var(--c-primary)';
+  const cfg         = getSubject(subject);
+  const lsTasks     = subject === 'ortho' ? 'resolvedTasks' : `${cfg?.lsPrefix || subject}_resolvedTasks`;
+  const lsNotes     = subject === 'ortho' ? 'userTaskNotes' : `${cfg?.lsPrefix || subject}_userTaskNotes`;
+  const accentColor = cfg?.color || 'var(--c-primary)';
   const isOrtho     = subject === 'ortho';
 
   const [microTasksData, setMicroTasksData] = useState<any[]>([]);
@@ -48,9 +50,9 @@ export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
     setMicroLoading(true);
     const tgId    = localStorage.getItem('user_tg_id') || '';
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
-    fetch('/api/micro-data', {
+    fetch('/api/subject-data', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'tasks', telegramId: tgId, initData: initDat }),
+      body: JSON.stringify({ subject, type: 'tasks', telegramId: tgId, initData: initDat }),
     })
       .then(r => r.json())
       .then(d => { if (d.data) setMicroTasksData(d.data); })
@@ -196,14 +198,14 @@ export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
       >
         <div className="flex justify-between items-center px-1">
           <div className="flex items-center gap-3">
-            <ToothIcon className="w-9 h-9" style={{ color: accentColor }}   variant={subject === 'ortho' ? 'perfect' : 'normal'}  onClick={onSecretTap} />
+            <ToothIcon className="w-9 h-9" style={{ color: accentColor }}   variant={cfg?.iconVariant || 'perfect'}  onClick={onSecretTap} />
                <div>
                   <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>
-                     {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}
+                     {isOrtho ? 'OrthoByNekruz' : `${cfg?.label || subject}ByNekruz`}
                   </h1>
                   <p className="text-[10px] font-bold uppercase tracking-widest"
                    style={{ color: accentColor }}>
-                   {subject === 'micro' ? 'Микробиология' : 'Ортопедия'}
+                   {cfg?.label || subject}
                   </p>
                 </div>
           </div>

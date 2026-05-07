@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import orthoQuestionsData from '@/data/questions.json';
 import { SubjectType } from '@/components/SubjectSelectScreen';
+import { getSubject } from '@/lib/subjects';
 import glossaryData from '@/data/glossary.json';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -304,12 +305,14 @@ const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string })
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
-  const accentColor = subject === 'micro' ? 'var(--c-amber)' : 'var(--c-primary)';
-  const lsKey       = subject === 'ortho' ? 'studiedQuestions'  : 'microStudiedQuestions';
-  const lsNoteKey   = subject === 'ortho' ? 'userQuestionNotes' : 'microUserQuestionNotes';
+  const cfg         = getSubject(subject);
+  const accentColor = cfg?.color || 'var(--c-primary)';
+  // ls-ключи строятся из префикса дисциплины — добавление новой дисциплины ничего не ломает
+  const lsKey       = subject === 'ortho' ? 'studiedQuestions'  : `${cfg?.lsPrefix || subject}_studiedQuestions`;
+  const lsNoteKey   = subject === 'ortho' ? 'userQuestionNotes' : `${cfg?.lsPrefix || subject}_userQuestionNotes`;
   const isOrtho     = subject === 'ortho';
 
-  // Микро-данные загружаются с сервера (не в бандле — защита от кражи контента)
+  // Не-ortho данные загружаются с сервера (не в бандле — защита от кражи контента)
   const [microQuestionsData, setMicroQuestionsData] = useState<any[]>([]);
   const [microLoading,       setMicroLoading]       = useState(false);
   const questionsData = isOrtho ? orthoQuestionsData : microQuestionsData;
@@ -341,16 +344,16 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     setIsLoaded(true);
   }, [subject]);
 
-  // Загрузка данных микробиологии с сервера
+  // Загрузка данных дисциплины (не-ortho) с сервера через универсальный API
   useEffect(() => {
     if (isOrtho) return;
     setMicroLoading(true);
     const tgId    = localStorage.getItem('user_tg_id') || '';
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
-    fetch('/api/micro-data', {
+    fetch('/api/subject-data', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ type: 'questions', telegramId: tgId, initData: initDat }),
+      body:    JSON.stringify({ subject, type: 'questions', telegramId: tgId, initData: initDat }),
     })
       .then(r => r.json())
       .then(d => { if (d.data) setMicroQuestionsData(d.data); })

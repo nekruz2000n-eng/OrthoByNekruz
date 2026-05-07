@@ -10,7 +10,8 @@ interface User {
   blocked:       boolean;
   blockedReason: string | null;
   blockedAt:     string | null;
-  hasMicro:      boolean;
+  subjects:      string[];   // ID открытых дисциплин: ['ortho', 'micro', ...]
+  hasMicro:      boolean;    // legacy, для обратной совместимости
   usedDemo:      boolean;
   activatedKey:  string | null;
   registeredAt:  string | null;
@@ -19,8 +20,15 @@ interface User {
   suspicious:    boolean;
 }
 
+interface SubjectInfo {
+  id:         string;
+  label:      string;
+  shortLabel: string;
+  color:      string;
+}
+
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo';
-type Action = 'block' | 'unblock' | 'give_micro' | 'revoke_micro' | 'reset_demo';
+type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject';
 
 // ── Хук: снимает блокировку скролла из globals.css (нужна для Telegram Mini App) ──
 function useAdminScroll() {
@@ -114,13 +122,14 @@ function ActionBtn({
 // ── Карточка пользователя (сворачиваемая) ─────────────────────────────────────
 // ── Карточка пользователя (сворачиваемая) ─────────────────────────────────────
 function UserCard({
-  user, actioning, onAction, expanded, onToggle,
+  user, actioning, onAction, expanded, onToggle, availableSubjects,
 }: {
   user: User;
   actioning: string | null;
-  onAction: (tgId: string, action: Action) => void;
+  onAction: (tgId: string, action: Action, subjectId?: string, enabled?: boolean) => void;
   expanded: boolean;
   onToggle: () => void;
+  availableSubjects: SubjectInfo[];
 }) {
   const busy      = actioning === user.tgId;
   const name      = displayName(user);
@@ -167,7 +176,14 @@ function UserCard({
             </span>
             {hasFullKey && <Chip bg="#1a3050" color="#60a5fa">🦷</Chip>}
             {isTrial    && <Chip bg="#2a1f00" color="#d97706">триал</Chip>}
-            {user.hasMicro && <Chip bg="#0d2a22" color="#4ade80">🧫</Chip>}
+            {/* Чипы открытых дисциплин (кроме ortho — она везде по умолчанию) */}
+            {availableSubjects
+              .filter(s => s.id !== 'ortho' && user.subjects.includes(s.id))
+              .map(s => (
+                <Chip key={s.id} bg="#0d2a22" color="#4ade80">
+                  {s.shortLabel}
+                </Chip>
+              ))}
             {user.usedDemo && <Chip bg="#1a1035" color="#8b5cf6">демо</Chip>}
             {user.opensToday >= 3 && (
               <span style={{ fontSize: 10, color: user.opensToday >= 5 ? '#f87171' : '#f59e0b', flexShrink: 0 }}>
@@ -213,7 +229,7 @@ function UserCard({
             )}
           </div>
 
-          {/* Кнопки блок/разблок + микро */}
+          {/* Кнопки блок/разблок */}
           <div style={{ display: 'flex', gap: 8 }}>
             {user.blocked ? (
               <ActionBtn color="green" disabled={busy} onClick={() => onAction(user.tgId, 'unblock')} fullWidth>
@@ -224,15 +240,34 @@ function UserCard({
                 {busy ? '...' : '🚫 Заблокировать'}
               </ActionBtn>
             )}
-            {user.hasMicro ? (
-              <ActionBtn color="gray" disabled={busy} onClick={() => onAction(user.tgId, 'revoke_micro')} fullWidth>
-                {busy ? '...' : '✕ Откл. микро'}
-              </ActionBtn>
-            ) : (
-              <ActionBtn color="blue" disabled={busy} onClick={() => onAction(user.tgId, 'give_micro')} fullWidth>
-                {busy ? '...' : '+ Дать микро'}
-              </ActionBtn>
-            )}
+          </div>
+
+          {/* Динамические кнопки для всех дисциплин из конфига */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {availableSubjects.map(s => {
+              const enabled = user.subjects.includes(s.id);
+              return enabled ? (
+                <ActionBtn
+                  key={s.id}
+                  color="gray"
+                  disabled={busy}
+                  onClick={() => onAction(user.tgId, 'toggle_subject', s.id, false)}
+                  fullWidth
+                >
+                  {busy ? '...' : `✕ Откл. ${s.shortLabel}`}
+                </ActionBtn>
+              ) : (
+                <ActionBtn
+                  key={s.id}
+                  color="blue"
+                  disabled={busy}
+                  onClick={() => onAction(user.tgId, 'toggle_subject', s.id, true)}
+                  fullWidth
+                >
+                  {busy ? '...' : `+ Дать ${s.shortLabel}`}
+                </ActionBtn>
+              );
+            })}
           </div>
 
           {/* Кнопка демо */}
@@ -270,6 +305,7 @@ export default function AdminPage() {
   const [secret,      setSecret]      = useState('');
   const [authed,      setAuthed]      = useState(false);
   const [users,       setUsers]       = useState<User[]>([]);
+  const [availableSubjects, setAvailableSubjects] = useState<SubjectInfo[]>([]);
   const [loading,     setLoading]     = useState(false);
   const [filter,      setFilter]      = useState<Filter>('all');
   const [search,      setSearch]      = useState('');
@@ -304,6 +340,7 @@ export default function AdminPage() {
       setUsers(data.users ?? []);
       setTotal(data.total ?? 0);
       setDemoCount(data.demoCount ?? 0);
+      setAvailableSubjects(data.availableSubjects ?? []);
       setAuthed(true);
     } catch {
       setError('Ошибка соединения');
@@ -317,34 +354,64 @@ export default function AdminPage() {
     if (secret) fetchUsers(secret);
   };
 
-  const doAction = async (tgId: string, action: Action) => {
+  const doAction = async (
+    tgId: string,
+    action: Action,
+    subjectId?: string,
+    enabled?: boolean,
+  ) => {
     setActioning(tgId);
     try {
-      const r = await fetch(
-        `/api/admin-users?secret=${encodeURIComponent(secret)}&action=${action}&tgId=${tgId}`
-      );
+      // Формируем URL с дополнительными параметрами для toggle_subject
+      let url = `/api/admin-users?secret=${encodeURIComponent(secret)}&action=${action}&tgId=${tgId}`;
+      if (action === 'toggle_subject' && subjectId !== undefined) {
+        url += `&subject=${encodeURIComponent(subjectId)}&enable=${enabled ? 'true' : 'false'}`;
+      }
+
+      const r = await fetch(url);
       if (!r.ok) { showToast('Ошибка действия'); return; }
 
       setUsers(prev => prev.map(u => {
         if (u.tgId !== tgId) return u;
         switch (action) {
-          case 'block':       return { ...u, blocked: true,  blockedReason: 'manual', blockedAt: new Date().toISOString() };
-          case 'unblock':     return { ...u, blocked: false, blockedReason: null, blockedAt: null, opensToday: 0, suspicious: u.fpChanges >= 2 };
-          case 'give_micro':  return { ...u, hasMicro: true  };
-          case 'revoke_micro':return { ...u, hasMicro: false };
-          case 'reset_demo':  return { ...u, usedDemo: false };
-          default:            return u;
+          case 'block':
+            return { ...u, blocked: true,  blockedReason: 'manual', blockedAt: new Date().toISOString() };
+          case 'unblock':
+            return { ...u, blocked: false, blockedReason: null, blockedAt: null, opensToday: 0, suspicious: u.fpChanges >= 2 };
+          case 'reset_demo':
+            return { ...u, usedDemo: false };
+          case 'toggle_subject': {
+            if (!subjectId) return u;
+            const newSubjects = enabled
+              ? Array.from(new Set([...u.subjects, subjectId]))
+              : u.subjects.filter(s => s !== subjectId);
+            return {
+              ...u,
+              subjects: newSubjects,
+              hasMicro: newSubjects.includes('micro'), // legacy sync
+            };
+          }
+          default:
+            return u;
         }
       }));
 
       if (action === 'reset_demo') setDemoCount(c => Math.max(0, c - 1));
 
-      const msgs: Record<Action, string> = {
-        block: '🚫 Заблокирован', unblock: '✓ Разблокирован',
-        give_micro: '✓ Микро выдано', revoke_micro: 'Микро отозвано',
-        reset_demo: '✓ Демо выдан повторно',
-      };
-      showToast(msgs[action]);
+      // Сообщение для toast
+      let msg = '';
+      switch (action) {
+        case 'block':           msg = '🚫 Заблокирован'; break;
+        case 'unblock':         msg = '✓ Разблокирован'; break;
+        case 'reset_demo':      msg = '✓ Демо выдан повторно'; break;
+        case 'toggle_subject': {
+          const subj = availableSubjects.find(s => s.id === subjectId);
+          const label = subj?.shortLabel || subjectId;
+          msg = enabled ? `✓ ${label} выдано` : `${label} отозвано`;
+          break;
+        }
+      }
+      if (msg) showToast(msg);
     } finally {
       setActioning(null);
     }
@@ -352,7 +419,8 @@ export default function AdminPage() {
 
   const blockedCount    = useMemo(() => users.filter(u => u.blocked).length, [users]);
   const suspiciousCount = useMemo(() => users.filter(u => u.suspicious && !u.blocked).length, [users]);
-  const microCount      = useMemo(() => users.filter(u => u.hasMicro).length, [users]);
+  // Кол-во пользователей с доп. дисциплиной (любой кроме ortho)
+  const microCount      = useMemo(() => users.filter(u => u.subjects.some(s => s !== 'ortho')).length, [users]);
 
   const visible = useMemo(() => users.filter(u => {
     if (filter === 'blocked'    && !u.blocked)                  return false;
@@ -603,6 +671,7 @@ export default function AdminPage() {
                 onAction={doAction}
                 expanded={expandedIds.has(u.tgId)}
                 onToggle={() => toggleExpand(u.tgId)}
+                availableSubjects={availableSubjects}
               />
             ))}
           </div>

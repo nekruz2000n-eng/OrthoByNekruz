@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { SubjectType } from '@/components/SubjectSelectScreen';
+import { SubjectSelectScreen } from '@/components/SubjectSelectScreen';
 import { AuthScreen }    from '@/components/AuthScreen';
 import { Navigation, TabType } from '@/components/Navigation';
 import { QuestionsTab }  from '@/components/QuestionsTab';
@@ -10,6 +10,7 @@ import { TasksTab }      from '@/components/TasksTab';
 import { StatsTab }      from '@/components/StatsTab';
 import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
+import { getDefaultSubjectId } from '@/lib/subjects';
 
 // ─── updateSafeAreas ─────────────────────────────────────────────────────────
 //
@@ -110,7 +111,9 @@ function initTelegramApp(): () => void {
 
 export default function Home() {
   // Хуки состояния теперь находятся на верхнем уровне компонента — там, где и должны быть
-  const [subject,         setSubject]         = useState<SubjectType>('ortho');
+  const [subject,         setSubject]         = useState<string>(getDefaultSubjectId());
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+  const [showSubjectSelect, setShowSubjectSelect] = useState<boolean>(false);
   const [hasMicro,        setHasMicro]        = useState<boolean>(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading,       setIsLoading]       = useState<boolean>(true);
@@ -185,37 +188,65 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [isAuthenticated]);
 
-  // ── Проверка доступа к микробиологии ─────────────────────────────────────
+  // ── Проверка доступных дисциплин ─────────────────────────────────────────
   //    Сервер — единственный источник истины.
   //    localStorage — только UI-кэш для быстрого отображения.
-  //    При ответе false — принудительно сбрасываем state и localStorage,
-  //    что закрывает атаку через localStorage.setItem('has_micro','true').
+  //    При получении списка subjects решаем что показать:
+  //      0 → экран "обратитесь к админу"
+  //      1 → сразу пускаем в эту дисциплину
+  //      2+ → показываем экран выбора (только если ещё не выбирали)
   useEffect(() => {
     if (!isAuthenticated) return;
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
     if (!tgId) return;
-    // Показываем кэш сразу для UX
-    if (localStorage.getItem('has_micro') === 'true') setHasMicro(true);
-    // Всегда проверяем сервер
+
+    // Восстанавливаем кэш для мгновенного отображения
+    try {
+      const cached = JSON.parse(localStorage.getItem('available_subjects') || '[]');
+      if (Array.isArray(cached)) {
+        setAvailableSubjects(cached);
+        setHasMicro(cached.includes('micro'));
+      }
+    } catch {}
+
+    // Запрашиваем актуальный список с сервера
     fetch('/api/auth', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ telegramId: tgId, mode: 'check_micro', initData: initDat }),
+      body:    JSON.stringify({ telegramId: tgId, mode: 'check_subjects', initData: initDat }),
     })
       .then(r => r.json())
       .then(d => {
-        if (d.hasMicro) {
-          setHasMicro(true);
-          localStorage.setItem('has_micro', 'true');
-        } else {
-          // Сервер сказал НЕТ — сбрасываем даже если в localStorage было true
-          setHasMicro(false);
-          localStorage.removeItem('has_micro');
-          if (subject === 'micro') setSubject('ortho');
+        const list: string[] = Array.isArray(d.subjects) ? d.subjects : [];
+        setAvailableSubjects(list);
+        setHasMicro(list.includes('micro'));
+        localStorage.setItem('available_subjects', JSON.stringify(list));
+        // Legacy: для совместимости
+        if (list.includes('micro')) localStorage.setItem('has_micro', 'true');
+        else localStorage.removeItem('has_micro');
+
+        // Если у юзера 0 открытых дисциплин — сбрасываем выбор
+        if (list.length === 0) return;
+
+        // Если текущая выбранная дисциплина закрыта — переключаемся на первую доступную
+        if (!list.includes(subject)) {
+          setSubject(list[0]);
+        }
+
+        // Логика показа экрана выбора:
+        //   - Если выбора ещё не было И открыто 2+ дисциплин — показываем
+        //   - Если открыта только 1 — сразу пускаем (выбор не нужен)
+        const alreadyChosen = localStorage.getItem('subject_chosen') === 'true';
+        if (!alreadyChosen && list.length >= 2) {
+          setShowSubjectSelect(true);
+        } else if (list.length === 1) {
+          // Автоматически выбираем единственную доступную
+          setSubject(list[0]);
+          localStorage.setItem('subject_chosen', 'true');
         }
       })
-      .catch(() => {}); // при ошибке сети доверяем кэшу
+      .catch(() => {});
   }, [isAuthenticated]);
 
   // ── Авторизация ───────────────────────────────────────────────────────────
@@ -288,6 +319,40 @@ export default function Home() {
     return <AuthScreen onAuthenticated={() => setIsAuthenticated(true)} />;
   }
 
+  // ── Если у пользователя нет ни одной открытой дисциплины ─────────────────
+  //    Это случается когда ключ активирован, но админ ещё не открыл предметы.
+  //    Демо-пользователи всегда имеют ortho, поэтому сюда не попадают.
+  if (availableSubjects.length === 0 && !localStorage.getItem('demo_mode')) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background p-6">
+        <div className="max-w-sm text-center">
+          <div className="text-5xl mb-4">🔒</div>
+          <h1 className="text-xl font-bold mb-3" style={{ color: 'var(--c-text)' }}>
+            Доступ ещё не открыт
+          </h1>
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--c-muted)' }}>
+            Ключ принят, но дисциплины пока не активированы.
+            Свяжитесь с администратором для получения доступа.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Экран выбора дисциплины (только когда открыто 2+ и юзер ещё не выбирал) ──
+  if (showSubjectSelect) {
+    return (
+      <SubjectSelectScreen
+        availableSubjects={availableSubjects}
+        onSelect={(s: string) => {
+          setSubject(s);
+          setShowSubjectSelect(false);
+          localStorage.setItem('subject_chosen', 'true');
+        }}
+      />
+    );
+  }
+
   return (
     <main className="flex flex-col h-[100dvh] w-full relative overflow-hidden">
       <div className="flex-1 overflow-hidden relative">
@@ -298,6 +363,7 @@ export default function Home() {
           <StatsTab
             subject={subject}
             onSubjectChange={setSubject}
+            availableSubjects={availableSubjects}
             hasMicro={hasMicro}
             onMicroUnlocked={() => {
               setHasMicro(true);

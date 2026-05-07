@@ -1,6 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
 import { createHmac } from 'crypto';
+import {
+  SUBJECTS,
+  getUserAvailableSubjects,
+  createDefaultSubjects,
+  createDemoSubjects,
+  getDemoSubjectId,
+} from '@/lib/subjects';
 
 const redis = Redis.fromEnv();
 
@@ -125,6 +132,35 @@ function getIp(req: NextApiRequest): string {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+//  Хелпер: миграция старого формата в новый на лету
+//  Старые пользователи имеют user.micro: true вместо user.subjects: {...}
+// ════════════════════════════════════════════════════════════════════════════
+function ensureSubjectsField(user: any): any {
+  if (!user) return user;
+
+  // Уже новый формат — ничего не делаем
+  if (user.subjects && typeof user.subjects === 'object') {
+    return user;
+  }
+
+  // Старый формат: конвертируем налету (НЕ записываем в Redis — просто отдаём)
+  const subjects: { [k: string]: boolean } = {};
+  for (const s of SUBJECTS) {
+    subjects[s.id] = false;
+  }
+  // Все старые пользователи (с активированным ключом) имели ортопедию
+  if (user.activatedKey) {
+    subjects.ortho = true;
+  }
+  // Если был флаг micro: true — открываем микробиологию
+  if (user.micro === true) {
+    subjects.micro = true;
+  }
+
+  return { ...user, subjects };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 //  MAIN HANDLER
 // ════════════════════════════════════════════════════════════════════════════
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -164,13 +200,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (typeof user === 'string') {
       try { user = JSON.parse(user); } catch { user = null; }
     }
+    // Конвертируем старый формат в новый (на лету)
+    user = ensureSubjectsField(user);
 
     // 1. ПРОВЕРКА БЛОКИРОВКИ (Самый высокий приоритет)
     if (user?.blocked === true) {
       return res.status(403).json({ error: 'Твой аккаунт заблокирован. Свяжись с администратором.', blocked: true });
     }
 
-    // 2. ЖЕСТКАЯ ПРОВЕРКА ПОДПИСКИ (Теперь срабатывает ВСЕГДА при входе/запросе)
+    // 2. ЖЕСТКАЯ ПРОВЕРКА ПОДПИСКИ
     const subscribed = await isSubscribed(Number(tgIdStr));
     if (!subscribed) {
       return res.status(403).json({
@@ -191,12 +229,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       await redis.sadd('used_demo_ids', tgIdStr);
       await resetRateLimit(ip, `demo_${tgIdStr}`);
-      return res.status(200).json({ success: true });
+      return res.status(200).json({
+        success: true,
+        // В демо открыта только основная дисциплина (ортопедия)
+        subjects: [getDemoSubjectId()],
+      });
     }
 
-    // ── ПРОВЕРКА МИКРОБИОЛОГИИ ──
+    // ── ПРОВЕРКА МИКРОБИОЛОГИИ (legacy, для совместимости) ──
     if (mode === 'check_micro') {
-      return res.status(200).json({ hasMicro: !!(user && user.micro === true) });
+      const userSubjects = getUserAvailableSubjects(user);
+      return res.status(200).json({ hasMicro: userSubjects.includes('micro') });
+    }
+
+    // ── ПРОВЕРКА ДОСТУПНЫХ ДИСЦИПЛИН (новый режим) ──
+    if (mode === 'check_subjects') {
+      const userSubjects = getUserAvailableSubjects(user);
+      return res.status(200).json({ subjects: userSubjects });
     }
 
     // ── ОБЩАЯ АВТОРИЗАЦИЯ ──
@@ -207,11 +256,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Существующий пользователь: вход + обновление профиля
     if (user && !user.trial_until) {
-      if (username !== user.username || firstName !== user.firstName || lastName !== user.lastName) {
-        await redis.set(`user_id:${tgIdStr}`, { ...user, username, firstName, lastName });
+      // Обновляем username/имя если изменились в TG
+      const profileChanged =
+        username !== user.username ||
+        firstName !== user.firstName ||
+        lastName !== user.lastName;
+
+      // Если у старого юзера не было поля subjects — нужна миграция
+      const needsSubjectsMigration = !user._migrated_subjects;
+
+      if (profileChanged || needsSubjectsMigration) {
+        await redis.set(`user_id:${tgIdStr}`, {
+          ...user,
+          username,
+          firstName,
+          lastName,
+          _migrated_subjects: true,
+        });
       }
       await resetRateLimit(ip, tgIdStr);
-      return res.status(200).json({ success: true, hasMicro: !!user.micro });
+
+      const userSubjects = getUserAvailableSubjects(user);
+      return res.status(200).json({
+        success:  true,
+        subjects: userSubjects,                    // список ID открытых дисциплин
+        hasMicro: userSubjects.includes('micro'),  // legacy для старого UI
+      });
     }
 
     // Триал-период
@@ -219,39 +289,83 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const now = new Date();
       if (!user && !key) {
         const trialUntil = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
-        const newUser = { activatedKey: 'trial', date: now.toISOString(), trial_until: trialUntil.toISOString(), username, firstName, lastName };
+        const newUser = {
+          activatedKey: 'trial',
+          date:         now.toISOString(),
+          trial_until:  trialUntil.toISOString(),
+          username, firstName, lastName,
+          // В триале открыта только демо-дисциплина (ортопедия)
+          subjects:     createDemoSubjects(),
+          _migrated_subjects: true,
+        };
         await redis.set(`user_id:${tgIdStr}`, newUser);
-        return res.status(200).json({ success: true, trial: true, trialUntil, hasMicro: false });
+
+        const userSubjects = getUserAvailableSubjects(newUser);
+        return res.status(200).json({
+          success:  true,
+          trial:    true,
+          trialUntil,
+          subjects: userSubjects,
+          hasMicro: false,
+        });
       }
       if (user?.trial_until) {
         const trialEnd = new Date(user.trial_until);
         if (now < trialEnd) {
-          if (username !== user.username) await redis.set(`user_id:${tgIdStr}`, { ...user, username, firstName, lastName });
-          return res.status(200).json({ success: true, trial: true, trialUntil: trialEnd, hasMicro: !!user.micro });
+          if (username !== user.username) {
+            await redis.set(`user_id:${tgIdStr}`, { ...user, username, firstName, lastName });
+          }
+          const userSubjects = getUserAvailableSubjects(user);
+          return res.status(200).json({
+            success:  true,
+            trial:    true,
+            trialUntil: trialEnd,
+            subjects: userSubjects,
+            hasMicro: userSubjects.includes('micro'),
+          });
         }
         if (!key) return res.status(401).json({ error: 'Пробный период истёк. Введи ключ.' });
       }
     }
 
-    // Активация ключа
+    // ═══════════════════════════════════════════════════════════════════════
+    //  АКТИВАЦИЯ КЛЮЧА — ПОДХОД А: КЛЮЧ = ПУСТОЙ ПРОПУСК
+    //
+    //  После активации ключа у пользователя НЕТ доступа ни к одной дисциплине.
+    //  Админ должен открыть нужные предметы через админ-панель.
+    //
+    //  Если пользователь уже был (например, в триале) — сохраняем его старые
+    //  доступы (subjects), чтобы не потерять выданные ранее права.
+    // ═══════════════════════════════════════════════════════════════════════
     if (!key) return res.status(401).json({ error: 'Введи ключ активации.' });
     if (!isValidKeyFormat(key)) return res.status(401).json({ error: 'Неверный формат ключа.' });
 
     const isKeyValid = await redis.sismember('valid_keys', key.trim());
     if (!isKeyValid) return res.status(401).json({ error: 'Неверный ключ.' });
 
-    const activatedUser = { 
-      activatedKey: key.trim(), 
-      date: new Date().toISOString(), 
+    // Сохраняем существующие subjects (если были) или создаём пустые
+    const existingSubjects = user?.subjects && typeof user.subjects === 'object'
+      ? user.subjects
+      : createDefaultSubjects();
+
+    const activatedUser = {
+      activatedKey: key.trim(),
+      date:         new Date().toISOString(),
       username, firstName, lastName,
-      micro: user?.micro || false 
+      subjects:     existingSubjects,
+      _migrated_subjects: true,
     };
-    
+
     await redis.set(`user_id:${tgIdStr}`, activatedUser);
     await redis.srem('valid_keys', key.trim());
     await resetRateLimit(ip, tgIdStr);
 
-    return res.status(200).json({ success: true, hasMicro: !!user?.micro });
+    const userSubjects = getUserAvailableSubjects(activatedUser);
+    return res.status(200).json({
+      success:  true,
+      subjects: userSubjects,
+      hasMicro: userSubjects.includes('micro'),
+    });
 
   } catch (error) {
     console.error('API Error:', error);

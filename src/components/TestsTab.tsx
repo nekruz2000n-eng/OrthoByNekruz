@@ -4,6 +4,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import orthoTestsData from '@/data/tests.json';
 import { SubjectType } from '@/components/SubjectSelectScreen';
+import { getSubject } from '@/lib/subjects';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -27,10 +28,11 @@ interface MistakeRecord {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
-  const accentColor  = subject === 'micro' ? 'var(--c-amber)' : 'var(--c-primary)';
-  const lsScores     = subject === 'ortho' ? 'test_block_scores'    : 'micro_test_block_scores';
-  const lsNote       = subject === 'ortho' ? 'tests_personal_note'  : 'micro_tests_personal_note';
-  const lsMistakes   = subject === 'ortho' ? 'test_mistakes'        : 'micro_test_mistakes';
+  const cfg          = getSubject(subject);
+  const accentColor  = cfg?.color || 'var(--c-primary)';
+  const lsScores     = subject === 'ortho' ? 'test_block_scores'    : `${cfg?.lsPrefix || subject}_test_block_scores`;
+  const lsNote       = subject === 'ortho' ? 'tests_personal_note'  : `${cfg?.lsPrefix || subject}_tests_personal_note`;
+  const lsMistakes   = subject === 'ortho' ? 'test_mistakes'        : `${cfg?.lsPrefix || subject}_test_mistakes`;
   const isOrtho      = subject === 'ortho';
 
   // ── Data ──────────────────────────────────────────────────────────────────
@@ -76,9 +78,9 @@ export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
     setMicroLoading(true);
     const tgId    = localStorage.getItem('user_tg_id') || '';
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
-    fetch('/api/micro-data', {
+    fetch('/api/subject-data', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'tests', telegramId: tgId, initData: initDat }),
+      body: JSON.stringify({ subject, type: 'tests', telegramId: tgId, initData: initDat }),
     })
       .then(r => r.json())
       .then(d => { if (d.data) setMicroTestsData(d.data); })
@@ -218,13 +220,13 @@ export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
           }}>
           <div className="flex justify-between items-center px-1">
             <div className="flex items-center gap-3">
-              <ToothIcon className="w-9 h-9" style={{ color: accentColor }} variant={subject === 'ortho' ? 'perfect' : 'normal'} />
+              <ToothIcon className="w-9 h-9" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} />
               <div>
                 <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>
-                  {subject === 'micro' ? 'MicroByNekruz' : 'OrthoByNekruz'}
+                  {isOrtho ? 'OrthoByNekruz' : `${cfg?.label || subject}ByNekruz`}
                 </h1>
                 <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>
-                  {subject === 'micro' ? 'Микробиология' : 'Ортопедия'}
+                  {cfg?.label || subject}
                 </p>
               </div>
             </div>

@@ -2,38 +2,19 @@
 
 import React, { useState } from 'react';
 import { ToothIcon } from '@/components/ToothIcon';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { SUBJECTS, getSubject, SubjectConfig } from '@/lib/subjects';
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
-export type SubjectType = 'ortho' | 'micro';
+// SubjectType больше не объединение литералов — это просто string (ID из конфига)
+export type SubjectType = string;
 
 interface SubjectSelectScreenProps {
-  onSelect: (subject: SubjectType) => void;
+  /** Список ID доступных пользователю дисциплин */
+  availableSubjects: string[];
+  /** Колбэк при выборе дисциплины */
+  onSelect: (subject: string) => void;
 }
-
-// ─── Данные предметов ────────────────────────────────────────────────────────
-const SUBJECTS = [
-  {
-    id:      'ortho' as SubjectType,
-    label:   'Ортопедия',
-    sub:     'Вопросы · Тесты · Задачи',
-    badge:   '2 курс',
-    color:   'var(--c-primary)',
-    dimVar:  'var(--c-primary-dim)',
-    brVar:   'var(--c-primary-br)',
-    variant: 'perfect' as const,
-  },
-  {
-    id:      'micro' as SubjectType,
-    label:   'Микробиология',
-    sub:     'Вопросы · Тесты · Задачи',
-    badge:   '2 курс',
-    color:   'var(--c-amber)',
-    dimVar:  'var(--c-amber-dim)',
-    brVar:   'var(--c-amber-br)',
-    variant: 'normal' as const,
-  },
-] as const;
 
 // ─── Floating tooth background ────────────────────────────────────────────────
 const FloatingTooth = ({
@@ -54,8 +35,17 @@ const FloatingTooth = ({
 );
 
 // ─── SubjectSelectScreen ──────────────────────────────────────────────────────
-export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({ onSelect }) => {
-  const [selected, setSelected] = useState<SubjectType | null>(null);
+export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
+  availableSubjects,
+  onSelect,
+}) => {
+  const [selected, setSelected] = useState<string | null>(null);
+
+  // Фильтруем только те дисциплины, которые доступны пользователю.
+  // Сохраняем порядок из SUBJECTS (чтобы ortho всегда была первой).
+  const visibleSubjects: SubjectConfig[] = SUBJECTS.filter(s =>
+    availableSubjects.includes(s.id)
+  );
 
   return (
     <div
@@ -111,7 +101,7 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({ onSele
 
       {/* Subject cards */}
       <div className="flex flex-col gap-3 w-full max-w-xs px-5">
-        {SUBJECTS.map((item, i) => {
+        {visibleSubjects.map((item, i) => {
           const isSelected = selected === item.id;
           return (
             <motion.button
@@ -122,24 +112,24 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({ onSele
               onClick={() => setSelected(item.id)}
               className="flex items-center gap-4 rounded-[24px] p-5 transition-all duration-200 active:scale-[0.97] text-left"
               style={{
-                background:   isSelected ? item.dimVar : 'var(--c-card)',
-                border:       `1.5px solid ${isSelected ? item.brVar : 'var(--c-border)'}`,
-                boxShadow:    isSelected ? `0 8px 32px color-mix(in srgb, ${item.color} 20%, transparent)` : 'none',
+                background: isSelected ? item.dimColor : 'var(--c-card)',
+                border:     `1.5px solid ${isSelected ? item.borderColor : 'var(--c-border)'}`,
+                boxShadow:  isSelected ? `0 8px 32px color-mix(in srgb, ${item.color} 20%, transparent)` : 'none',
               }}
             >
               {/* Icon */}
               <div
                 className="w-16 h-16 rounded-[20px] flex items-center justify-center flex-shrink-0 transition-all duration-300"
                 style={{
-                  background: item.dimVar,
-                  border:     `1px solid ${item.brVar}`,
+                  background: item.dimColor,
+                  border:     `1px solid ${item.borderColor}`,
                   filter:     isSelected ? `drop-shadow(0 0 10px ${item.color})` : 'none',
                 }}
               >
                 <ToothIcon
                   className="w-9 h-9"
                   style={{ color: item.color }}
-                  variant={item.variant}
+                  variant={item.iconVariant}
                 />
               </div>
 
@@ -194,19 +184,17 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({ onSele
           disabled={!selected}
           className="w-full h-[52px] rounded-[18px] text-[15px] font-bold transition-all duration-300 active:scale-[0.98]"
           style={selected ? {
-            background:  selected === 'ortho' ? 'hsl(var(--primary))' : 'var(--c-amber)',
-            color:       'hsl(var(--primary-foreground))',
-            boxShadow:   selected === 'ortho'
-              ? '0 8px 24px color-mix(in srgb, var(--c-primary) 35%, transparent)'
-              : '0 8px 24px color-mix(in srgb, var(--c-amber) 35%, transparent)',
+            background: getSubject(selected)?.color || 'var(--c-primary)',
+            color:      'var(--c-bg)',
+            boxShadow:  `0 8px 24px color-mix(in srgb, ${getSubject(selected)?.color || 'var(--c-primary)'} 35%, transparent)`,
           } : {
-            background:  'var(--c-card)',
-            border:      '1px solid var(--c-border)',
-            color:       'var(--c-muted)',
+            background: 'var(--c-card)',
+            border:     '1px solid var(--c-border)',
+            color:      'var(--c-muted)',
           }}
         >
           {selected
-            ? `→ Войти в ${selected === 'ortho' ? 'Ортопедию' : 'Микробиологию'}`
+            ? `→ Войти в ${getSubject(selected)?.label || 'дисциплину'}`
             : 'Выберите предмет'}
         </button>
       </motion.div>

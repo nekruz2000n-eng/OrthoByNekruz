@@ -13,6 +13,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Label } from 'recharts';
 import { BookOpen, ClipboardList, PenTool, Star, Trash2, Sun, Moon, Sparkles } from 'lucide-react';
 import { ToothIcon }     from './ToothIcon';
 import { SubjectType }   from '@/components/SubjectSelectScreen';
+import { SUBJECTS, getSubject } from '@/lib/subjects';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -26,28 +27,40 @@ const THEMES: { id: Theme; label: string; desc: string; icon: React.ReactNode }[
 
 // ─── Subject bottom-sheet ─────────────────────────────────────────────────────
 interface SubjectSheetProps {
-  currentSubject: SubjectType;
-  onSelect:       (s: SubjectType) => void;
-  onClose:        () => void;
-  hasMicro?:      boolean;
+  currentSubject:    SubjectType;
+  onSelect:          (s: SubjectType) => void;
+  onClose:           () => void;
+  hasMicro?:         boolean;
+  availableSubjects?: string[];   // ID открытых дисциплин у пользователя
 }
 
 const SubjectSheet: React.FC<SubjectSheetProps> = ({
   currentSubject, onSelect, onClose,
   hasMicro = false,
+  availableSubjects,
 }) => {
   const [selected, setSelected] = useState<SubjectType>(currentSubject);
 
-  // Микробиология заблокирована если нет доступа
-  const microLocked = selected === 'micro' && !hasMicro;
+  // Если availableSubjects не передан — fallback на старую логику с hasMicro
+  const userSubjects: string[] = availableSubjects
+    ?? ['ortho', ...(hasMicro ? ['micro'] : [])];
+
+  // Текущая выбранная дисциплина заблокирована, если её нет в списке доступных
+  const subjectLocked = !userSubjects.includes(selected);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  const items: { id: SubjectType; label: string; sub: string; color: string; dimVar: string; brVar: string; variant: 'perfect' | 'normal' }[] = [
-    { id: 'ortho', label: 'Ортопедия', sub: 'Вопросы · Тесты · Задачи', color: 'var(--c-primary)', dimVar: 'var(--c-primary-dim)', brVar: 'var(--c-primary-br)', variant: 'perfect' },
-    { id: 'micro', label: 'Микробиология', sub: 'Вопросы · Тесты · Задачи', color: 'var(--c-amber)', dimVar: 'var(--c-amber-dim)', brVar: 'var(--c-amber-br)', variant: 'normal' },
-  ];
+  // Все дисциплины из конфига (порядок берём из SUBJECTS — ortho всегда первая)
+  const items = SUBJECTS.map(s => ({
+    id:      s.id as SubjectType,
+    label:   s.label,
+    sub:     s.sub,
+    color:   s.color,
+    dimVar:  s.dimColor,
+    brVar:   s.borderColor,
+    variant: s.iconVariant,
+  }));
 
   if (!mounted) return null;
 
@@ -82,7 +95,8 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
           {items.map(item => {
             const isSel = selected === item.id;
             const isCur = currentSubject === item.id;
-            const isLocked = item.id === 'micro' && !hasMicro;
+            // Дисциплина заблокирована если её нет в списке доступных пользователю
+            const isLocked = !userSubjects.includes(item.id);
 
             return (
               <button
@@ -145,20 +159,23 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
           })}
         </div>
 
-        {/* Сообщение о микробиологии */}
-        {microLocked && (
+        {/* Сообщение о заблокированной дисциплине */}
+        {subjectLocked && (
           <div
             className="rounded-2xl p-4 mb-5"
-            style={{ background: 'var(--c-amber-dim)', border: '1px solid var(--c-amber-br)' }}
+            style={{
+              background: getSubject(selected)?.dimColor || 'var(--c-amber-dim)',
+              border: `1px solid ${getSubject(selected)?.borderColor || 'var(--c-amber-br)'}`,
+            }}
           >
             <div className="flex items-start gap-3">
               <div className="text-lg">🔒</div>
               <div>
                 <p className="text-sm font-bold mb-1" style={{ color: 'var(--c-text)' }}>
-                  Микробиология недоступна
+                  {getSubject(selected)?.label || 'Дисциплина'} недоступна
                 </p>
                 <p className="text-xs" style={{ color: 'var(--c-muted)' }}>
-                  Свяжитесь с администратором для получения доступа к микробиологии
+                  Свяжитесь с администратором для получения доступа
                 </p>
               </div>
             </div>
@@ -176,18 +193,18 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
           </button>
           <button
             onClick={() => {
-              if (!microLocked) {
+              if (!subjectLocked) {
                 onSelect(selected);
                 onClose();
               }
             }}
-            disabled={microLocked}
+            disabled={subjectLocked}
             className="flex-1 py-3 rounded-[18px] font-bold text-sm transition-all duration-200 active:scale-[0.98]"
             style={{
-              background: microLocked ? 'var(--c-border)' : 'var(--c-primary)',
-              color: microLocked ? 'var(--c-muted)' : 'var(--c-bg)',
-              cursor: microLocked ? 'not-allowed' : 'pointer',
-              opacity: microLocked ? 0.5 : 1,
+              background: subjectLocked ? 'var(--c-border)' : 'var(--c-primary)',
+              color: subjectLocked ? 'var(--c-muted)' : 'var(--c-bg)',
+              cursor: subjectLocked ? 'not-allowed' : 'pointer',
+              opacity: subjectLocked ? 0.5 : 1,
             }}
           >
             Выбрать
@@ -201,13 +218,19 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
 
 // ─── StatsTab ─────────────────────────────────────────────────────────────────
 interface StatsTabProps {
-  subject:          SubjectType;
-  onSubjectChange:  (s: SubjectType) => void;
-  hasMicro?:        boolean;
-  onMicroUnlocked?: () => void;
+  subject:           SubjectType;
+  onSubjectChange:   (s: SubjectType) => void;
+  hasMicro?:         boolean;
+  onMicroUnlocked?:  () => void;
+  availableSubjects?: string[];
 }
 
-export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange, hasMicro = false, onMicroUnlocked }) => {
+export const StatsTab: React.FC<StatsTabProps> = ({
+  subject, onSubjectChange,
+  hasMicro = false, onMicroUnlocked,
+  availableSubjects,
+}) => {
+  const cfg     = getSubject(subject);
   const isOrtho = subject === 'ortho';
 
   // Data sets per subject
@@ -216,10 +239,11 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange, ha
   const testsData     = isOrtho ? orthoTestsData     : microTestsData;
 
   // localStorage keys per subject (separate progress!)
+  // Используем lsPrefix из конфига для совместимости с любой дисциплиной
   const LS = {
-    studied:     isOrtho ? 'studiedQuestions'    : 'microStudiedQuestions',
-    tasks:       isOrtho ? 'resolvedTasks'        : 'microResolvedTasks',
-    testScores:  isOrtho ? 'test_block_scores'    : 'micro_test_block_scores',
+    studied:    isOrtho ? 'studiedQuestions'    : `${cfg?.lsPrefix || subject}_studiedQuestions`,
+    tasks:      isOrtho ? 'resolvedTasks'        : `${cfg?.lsPrefix || subject}_resolvedTasks`,
+    testScores: isOrtho ? 'test_block_scores'    : `${cfg?.lsPrefix || subject}_test_block_scores`,
   };
 
   const [studiedCount,       setStudiedCount]       = useState(0);
@@ -494,6 +518,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ subject, onSubjectChange, ha
             onSelect={s => { onSubjectChange(s); setShowSubjectSheet(false); }}
             onClose={() => setShowSubjectSheet(false)}
             hasMicro={hasMicro}
+            availableSubjects={availableSubjects}
           />
         )}
       </AnimatePresence>
