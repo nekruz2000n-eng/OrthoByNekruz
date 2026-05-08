@@ -45,22 +45,22 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
   const userSubjects: string[] = availableSubjects
     ?? ['ortho', ...(hasMicro ? ['micro'] : [])];
 
-  // Текущая выбранная дисциплина заблокирована, если её нет в списке доступных
-  const subjectLocked = !userSubjects.includes(selected);
-
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // Все дисциплины из конфига (порядок берём из SUBJECTS — ortho всегда первая)
-  const items = SUBJECTS.map(s => ({
-    id:      s.id as SubjectType,
-    label:   s.label,
-    sub:     s.sub,
-    color:   s.color,
-    dimVar:  s.dimColor,
-    brVar:   s.borderColor,
-    variant: s.iconVariant,
-  }));
+  // Студенту показываем ТОЛЬКО открытые ему дисциплины — закрытые скрыты.
+  // Порядок берём из SUBJECTS, чтобы ortho всегда была первой.
+  const items = SUBJECTS
+    .filter(s => userSubjects.includes(s.id))
+    .map(s => ({
+      id:      s.id as SubjectType,
+      label:   s.label,
+      sub:     s.sub,
+      color:   s.color,
+      dimVar:  s.dimColor,
+      brVar:   s.borderColor,
+      variant: s.iconVariant,
+    }));
 
   if (!mounted) return null;
 
@@ -95,7 +95,9 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
         <div className="text-center px-5 pb-3 pt-1 flex-shrink-0">
           <h3 className="text-base font-bold" style={{ color: 'var(--c-text)' }}>Сменить дисциплину</h3>
           <p className="text-xs mt-1" style={{ color: 'var(--c-muted)' }}>
-            {userSubjects.length} {userSubjects.length === 1 ? 'предмет открыт' : 'предметов открыто'} · всего {items.length}
+            {items.length === 0
+              ? 'Нет открытых дисциплин'
+              : `Доступно: ${items.length} ${items.length === 1 ? 'предмет' : items.length < 5 ? 'предмета' : 'предметов'}`}
           </p>
         </div>
 
@@ -108,26 +110,20 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
             {items.map(item => {
               const isSel = selected === item.id;
               const isCur = currentSubject === item.id;
-              const isLocked = !userSubjects.includes(item.id);
 
               return (
                 <button
                   key={item.id}
                   onClick={() => setSelected(item.id)}
-                  disabled={isLocked}
                   className="flex items-center gap-3 rounded-[18px] p-3.5 text-left transition-all duration-200 active:scale-[0.98]"
                   style={{
                     background: isSel
                       ? item.dimVar
-                      : isLocked
-                        ? 'transparent'
-                        : 'color-mix(in srgb, var(--c-border) 25%, transparent)',
+                      : 'color-mix(in srgb, var(--c-border) 25%, transparent)',
                     border: `1.5px solid ${isSel ? item.brVar : 'var(--c-border)'}`,
-                    opacity: isLocked ? 0.45 : 1,
-                    cursor: isLocked ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  {/* Левая мини-иконка с цветной точкой */}
+                  {/* Левая мини-иконка */}
                   <div
                     className="w-11 h-11 rounded-[13px] flex items-center justify-center flex-shrink-0"
                     style={{ background: item.dimVar, border: `1px solid ${item.brVar}` }}
@@ -135,7 +131,7 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
                     <ToothIcon className="w-6 h-6" style={{ color: item.color }} variant={item.variant} />
                   </div>
 
-                  {/* Текст: название (+ бейдж "Сейчас" / "🔒") и подпись */}
+                  {/* Название + бейдж "Сейчас", и подпись */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                       <span
@@ -150,14 +146,6 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
                           style={{ background: item.dimVar, color: item.color }}
                         >
                           Сейчас
-                        </span>
-                      )}
-                      {isLocked && (
-                        <span
-                          className="text-[8.5px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0"
-                          style={{ background: 'color-mix(in srgb, var(--c-border) 60%, transparent)', color: 'var(--c-muted)' }}
-                        >
-                          🔒
                         </span>
                       )}
                     </div>
@@ -189,7 +177,7 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
           </div>
         </div>
 
-        {/* Низ: уведомление о блокировке + кнопки */}
+        {/* Низ: кнопки */}
         <div
           className="flex-shrink-0 px-5 pt-2 pb-5"
           style={{
@@ -197,28 +185,6 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
             borderTop: '1px solid color-mix(in srgb, var(--c-border) 50%, transparent)',
           }}
         >
-          {subjectLocked && (
-            <div
-              className="rounded-2xl p-3 mb-3"
-              style={{
-                background: getSubject(selected)?.dimColor || 'var(--c-amber-dim)',
-                border: `1px solid ${getSubject(selected)?.borderColor || 'var(--c-amber-br)'}`,
-              }}
-            >
-              <div className="flex items-start gap-2.5">
-                <div className="text-base flex-shrink-0">🔒</div>
-                <div className="min-w-0">
-                  <p className="text-[13px] font-bold mb-0.5" style={{ color: 'var(--c-text)' }}>
-                    {getSubject(selected)?.label || 'Дисциплина'} недоступна
-                  </p>
-                  <p className="text-[11px]" style={{ color: 'var(--c-muted)' }}>
-                    Свяжитесь с администратором для получения доступа
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
           <div className="flex gap-3">
             <button
               onClick={onClose}
@@ -229,18 +195,14 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
             </button>
             <button
               onClick={() => {
-                if (!subjectLocked) {
-                  onSelect(selected);
-                  onClose();
-                }
+                onSelect(selected);
+                onClose();
               }}
-              disabled={subjectLocked}
               className="flex-1 py-3 rounded-[16px] font-bold text-[13px] transition-all duration-200 active:scale-[0.98]"
               style={{
-                background: subjectLocked ? 'var(--c-border)' : (getSubject(selected)?.color || 'var(--c-primary)'),
-                color: subjectLocked ? 'var(--c-muted)' : 'var(--c-bg)',
-                cursor: subjectLocked ? 'not-allowed' : 'pointer',
-                opacity: subjectLocked ? 0.5 : 1,
+                background: getSubject(selected)?.color || 'var(--c-primary)',
+                color: 'var(--c-bg)',
+                cursor: 'pointer',
               }}
             >
               Выбрать
