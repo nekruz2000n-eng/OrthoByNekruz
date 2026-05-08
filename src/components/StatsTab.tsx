@@ -522,7 +522,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                         {lastTry && (
                           <div
                             className="text-[10px] font-bold px-2 py-1 rounded-full"
-                            style={{ background: dimColor, color: accentColor }}
+                            style={{ background: cfg?.dimColor || 'var(--c-primary-dim)', color: accentColor }}
                           >
                             Посл. {Math.round((lastTry.score / lastTry.total) * 100)}%
                           </div>
