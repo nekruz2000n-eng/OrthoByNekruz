@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import orthoQuestionsData from '@/data/questions.json';
 import { SubjectType } from '@/components/SubjectSelectScreen';
 import { getSubject } from '@/lib/subjects';
@@ -408,13 +408,63 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const glossaryTerms = useMemo(() =>
     (glossaryData as GlossaryItem[]).slice().sort((a, b) => b.term.length - a.term.length), []);
 
+  // Прямоугольник тапнутого слова — нужен для точного позиционирования попапа
+  // ПОСЛЕ того как попап отрендерится (useLayoutEffect ниже измерит его размер).
+  const [tooltipTarget, setTooltipTarget] = useState<{
+    top: number; bottom: number; left: number; right: number; width: number;
+  } | null>(null);
+
   const handleGlossaryClick = (e: React.MouseEvent) => {
     const t = e.target as HTMLElement;
     if (t.classList.contains('glossary-term')) {
       const def = t.getAttribute('data-definition');
-      if (def) { setActiveTermDef(decodeURIComponent(def)); setTooltipPos({ x: e.clientX, y: e.clientY }); e.stopPropagation(); }
+      if (!def) return;
+      const r = t.getBoundingClientRect();
+      // Сохраняем геометрию слова (DOMRect не сериализуется в React state красиво)
+      setTooltipTarget({
+        top:    r.top,
+        bottom: r.bottom,
+        left:   r.left,
+        right:  r.right,
+        width:  r.width,
+      });
+      // Стартовая позиция за пределами экрана — чтобы пользователь не видел
+      // вспышку до того как useLayoutEffect посчитает финальную позицию
+      setTooltipPos({ x: -9999, y: -9999 });
+      setActiveTermDef(decodeURIComponent(def));
+      e.stopPropagation();
     }
   };
+
+  // ── ПОЗИЦИОНИРОВАНИЕ ПОПАПА (запускается синхронно после рендера) ──────────
+  // Стратегия: ставим попап НАД словом по умолчанию. Если сверху не помещается —
+  // под словом. Если и снизу не помещается — прижимаем к нижнему краю экрана.
+  // По горизонтали центрируем относительно слова, клампим к 10px от краёв.
+  useLayoutEffect(() => {
+    if (!activeTermDef || !tooltipTarget || !tooltipRef.current) return;
+    const popup = tooltipRef.current.getBoundingClientRect();
+    const GAP = 10;
+    const PAD = 10; // отступ от края экрана
+    const vw  = window.innerWidth;
+    const vh  = window.innerHeight;
+
+    // По вертикали: сначала пытаемся НАД словом
+    let y = tooltipTarget.top - popup.height - GAP;
+    if (y < PAD) {
+      // Не помещается сверху → ПОД словом
+      y = tooltipTarget.bottom + GAP;
+      // Не помещается и снизу → прижимаем к нижнему краю
+      if (y + popup.height > vh - PAD) {
+        y = Math.max(PAD, vh - popup.height - PAD);
+      }
+    }
+
+    // По горизонтали: центрируем по слову, клампим к краям
+    let x = tooltipTarget.left + tooltipTarget.width / 2 - popup.width / 2;
+    x = Math.max(PAD, Math.min(x, vw - popup.width - PAD));
+
+    setTooltipPos({ x, y });
+  }, [activeTermDef, tooltipTarget]);
 
   useEffect(() => {
     if (!activeTermDef) return;
