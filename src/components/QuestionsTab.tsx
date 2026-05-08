@@ -330,6 +330,23 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const zoomImgRef = useRef<HTMLImageElement | null>(null);
+
+  // Удерживаем изображение в видимой области: при scale S разрешаем сдвиг
+  // максимум на (S-1)/2 от ширины/высоты — края картинки доходят до краёв
+  // вьюпорта, но не уходят дальше.
+  const clampZoom = (t: {x: number; y: number}, s: number) => {
+    const img = zoomImgRef.current;
+    if (!img) return t;
+    const maxX = Math.max(0, ((s - 1) * img.clientWidth) / 2);
+    const maxY = Math.max(0, ((s - 1) * img.clientHeight) / 2);
+    return {
+      x: Math.max(-maxX, Math.min(maxX, t.x)),
+      y: Math.max(-maxY, Math.min(maxY, t.y)),
+    };
+  };
+
+  const closeZoom = () => { setZoomedImage(null); setScale(1); setTranslate({ x: 0, y: 0 }); };
 
   const initialDistance = useRef<number | null>(null);
   const initialFontSize = useRef(16);
@@ -810,54 +827,156 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
         );
       })()}
 
-      {/* ── ЗOOM ИЗОБРАЖЕНИЯ ──────────────────────── */}
-      {/* ── ЗOOM ИЗОБРАЖЕНИЯ ──────────────────────── */}
-{zoomedImage && (
-  <div
-    className="fixed inset-0 z-[200] flex items-center justify-center"
-    style={{ background: 'hsl(0 0% 0% / 0.92)', backdropFilter: 'blur(8px)' }}
-    onClick={() => { setZoomedImage(null); setScale(1); setTranslate({ x: 0, y: 0 }); }}
-    onWheel={e => { e.preventDefault(); setScale(p => Math.min(5, Math.max(1, p + (e.deltaY > 0 ? -0.2 : 0.2)))); }}
-    onTouchStart={e => {
-      if (e.touches.length === 2) { const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; (e.currentTarget as any).__ps = { dist: Math.hypot(dx, dy), scale, translate, cx: (e.touches[0].clientX + e.touches[1].clientX) / 2, cy: (e.touches[0].clientY + e.touches[1].clientY) / 2 }; }
-      else if (e.touches.length === 1) (e.currentTarget as any).__pan = { x: e.touches[0].clientX, y: e.touches[0].clientY, translate };
-    }}
-    onTouchMove={e => {
-      if (e.touches.length === 2 && (e.currentTarget as any).__ps) { const ps = (e.currentTarget as any).__ps; const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; const ns = Math.min(5, Math.max(1, ps.scale * Math.hypot(dx, dy) / ps.dist)); const r = ns / ps.scale; setScale(ns); setTranslate({ x: ps.translate.x + (ps.cx - ps.translate.x) * (1 - r), y: ps.translate.y + (ps.cy - ps.translate.y) * (1 - r) }); }
-      else if (e.touches.length === 1 && (e.currentTarget as any).__pan && scale > 1) { const p = (e.currentTarget as any).__pan; setTranslate({ x: p.translate.x + e.touches[0].clientX - p.x, y: p.translate.y + e.touches[0].clientY - p.y }); }
-    }}
-    onTouchEnd={e => { delete (e.currentTarget as any).__ps; delete (e.currentTarget as any).__pan; }}>
+      {/* ── ZOOM ИЗОБРАЖЕНИЯ ─────────────────────────────────────────────── */}
+      {zoomedImage && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center"
+          style={{
+            background:     'hsl(0 0% 0% / 0.92)',
+            backdropFilter: 'blur(8px)',
+            touchAction:    'none',
+            overscrollBehavior: 'contain',
+          }}
+          onClick={closeZoom}
+          onWheel={e => {
+            e.preventDefault();
+            const delta    = e.deltaY > 0 ? -0.25 : 0.25;
+            const newScale = Math.min(5, Math.max(1, scale + delta));
+            const img      = zoomImgRef.current;
+            if (!img) { setScale(newScale); return; }
+            // Зум к курсору: смещение точки относительно центра картинки
+            const rect = img.getBoundingClientRect();
+            const dx   = e.clientX - (rect.left + rect.width  / 2);
+            const dy   = e.clientY - (rect.top  + rect.height / 2);
+            const r    = newScale / scale;
+            const newT = { x: translate.x + dx * (1 - r), y: translate.y + dy * (1 - r) };
+            setScale(newScale);
+            setTranslate(clampZoom(newT, newScale));
+          }}
+          onTouchStart={e => {
+            if (e.touches.length === 2) {
+              // Pinch start: запоминаем расстояние, scale, центр между пальцами
+              const t1 = e.touches[0], t2 = e.touches[1];
+              const dx = t1.clientX - t2.clientX;
+              const dy = t1.clientY - t2.clientY;
+              const cx = (t1.clientX + t2.clientX) / 2;
+              const cy = (t1.clientY + t2.clientY) / 2;
+              const img = zoomImgRef.current;
+              const rect = img?.getBoundingClientRect();
+              const ix = rect ? cx - (rect.left + rect.width  / 2) : 0;
+              const iy = rect ? cy - (rect.top  + rect.height / 2) : 0;
+              (e.currentTarget as any).__ps = {
+                dist: Math.hypot(dx, dy),
+                scale,
+                translate,
+                ix, iy,
+              };
+            } else if (e.touches.length === 1 && scale > 1) {
+              // Один палец на увеличенной картинке — пан
+              (e.currentTarget as any).__pan = {
+                x: e.touches[0].clientX,
+                y: e.touches[0].clientY,
+                translate,
+              };
+            }
+          }}
+          onTouchMove={e => {
+            const target = e.currentTarget as any;
+            if (e.touches.length === 2 && target.__ps) {
+              e.preventDefault();
+              const ps = target.__ps;
+              const dx = e.touches[0].clientX - e.touches[1].clientX;
+              const dy = e.touches[0].clientY - e.touches[1].clientY;
+              const ns = Math.min(5, Math.max(1, ps.scale * Math.hypot(dx, dy) / ps.dist));
+              const r  = ns / ps.scale;
+              const newT = {
+                x: ps.translate.x + ps.ix * (1 - r),
+                y: ps.translate.y + ps.iy * (1 - r),
+              };
+              setScale(ns);
+              setTranslate(clampZoom(newT, ns));
+            } else if (e.touches.length === 1 && target.__pan && scale > 1) {
+              e.preventDefault();
+              const p = target.__pan;
+              const newT = {
+                x: p.translate.x + e.touches[0].clientX - p.x,
+                y: p.translate.y + e.touches[0].clientY - p.y,
+              };
+              setTranslate(clampZoom(newT, scale));
+            }
+          }}
+          onTouchEnd={e => {
+            delete (e.currentTarget as any).__ps;
+            delete (e.currentTarget as any).__pan;
+          }}
+        >
+          {/* Контейнер вокруг картинки. onClick останавливаем — тап по картинке
+              не закрывает модал. Закрытие только по фону или по кнопке. */}
+          <div
+            className="img-protected-wrapper flex items-center justify-center"
+            onClick={e => e.stopPropagation()}
+            onContextMenu={e => e.preventDefault()}
+          >
+            <img
+              ref={zoomImgRef}
+              src={zoomedImage}
+              alt=""
+              className="object-contain rounded-2xl select-none"
+              style={{
+                maxWidth:        '95vw',
+                maxHeight:       '85vh',
+                transform:       `translate3d(${translate.x}px, ${translate.y}px, 0) scale(${scale})`,
+                transformOrigin: 'center center',
+                transition:      'transform 0.12s ease-out',
+                touchAction:     'none',
+                willChange:      'transform',
+                userSelect:      'none',
+              }}
+              draggable={false}
+              onDoubleClick={() => {
+                // Двойной тап: переключить 1× ↔ 2.5×
+                if (scale > 1) {
+                  setScale(1);
+                  setTranslate({ x: 0, y: 0 });
+                } else {
+                  setScale(2.5);
+                  // translate остаётся 0,0 — clampZoom не нужен (центр)
+                }
+              }}
+            />
+          </div>
 
-    {/* Картинка */}
-    <div
-      className="img-protected-wrapper flex items-center justify-center max-w-full max-h-full"
-      onClick={e => e.stopPropagation()}
-      onDoubleClick={() => { setScale(1); setTranslate({ x: 0, y: 0 }); }}
-      onContextMenu={e => e.preventDefault()}
-      onTouchStart={e => e.stopPropagation()}>
-      <img
-        src={zoomedImage}
-        alt=""
-        className="max-w-full max-h-full object-contain rounded-2xl select-none"
-        style={{ transform: `translate(${translate.x}px,${translate.y}px) scale(${scale})`, transition: 'transform .15s ease-out', touchAction: 'none' }}
-        draggable={false}
-      />
-    </div>
+          {/* Подсказка масштаба (слева сверху, видна только когда zoomed) */}
+          {scale > 1 && (
+            <div
+              className="fixed top-4 left-4 z-[201] px-3 py-1.5 rounded-full text-[11px] font-bold tabular-nums pointer-events-none"
+              style={{
+                background: 'rgba(0,0,0,0.55)',
+                color:      '#fff',
+                backdropFilter: 'blur(8px)',
+                border:     '1px solid rgba(255,255,255,0.15)',
+              }}
+            >
+              {scale.toFixed(1)}×
+            </div>
+          )}
 
-    {/* Кнопка закрыть — снизу по центру, всегда видна */}
-    <div
-      className="fixed left-0 right-0 flex justify-center z-[201]"
-      style={{ bottom: 'calc(var(--nav-bottom, 12px) + 16px)' }}
-      onClick={e => e.stopPropagation()}>
-      <button
-        onClick={() => { setZoomedImage(null); setScale(1); setTranslate({ x: 0, y: 0 }); }}
-        className="flex items-center gap-2 px-6 h-11 rounded-full text-sm font-semibold transition-all active:scale-95 shadow-2xl"
-        style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)' }}>
-        <X className="w-4 h-4" /> Закрыть
-      </button>
-    </div>
-  </div>
-)}
+          {/* Кнопка закрыть — снизу по центру */}
+          <div
+            className="fixed left-0 right-0 flex justify-center z-[201]"
+            style={{ bottom: 'calc(var(--nav-bottom, 12px) + 16px)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={closeZoom}
+              className="flex items-center gap-2 px-6 h-11 rounded-full text-sm font-semibold transition-all active:scale-95 shadow-2xl"
+              style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)' }}
+            >
+              <X className="w-4 h-4" /> Закрыть
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
