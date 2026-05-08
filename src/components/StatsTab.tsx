@@ -10,11 +10,12 @@ import microTasksData     from '@/data/micro_tasks.json';
 import microTestsData     from '@/data/micro_tests.json';
 import { ScrollArea }     from '@/components/ui/scroll-area';
 import { PieChart, Pie, Cell, ResponsiveContainer, Label } from 'recharts';
-import { BookOpen, ClipboardList, PenTool, Star, Trash2, Sun, Moon, Sparkles } from 'lucide-react';
+import { BookOpen, ClipboardList, PenTool, Star, Trash2, Sun, Moon, Sparkles, Award, ChevronRight } from 'lucide-react';
 import { ToothIcon }     from './ToothIcon';
 import { SubjectType }   from '@/components/SubjectSelectScreen';
 import { SUBJECTS, getSubject } from '@/lib/subjects';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ExamScreen, loadExamHistory, ExamHistoryEntry } from './ExamScreen';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Theme = 'dark' | 'light' | 'bright';
@@ -250,6 +251,12 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   const [testsResolvedCount, setTestsResolvedCount] = useState(0);
   const [theme,              setTheme]              = useState<Theme>('dark');
   const [showSubjectSheet,   setShowSubjectSheet]   = useState(false);
+  const [showExam,           setShowExam]           = useState(false);
+  const [examHistory,        setExamHistory]        = useState<ExamHistoryEntry[]>([]);
+
+  // Подгружаем историю экзаменов при смене предмета и после сохранения попытки
+  const reloadExamHistory = () => setExamHistory(loadExamHistory(subject));
+  useEffect(() => { reloadExamHistory(); /* eslint-disable-next-line */ }, [subject]);
 
   const total = {
     q:  questionsData.length,
@@ -450,21 +457,125 @@ export const StatsTab: React.FC<StatsTabProps> = ({
               ))}
             </div>
 
-            {/* Goal */}
-            <div
-              className="p-5 mx-1 rounded-2xl flex items-center gap-4"
-              style={{ background: 'var(--c-primary-glo)', border: '1px solid var(--c-primary-br)' }}
-            >
-              <div className="p-3 rounded-full flex-shrink-0" style={{ background: 'var(--c-primary-dim)' }}>
-                <Star className="w-5 h-5" style={{ color: 'var(--c-primary)' }} />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold mb-0.5" style={{ color: 'var(--c-text)' }}>Ваша цель</h4>
-                <p className="text-xs break-words" style={{ color: 'var(--c-muted)' }}>
-                  Изучите все вопросы, решите задачи и пройдите тесты на 100%!
-                </p>
-              </div>
-            </div>
+            {/* ── EXAM CTA + ИСТОРИЯ ПОПЫТОК ── */}
+            {(() => {
+              const lastTry  = examHistory[examHistory.length - 1];
+              const bestPct  = examHistory.length
+                ? Math.max(...examHistory.map(h => Math.round((h.score / h.total) * 100)))
+                : 0;
+              const enoughData = questionsData.length >= 2 && tasksData.length >= 1;
+
+              return (
+                <div className="mx-1 flex flex-col gap-3">
+                  {/* CTA-карточка */}
+                  <button
+                    onClick={() => enoughData && setShowExam(true)}
+                    disabled={!enoughData}
+                    className="rounded-2xl p-5 text-left transition active:scale-[0.99] flex items-center gap-4"
+                    style={{
+                      background: enoughData ? accentColor : 'var(--c-card)',
+                      color:      enoughData ? 'var(--c-bg)' : 'var(--c-muted)',
+                      boxShadow:  enoughData ? `0 8px 24px color-mix(in srgb, ${accentColor} 30%, transparent)` : 'none',
+                      border:     enoughData ? 'none' : '1px solid var(--c-border)',
+                      opacity:    enoughData ? 1 : 0.7,
+                      cursor:     enoughData ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    <div
+                      className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                      style={{
+                        background: enoughData ? 'rgba(255,255,255,0.18)' : 'var(--c-border)',
+                      }}
+                    >
+                      <Award className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-base font-bold mb-0.5">
+                        {enoughData ? 'Проверка готовности' : 'Экзамен недоступен'}
+                      </div>
+                      <div className="text-[12px] opacity-85">
+                        {enoughData
+                          ? lastTry
+                            ? `Лучший: ${bestPct}% · попыток: ${examHistory.length}`
+                            : '2 вопроса + 1 задача · 20 минут'
+                          : 'Нужно минимум 2 вопроса и 1 задача'}
+                      </div>
+                    </div>
+                    {enoughData && <ChevronRight className="w-5 h-5 opacity-80 flex-shrink-0" />}
+                  </button>
+
+                  {/* График прогресса (если попытки есть) */}
+                  {examHistory.length > 0 && (
+                    <div
+                      className="rounded-2xl p-4"
+                      style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <div className="text-[13px] font-bold" style={{ color: 'var(--c-text)' }}>
+                            История попыток
+                          </div>
+                          <div className="text-[10px]" style={{ color: 'var(--c-muted)' }}>
+                            Последние {examHistory.length} {examHistory.length === 1 ? 'попытка' : 'попытки'}
+                          </div>
+                        </div>
+                        {lastTry && (
+                          <div
+                            className="text-[10px] font-bold px-2 py-1 rounded-full"
+                            style={{ background: dimColor, color: accentColor }}
+                          >
+                            Посл. {Math.round((lastTry.score / lastTry.total) * 100)}%
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Bar chart — 10 столбиков, высота = % */}
+                      <div className="flex items-end gap-1.5 h-24 mb-2">
+                        {Array.from({ length: 10 }).map((_, idx) => {
+                          const entry = examHistory[idx];
+                          const pct   = entry ? Math.round((entry.score / entry.total) * 100) : 0;
+                          const isPlaceholder = !entry;
+                          const barColor =
+                            isPlaceholder ? 'var(--c-border)' :
+                            !entry.finished ? 'color-mix(in srgb, var(--c-muted) 50%, transparent)' :
+                            pct >= 67 ? accentColor :
+                            pct >= 34 ? '#f59e0b' :
+                                        '#ef4444';
+                          return (
+                            <div
+                              key={idx}
+                              className="flex-1 rounded-t flex flex-col justify-end items-center gap-1"
+                              style={{ height: '100%' }}
+                              title={entry
+                                ? `${entry.score}/${entry.total} · ${new Date(entry.ts).toLocaleDateString('ru-RU')}${entry.finished ? '' : ' (прервано)'}`
+                                : 'Пусто'}
+                            >
+                              {entry && (
+                                <span className="text-[8px] font-bold tabular-nums" style={{ color: barColor }}>
+                                  {pct}
+                                </span>
+                              )}
+                              <div
+                                className="w-full rounded-md transition-all duration-700"
+                                style={{
+                                  height: isPlaceholder ? '8%' : `${Math.max(8, pct)}%`,
+                                  background: barColor,
+                                  opacity: isPlaceholder ? 0.4 : 1,
+                                }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex justify-between text-[9px]" style={{ color: 'var(--c-muted)' }}>
+                        <span>старые →</span>
+                        <span>новые</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* ── CHANGE SUBJECT BUTTON ── */}
             <button
@@ -518,6 +629,23 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             onClose={() => setShowSubjectSheet(false)}
             hasMicro={hasMicro}
             availableSubjects={availableSubjects}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Экзамен (полноэкранный модал через portal) */}
+      <AnimatePresence>
+        {showExam && (
+          <ExamScreen
+            subject={subject}
+            subjectLabel={subjectLabel}
+            accentColor={accentColor}
+            dimColor={cfg?.dimColor    || 'var(--c-primary-dim)'}
+            borderColor={cfg?.borderColor || 'var(--c-primary-br)'}
+            questionsData={questionsData as any}
+            tasksData={tasksData as any}
+            onClose={() => { setShowExam(false); reloadExamHistory(); loadStats(); }}
+            onResultSaved={reloadExamHistory}
           />
         )}
       </AnimatePresence>
