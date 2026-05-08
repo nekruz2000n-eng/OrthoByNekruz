@@ -233,57 +233,63 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
       exit={{ opacity: 0 }}
     >
       {/* ── ШАПКА: таймер + прогресс + крест ── */}
+<div
+  className="flex-shrink-0 flex items-center gap-3 px-4 pt-5 pb-3 sticky top-0 z-10"
+  style={{ 
+    background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)', 
+    backdropFilter: 'blur(16px)', 
+    WebkitBackdropFilter: 'blur(16px)', 
+    borderBottom: '1px solid var(--c-border)',
+    paddingTop: 'var(--header-pt)'
+  }}
+>
+  {phase === 'question' || phase === 'answer' ? (
+    <>
       <div
-        className="flex-shrink-0 flex items-center gap-3 px-4 pt-5 pb-3"
-        style={{ borderBottom: '1px solid var(--c-border)' }}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-sm tabular-nums"
+        style={{
+          background: timerLow ? 'hsla(var(--destructive), 0.12)' : dimColor,
+          color: timerColor,
+          border: `1px solid ${timerLow ? 'hsla(var(--destructive), 0.4)' : borderColor}`,
+        }}
       >
-        {phase === 'question' || phase === 'answer' ? (
-          <>
-            <div
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-sm tabular-nums"
-              style={{
-                background: timerLow ? 'hsla(var(--destructive), 0.12)' : dimColor,
-                color: timerColor,
-                border: `1px solid ${timerLow ? 'hsla(var(--destructive), 0.4)' : borderColor}`,
-              }}
-            >
-              <Clock className="w-4 h-4" />
-              {fmtTime(secondsLeft)}
-            </div>
-            <div className="flex-1 flex items-center gap-2">
-              <span className="text-[11px] font-bold" style={{ color: 'var(--c-muted)' }}>
-                {currentIdx + 1}/{total}
-              </span>
-              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${progressPct}%`, background: accentColor }}
-                />
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex-1">
-            <div className="text-base font-bold" style={{ color: 'var(--c-text)' }}>
-              {phase === 'intro'   && 'Проверка готовности'}
-              {phase === 'result'  && 'Результат'}
-              {phase === 'no-data' && 'Экзамен недоступен'}
-            </div>
-            <div className="text-[11px] mt-0.5" style={{ color: 'var(--c-muted)' }}>{subjectLabel}</div>
-          </div>
-        )}
-
-        <button
-          onClick={() => {
-            if (phase === 'question' || phase === 'answer') setConfirmExit(true);
-            else onClose();
-          }}
-          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition active:scale-90"
-          style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
-        >
-          <X className="w-4 h-4" style={{ color: 'var(--c-muted)' }} />
-        </button>
+        <Clock className="w-4 h-4" />
+        {fmtTime(secondsLeft)}
       </div>
+      <div className="flex-1 flex items-center gap-2">
+        <span className="text-[11px] font-bold" style={{ color: 'var(--c-muted)' }}>
+          {currentIdx + 1}/{total}
+        </span>
+        <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${progressPct}%`, background: accentColor }}
+          />
+        </div>
+      </div>
+    </>
+  ) : (
+    <div className="flex-1">
+      <div className="text-base font-bold" style={{ color: 'var(--c-text)' }}>
+        {phase === 'intro'   && 'Проверка готовности'}
+        {phase === 'result'  && 'Результат'}
+        {phase === 'no-data' && 'Экзамен недоступен'}
+      </div>
+      <div className="text-[11px] mt-0.5" style={{ color: 'var(--c-muted)' }}>{subjectLabel}</div>
+    </div>
+  )}
+
+  <button
+    onClick={() => {
+      if (phase === 'question' || phase === 'answer') setConfirmExit(true);
+      else onClose();
+    }}
+    className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition active:scale-90"
+    style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
+  >
+    <X className="w-4 h-4" style={{ color: 'var(--c-muted)' }} />
+  </button>
+</div>
 
       {/* ── ОСНОВНОЕ СОДЕРЖИМОЕ ── */}
       <div className="flex-1 overflow-y-auto overscroll-contain">

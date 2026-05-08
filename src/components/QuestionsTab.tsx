@@ -535,49 +535,56 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     <div className="flex flex-col h-full overflow-hidden max-w-full" style={{ background: 'var(--c-bg)' }} onClick={handleGlossaryClick}>
 
       {/* ── ШАПКА ─────────────────────────────────── */}
-      <div className="px-4 py-3 space-y-3 sticky top-0 z-10"
-        style={{ background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid var(--c-border)', paddingTop: 'var(--header-pt)' }}>
-        <div className="flex justify-between items-center px-1">
-          <div className="flex items-center gap-3">
-        <ToothIcon className="w-9 h-9" style={{ color: accentColor }}  variant={cfg?.iconVariant || 'perfect'} />
-            <div>
-            <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }} > {cfg?.brandName || 'OrthoByNekruz'}</h1>
-            <p className="text-[10px] font-bold uppercase tracking-widest"
-       style={{ color: accentColor }}>
-      {cfg?.label || 'Ортопедия'}
-             </p>
-             </div>     
-          </div>
-          
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: accentColor }}>
-              {studiedIds.size}/{questionsData.length}
-            </span>
-            <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
-              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
-            </div>
-          </div>
-        </div>
-        <div className="relative mx-1">
-          <Input placeholder="Поиск по вопросу или №..." value={search} onChange={e => setSearch(e.target.value)}
-            className="pl-10 h-11 border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
-            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)', caretColor: 'var(--c-primary)' }} />
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--c-muted)' }} />
-          {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--c-muted)' }}><X className="w-4 h-4" /></button>}
-        </div>
-        {/* Фильтр-табы */}
-        <div className="flex gap-1.5 mx-1">
-          {([['all', 'Все'], ['unstudied', 'Не изучены'], ['audio', '🎧 С аудио']] as const).map(([val, label]) => (
-            <button key={val} onClick={() => setFilter(val)}
-              className="flex-1 h-7 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all active:scale-95"
-              style={filter === val
-                ? { background: accentColor, color: '#fff' }
-                : { background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
-              {label}
-            </button>
-          ))}
-        </div>
+<div className="flex-shrink-0 px-4 pt-5 pb-3 space-y-3 sticky top-0 z-10"
+  style={{ 
+    background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)', 
+    backdropFilter: 'blur(16px)', 
+    WebkitBackdropFilter: 'blur(16px)', 
+    borderBottom: '1px solid var(--c-border)', 
+    paddingTop: 'var(--header-pt)' 
+  }}>
+  <div className="flex justify-between items-center px-1">
+    <div className="flex items-center gap-3">
+      <ToothIcon className="w-9 h-9" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} />
+      <div>
+        <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>{cfg?.brandName || 'OrthoByNekruz'}</h1>
+        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>
+          {cfg?.label || 'Ортопедия'}
+        </p>
+      </div>     
+    </div>
+    
+    <div className="flex flex-col items-end gap-1">
+      <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: accentColor }}>
+        {studiedIds.size}/{questionsData.length}
+      </span>
+      <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
       </div>
+    </div>
+  </div>
+  
+  <div className="relative mx-1">
+    <Input placeholder="Поиск по вопросу или №..." value={search} onChange={e => setSearch(e.target.value)}
+      className="pl-10 h-11 border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
+      style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)', caretColor: 'var(--c-primary)' }} />
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--c-muted)' }} />
+    {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--c-muted)' }}><X className="w-4 h-4" /></button>}
+  </div>
+  
+  {/* Фильтр-табы */}
+  <div className="flex gap-1.5 mx-1">
+    {([['all', 'Все'], ['unstudied', 'Не изучены'], ['audio', '🎧 С аудио']] as const).map(([val, label]) => (
+      <button key={val} onClick={() => setFilter(val)}
+        className="flex-1 h-7 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all active:scale-95"
+        style={filter === val
+          ? { background: accentColor, color: '#fff' }
+          : { background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+        {label}
+      </button>
+    ))}
+  </div>
+</div>
 
       {/* ── СПИСОК ────────────────────────────────── */}
       <ScrollArea className="flex-1 scroll-container">
