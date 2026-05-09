@@ -526,26 +526,21 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
 const renderWithGlossary = (text: string) => {
   if (!text) return null;
 
-  // Глобальное состояние жирности, чтобы переносить ** через абзацы
   let isBoldState = false;
 
   return (
     <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
       {text.split('\n').map((line, lineIdx) => {
-        
-        // Разбиваем строку на 3 типа токенов: маркеры **, ссылки глоссария и обычный текст
         const tokens = line.split(/(\*\*|\[.*?\]\(glossary:.*?\))/g);
 
         const renderedTokens = tokens.map((token, tIdx) => {
           if (!token) return null;
 
-          // 1. Если это маркер жирного шрифта — просто переключаем рубильник
           if (token === '**') {
             isBoldState = !isBoldState; 
-            return null; // Сами звездочки на экран не выводим
+            return null;
           }
 
-          // 2. Если это ссылка глоссария
           const linkMatch = token.match(/\[(.*?)\]\(glossary:(.*?)\)/);
           if (linkMatch) {
             const visibleText = linkMatch[1];
@@ -562,26 +557,20 @@ const renderWithGlossary = (text: string) => {
                   if (found) {
                     setActiveTermDef(found.definition);
                     
-                    // --- УМНОЕ ПОЗИЦИОНИРОВАНИЕ С ЗАЩИТОЙ КРАЕВ ---
                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                     const screenWidth = window.innerWidth;
-                    const tooltipWidth = 280; // Ширина твоего тултипа
-                    const halfTooltip = tooltipWidth / 2;
-                    const padding = 16; // Безопасный отступ от рамок телефона
+                    const tooltipWidth = 280; 
+                    const padding = 16;
                     
-                    // Исходная идеальная координата (ровно по центру слова)
-                    let safeX = rect.left + (rect.width / 2);
+                    // Расчет левого края окна (Центр слова - половина ширины окна)
+                    let safeX = (rect.left + rect.width / 2) - (tooltipWidth / 2);
                     
-                    // Ограничитель слева
-                    if (safeX - halfTooltip < padding) {
-                      safeX = halfTooltip + padding;
-                    }
-                    // Ограничитель справа
-                    if (safeX + halfTooltip > screenWidth - padding) {
-                      safeX = screenWidth - halfTooltip - padding;
+                    // Ограничители, чтобы левый и правый края не выходили за экран
+                    if (safeX < padding) safeX = padding;
+                    if (safeX + tooltipWidth > screenWidth - padding) {
+                      safeX = screenWidth - tooltipWidth - padding;
                     }
 
-                    // Передаем отфильтрованные безопасные координаты
                     setTooltipPos({ 
                       x: safeX, 
                       y: rect.top 
@@ -600,7 +589,6 @@ const renderWithGlossary = (text: string) => {
             );
           }
 
-          // 3. Обычный текст (красим в янтарный, если рубильник isBoldState включен)
           return isBoldState ? (
             <span key={`text-${lineIdx}-${tIdx}`} style={{ fontWeight: 700, color: 'var(--c-amber)' }}>
               {token}
@@ -618,8 +606,7 @@ const renderWithGlossary = (text: string) => {
       })}
     </div>
   );
-};
-  // ── Заметка ────────────────────────────────────────
+};  // ── Заметка ────────────────────────────────────────
   const PersonalNote = ({ id }: { id: number }) => {
     const [editing, setEditing] = useState(false);
     const note = userNotes[id] || '';
@@ -915,7 +902,7 @@ const renderWithGlossary = (text: string) => {
       </AnimatePresence>
 
       {/* ── ТУЛТИП ГЛОССАРИЯ ──────────────────────── */}
-     {activeTermDef && (() => {
+    {activeTermDef && (() => {
   const found = glossaryTerms.find(g => g.definition === activeTermDef);
   return (
     <div 
@@ -924,8 +911,8 @@ const renderWithGlossary = (text: string) => {
       style={{ 
         left: tooltipPos.x, 
         top: tooltipPos.y, 
-        // 👇 ЦЕНТРИРОВАНИЕ: сдвиг на 50% ширины влево и подъем над пальцем
-        transform: 'translate(-50%, calc(-100% - 12px))', 
+        // Только вертикальный подъем. Горизонталь уже посчитана в safeX
+        transform: 'translateY(calc(-100% - 12px))', 
         background: 'var(--c-card)', 
         border: '1px solid var(--c-primary-br)', 
         cursor: dragging ? 'grabbing' : 'grab' 
@@ -934,33 +921,13 @@ const renderWithGlossary = (text: string) => {
       onTouchStart={handleTooltipTouchStart} 
       onClick={e => e.stopPropagation()}
     >
-      {/* Рендер изображений, если они есть */}
       {found?.image && (Array.isArray(found.image) ? found.image : [found.image]).map((img, i) => (
-        <div key={i}
-          className="img-protected-wrapper mb-2 rounded-xl overflow-hidden cursor-pointer relative"
-          style={{ border: '1px solid var(--c-border)' }}
-          onClick={e => { e.stopPropagation(); setZoomedImage(img); }}
-          onContextMenu={e => e.preventDefault()}
-          onTouchStart={e => { e.stopPropagation(); }}>
-          <img 
-            src={img} 
-            alt="" 
-            className="w-full h-auto object-contain max-h-32" 
-            loading="lazy" 
-            draggable={false} 
-          />
+        <div key={i} className="img-protected-wrapper mb-2 rounded-xl overflow-hidden relative" style={{ border: '1px solid var(--c-border)' }}>
+           <img src={img} alt="" className="w-full h-auto object-contain max-h-32" draggable={false} />
         </div>
       ))}
-
-      {/* Текст определения */}
-      <p className="text-sm" style={{ color: 'var(--c-text)' }}>
-        {activeTermDef}
-      </p>
-
-      {/* Подсказка для перетаскивания */}
-      <p className="text-[10px] mt-2 opacity-50" style={{ color: 'var(--c-muted)' }}>
-        ↔ 
-      </p>
+      <p className="text-sm" style={{ color: 'var(--c-text)' }}>{activeTermDef}</p>
+      <p className="text-[10px] mt-2 opacity-50" style={{ color: 'var(--c-muted)' }}>↔ перетащите</p>
     </div>
   );
 })()}
