@@ -558,15 +558,33 @@ const renderWithGlossary = (text: string) => {
                 onClick={(e) => {
                   e.stopPropagation();
                   const found = glossaryTerms.find(g => g.term === termKey);
+                  
                   if (found) {
                     setActiveTermDef(found.definition);
                     
-                    // --- УМНОЕ ПОЗИЦИОНИРОВАНИЕ ---
-                    // Получаем координаты самого кликнутого слова на экране
+                    // --- УМНОЕ ПОЗИЦИОНИРОВАНИЕ С ЗАЩИТОЙ КРАЕВ ---
                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    const screenWidth = window.innerWidth;
+                    const tooltipWidth = 280; // Ширина твоего тултипа
+                    const halfTooltip = tooltipWidth / 2;
+                    const padding = 16; // Безопасный отступ от рамок телефона
+                    
+                    // Исходная идеальная координата (ровно по центру слова)
+                    let safeX = rect.left + (rect.width / 2);
+                    
+                    // Ограничитель слева
+                    if (safeX - halfTooltip < padding) {
+                      safeX = halfTooltip + padding;
+                    }
+                    // Ограничитель справа
+                    if (safeX + halfTooltip > screenWidth - padding) {
+                      safeX = screenWidth - halfTooltip - padding;
+                    }
+
+                    // Передаем отфильтрованные безопасные координаты
                     setTooltipPos({ 
-                      x: rect.left + (rect.width / 2), // Ровно центр слова
-                      y: rect.top // Верхняя граница слова
+                      x: safeX, 
+                      y: rect.top 
                     });
                   }
                 }}
@@ -601,7 +619,6 @@ const renderWithGlossary = (text: string) => {
     </div>
   );
 };
-
   // ── Заметка ────────────────────────────────────────
   const PersonalNote = ({ id }: { id: number }) => {
     const [editing, setEditing] = useState(false);
@@ -898,33 +915,55 @@ const renderWithGlossary = (text: string) => {
       </AnimatePresence>
 
       {/* ── ТУЛТИП ГЛОССАРИЯ ──────────────────────── */}
-      {activeTermDef && (() => {
-        const found = glossaryTerms.find(g => g.definition === activeTermDef);
-        return (
-          <div ref={tooltipRef} className="fixed z-[200] rounded-2xl p-4 shadow-2xl max-w-[280px] select-none"
-style={{ 
-  left: tooltipPos.x, 
-  top: tooltipPos.y, 
-  transform: 'translate(-50%, calc(-100% - 12px))', /* <--- Вот этот патч центрирования */
-  background: 'var(--c-card)', 
-  border: '1px solid var(--c-primary-br)', 
-  cursor: dragging ? 'grabbing' : 'grab' 
-}}            onMouseDown={handleTooltipMouseDown} onTouchStart={handleTooltipTouchStart} onClick={e => e.stopPropagation()}>
-            {found?.image && (Array.isArray(found.image) ? found.image : [found.image]).map((img, i) => (
-              <div key={i}
-  className="img-protected-wrapper mb-2 rounded-xl overflow-hidden cursor-pointer relative"
-  style={{ border: '1px solid var(--c-border)' }}
-  onClick={e => { e.stopPropagation(); setZoomedImage(img); }}
-  onContextMenu={e => e.preventDefault()}
-  onTouchStart={e => { e.stopPropagation(); }}>
-  <img src={img} alt="" className="w-full h-auto object-contain max-h-32" loading="lazy" draggable={false} />
-</div>
-            ))}
-            <p className="text-sm" style={{ color: 'var(--c-text)' }}>{activeTermDef}</p>
-            <p className="text-[10px] mt-2" style={{ color: 'var(--c-muted)' }}>↔ перетащите</p>
-          </div>
-        );
-      })()}
+     {activeTermDef && (() => {
+  const found = glossaryTerms.find(g => g.definition === activeTermDef);
+  return (
+    <div 
+      ref={tooltipRef} 
+      className="fixed z-[200] rounded-2xl p-4 shadow-2xl max-w-[280px] select-none"
+      style={{ 
+        left: tooltipPos.x, 
+        top: tooltipPos.y, 
+        // 👇 ЦЕНТРИРОВАНИЕ: сдвиг на 50% ширины влево и подъем над пальцем
+        transform: 'translate(-50%, calc(-100% - 12px))', 
+        background: 'var(--c-card)', 
+        border: '1px solid var(--c-primary-br)', 
+        cursor: dragging ? 'grabbing' : 'grab' 
+      }}
+      onMouseDown={handleTooltipMouseDown} 
+      onTouchStart={handleTooltipTouchStart} 
+      onClick={e => e.stopPropagation()}
+    >
+      {/* Рендер изображений, если они есть */}
+      {found?.image && (Array.isArray(found.image) ? found.image : [found.image]).map((img, i) => (
+        <div key={i}
+          className="img-protected-wrapper mb-2 rounded-xl overflow-hidden cursor-pointer relative"
+          style={{ border: '1px solid var(--c-border)' }}
+          onClick={e => { e.stopPropagation(); setZoomedImage(img); }}
+          onContextMenu={e => e.preventDefault()}
+          onTouchStart={e => { e.stopPropagation(); }}>
+          <img 
+            src={img} 
+            alt="" 
+            className="w-full h-auto object-contain max-h-32" 
+            loading="lazy" 
+            draggable={false} 
+          />
+        </div>
+      ))}
+
+      {/* Текст определения */}
+      <p className="text-sm" style={{ color: 'var(--c-text)' }}>
+        {activeTermDef}
+      </p>
+
+      {/* Подсказка для перетаскивания */}
+      <p className="text-[10px] mt-2 opacity-50" style={{ color: 'var(--c-muted)' }}>
+        ↔ 
+      </p>
+    </div>
+  );
+})()}
 
       {/* ── ZOOM ИЗОБРАЖЕНИЯ ─────────────────────────────────────────────── */}
       {zoomedImage && (
