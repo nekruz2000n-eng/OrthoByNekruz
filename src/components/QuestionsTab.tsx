@@ -405,10 +405,14 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
 
   const progress = useMemo(() => questionsData.length ? (studiedIds.size / questionsData.length) * 100 : 0, [studiedIds, questionsData]);
 
-  const glossaryTerms = useMemo(() =>
-    (glossaryData as GlossaryItem[]).slice().sort((a, b) => b.term.length - a.term.length), []);
-
-  // Прямоугольник тапнутого слова — нужен для точного позиционирования попапа
+  const glossaryTerms = useMemo(() => {
+    // 1. Приводим импортированный JSON к неизвестному типу, затем "расплющиваем" его
+    // flat() превратит [ [{term: "..."}] ] в нормальный [ {term: "..."} ]
+    const flatData = (glossaryData as unknown as any[]).flat() as GlossaryItem[];
+    
+    // 2. Теперь безопасно сортируем: от самых длинных слов к коротким
+    return flatData.sort((a, b) => b.term.length - a.term.length);
+}, []); // Прямоугольник тапнутого слова — нужен для точного позиционирования попапа
   // ПОСЛЕ того как попап отрендерится (useLayoutEffect ниже измерит его размер).
   const [tooltipTarget, setTooltipTarget] = useState<{
     top: number; bottom: number; left: number; right: number; width: number;
