@@ -523,70 +523,83 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   }, [dragging]);
 
 
- const renderWithGlossary = (text: string) => {
+const renderWithGlossary = (text: string) => {
   if (!text) return null;
 
-  // 1. Разбиваем текст по ссылкам глоссария: [Визуальный текст](glossary:Скрытый_термин)
-  const linkRegex = /(\[.*?\]\(glossary:.*?\))/g;
-  const parts = text.split(linkRegex);
+  // Глобальное состояние жирности, чтобы переносить ** через абзацы
+  let isBoldState = false;
 
-  return parts.map((part, index) => {
-    // Проверяем, является ли текущий кусок ссылкой
-    const linkMatch = part.match(/\[(.*?)\]\(glossary:(.*?)\)/);
+  return (
+    <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
+      {text.split('\n').map((line, lineIdx) => {
+        
+        // Разбиваем строку на 3 типа токенов: маркеры **, ссылки глоссария и обычный текст
+        const tokens = line.split(/(\*\*|\[.*?\]\(glossary:.*?\))/g);
 
-    if (linkMatch) {
-      const visibleText = linkMatch[1]; // То, что видит пользователь (например, **Окклюзией**)
-      const encodedTerm = linkMatch[2]; // То, что ищем в базе (например, %D0%9E...)
-      
-      // Раскодируем обратно в нормальный русский текст
-      const termKey = decodeURIComponent(encodedTerm).replace(/_/g, ' ');
+        const renderedTokens = tokens.map((token, tIdx) => {
+          if (!token) return null;
 
-      return (
-        <span
-          key={`link-${index}`}
-          onClick={(e) => {
-            e.stopPropagation(); // Чтобы клик не ушел дальше и не закрыл окно
-            
-            // Находим определение в словаре по termKey
-            const foundTerm = glossaryTerms.find(g => g.term === termKey);
-            if (foundTerm) {
-              // Передаем найденное определение в стейт твоего тултипа
-              setActiveTermDef(foundTerm.definition);
-              
-              // Если нужно позиционировать тултип по клику:
-              // setTooltipPos({ x: e.clientX, y: e.clientY });
-            }
-          }}
-          className="cursor-pointer"
-          style={{ 
-            color: accentColor, 
-            fontWeight: 'bold', 
-            borderBottom: `1px dashed ${accentColor}` 
-          }}
-        >
-          {/* Убираем лишние звездочки из видимого текста, если они туда попали */}
-          {visibleText.replace(/\*\*/g, '')}
-        </span>
-      );
-    }
+          // 1. Если это маркер жирного шрифта — просто переключаем рубильник
+          if (token === '**') {
+            isBoldState = !isBoldState; 
+            return null; // Сами звездочки на экран не выводим
+          }
 
-    // 2. Если это не ссылка, ищем обычный жирный шрифт **текст**
-    const boldRegex = /(\*\*.*?\*\*)/g;
-    const subParts = part.split(boldRegex);
+          // 2. Если это ссылка глоссария
+          const linkMatch = token.match(/\[(.*?)\]\(glossary:(.*?)\)/);
+          if (linkMatch) {
+            const visibleText = linkMatch[1];
+            const encodedTerm = linkMatch[2];
+            const termKey = decodeURIComponent(encodedTerm).replace(/_/g, ' ');
 
-    return subParts.map((subPart, subIndex) => {
-      if (subPart.startsWith('**') && subPart.endsWith('**')) {
+            return (
+              <span
+                key={`link-${lineIdx}-${tIdx}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const found = glossaryTerms.find(g => g.term === termKey);
+                  if (found) {
+                    setActiveTermDef(found.definition);
+                    
+                    // --- УМНОЕ ПОЗИЦИОНИРОВАНИЕ ---
+                    // Получаем координаты самого кликнутого слова на экране
+                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    setTooltipPos({ 
+                      x: rect.left + (rect.width / 2), // Ровно центр слова
+                      y: rect.top // Верхняя граница слова
+                    });
+                  }
+                }}
+                className="cursor-pointer transition-opacity active:opacity-70"
+                style={{
+                  color: 'var(--c-amber)',
+                  fontWeight: 'bold',
+                  borderBottom: '1px dashed var(--c-amber)'
+                }}
+              >
+                {visibleText}
+              </span>
+            );
+          }
+
+          // 3. Обычный текст (красим в янтарный, если рубильник isBoldState включен)
+          return isBoldState ? (
+            <span key={`text-${lineIdx}-${tIdx}`} style={{ fontWeight: 700, color: 'var(--c-amber)' }}>
+              {token}
+            </span>
+          ) : (
+            <span key={`text-${lineIdx}-${tIdx}`}>{token}</span>
+          );
+        });
+
         return (
-          <strong key={`bold-${index}-${subIndex}`} style={{ color: 'var(--c-text)' }}>
-            {subPart.slice(2, -2)}
-          </strong>
+          <p key={lineIdx} className="indent-4 mb-1 last:mb-0">
+            {renderedTokens}
+          </p>
         );
-      }
-      
-      // Возвращаем обычный текст
-      return <span key={`text-${index}-${subIndex}`}>{subPart}</span>;
-    });
-  });
+      })}
+    </div>
+  );
 };
 
   // ── Заметка ────────────────────────────────────────
@@ -889,8 +902,14 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
         const found = glossaryTerms.find(g => g.definition === activeTermDef);
         return (
           <div ref={tooltipRef} className="fixed z-[200] rounded-2xl p-4 shadow-2xl max-w-[280px] select-none"
-            style={{ left: tooltipPos.x, top: tooltipPos.y, background: 'var(--c-card)', border: '1px solid var(--c-primary-br)', cursor: dragging ? 'grabbing' : 'grab' }}
-            onMouseDown={handleTooltipMouseDown} onTouchStart={handleTooltipTouchStart} onClick={e => e.stopPropagation()}>
+style={{ 
+  left: tooltipPos.x, 
+  top: tooltipPos.y, 
+  transform: 'translate(-50%, calc(-100% - 12px))', /* <--- Вот этот патч центрирования */
+  background: 'var(--c-card)', 
+  border: '1px solid var(--c-primary-br)', 
+  cursor: dragging ? 'grabbing' : 'grab' 
+}}            onMouseDown={handleTooltipMouseDown} onTouchStart={handleTooltipTouchStart} onClick={e => e.stopPropagation()}>
             {found?.image && (Array.isArray(found.image) ? found.image : [found.image]).map((img, i) => (
               <div key={i}
   className="img-protected-wrapper mb-2 rounded-xl overflow-hidden cursor-pointer relative"
