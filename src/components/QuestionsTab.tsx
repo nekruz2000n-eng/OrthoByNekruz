@@ -523,45 +523,71 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   }, [dragging]);
 
 
-  const renderWithGlossary = (text: string) => {
-    const frags: { type: 'normal' | 'bold'; content: string }[] = [];
-    const boldRe = /\*\*(.*?)\*\*/g;
-    let last = 0; let m: RegExpExecArray | null;
-    while ((m = boldRe.exec(text)) !== null) {
-      if (m.index > last) frags.push({ type: 'normal', content: text.substring(last, m.index) });
-      frags.push({ type: 'bold', content: m[1] });
-      last = m.index + m[0].length;
+ const renderWithGlossary = (text: string) => {
+  if (!text) return null;
+
+  // 1. Разбиваем текст по ссылкам глоссария: [Визуальный текст](glossary:Скрытый_термин)
+  const linkRegex = /(\[.*?\]\(glossary:.*?\))/g;
+  const parts = text.split(linkRegex);
+
+  return parts.map((part, index) => {
+    // Проверяем, является ли текущий кусок ссылкой
+    const linkMatch = part.match(/\[(.*?)\]\(glossary:(.*?)\)/);
+
+    if (linkMatch) {
+      const visibleText = linkMatch[1]; // То, что видит пользователь (например, **Окклюзией**)
+      const encodedTerm = linkMatch[2]; // То, что ищем в базе (например, %D0%9E...)
+      
+      // Раскодируем обратно в нормальный русский текст
+      const termKey = decodeURIComponent(encodedTerm).replace(/_/g, ' ');
+
+      return (
+        <span
+          key={`link-${index}`}
+          onClick={(e) => {
+            e.stopPropagation(); // Чтобы клик не ушел дальше и не закрыл окно
+            
+            // Находим определение в словаре по termKey
+            const foundTerm = glossaryTerms.find(g => g.term === termKey);
+            if (foundTerm) {
+              // Передаем найденное определение в стейт твоего тултипа
+              setActiveTermDef(foundTerm.definition);
+              
+              // Если нужно позиционировать тултип по клику:
+              // setTooltipPos({ x: e.clientX, y: e.clientY });
+            }
+          }}
+          className="cursor-pointer"
+          style={{ 
+            color: accentColor, 
+            fontWeight: 'bold', 
+            borderBottom: `1px dashed ${accentColor}` 
+          }}
+        >
+          {/* Убираем лишние звездочки из видимого текста, если они туда попали */}
+          {visibleText.replace(/\*\*/g, '')}
+        </span>
+      );
     }
-    if (last < text.length) frags.push({ type: 'normal', content: text.substring(last) });
 
-    const processNormal = (t: string) => {
-      let r = t;
-      for (const gi of glossaryTerms) {
-        r = r.replace(new RegExp(gi.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), (match, offset) => {
-          const prev = offset > 0 ? r[offset - 1] : '';
-          const next = offset + match.length < r.length ? r[offset + match.length] : '';
-          const b = (c: string) => /[\s\p{P}\p{Z}]/u.test(c) || c === '';
-          return b(prev) && b(next)
-            ? `<span class="glossary-term" data-definition="${encodeURIComponent(gi.definition)}">${match}</span>`
-            : match;
-        });
+    // 2. Если это не ссылка, ищем обычный жирный шрифт **текст**
+    const boldRegex = /(\*\*.*?\*\*)/g;
+    const subParts = part.split(boldRegex);
+
+    return subParts.map((subPart, subIndex) => {
+      if (subPart.startsWith('**') && subPart.endsWith('**')) {
+        return (
+          <strong key={`bold-${index}-${subIndex}`} style={{ color: 'var(--c-text)' }}>
+            {subPart.slice(2, -2)}
+          </strong>
+        );
       }
-      return r;
-    };
-
-    const html = frags.map(f => f.type === 'bold'
-      ? `<span style="font-weight:700;color:var(--c-amber)">${f.content}</span>`
-      : processNormal(f.content)
-    ).join('');
-
-    return (
-      <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
-        {html.split('\n').map((line, i) => (
-          <p key={i} className="indent-4 mb-1 last:mb-0" dangerouslySetInnerHTML={{ __html: line }} />
-        ))}
-      </div>
-    );
-  };
+      
+      // Возвращаем обычный текст
+      return <span key={`text-${index}-${subIndex}`}>{subPart}</span>;
+    });
+  });
+};
 
   // ── Заметка ────────────────────────────────────────
   const PersonalNote = ({ id }: { id: number }) => {
