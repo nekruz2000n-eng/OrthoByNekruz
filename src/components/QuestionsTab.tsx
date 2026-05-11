@@ -396,24 +396,29 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   } | null>(null);
 
 
-  useLayoutEffect(() => {
+ useLayoutEffect(() => {
     if (!activeTermDef || !tooltipTarget || !tooltipRef.current) return;
     const popup = tooltipRef.current.getBoundingClientRect();
-    const GAP = 10;
+    
+    const GAP = 24; // ⬇️ Отступ по вертикали (~1 см над словом)
     const PAD = 10;
     const vw  = window.innerWidth;
     const vh  = window.innerHeight;
 
+    // По вертикали: ставим выше слова на размер GAP
     let y = tooltipTarget.top - popup.height - GAP;
+    
+    // Если сверху не влезает, показываем под словом
     if (y < PAD) {
       y = tooltipTarget.bottom + GAP;
+      // Если и снизу не влезает, прижимаем к нижнему краю экрана
       if (y + popup.height > vh - PAD) {
         y = Math.max(PAD, vh - popup.height - PAD);
       }
     }
 
-    let x = tooltipTarget.left + tooltipTarget.width / 2 - popup.width / 2;
-    x = Math.max(PAD, Math.min(x, vw - popup.width - PAD));
+    // ⬇️ По горизонтали: ставим строго по центру дисплея
+    let x = (vw / 2) - (popup.width / 2);
 
     setTooltipPos({ x, y });
   }, [activeTermDef, tooltipTarget]);
