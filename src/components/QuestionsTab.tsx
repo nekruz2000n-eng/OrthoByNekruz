@@ -527,20 +527,43 @@ const renderWithGlossary = (text: string) => {
   if (!text) return null;
 
   let isBoldState = false;
+  let isItalicState = false;
 
   return (
     <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
       {text.split('\n').map((line, lineIdx) => {
-        const tokens = line.split(/(\*\*|\[.*?\]\(glossary:.*?\))/g);
+        // 1. Пропускаем пустые строки, добавляя небольшой отступ
+        if (line.trim() === '') return <div key={lineIdx} className="h-1" />;
+
+        // 2. Детектор списков: сохраняем маркер (цифру или пулю), чтобы не терять нумерацию
+        const listMatch = line.match(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/);
+        const isListItem = !!listMatch;
+        
+        let listMarker = isListItem ? listMatch[1].trim() : '';
+        // Если это дефис или обычная звездочка — превращаем в красивую точку
+        if (listMarker === '-' || listMarker === '*') listMarker = '•';
+        
+        const cleanLine = isListItem ? line.replace(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/, '') : line; 
+
+        // 3. Разбиваем строку на токены: жирный (**), курсив (_), и глоссарий
+        const tokens = cleanLine.split(/(\*\*|_|\[.*?\]\(glossary:.*?\))/g);
 
         const renderedTokens = tokens.map((token, tIdx) => {
           if (!token) return null;
 
+          // Переключатель жирного
           if (token === '**') {
             isBoldState = !isBoldState; 
             return null;
           }
+          
+          // Переключатель курсива
+          if (token === '_') {
+            isItalicState = !isItalicState; 
+            return null;
+          }
 
+          // Обработка глоссария
           const linkMatch = token.match(/\[(.*?)\]\(glossary:(.*?)\)/);
           if (linkMatch) {
             const visibleText = linkMatch[1];
@@ -562,10 +585,8 @@ const renderWithGlossary = (text: string) => {
                     const tooltipWidth = 280; 
                     const padding = 16;
                     
-                    // Расчет левого края окна (Центр слова - половина ширины окна)
                     let safeX = (rect.left + rect.width / 2) - (tooltipWidth / 2);
                     
-                    // Ограничители, чтобы левый и правый края не выходили за экран
                     if (safeX < padding) safeX = padding;
                     if (safeX + tooltipWidth > screenWidth - padding) {
                       safeX = screenWidth - tooltipWidth - padding;
@@ -589,24 +610,46 @@ const renderWithGlossary = (text: string) => {
             );
           }
 
-          return isBoldState ? (
-            <span key={`text-${lineIdx}-${tIdx}`} style={{ fontWeight: 700, color: 'var(--c-amber)' }}>
+          // 4. Применяем стили в зависимости от текущих стейтов
+          let textStyle: React.CSSProperties = {};
+          if (isBoldState) {
+            textStyle.fontWeight = 700;
+            textStyle.color = 'var(--c-text)'; 
+          }
+          if (isItalicState) {
+            textStyle.fontStyle = 'italic';
+          }
+
+          return (
+            <span key={`text-${lineIdx}-${tIdx}`} style={Object.keys(textStyle).length ? textStyle : undefined}>
               {token}
             </span>
-          ) : (
-            <span key={`text-${lineIdx}-${tIdx}`}>{token}</span>
           );
         });
 
+        // 5. Отрисовка строки со списком
+        if (isListItem) {
+          return (
+            <div key={lineIdx} className="flex gap-2 mb-1.5 pl-2 mt-1">
+              <span className="text-[14px] leading-snug font-bold" style={{ color: 'var(--c-amber)' }}>
+                {listMarker}
+              </span>
+              <p className="m-0 flex-1 leading-snug">{renderedTokens}</p>
+            </div>
+          );
+        }
+
+        // 6. Отрисовка обычного абзаца
         return (
-          <p key={lineIdx} className="indent-4 mb-1 last:mb-0">
+          <p key={lineIdx} className="indent-4 mb-2 mt-1 last:mb-0">
             {renderedTokens}
           </p>
         );
       })}
     </div>
   );
-};  // ── Заметка ────────────────────────────────────────
+};
+  // ── Заметка ────────────────────────────────────────
   const PersonalNote = ({ id }: { id: number }) => {
     const [editing, setEditing] = useState(false);
     const note = userNotes[id] || '';
