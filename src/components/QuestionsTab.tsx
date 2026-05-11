@@ -907,7 +907,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             style={{ 
               left: tooltipPos.x, 
               top: tooltipPos.y, 
-              transform: 'translateY(calc(-100% - 12px))',
+          
               background: 'var(--c-card)', 
               border: '1px solid var(--c-primary-br)', 
               cursor: dragging ? 'grabbing' : 'grab' 
