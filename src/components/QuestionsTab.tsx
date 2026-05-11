@@ -523,52 +523,63 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   }, [dragging]);
 
 
+// Исправленная версия renderWithGlossary.
+// Что починено:
+//  1. isBoldState / isItalicState теперь объявлены ВНУТРИ map(line),
+//     поэтому незакрытый _ или ** не перетекает в следующий абзац.
+//  2. Глоссарный <span> наследует курсив из окружающего _..._.
+//     Раньше стиль глоссария жёстко перебивал fontStyle, и термины,
+//     обёрнутые в _..._, рендерились без курсива.
+//  3. Курсор и hover-стиль вынесены в стиль, чтобы не зависеть от Tailwind.
+
 const renderWithGlossary = (text: string) => {
   if (!text) return null;
-
-  let isBoldState = false;
-  let isItalicState = false;
 
   return (
     <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
       {text.split('\n').map((line, lineIdx) => {
-        // 1. Пропускаем пустые строки, добавляя небольшой отступ
+        // ⬇⬇⬇ ВАЖНО: стейт сбрасывается на каждой строке
+        let isBoldState = false;
+        let isItalicState = false;
+
         if (line.trim() === '') return <div key={lineIdx} className="h-1" />;
 
-        // 2. Детектор списков: сохраняем маркер (цифру или пулю), чтобы не терять нумерацию
         const listMatch = line.match(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/);
         const isListItem = !!listMatch;
-        
-        let listMarker = isListItem ? listMatch[1].trim() : '';
-        // Если это дефис или обычная звездочка — превращаем в красивую точку
+        let listMarker = isListItem ? listMatch![1].trim() : '';
         if (listMarker === '-' || listMarker === '*') listMarker = '•';
-        
-        const cleanLine = isListItem ? line.replace(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/, '') : line; 
+        const cleanLine = isListItem
+          ? line.replace(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/, '')
+          : line;
 
-        // 3. Разбиваем строку на токены: жирный (**), курсив (_), и глоссарий
         const tokens = cleanLine.split(/(\*\*|_|\[.*?\]\(glossary:.*?\))/g);
 
         const renderedTokens = tokens.map((token, tIdx) => {
           if (!token) return null;
 
-          // Переключатель жирного
           if (token === '**') {
-            isBoldState = !isBoldState; 
+            isBoldState = !isBoldState;
             return null;
           }
-          
-          // Переключатель курсива
           if (token === '_') {
-            isItalicState = !isItalicState; 
+            isItalicState = !isItalicState;
             return null;
           }
 
-          // Обработка глоссария
           const linkMatch = token.match(/\[(.*?)\]\(glossary:(.*?)\)/);
           if (linkMatch) {
             const visibleText = linkMatch[1];
             const encodedTerm = linkMatch[2];
             const termKey = decodeURIComponent(encodedTerm).replace(/_/g, ' ');
+
+            // ⬇⬇⬇ глоссарий теперь наследует курсив окружающего markdown
+            const linkStyle: React.CSSProperties = {
+              color: 'var(--c-amber)',
+              fontWeight: 'bold',
+              fontStyle: isItalicState ? 'italic' : 'normal',
+              borderBottom: '1px dashed var(--c-amber)',
+              cursor: 'pointer',
+            };
 
             return (
               <span
@@ -576,62 +587,57 @@ const renderWithGlossary = (text: string) => {
                 onClick={(e) => {
                   e.stopPropagation();
                   const found = glossaryTerms.find(g => g.term === termKey);
-                  
-                  if (found) {
-                    setActiveTermDef(found.definition);
-                    
-                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    const screenWidth = window.innerWidth;
-                    const tooltipWidth = 280; 
-                    const padding = 16;
-                    
-                    let safeX = (rect.left + rect.width / 2) - (tooltipWidth / 2);
-                    
-                    if (safeX < padding) safeX = padding;
-                    if (safeX + tooltipWidth > screenWidth - padding) {
-                      safeX = screenWidth - tooltipWidth - padding;
-                    }
+                  if (!found) return;
 
-                    setTooltipPos({ 
-                      x: safeX, 
-                      y: rect.top 
-                    });
+                  setActiveTermDef(found.definition);
+
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  const screenWidth = window.innerWidth;
+                  const tooltipWidth = 280;
+                  const padding = 16;
+
+                  let safeX = (rect.left + rect.width / 2) - (tooltipWidth / 2);
+                  if (safeX < padding) safeX = padding;
+                  if (safeX + tooltipWidth > screenWidth - padding) {
+                    safeX = screenWidth - tooltipWidth - padding;
                   }
+
+                  setTooltipPos({ x: safeX, y: rect.top });
                 }}
-                className="cursor-pointer transition-opacity active:opacity-70"
-                style={{
-                  color: 'var(--c-amber)',
-                  fontWeight: 'bold',
-                  borderBottom: '1px dashed var(--c-amber)'
-                }}
+                className="transition-opacity active:opacity-70"
+                style={linkStyle}
               >
                 {visibleText}
               </span>
             );
           }
 
-          // 4. Применяем стили в зависимости от текущих стейтов
-          let textStyle: React.CSSProperties = {};
+          const textStyle: React.CSSProperties = {};
           if (isBoldState) {
             textStyle.fontWeight = 700;
-            textStyle.color = 'var(--c-text)'; 
+            textStyle.color = 'var(--c-text)';
           }
           if (isItalicState) {
             textStyle.fontStyle = 'italic';
           }
 
           return (
-            <span key={`text-${lineIdx}-${tIdx}`} style={Object.keys(textStyle).length ? textStyle : undefined}>
+            <span
+              key={`text-${lineIdx}-${tIdx}`}
+              style={Object.keys(textStyle).length ? textStyle : undefined}
+            >
               {token}
             </span>
           );
         });
 
-        // 5. Отрисовка строки со списком
         if (isListItem) {
           return (
             <div key={lineIdx} className="flex gap-2 mb-1.5 pl-2 mt-1">
-              <span className="text-[14px] leading-snug font-bold" style={{ color: 'var(--c-amber)' }}>
+              <span
+                className="text-[14px] leading-snug font-bold"
+                style={{ color: 'var(--c-amber)' }}
+              >
                 {listMarker}
               </span>
               <p className="m-0 flex-1 leading-snug">{renderedTokens}</p>
@@ -639,7 +645,6 @@ const renderWithGlossary = (text: string) => {
           );
         }
 
-        // 6. Отрисовка обычного абзаца
         return (
           <p key={lineIdx} className="indent-4 mb-2 mt-1 last:mb-0">
             {renderedTokens}
