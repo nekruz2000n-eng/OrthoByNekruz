@@ -18,15 +18,8 @@ import ReactMarkdown from 'react-markdown';
 interface GlossaryItem { term: string; definition: string; image?: string | string[]; }
 
 // ── AudioPlayer вынесен НА УРОВЕНЬ МОДУЛЯ ────────────────────────────────────
-// Если оставить внутри QuestionsTab, React при каждом setState родителя
-// (глоссарий, зум картинки) видит новый тип компонента → ремонтирует →
-// аудио обрывается. Вынос фиксирует это раз и навсегда.
 const _AUDIO_CACHE = 'ortho-audio-v1';
 const _AUDIO_SPEEDS = [0.75, 1, 1.25, 1.5, 2];
-
-// Глобальный указатель на текущий играющий <audio> элемент.
-// Позволяет остановить аккордион-плеер при входе в режим чтения
-// и не запускать два плеера одновременно.
 let _activeAudio: HTMLAudioElement | null = null;
 
 const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string }) => {
@@ -42,7 +35,6 @@ const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string })
   const [blobUrl, setBlobUrl]             = useState<string | null>(null);
   const posKey = `audio-pos:${src}`;
 
-  // Проверяем кэш + восстанавливаем позицию
   useEffect(() => {
     (async () => {
       try {
@@ -59,7 +51,6 @@ const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string })
     return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
   }, [src]);
 
-  // Когда blobUrl появился — ставим в audio
   useEffect(() => {
     const a = audioRef.current;
     if (!a || !blobUrl) return;
@@ -81,9 +72,7 @@ const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string })
     if (!a) return;
     if (playing) {
       a.pause();
-      // setPlaying(false) придёт через onPause на <audio>
     } else {
-      // Останавливаем любой другой играющий плеер
       if (_activeAudio && _activeAudio !== a) _activeAudio.pause();
       _activeAudio = a;
       a.play().catch(() => {});
@@ -179,7 +168,6 @@ const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string })
         <source src={blobUrl || src} type={getMime(src)} />
       </audio>
 
-      {/* Шапка плеера */}
       <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
         <div className="flex items-center gap-1.5">
           <span className="text-base">🎧</span>
@@ -198,7 +186,6 @@ const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string })
         </span>
       </div>
 
-      {/* Прогресс-бар */}
       <div className="px-3 pb-2">
         <div className="relative h-2 rounded-full" style={{ background: 'var(--c-border)' }}>
           <div className="absolute left-0 top-0 h-full rounded-full transition-all duration-100"
@@ -214,7 +201,6 @@ const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string })
         </div>
       </div>
 
-      {/* Кнопки управления */}
       <div className="flex items-center gap-2 px-3 pb-3">
         <button onClick={toggle} disabled={loading}
           className="w-11 h-11 rounded-2xl flex-shrink-0 flex items-center justify-center transition-all active:scale-90 shadow-md"
@@ -302,17 +288,16 @@ const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string })
     </div>
   );
 };
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
   const cfg         = getSubject(subject);
   const accentColor = cfg?.color || 'var(--c-primary)';
-  // ls-ключи строятся из префикса дисциплины — добавление новой дисциплины ничего не ломает
   const lsKey       = subject === 'ortho' ? 'studiedQuestions'  : `${cfg?.lsPrefix || subject}_studiedQuestions`;
   const lsNoteKey   = subject === 'ortho' ? 'userQuestionNotes' : `${cfg?.lsPrefix || subject}_userQuestionNotes`;
   const isOrtho     = subject === 'ortho';
 
-  // Не-ortho данные загружаются с сервера (не в бандле — защита от кражи контента)
   const [microQuestionsData, setMicroQuestionsData] = useState<any[]>([]);
   const [microLoading,       setMicroLoading]       = useState(false);
   const questionsData = isOrtho ? orthoQuestionsData : microQuestionsData;
@@ -332,9 +317,6 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const zoomImgRef = useRef<HTMLImageElement | null>(null);
 
-  // Удерживаем изображение в видимой области: при scale S разрешаем сдвиг
-  // максимум на (S-1)/2 от ширины/высоты — края картинки доходят до краёв
-  // вьюпорта, но не уходят дальше.
   const clampZoom = (t: {x: number; y: number}, s: number) => {
     const img = zoomImgRef.current;
     if (!img) return t;
@@ -361,7 +343,6 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     setIsLoaded(true);
   }, [subject]);
 
-  // Загрузка данных дисциплины (не-ortho) с сервера через универсальный API
   useEffect(() => {
     if (isOrtho) return;
     setMicroLoading(true);
@@ -406,64 +387,31 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const progress = useMemo(() => questionsData.length ? (studiedIds.size / questionsData.length) * 100 : 0, [studiedIds, questionsData]);
 
   const glossaryTerms = useMemo(() => {
-    // 1. Приводим импортированный JSON к неизвестному типу, затем "расплющиваем" его
-    // flat() превратит [ [{term: "..."}] ] в нормальный [ {term: "..."} ]
     const flatData = (glossaryData as unknown as any[]).flat() as GlossaryItem[];
-    
-    // 2. Теперь безопасно сортируем: от самых длинных слов к коротким
     return flatData.sort((a, b) => b.term.length - a.term.length);
-}, []); // Прямоугольник тапнутого слова — нужен для точного позиционирования попапа
-  // ПОСЛЕ того как попап отрендерится (useLayoutEffect ниже измерит его размер).
+  }, []);
+
   const [tooltipTarget, setTooltipTarget] = useState<{
     top: number; bottom: number; left: number; right: number; width: number;
   } | null>(null);
 
-  const handleGlossaryClick = (e: React.MouseEvent) => {
-    const t = e.target as HTMLElement;
-    if (t.classList.contains('glossary-term')) {
-      const def = t.getAttribute('data-definition');
-      if (!def) return;
-      const r = t.getBoundingClientRect();
-      // Сохраняем геометрию слова (DOMRect не сериализуется в React state красиво)
-      setTooltipTarget({
-        top:    r.top,
-        bottom: r.bottom,
-        left:   r.left,
-        right:  r.right,
-        width:  r.width,
-      });
-      // Стартовая позиция за пределами экрана — чтобы пользователь не видел
-      // вспышку до того как useLayoutEffect посчитает финальную позицию
-      setTooltipPos({ x: -9999, y: -9999 });
-      setActiveTermDef(decodeURIComponent(def));
-      e.stopPropagation();
-    }
-  };
 
-  // ── ПОЗИЦИОНИРОВАНИЕ ПОПАПА (запускается синхронно после рендера) ──────────
-  // Стратегия: ставим попап НАД словом по умолчанию. Если сверху не помещается —
-  // под словом. Если и снизу не помещается — прижимаем к нижнему краю экрана.
-  // По горизонтали центрируем относительно слова, клампим к 10px от краёв.
   useLayoutEffect(() => {
     if (!activeTermDef || !tooltipTarget || !tooltipRef.current) return;
     const popup = tooltipRef.current.getBoundingClientRect();
     const GAP = 10;
-    const PAD = 10; // отступ от края экрана
+    const PAD = 10;
     const vw  = window.innerWidth;
     const vh  = window.innerHeight;
 
-    // По вертикали: сначала пытаемся НАД словом
     let y = tooltipTarget.top - popup.height - GAP;
     if (y < PAD) {
-      // Не помещается сверху → ПОД словом
       y = tooltipTarget.bottom + GAP;
-      // Не помещается и снизу → прижимаем к нижнему краю
       if (y + popup.height > vh - PAD) {
         y = Math.max(PAD, vh - popup.height - PAD);
       }
     }
 
-    // По горизонтали: центрируем по слову, клампим к краям
     let x = tooltipTarget.left + tooltipTarget.width / 2 - popup.width / 2;
     x = Math.max(PAD, Math.min(x, vw - popup.width - PAD));
 
@@ -523,138 +471,137 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   }, [dragging]);
 
 
-// Исправленная версия renderWithGlossary.
-// Что починено:
-//  1. isBoldState / isItalicState теперь объявлены ВНУТРИ map(line),
-//     поэтому незакрытый _ или ** не перетекает в следующий абзац.
-//  2. Глоссарный <span> наследует курсив из окружающего _..._.
-//     Раньше стиль глоссария жёстко перебивал fontStyle, и термины,
-//     обёрнутые в _..._, рендерились без курсива.
-//  3. Курсор и hover-стиль вынесены в стиль, чтобы не зависеть от Tailwind.
+  // НОВЫЙ РЕНДЕР С ДИНАМИЧЕСКИМ ПОИСКОМ ГЛОССАРИЯ И ФИЛЬТРАЦИЕЙ
+  const renderWithGlossary = (text: string, relatedTerms?: string[]) => {
+    if (!text) return null;
 
-const renderWithGlossary = (text: string) => {
-  if (!text) return null;
+    let localGlossary: GlossaryItem[] = [];
+    let glossaryRegex: RegExp | null = null;
 
-  return (
-    <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
-      {text.split('\n').map((line, lineIdx) => {
-        // ⬇⬇⬇ ВАЖНО: стейт сбрасывается на каждой строке
-        let isBoldState = false;
-        let isItalicState = false;
+    // Собираем регулярку только если в JSON переданы relatedTerms для этого вопроса
+    if (relatedTerms && relatedTerms.length > 0) {
+      localGlossary = glossaryTerms.filter(g =>
+        relatedTerms.some(rt => rt.toLowerCase() === g.term.toLowerCase())
+      );
 
-        if (line.trim() === '') return <div key={lineIdx} className="h-1" />;
+      if (localGlossary.length > 0) {
+        const sortedTerms = [...localGlossary]
+          .sort((a, b) => b.term.length - a.term.length)
+          .map(g => g.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 
-        const listMatch = line.match(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/);
-        const isListItem = !!listMatch;
-        let listMarker = isListItem ? listMatch![1].trim() : '';
-        if (listMarker === '-' || listMarker === '*') listMarker = '•';
-        const cleanLine = isListItem
-          ? line.replace(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/, '')
-          : line;
+        glossaryRegex = new RegExp(`(?<=^|[^а-яА-ЯёЁa-zA-Z0-9])(${sortedTerms.join('|')})(?=$|[^а-яА-ЯёЁa-zA-Z0-9])`, 'gi');
+      }
+    }
 
-        const tokens = cleanLine.split(/(\*\*|_|\[.*?\]\(glossary:.*?\))/g);
+    return (
+      <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
+        {text.split('\n').map((line, lineIdx) => {
+          let isBoldState = false;
+          let isItalicState = false;
 
-        const renderedTokens = tokens.map((token, tIdx) => {
-          if (!token) return null;
+          if (line.trim() === '') return <div key={lineIdx} className="h-1" />;
 
-          if (token === '**') {
-            isBoldState = !isBoldState;
-            return null;
-          }
-          if (token === '_') {
-            isItalicState = !isItalicState;
-            return null;
-          }
+          const listMatch = line.match(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/);
+          const isListItem = !!listMatch;
+          let listMarker = isListItem ? listMatch![1].trim() : '';
+          if (listMarker === '-' || listMarker === '*') listMarker = '•';
+          const cleanLine = isListItem
+            ? line.replace(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/, '')
+            : line;
 
-          const linkMatch = token.match(/\[(.*?)\]\(glossary:(.*?)\)/);
-          if (linkMatch) {
-            const visibleText = linkMatch[1];
-            const encodedTerm = linkMatch[2];
-            const termKey = decodeURIComponent(encodedTerm).replace(/_/g, ' ');
+          // Разбиваем только по ** и _
+          const tokens = cleanLine.split(/(\*\*|_)/g);
 
-            // ⬇⬇⬇ глоссарий теперь наследует курсив окружающего markdown
-            const linkStyle: React.CSSProperties = {
-              color: 'var(--c-amber)',
-              fontWeight: 'bold',
+          const renderedTokens = tokens.map((token, tIdx) => {
+            if (!token) return null;
+
+            if (token === '**') {
+              isBoldState = !isBoldState;
+              return null;
+            }
+            if (token === '_') {
+              isItalicState = !isItalicState;
+              return null;
+            }
+
+            const baseStyle: React.CSSProperties = {
+              fontWeight: isBoldState ? 700 : 'inherit',
+              color: isBoldState ? 'var(--c-text)' : 'inherit',
               fontStyle: isItalicState ? 'italic' : 'normal',
-              borderBottom: '1px dashed var(--c-amber)',
-              cursor: 'pointer',
             };
 
+            if (!glossaryRegex) {
+              return <span key={`text-${lineIdx}-${tIdx}`} style={baseStyle}>{token}</span>;
+            }
+
+            // Сканируем кусок текста локальным глоссарием
+            const parts = token.split(glossaryRegex);
+
+            return parts.map((part, pIdx) => {
+              if (!part) return null;
+
+              const foundTerm = localGlossary.find(g => g.term.toLowerCase() === part.toLowerCase());
+
+              if (foundTerm) {
+                const linkStyle: React.CSSProperties = {
+                  ...baseStyle,
+                  borderBottom: '1px dashed currentColor',
+                  cursor: 'pointer',
+                };
+
+                return (
+                  <span
+                    key={`link-${lineIdx}-${tIdx}-${pIdx}`}
+                    className="transition-opacity active:opacity-70"
+                    style={linkStyle}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      setTooltipTarget({
+                        top: r.top, bottom: r.bottom,
+                        left: r.left, right: r.right, width: r.width
+                      });
+                      setTooltipPos({ x: -9999, y: -9999 });
+                      setActiveTermDef(foundTerm.definition);
+                    }}
+                  >
+                    {part}
+                  </span>
+                );
+              }
+
+              return (
+                <span key={`text-${lineIdx}-${tIdx}-${pIdx}`} style={baseStyle}>
+                  {part}
+                </span>
+              );
+            });
+          });
+
+          if (isListItem) {
             return (
-              <span
-                key={`link-${lineIdx}-${tIdx}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const found = glossaryTerms.find(g => g.term === termKey);
-                  if (!found) return;
-
-                  setActiveTermDef(found.definition);
-
-                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                  const screenWidth = window.innerWidth;
-                  const tooltipWidth = 280;
-                  const padding = 16;
-
-                  let safeX = (rect.left + rect.width / 2) - (tooltipWidth / 2);
-                  if (safeX < padding) safeX = padding;
-                  if (safeX + tooltipWidth > screenWidth - padding) {
-                    safeX = screenWidth - tooltipWidth - padding;
-                  }
-
-                  setTooltipPos({ x: safeX, y: rect.top });
-                }}
-                className="transition-opacity active:opacity-70"
-                style={linkStyle}
-              >
-                {visibleText}
-              </span>
+              <div key={lineIdx} className="flex gap-2 mb-1.5 pl-2 mt-1">
+                <span
+                  className="text-[14px] leading-snug font-bold"
+                  style={{ color: 'var(--c-amber)' }}
+                >
+                  {listMarker}
+                </span>
+                <p className="m-0 flex-1 leading-snug">{renderedTokens}</p>
+              </div>
             );
           }
 
-          const textStyle: React.CSSProperties = {};
-          if (isBoldState) {
-            textStyle.fontWeight = 700;
-            textStyle.color = 'var(--c-text)';
-          }
-          if (isItalicState) {
-            textStyle.fontStyle = 'italic';
-          }
-
           return (
-            <span
-              key={`text-${lineIdx}-${tIdx}`}
-              style={Object.keys(textStyle).length ? textStyle : undefined}
-            >
-              {token}
-            </span>
+            <p key={lineIdx} className="indent-4 mb-2 mt-1 last:mb-0">
+              {renderedTokens}
+            </p>
           );
-        });
+        })}
+      </div>
+    );
+  };
 
-        if (isListItem) {
-          return (
-            <div key={lineIdx} className="flex gap-2 mb-1.5 pl-2 mt-1">
-              <span
-                className="text-[14px] leading-snug font-bold"
-                style={{ color: 'var(--c-amber)' }}
-              >
-                {listMarker}
-              </span>
-              <p className="m-0 flex-1 leading-snug">{renderedTokens}</p>
-            </div>
-          );
-        }
-
-        return (
-          <p key={lineIdx} className="indent-4 mb-2 mt-1 last:mb-0">
-            {renderedTokens}
-          </p>
-        );
-      })}
-    </div>
-  );
-};
-  // ── Заметка ────────────────────────────────────────
   const PersonalNote = ({ id }: { id: number }) => {
     const [editing, setEditing] = useState(false);
     const note = userNotes[id] || '';
@@ -694,59 +641,59 @@ const renderWithGlossary = (text: string) => {
 
   // ════════════════════════════════════════════════════
   return (
-    <div className="flex flex-col h-full overflow-hidden max-w-full" style={{ background: 'var(--c-bg)' }} onClick={handleGlossaryClick}>
+    <div className="flex flex-col h-full overflow-hidden max-w-full" style={{ background: 'var(--c-bg)' }}>
 
       {/* ── ШАПКА ─────────────────────────────────── */}
-<div className="flex-shrink-0 px-4 pt-5 pb-3 space-y-3 sticky top-0 z-10"
-  style={{ 
-    background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)', 
-    backdropFilter: 'blur(16px)', 
-    WebkitBackdropFilter: 'blur(16px)', 
-    borderBottom: '1px solid var(--c-border)', 
-    paddingTop: 'var(--header-pt)' 
-  }}>
-  <div className="flex justify-between items-center px-1">
-    <div className="flex items-center gap-3">
-      <ToothIcon className="w-9 h-9" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} />
-      <div>
-        <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>{cfg?.brandName || 'OrthoByNekruz'}</h1>
-        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>
-          {cfg?.label || 'Ортопедия'}
-        </p>
-      </div>     
-    </div>
-    
-    <div className="flex flex-col items-end gap-1">
-      <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: accentColor }}>
-        {studiedIds.size}/{questionsData.length}
-      </span>
-      <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
-        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
+      <div className="flex-shrink-0 px-4 pt-5 pb-3 space-y-3 sticky top-0 z-10"
+        style={{ 
+          background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)', 
+          backdropFilter: 'blur(16px)', 
+          WebkitBackdropFilter: 'blur(16px)', 
+          borderBottom: '1px solid var(--c-border)', 
+          paddingTop: 'var(--header-pt)' 
+        }}>
+        <div className="flex justify-between items-center px-1">
+          <div className="flex items-center gap-3">
+            <ToothIcon className="w-9 h-9" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} />
+            <div>
+              <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>{cfg?.brandName || 'OrthoByNekruz'}</h1>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>
+                {cfg?.label || 'Ортопедия'}
+              </p>
+            </div>     
+          </div>
+          
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: accentColor }}>
+              {studiedIds.size}/{questionsData.length}
+            </span>
+            <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
+              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
+            </div>
+          </div>
+        </div>
+        
+        <div className="relative mx-1">
+          <Input placeholder="Поиск по вопросу или №..." value={search} onChange={e => setSearch(e.target.value)}
+            className="pl-10 h-11 border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
+            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)', caretColor: 'var(--c-primary)' }} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--c-muted)' }} />
+          {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--c-muted)' }}><X className="w-4 h-4" /></button>}
+        </div>
+        
+        {/* Фильтр-табы */}
+        <div className="flex gap-1.5 mx-1">
+          {([['all', 'Все'], ['unstudied', 'Не изучены'], ['audio', '🎧 С аудио']] as const).map(([val, label]) => (
+            <button key={val} onClick={() => setFilter(val)}
+              className="flex-1 h-7 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all active:scale-95"
+              style={filter === val
+                ? { background: accentColor, color: '#fff' }
+                : { background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
-  </div>
-  
-  <div className="relative mx-1">
-    <Input placeholder="Поиск по вопросу или №..." value={search} onChange={e => setSearch(e.target.value)}
-      className="pl-10 h-11 border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
-      style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)', caretColor: 'var(--c-primary)' }} />
-    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--c-muted)' }} />
-    {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--c-muted)' }}><X className="w-4 h-4" /></button>}
-  </div>
-  
-  {/* Фильтр-табы */}
-  <div className="flex gap-1.5 mx-1">
-    {([['all', 'Все'], ['unstudied', 'Не изучены'], ['audio', '🎧 С аудио']] as const).map(([val, label]) => (
-      <button key={val} onClick={() => setFilter(val)}
-        className="flex-1 h-7 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all active:scale-95"
-        style={filter === val
-          ? { background: accentColor, color: '#fff' }
-          : { background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
-        {label}
-      </button>
-    ))}
-  </div>
-</div>
 
       {/* ── СПИСОК ────────────────────────────────── */}
       <ScrollArea className="flex-1 scroll-container">
@@ -806,7 +753,7 @@ const renderWithGlossary = (text: string) => {
                       <div className="rounded-xl p-3 mb-3 relative overflow-hidden"
                         style={{ background: 'color-mix(in srgb, var(--c-bg) 60%, var(--c-card))', border: '1px solid var(--c-border)' }}>
                         <div className="text-sm leading-relaxed max-h-20 overflow-hidden" style={{ color: 'color-mix(in srgb, var(--c-text) 70%, transparent)' }}>
-                          {renderWithGlossary(q.answer)}
+                          {renderWithGlossary(q.answer, (q as any).relatedTerms)}
                         </div>
                         <div className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none"
                           style={{ background: 'linear-gradient(to top, color-mix(in srgb, var(--c-bg) 60%, var(--c-card)), transparent)' }} />
@@ -841,7 +788,6 @@ const renderWithGlossary = (text: string) => {
       </ScrollArea>
 
       {/* ══ РЕЖИМ ЧТЕНИЯ ════════════════════════════ */}
-      {/* ══ РЕЖИМ ЧТЕНИЯ ════════════════════════════ */}
       <AnimatePresence>
         {readingQuestion && (
           <motion.div initial={{ opacity: 0, y: 80 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 80 }}
@@ -850,9 +796,8 @@ const renderWithGlossary = (text: string) => {
 
             {/* Контент */}
             <div className="flex-1 overflow-y-auto px-5 pt-[var(--header-pt)] scroll-container"
-              onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onClick={handleGlossaryClick}>
+              onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
               
-              {/* Изменили space-y-5 на space-y-4 для более плотной верстки */}
               <div className="space-y-4 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
                 <div className="flex items-center gap-2 pt-2">
                   <span className="text-[11px] font-mono font-bold px-3 py-1 rounded-lg"
@@ -861,16 +806,15 @@ const renderWithGlossary = (text: string) => {
                   </span>
                 </div>
                 <h2 className="font-semibold leading-snug break-words" style={{ fontSize: `${fontSize * 1.15}px`, color: 'var(--c-text)' }}>
-                  {renderWithGlossary(readingQuestion.question)}
+                  {renderWithGlossary(readingQuestion.question, readingQuestion.relatedTerms)}
                 </h2>
                 <div className="flex items-center gap-3" style={{ borderTop: '1px solid var(--c-border)', paddingTop: '12px' }}>
                   <BookOpen className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
                   <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>Ответ</span>
                 </div>
                 
-                {/* Текст ответа: сделали плотным (leading-snug), убрали лишние стили абзацев */}
                 <div className="leading-snug font-normal break-words" style={{ fontSize: `${fontSize}px`, color: 'color-mix(in srgb, var(--c-text) 92%, transparent)' }}>
-                  {renderWithGlossary(readingQuestion.answer)}
+                  {renderWithGlossary(readingQuestion.answer, readingQuestion.relatedTerms)}
                 </div>
                 
                 {(() => {
@@ -885,7 +829,6 @@ const renderWithGlossary = (text: string) => {
                       onContextMenu={e => e.preventDefault()}>
                       <img src={img} alt="" className="w-full h-auto object-contain max-h-80"
                         loading="lazy" draggable={false} />
-                      {/* Прозрачный оверлей — перехватывает долгое нажатие на iOS */}
                       <div className="absolute inset-0" style={{ WebkitTouchCallout: 'none' }} />
                     </div>
                   ));
@@ -895,7 +838,7 @@ const renderWithGlossary = (text: string) => {
               </div>
             </div>
 
-            {/* Плавающая пилюля — как в TasksTab (Твоя оригинальная, без изменений) */}
+            {/* Плавающая пилюля */}
             <div
               className="fixed left-0 right-0 px-5 z-[110] flex justify-center"
               style={{ bottom: 'calc(var(--nav-bottom, 12px) + 12px)' }}
@@ -910,7 +853,6 @@ const renderWithGlossary = (text: string) => {
                   boxShadow: '0 8px 32px hsl(0 0% 0% / 0.4)',
                 }}
               >
-                {/* ← */}
                 <button
                   onClick={() => { const i = questionsData.findIndex(q => q.id === readingQuestion.id); setReadingQuestion(questionsData[(i - 1 + questionsData.length) % questionsData.length]); }}
                   className="w-10 h-10 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
@@ -919,7 +861,6 @@ const renderWithGlossary = (text: string) => {
                   <ArrowLeft className="w-5 h-5" />
                 </button>
 
-                {/* Изучил / Изучено */}
                 <button
                   onClick={() => toggleStudied(readingQuestion.id)}
                   className="flex items-center justify-center gap-2 px-4 h-10 rounded-full text-sm font-bold transition-all active:scale-[0.97]"
@@ -932,7 +873,6 @@ const renderWithGlossary = (text: string) => {
                     : <><Circle className="w-4 h-4" /> Изучил</>}
                 </button>
 
-                {/* Выйти */}
                 <button
                   onClick={() => setReadingQuestion(null)}
                   className="flex items-center justify-center gap-2 px-4 h-10 rounded-full text-sm font-semibold transition-all active:scale-[0.97]"
@@ -941,7 +881,6 @@ const renderWithGlossary = (text: string) => {
                   <X className="w-4 h-4" /> Выйти
                 </button>
 
-                {/* → */}
                 <button
                   onClick={() => { const i = questionsData.findIndex(q => q.id === readingQuestion.id); setReadingQuestion(questionsData[(i + 1) % questionsData.length]); }}
                   className="w-10 h-10 flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
@@ -963,7 +902,7 @@ const renderWithGlossary = (text: string) => {
             style={{ 
               left: tooltipPos.x, 
               top: tooltipPos.y, 
-              transform: 'translateY(calc(-100% - 12px))', /* Фикс перетаскивания и подъема над пальцем */
+              transform: 'translateY(calc(-100% - 12px))',
               background: 'var(--c-card)', 
               border: '1px solid var(--c-primary-br)', 
               cursor: dragging ? 'grabbing' : 'grab' 
@@ -984,6 +923,7 @@ const renderWithGlossary = (text: string) => {
           </div>
         );
       })()}
+
       {/* ── ZOOM ИЗОБРАЖЕНИЯ ─────────────────────────────────────────────── */}
       {zoomedImage && (
         <div
@@ -1001,7 +941,6 @@ const renderWithGlossary = (text: string) => {
             const newScale = Math.min(5, Math.max(1, scale + delta));
             const img      = zoomImgRef.current;
             if (!img) { setScale(newScale); return; }
-            // Зум к курсору: смещение точки относительно центра картинки
             const rect = img.getBoundingClientRect();
             const dx   = e.clientX - (rect.left + rect.width  / 2);
             const dy   = e.clientY - (rect.top  + rect.height / 2);
@@ -1012,7 +951,6 @@ const renderWithGlossary = (text: string) => {
           }}
           onTouchStart={e => {
             if (e.touches.length === 2) {
-              // Pinch start: запоминаем расстояние, scale, центр между пальцами
               const t1 = e.touches[0], t2 = e.touches[1];
               const dx = t1.clientX - t2.clientX;
               const dy = t1.clientY - t2.clientY;
@@ -1029,7 +967,6 @@ const renderWithGlossary = (text: string) => {
                 ix, iy,
               };
             } else if (e.touches.length === 1 && scale > 1) {
-              // Один палец на увеличенной картинке — пан
               (e.currentTarget as any).__pan = {
                 x: e.touches[0].clientX,
                 y: e.touches[0].clientY,
@@ -1067,8 +1004,6 @@ const renderWithGlossary = (text: string) => {
             delete (e.currentTarget as any).__pan;
           }}
         >
-          {/* Контейнер вокруг картинки. onClick останавливаем — тап по картинке
-              не закрывает модал. Закрытие только по фону или по кнопке. */}
           <div
             className="img-protected-wrapper flex items-center justify-center"
             onClick={e => e.stopPropagation()}
@@ -1091,19 +1026,16 @@ const renderWithGlossary = (text: string) => {
               }}
               draggable={false}
               onDoubleClick={() => {
-                // Двойной тап: переключить 1× ↔ 2.5×
                 if (scale > 1) {
                   setScale(1);
                   setTranslate({ x: 0, y: 0 });
                 } else {
                   setScale(2.5);
-                  // translate остаётся 0,0 — clampZoom не нужен (центр)
                 }
               }}
             />
           </div>
 
-          {/* Подсказка масштаба (слева сверху, видна только когда zoomed) */}
           {scale > 1 && (
             <div
               className="fixed top-4 left-4 z-[201] px-3 py-1.5 rounded-full text-[11px] font-bold tabular-nums pointer-events-none"
@@ -1118,7 +1050,6 @@ const renderWithGlossary = (text: string) => {
             </div>
           )}
 
-          {/* Кнопка закрыть — снизу по центру */}
           <div
             className="fixed left-0 right-0 flex justify-center z-[201]"
             style={{ bottom: 'calc(var(--nav-bottom, 12px) + 16px)' }}

@@ -6,7 +6,11 @@
         "image": [
             "/images/1.png"
         ],
-        "audio": ""
+        "audio": "",
+        "relatedTerms": [
+        "пародонтит",
+        "трансверзальная"
+    ]
     },
     {
         "id": 2,
