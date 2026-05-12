@@ -332,7 +332,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                     style={{ 
                       animation: 'authToothSlideUp 0.2s ease forwards',
                       fontSize: `${dynamicSize}px`, // Динамический размер
-                      filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.75))', // Эффект эмали
+                      filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.47))', // Эффект эмали
                       transition: 'font-size 0.2s ease-in-out', // Плавное уменьшение
                       lineHeight: 1, 
                     }}
