@@ -414,7 +414,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                       style={{ 
                         animation: 'authToothSlideUp 0.2s ease forwards', // Всплывают снизу
                         fontSize: `${dynamicSize}px`, // Применяем высчитанный размер
-                        filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.75))', // Эффект неоновой эмали
+                        filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.49))', // Эффект неоновой эмали
                         transition: 'font-size 0.2s ease-in-out', // Плавное изменение размера при наборе
                         lineHeight: 1, // Чтобы размер не ломал высоту поля ввода
                       }}
