@@ -322,12 +322,26 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                 </span>
               )}
               <div className="flex gap-1 items-center z-10">
-                {key.split('').map((_, i) => (
-                  <div key={i} style={{ animation: 'authToothSlideUp 0.2s ease forwards' }}>
-                    <ToothIcon className="w-6 h-6 text-primary" />
+  {key.split('').map((_, i) => {
+    // Вычисляем размер: чем больше цифр, тем меньше размер эмодзи
+    const dynamicSize = Math.max(20, 44 - (key.length * 3));
+
+                return (
+                  <div 
+                    key={i} 
+                    style={{ 
+                      animation: 'authToothSlideUp 0.2s ease forwards',
+                      fontSize: `${dynamicSize}px`, // Динамический размер
+                      filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.75))', // Эффект эмали
+                      transition: 'font-size 0.2s ease-in-out', // Плавное уменьшение
+                      lineHeight: 1, 
+                    }}
+                  >
+                    🦷
                   </div>
-                ))}
-              </div>
+                );
+              })}
+            </div>
               <input
                 value={key}
                 onChange={e => setKey(e.target.value.replace(/\D/g, '').slice(0, 8))}
