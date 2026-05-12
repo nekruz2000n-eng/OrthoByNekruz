@@ -10,78 +10,46 @@ import { cn } from '@/lib/utils';
 
 // ─── Floating tooth rain background ──────────────────────────────────────────
 const ToothRainBG = () => {
-  const teeth = Array.from({ length: 16 }, (_, i) => {
-    const size = 12 + ((i * 11) % 24); // Размер от 12px до 36px
-    const isForeground = size > 24; // Вычисляем, на переднем ли он плане
-
-    return {
-      id: i,
-      left: (i * 27) % 100, 
-      size: size,
-      dur: isForeground ? (6 + ((i * 3) % 4)) : (10 + ((i * 5) % 6)), 
-      delay: (i * 0.9) % 7,
-      blur: isForeground ? 0 : 3, 
-      maxOpacity: isForeground ? 0.4 : 0.15, 
-      spinDir: i % 2 === 0 ? 1 : -1,
-      isForeground: isForeground, 
-    };
-  });
-
+  const teeth = Array.from({ length: 12 }, (_, i) => ({
+    x:     10 + (i * 37) % 370,
+    size:  10 + ((i * 7) % 16),
+    dur:   4  + ((i * 3) % 5),
+    delay: (i * 0.7) % 5,
+  }));
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+    <>
       <style>{`
-        @keyframes toothFall3D {
-          0% {
-            transform: translateY(-50px) rotate(0deg) translateX(0px);
-            opacity: 0;
-          }
-          15% { opacity: var(--max-op); }
-          85% { opacity: var(--max-op); }
-          100% {
-            transform: translateY(110vh) rotate(calc(360deg * var(--spin))) translateX(calc(30px * var(--spin)));
-            opacity: 0;
-          }
+        @keyframes toothRainFall {
+          0%   { transform: translateY(-20px) rotate(0deg);   opacity: 0; }
+          10%  { opacity: 0.5; }
+          90%  { opacity: 0.2; }
+          100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
         }
-        @keyframes authToothPulse {
-          0%,100% { transform: scale(1);    filter: drop-shadow(0 0 8px  hsl(var(--primary) / 0.4)); }
-          50%     { transform: scale(1.08); filter: drop-shadow(0 0 20px hsl(var(--primary) / 0.8)); }
-        }
-        @keyframes authToothSlideUp {
-          from { transform: translateY(8px) scale(0.8); opacity: 0; }
-          to   { transform: translateY(0)   scale(1);   opacity: 1; }
-        }
-        @keyframes authShake {
-          0%,100% { transform: translateX(0); }
-          25%     { transform: translateX(-5px); }
-          75%     { transform: translateX(5px); }
-        }
-        .auth-shake { animation: authShake 0.2s ease-in-out 0s 2; }
       `}</style>
-      
-      {teeth.map((t) => (
+      {teeth.map((t, i) => (
         <svg
-          key={t.id}
+          key={i}
           width={t.size} height={t.size} viewBox="0 0 24 24" fill="none"
           style={{
-            position: 'absolute', 
-            left: `${t.left}%`, 
-            top: -50,
-            animation: `toothFall3D ${t.dur}s ${t.delay}s linear infinite`,
-            '--max-op': t.maxOpacity,
-            '--spin': t.spinDir,
-            filter: `blur(${t.blur}px) drop-shadow(0 0 ${t.isForeground ? '4px' : '2px'} rgba(255, 255, 255, ${t.maxOpacity * 1.5}))`,
-          } as React.CSSProperties}
+            position: 'absolute', left: t.x, top: -20,
+            animation: `toothRainFall ${t.dur}s ${t.delay}s linear infinite`,
+            pointerEvents: 'none',
+          }}
         >
           <path
             d="M7.5 3C5.5 3 4 4.5 4 6.5C4 8.5 4.5 11 5.5 13.5C6.5 16 8.5 19.5 8.5 21C8.5 21.5 8.9 22 9.5 22C10.1 22 10.5 21.5 10.5 21C10.5 20.5 11 18 12 18C13 18 13.5 20.5 13.5 21C13.5 21.5 13.9 22 14.5 22C15.1 22 15.5 21.5 15.5 21C15.5 19.5 17.5 16 18.5 13.5C19.5 11 20 8.5 20 6.5C20 4.5 18.5 3 16.5 3C14.5 3 13 4 12 5C11 4 9.5 3 7.5 3Z"
-            stroke="#FFFFFF" 
-            strokeWidth={t.isForeground ? "1.5" : "1"} 
-            fill="hsl(var(--primary))" 
-            fillOpacity="0.2"
+            // Яркая "Эмаль": используем белый цвет или чистый яркий primary
+               stroke="#FFFFFF" 
+               strokeWidth="1.8" 
+               strokeOpacity="1" // Почти непрозрачный яркий контур
+  
+              // Темный "Дентин": берем основной цвет, но делаем его темнее и прозрачнее
+              fill="#FFFFFF"
+              fillOpacity="0.8"
           />
         </svg>
       ))}
-    </div>
+    </>
   );
 };
 
@@ -114,8 +82,10 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const maxAttempts     = 20;
   const attemptInterval = 500;
 
+  // ── Hydration guard ────────────────────────────────────────────────────────
   useEffect(() => { setMounted(true); }, []);
 
+  // ── Lockout countdown ─────────────────────────────────────────────────────
   useEffect(() => {
     if (lockoutTime <= 0) return;
     const iv = setInterval(() => {
@@ -127,16 +97,18 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     return () => clearInterval(iv);
   }, [lockoutTime]);
 
+  // ── Telegram init ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!mounted) return;
     const tg = (window as any).Telegram?.WebApp;
     if (tg) {
       tg.ready(); tg.expand?.();
-      try { tg.setBackgroundColor('#0A0E0C'); } catch {} 
+      try { tg.setBackgroundColor('var(--background)'); } catch {}
       if (tg.initData) setInitData(tg.initData);
     }
   }, [mounted]);
 
+  // ── Auto detect Telegram ID ───────────────────────────────────────────────
   useEffect(() => {
     if (!mounted || autoTgId !== null || idCheckAttempts >= maxAttempts) {
       if (idCheckAttempts >= maxAttempts) setIdChecked(true);
@@ -158,6 +130,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     return () => clearTimeout(timer);
   }, [mounted, autoTgId, idCheckAttempts]);
 
+  // ── Secret reset (6 taps) ─────────────────────────────────────────────────
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleTitleClick = useCallback(() => {
@@ -173,6 +146,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     }
   }, [toast]);
 
+  // ── Auth ──────────────────────────────────────────────────────────────────
   const handleAuth = useCallback(async (inputKey: string, inputTgId: string) => {
     if (loading || lockoutTime > 0 || !inputTgId) return;
     setLoading(true); setError(false); setNeedsSubscription(false);
@@ -193,10 +167,12 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         }
       } else {
         if (res.status === 403 && data.blocked) {
+          // Аккаунт заблокирован администратором
           setError(true);
           setErrorMessage('Твой аккаунт заблокирован. Свяжись с администратором.');
           setTimeout(() => setErrorMessage(''), 6000);
         } else if (res.status === 403) {
+          // Не подписан на канал
           setNeedsSubscription(true);
         } else {
           const LOCKOUT_SEC = 60;
@@ -258,13 +234,13 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   return (
     <div
       className="dark flex flex-col items-center justify-center min-h-screen p-6 relative overflow-hidden pt-16"
-      style={{ background: '#0A0E0C' }} 
+      style={{ background: '#0B0E14' }}
     >
       {/* ── Welcome overlay ── */}
       {showWelcome && (
         <div className="dark fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-xl animate-in fade-in zoom-in duration-300"
-          style={{ background: 'rgba(10,14,12,0.85)' }}>
-          <div className="w-full max-w-sm bg-[#121815] border border-white/10 p-8 rounded-[32px] shadow-2xl text-center space-y-6">
+          style={{ background: 'rgba(11,14,20,0.85)' }}>
+          <div className="w-full max-w-sm bg-card border border-white/10 p-8 rounded-[32px] shadow-2xl text-center space-y-6">
             <div className="inline-flex p-3 bg-primary/10 rounded-full text-primary">
               <Heart className="w-8 h-8 fill-primary/20" />
             </div>
@@ -284,6 +260,24 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       {/* ── Tooth rain ── */}
       <ToothRainBG />
 
+      {/* ── Logo ── */}
+      <style>{`
+        @keyframes authToothPulse {
+          0%,100% { transform: scale(1);    filter: drop-shadow(0 0 8px  hsl(var(--primary) / 0.4)); }
+          50%      { transform: scale(1.08); filter: drop-shadow(0 0 20px hsl(var(--primary) / 0.8)); }
+        }
+        @keyframes authToothSlideUp {
+          from { transform: translateY(8px) scale(0.8); opacity: 0; }
+          to   { transform: translateY(0)   scale(1);   opacity: 1; }
+        }
+        @keyframes authShake {
+          0%,100% { transform: translateX(0); }
+          25%     { transform: translateX(-5px); }
+          75%     { transform: translateX(5px); }
+        }
+        .auth-shake { animation: authShake 0.2s ease-in-out 0s 2; }
+      `}</style>
+
       <div className="w-full max-w-sm flex flex-col items-center z-10">
         {/* Logo block */}
         <div className="mb-8 flex flex-col items-center space-y-4 text-center">
@@ -293,7 +287,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               background: 'hsl(var(--primary) / 0.08)',
               border:     '1.5px solid hsl(var(--primary) / 0.2)',
               animation:  'authToothPulse 2.5s ease-in-out infinite',
-              filter:     'drop-shadow(0 0 12px hsl(var(--primary) / 0.5))',
             }}
           >
             <ToothIcon className="w-12 h-12 text-primary" variant="perfect" />
@@ -304,7 +297,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           >
             OrthoByNekruz
           </h1>
-          <p className="text-[13px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Подготовка к экзамену</p>
+          <p className="text-[13px]" style={{ color: 'rgba(255,255,255,0.3)' }}>Подготовка к экзамену</p>
           {debugInfo && (
             <p className="text-[10px] text-white/20 font-mono break-all px-4">{debugInfo}</p>
           )}
@@ -312,40 +305,43 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
 
         {/* Form card */}
         <div className={cn('w-full space-y-4', error && 'auth-shake')}>
-          <div className="space-y-4 bg-[#141A17]/80 p-6 rounded-[28px] border border-white/5 backdrop-blur-md shadow-2xl">
+          <div className="space-y-4 bg-card/30 p-6 rounded-3xl border border-white/5 backdrop-blur-md shadow-2xl">
 
             {/* Key input with tooth display */}
             <div
-              className="relative h-14 rounded-2xl flex items-center justify-center overflow-hidden cursor-text transition-colors"
+              className="relative h-14 rounded-[18px] flex items-center justify-center overflow-hidden cursor-text"
               style={{
-                background:  'rgba(255,255,255,0.03)', 
-                border:      `1px solid ${focused ? 'hsl(var(--primary) / 0.4)' : 'rgba(255,255,255,0.08)'}`,
+                background:  'rgba(255,255,255,0.06)',
+                border:      `1.5px solid ${focused ? 'hsl(var(--primary) / 0.4)' : 'rgba(255,255,255,0.1)'}`,
+                transition:  'border-color 0.2s ease',
               }}
             >
               {key.length === 0 && (
-                <span className="absolute text-[15px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                  {lockoutTime > 0 ? `Подожди ${lockoutTime}с` : 'Введите ключ доступа'}
+                <span className="absolute text-sm" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                  {lockoutTime > 0 ? `Подожди ${lockoutTime}с` : 'Введи ключ доступа'}
                 </span>
               )}
               <div className="flex gap-1 items-center z-10">
-                {key.split('').map((_, i) => {
-                  const dynamicSize = Math.max(20, 44 - (key.length * 3));
-                  return (
-                    <div 
-                      key={i} 
-                      style={{ 
-                        animation: 'authToothSlideUp 0.2s ease forwards',
-                        fontSize: `${dynamicSize}px`, 
-                        filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.75))', 
-                        transition: 'font-size 0.2s ease-in-out', 
-                        lineHeight: 1, 
-                      }}
-                    >
-                      🦷
-                    </div>
-                  );
-                })}
-              </div>
+  {key.split('').map((_, i) => {
+    // Вычисляем размер: чем больше цифр, тем меньше размер эмодзи
+    const dynamicSize = Math.max(20, 44 - (key.length * 3));
+
+                return (
+                  <div 
+                    key={i} 
+                    style={{ 
+                      animation: 'authToothSlideUp 0.2s ease forwards',
+                      fontSize: `${dynamicSize}px`, // Динамический размер
+                      filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.47))', // Эффект эмали
+                      transition: 'font-size 0.2s ease-in-out', // Плавное уменьшение
+                      lineHeight: 1, 
+                    }}
+                  >
+                    🦷
+                  </div>
+                );
+              })}
+            </div>
               <input
                 value={key}
                 onChange={e => setKey(e.target.value.replace(/\D/g, '').slice(0, 8))}
@@ -359,7 +355,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               />
             </div>
 
-            {/* Manual TG ID */}
+            {/* Manual TG ID (shown if auto detection failed) */}
             {idChecked && !autoTgId && (
               <Input
                 type="text" inputMode="numeric"
@@ -374,15 +370,15 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
             <button
               onClick={handleLoginClick}
               disabled={loading || lockoutTime > 0}
-              className="w-full h-[52px] rounded-2xl text-[15px] font-medium transition-all duration-250 active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full h-[52px] rounded-[18px] text-[15px] font-bold transition-all duration-250 active:scale-[0.98] flex items-center justify-center gap-2"
               style={key.length >= 4 ? {
-                background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))',
+                background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.75))',
                 color:      'hsl(var(--primary-foreground))',
                 boxShadow:  '0 8px 24px hsl(var(--primary) / 0.3)',
               } : {
-                background: 'hsl(var(--primary) / 0.12)',
-                border:     '1px solid transparent',
-                color:      'hsl(var(--primary) / 0.85)',
+                background: 'hsl(var(--primary) / 0.15)',
+                border:     '1px solid hsl(var(--primary) / 0.25)',
+                color:      'hsl(var(--primary) / 0.5)',
               }}
             >
               {loading
@@ -394,11 +390,11 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
             <button
               onClick={handleDemoClick}
               disabled={loading}
-              className="w-full h-[52px] rounded-2xl text-[15px] font-medium transition-all"
+              className="w-full h-11 rounded-xl text-[13px] font-medium transition-all"
               style={{
                 background: 'transparent',
-                border:     '1px solid hsl(var(--primary) / 0.15)',
-                color:      'hsl(var(--primary) / 0.8)',
+                border:     '1px solid hsl(var(--primary) / 0.2)',
+                color:      'hsl(var(--primary) / 0.6)',
               }}
             >
               Попробовать демо
@@ -406,10 +402,10 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
 
             {/* Demo error message */}
             {demoMessage && (
-              <div className="animate-in fade-in slide-in-from-top-2 duration-300 rounded-2xl p-4 text-center text-[14px]"
+              <div className="animate-in fade-in slide-in-from-top-2 duration-300 rounded-xl p-3 text-center text-xs"
                 style={{
-                  background: 'rgba(220,38,38,0.15)',
-                  border:     '1px solid rgba(220,38,38,0.2)',
+                  background: 'rgba(220,38,38,0.12)',
+                  border:     '1px solid rgba(220,38,38,0.3)',
                   color:      '#fca5a5',
                   animation:  'fadeInOut 4s ease forwards',
                 }}>
@@ -417,12 +413,12 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               </div>
             )}
 
-            {/* Key error message */}
+            {/* Key error message — same style, shown inline */}
             {errorMessage && (
-              <div className="animate-in fade-in slide-in-from-top-2 duration-300 rounded-2xl p-4 text-center text-[14px]"
+              <div className="animate-in fade-in slide-in-from-top-2 duration-300 rounded-xl p-3 text-center text-xs"
                 style={{
-                  background: 'rgba(220,38,38,0.15)',
-                  border:     '1px solid rgba(220,38,38,0.2)',
+                  background: 'rgba(220,38,38,0.12)',
+                  border:     '1px solid rgba(220,38,38,0.3)',
                   color:      '#fca5a5',
                   animation:  'fadeInOut 4s ease forwards',
                 }}>
@@ -438,11 +434,11 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           </div>
 
           {/* DM link */}
-          <div className="text-center mt-6">
+          <div className="text-center">
             <a href="https://t.me/evoeidos"
-              className="inline-flex items-center text-sm font-medium transition-colors"
-              style={{ color: 'hsl(var(--primary) / 0.8)' }}>
-              Нужен ключ? DM @evoeidos <ExternalLink className="ml-1 w-4 h-4" />
+              className="inline-flex items-center text-xs transition-colors"
+              style={{ color: 'hsl(var(--primary) / 0.6)' }}>
+              Нужен ключ? DM @evoeidos <ExternalLink className="ml-1 w-3 h-3" />
             </a>
           </div>
         </div>
