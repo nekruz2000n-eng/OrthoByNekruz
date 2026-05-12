@@ -44,8 +44,8 @@ const ToothRainBG = () => {
                strokeOpacity="1" // Почти непрозрачный яркий контур
   
               // Темный "Дентин": берем основной цвет, но делаем его темнее и прозрачнее
-              fill="hsl(var(--primary))" 
-              fillOpacity="0.3"
+              fill="#FFFFFF"
+              fillOpacity="0.8"
           />
         </svg>
       ))}
