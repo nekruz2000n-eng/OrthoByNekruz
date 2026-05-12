@@ -9,47 +9,68 @@ import { Loader2, ExternalLink, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ─── Floating tooth rain background ──────────────────────────────────────────
+// ─── Floating tooth rain background ──────────────────────────────────────────
 const ToothRainBG = () => {
-  const teeth = Array.from({ length: 12 }, (_, i) => ({
-    x:     10 + (i * 37) % 370,
-    size:  10 + ((i * 7) % 16),
-    dur:   4  + ((i * 3) % 5),
-    delay: (i * 0.7) % 5,
-  }));
+  const teeth = Array.from({ length: 16 }, (_, i) => {
+    const size = 12 + ((i * 11) % 24); // Размер от 12px до 36px
+    const isForeground = size > 24; // Вычисляем, на переднем ли он плане
+    
+    return {
+      id: i,
+      left: (i * 27) % 100, 
+      size: size,
+      dur: isForeground ? (6 + ((i * 3) % 4)) : (10 + ((i * 5) % 6)), 
+      delay: (i * 0.9) % 7,
+      blur: isForeground ? 0 : 3, 
+      maxOpacity: isForeground ? 0.4 : 0.15, 
+      spinDir: i % 2 === 0 ? 1 : -1,
+      isForeground: isForeground, // <--- ДОБАВИЛИ СЮДА!
+    };
+  });
+
   return (
-    <>
+    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
       <style>{`
-        @keyframes toothRainFall {
-          0%   { transform: translateY(-20px) rotate(0deg);   opacity: 0; }
-          10%  { opacity: 0.5; }
-          90%  { opacity: 0.2; }
-          100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+        @keyframes toothFall3D {
+          0% {
+            transform: translateY(-50px) rotate(0deg) translateX(0px);
+            opacity: 0;
+          }
+          15% { opacity: var(--max-op); }
+          85% { opacity: var(--max-op); }
+          100% {
+            transform: translateY(110vh) rotate(calc(360deg * var(--spin))) translateX(calc(30px * var(--spin)));
+            opacity: 0;
+          }
         }
       `}</style>
-      {teeth.map((t, i) => (
+      
+      {teeth.map((t) => (
         <svg
-          key={i}
+          key={t.id}
           width={t.size} height={t.size} viewBox="0 0 24 24" fill="none"
           style={{
-            position: 'absolute', left: t.x, top: -20,
-            animation: `toothRainFall ${t.dur}s ${t.delay}s linear infinite`,
-            pointerEvents: 'none',
-          }}
+            position: 'absolute', 
+            left: `${t.left}%`, 
+            top: -50,
+            animation: `toothFall3D ${t.dur}s ${t.delay}s linear infinite`,
+            '--max-op': t.maxOpacity,
+            '--spin': t.spinDir,
+            // ИСПОЛЬЗУЕМ t.isForeground ЗДЕСЬ
+            filter: `blur(${t.blur}px) drop-shadow(0 0 ${t.isForeground ? '4px' : '2px'} rgba(255, 255, 255, ${t.maxOpacity * 1.5}))`,
+          } as React.CSSProperties}
         >
           <path
             d="M7.5 3C5.5 3 4 4.5 4 6.5C4 8.5 4.5 11 5.5 13.5C6.5 16 8.5 19.5 8.5 21C8.5 21.5 8.9 22 9.5 22C10.1 22 10.5 21.5 10.5 21C10.5 20.5 11 18 12 18C13 18 13.5 20.5 13.5 21C13.5 21.5 13.9 22 14.5 22C15.1 22 15.5 21.5 15.5 21C15.5 19.5 17.5 16 18.5 13.5C19.5 11 20 8.5 20 6.5C20 4.5 18.5 3 16.5 3C14.5 3 13 4 12 5C11 4 9.5 3 7.5 3Z"
-            // Яркая "Эмаль": используем белый цвет или чистый яркий primary
-               stroke="#FFFFFF" 
-               strokeWidth="1.8" 
-               strokeOpacity="1" // Почти непрозрачный яркий контур
-  
-              // Темный "Дентин": берем основной цвет, но делаем его темнее и прозрачнее
-              fill="#FFFFFF"
-              fillOpacity="0.8"
+            stroke="#FFFFFF" 
+            // И ЗДЕСЬ ТОЖЕ t.isForeground
+            strokeWidth={t.isForeground ? "1.5" : "1"} 
+            fill="hsl(var(--primary))" 
+            fillOpacity="0.2"
           />
         </svg>
       ))}
-    </>
+    </div>
   );
 };
 
