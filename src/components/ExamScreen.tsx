@@ -1,30 +1,39 @@
 "use client";
 
 // ════════════════════════════════════════════════════════════════════════════
-//  ExamScreen — модал «Проверка готовности»
+//  ExamScreen — модал «Проверка готовности» (Режим фиксированных билетов)
 //
 //  Логика:
-//    1. Алгоритм рандомно выбирает 2 разных вопроса из questions.json
-//       и 1 задачу из tasks.json для текущего предмета.
-//    2. Запускается таймер 20 минут.
-//    3. На каждом задании: показывается текст → юзер тапает «Показать ответ» →
-//       видит правильный ответ (карточка с ответом скроллится при длинном
-//       тексте) → отмечает «Знал» / «Не знал».
-//    4. После 3-го ответа (или по истечении таймера) — экран результата с
-//       баллом X/3, временем, кнопкой «Сохранить и закрыть».
-//    5. Результат записывается в localStorage (последние 10 попыток).
-//    6. Можно прервать в любой момент кнопкой «✕» наверху (с подтверждением).
+//    1. Алгоритм предлагает выбрать конкретный билет из сетки или случайный.
+//    2. Запускается таймер 20 минут. Пользователь видит номер билета.
+//    3. На каждом задании показывается текст с кастомным рендером (жирный, курсив, списки).
+//    4. Юзер тапает «Показать ответ» → видит ответ → отмечает «Знал» / «Не знал».
+//    5. После 3-го ответа — экран результата с кнопкой выбора другого билета.
+//    6. Результат записывается в localStorage с указанием номера билета.
 // ════════════════════════════════════════════════════════════════════════════
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
-import { X, Clock, Check, XCircle, ChevronRight, Award, RefreshCw } from 'lucide-react';
+import { X, Clock, Check, XCircle, Award, RefreshCw, BookOpen, Dices } from 'lucide-react';
 
 // ─── Типы ───────────────────────────────────────────────────────────────────
-interface RawItem { id: number | string; question: string; answer: string; }
-interface Item extends RawItem { type: 'question' | 'task'; }
+interface RawItem { 
+  id: number | string; 
+  question: string; 
+  answer: string; 
+}
+
+interface Item extends RawItem { 
+  type: 'question' | 'task'; 
+}
+
+export interface Ticket {
+  id: number | string;
+  ticketNumber: string | number;
+  questions: RawItem[]; // Ожидается массив из 2 элементов
+  task: RawItem;        // 1 элемент (может быть с пустыми строками, если задачи пока нет)
+}
 
 export interface ExamHistoryEntry {
   ts:          number;  // timestamp начала попытки
@@ -32,6 +41,7 @@ export interface ExamHistoryEntry {
   total:       number;  // обычно 3
   durationSec: number;  // сколько потратил
   finished:    boolean; // дошёл до конца или прервал
+  ticketId?:   string | number; // Сохраняем, какой билет попался
 }
 
 interface ExamScreenProps {
@@ -40,10 +50,8 @@ interface ExamScreenProps {
   accentColor:    string;
   dimColor:       string;
   borderColor:    string;
-  questionsData:  RawItem[];
-  tasksData:      RawItem[];
-  onClose:       () => void;
-  /** Колбэк после сохранения результата — чтобы StatsTab перерисовал график */
+  ticketsData:    Ticket[]; 
+  onClose:        () => void;
   onResultSaved?: () => void;
 }
 
@@ -72,27 +80,6 @@ function saveExamResult(subjectId: string, entry: ExamHistoryEntry) {
   localStorage.setItem(getExamHistoryKey(subjectId), JSON.stringify(trimmed));
 }
 
-// ─── Рандомизация ───────────────────────────────────────────────────────────
-function shuffle<T>(arr: T[]): T[] {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
-function pickExamItems(questions: RawItem[], tasks: RawItem[]): Item[] | null {
-  if (questions.length < 2 || tasks.length < 1) return null;
-  const q = shuffle(questions);
-  const t = shuffle(tasks);
-  return [
-    { ...q[0], type: 'question' },
-    { ...q[1], type: 'question' },
-    { ...t[0], type: 'task' },
-  ];
-}
-
 // ─── Форматирование ─────────────────────────────────────────────────────────
 function fmtTime(sec: number): string {
   const m = Math.floor(Math.max(0, sec) / 60);
@@ -105,10 +92,11 @@ function fmtTime(sec: number): string {
 // ════════════════════════════════════════════════════════════════════════════
 export const ExamScreen: React.FC<ExamScreenProps> = ({
   subject, subjectLabel, accentColor, dimColor, borderColor,
-  questionsData, tasksData, onClose, onResultSaved,
+  ticketsData, onClose, onResultSaved,
 }) => {
   const [phase, setPhase] = useState<'intro'|'question'|'answer'|'result'|'no-data'>('intro');
   const [items, setItems] = useState<Item[]>([]);
+  const [currentTicket, setCurrentTicket] = useState<string | number>('');
   const [currentIdx, setCurrentIdx] = useState(0);
   const [score, setScore] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(EXAM_DURATION_SEC);
@@ -122,10 +110,10 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
 
   // Если данных недостаточно — показать заглушку
   useEffect(() => {
-    if (questionsData.length < 2 || tasksData.length < 1) {
+    if (!ticketsData || ticketsData.length === 0) {
       setPhase('no-data');
     }
-  }, [questionsData.length, tasksData.length]);
+  }, [ticketsData]);
 
   // Таймер
   useEffect(() => {
@@ -143,11 +131,97 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
-  // Старт
-  const startExam = () => {
-    const picked = pickExamItems(questionsData, tasksData);
-    if (!picked) { setPhase('no-data'); return; }
-    setItems(picked);
+  // ─── Кастомный рендер текста (замена ReactMarkdown) ───
+  const renderFormattedText = (text: string) => {
+    if (!text) return null;
+
+    return (
+      <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
+        {text.split('\n').map((line, lineIdx) => {
+          let isBoldState = false;
+          let isItalicState = false;
+
+          if (line.trim() === '') return <div key={lineIdx} className="h-1" />;
+
+          const listMatch = line.match(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/);
+          const isListItem = !!listMatch;
+          let listMarker = isListItem ? listMatch![1].trim() : '';
+          if (listMarker === '-' || listMarker === '*') listMarker = '•';
+          
+          const cleanLine = isListItem
+            ? line.replace(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/, '')
+            : line;
+
+          const tokens = cleanLine.split(/(\*\*|_)/g);
+
+          const renderedTokens = tokens.map((token, tIdx) => {
+            if (!token) return null;
+
+            if (token === '**') {
+              isBoldState = !isBoldState;
+              return null;
+            }
+            if (token === '_') {
+              isItalicState = !isItalicState;
+              return null;
+            }
+
+            const baseStyle: React.CSSProperties = {
+              fontWeight: isBoldState ? 700 : 'inherit',
+              color: isBoldState ? 'var(--c-text)' : 'inherit',
+              fontStyle: isItalicState ? 'italic' : 'normal',
+            };
+
+            return <span key={`text-${lineIdx}-${tIdx}`} style={baseStyle}>{token}</span>;
+          });
+
+          if (isListItem) {
+            return (
+              <div key={lineIdx} className="flex gap-2 mb-1.5 pl-2 mt-1">
+                <span
+                  className="text-[14px] leading-snug font-bold"
+                  style={{ color: accentColor }}
+                >
+                  {listMarker}
+                </span>
+                <p className="m-0 flex-1 leading-snug">{renderedTokens}</p>
+              </div>
+            );
+          }
+
+          return (
+            <p key={lineIdx} className="indent-4 mb-2 mt-1 last:mb-0">
+              {renderedTokens}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Старт экзамена (выбор конкретного или случайного билета)
+  const startExam = (ticketId?: string | number) => {
+    let selectedTicket: Ticket | undefined;
+
+    if (ticketId !== undefined) {
+      selectedTicket = ticketsData.find(t => t.id === ticketId);
+    } else {
+      // Случайный билет
+      const randomIndex = Math.floor(Math.random() * ticketsData.length);
+      selectedTicket = ticketsData[randomIndex];
+    }
+
+    if (!selectedTicket) { setPhase('no-data'); return; }
+    
+    // Формируем плоский массив: 2 вопроса + 1 задача (даже если она пустая)
+    const pickedItems: Item[] = [
+      { ...selectedTicket.questions[0], type: 'question' },
+      { ...selectedTicket.questions[1], type: 'question' },
+      { ...selectedTicket.task, type: 'task' },
+    ];
+
+    setItems(pickedItems);
+    setCurrentTicket(selectedTicket.ticketNumber);
     setCurrentIdx(0);
     setScore(0);
     setSecondsLeft(EXAM_DURATION_SEC);
@@ -167,6 +241,7 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
       total:       items.length || 3,
       durationSec: finalDurationRef.current,
       finished:    true,
+      ticketId:    currentTicket,
     });
     onResultSaved?.();
     setPhase('result');
@@ -177,7 +252,6 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
     const newScore = knew ? score + 1 : score;
     setScore(newScore);
     if (currentIdx + 1 >= items.length) {
-      // Финал: сохраняем с актуальным баллом
       finishedRef.current = true;
       finalDurationRef.current = Math.floor((Date.now() - startTimeRef.current) / 1000);
       saveExamResult(subject, {
@@ -186,6 +260,7 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
         total:       items.length,
         durationSec: finalDurationRef.current,
         finished:    true,
+        ticketId:    currentTicket,
       });
       onResultSaved?.();
       setPhase('result');
@@ -195,10 +270,9 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
     }
   };
 
-  // Прерывание (без сохранения)
+  // Прерывание (без сохранения как завершенного)
   const handleHardExit = () => {
     if (phase === 'question' || phase === 'answer') {
-      // Сохраняем как незавершённую попытку
       const dur = Math.floor((Date.now() - startTimeRef.current) / 1000);
       saveExamResult(subject, {
         ts:          startTimeRef.current,
@@ -206,6 +280,7 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
         total:       items.length,
         durationSec: dur,
         finished:    false,
+        ticketId:    currentTicket,
       });
       onResultSaved?.();
     }
@@ -218,7 +293,7 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
   const currentItem = items[currentIdx];
   const total       = items.length || 3;
   const progressPct = total > 0 ? ((currentIdx + (phase === 'answer' ? 0.5 : 0)) / total) * 100 : 0;
-  const timerLow    = secondsLeft <= 120; // последние 2 минуты — красным
+  const timerLow    = secondsLeft <= 120;
   const timerColor  = timerLow ? 'hsl(var(--destructive))' : accentColor;
 
   // ════════════════════════════════════════════════════════════════════════
@@ -232,64 +307,77 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      {/* ── ШАПКА: таймер + прогресс + крест ── */}
-<div
-  className="flex-shrink-0 flex items-center gap-3 px-4 pt-5 pb-3 sticky top-0 z-10"
-  style={{ 
-    background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)', 
-    backdropFilter: 'blur(16px)', 
-    WebkitBackdropFilter: 'blur(16px)', 
-    borderBottom: '1px solid var(--c-border)',
-    paddingTop: 'var(--header-pt)'
-  }}
->
-  {phase === 'question' || phase === 'answer' ? (
-    <>
+      {/* ── ШАПКА ── */}
       <div
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-sm tabular-nums"
-        style={{
-          background: timerLow ? 'hsla(var(--destructive), 0.12)' : dimColor,
-          color: timerColor,
-          border: `1px solid ${timerLow ? 'hsla(var(--destructive), 0.4)' : borderColor}`,
+        className="flex-shrink-0 flex items-center gap-3 px-4 pt-5 pb-3 sticky top-0 z-10"
+        style={{ 
+          background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)', 
+          backdropFilter: 'blur(16px)', 
+          WebkitBackdropFilter: 'blur(16px)', 
+          borderBottom: '1px solid var(--c-border)',
+          paddingTop: 'var(--header-pt)'
         }}
       >
-        <Clock className="w-4 h-4" />
-        {fmtTime(secondsLeft)}
-      </div>
-      <div className="flex-1 flex items-center gap-2">
-        <span className="text-[11px] font-bold" style={{ color: 'var(--c-muted)' }}>
-          {currentIdx + 1}/{total}
-        </span>
-        <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{ width: `${progressPct}%`, background: accentColor }}
-          />
-        </div>
-      </div>
-    </>
-  ) : (
-    <div className="flex-1">
-      <div className="text-base font-bold" style={{ color: 'var(--c-text)' }}>
-        {phase === 'intro'   && 'Проверка готовности'}
-        {phase === 'result'  && 'Результат'}
-        {phase === 'no-data' && 'Экзамен недоступен'}
-      </div>
-      <div className="text-[11px] mt-0.5" style={{ color: 'var(--c-muted)' }}>{subjectLabel}</div>
-    </div>
-  )}
+        {phase === 'question' || phase === 'answer' ? (
+          <>
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-sm tabular-nums"
+              style={{
+                background: timerLow ? 'hsla(var(--destructive), 0.12)' : dimColor,
+                color: timerColor,
+                border: `1px solid ${timerLow ? 'hsla(var(--destructive), 0.4)' : borderColor}`,
+              }}
+            >
+              <Clock className="w-4 h-4" />
+              {fmtTime(secondsLeft)}
+            </div>
+            
+            <div 
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-sm"
+              style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)' }}
+            >
+              <BookOpen className="w-4 h-4" style={{ color: accentColor }} />
+              Билет {currentTicket}
+            </div>
+            
+            <div className="flex-1 flex items-center gap-2 justify-end">
+              <span className="text-[11px] font-bold" style={{ color: 'var(--c-muted)' }}>
+                {currentIdx + 1}/{total}
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1">
+            <div className="text-base font-bold" style={{ color: 'var(--c-text)' }}>
+              {phase === 'intro'   && 'Проверка готовности'}
+              {phase === 'result'  && 'Результат'}
+              {phase === 'no-data' && 'Экзамен недоступен'}
+            </div>
+            <div className="text-[11px] mt-0.5" style={{ color: 'var(--c-muted)' }}>{subjectLabel}</div>
+          </div>
+        )}
 
-  <button
-    onClick={() => {
-      if (phase === 'question' || phase === 'answer') setConfirmExit(true);
-      else onClose();
-    }}
-    className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition active:scale-90"
-    style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
-  >
-    <X className="w-4 h-4" style={{ color: 'var(--c-muted)' }} />
-  </button>
-</div>
+        <button
+          onClick={() => {
+            if (phase === 'question' || phase === 'answer') setConfirmExit(true);
+            else onClose();
+          }}
+          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition active:scale-90 ml-auto"
+          style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
+        >
+          <X className="w-4 h-4" style={{ color: 'var(--c-muted)' }} />
+        </button>
+      </div>
+
+      {/* ПРОГРЕСС-БАР (Под шапкой) */}
+      {(phase === 'question' || phase === 'answer') && (
+         <div className="w-full h-1" style={{ background: 'var(--c-border)' }}>
+           <div
+             className="h-full transition-all duration-500"
+             style={{ width: `${progressPct}%`, background: accentColor }}
+           />
+         </div>
+      )}
 
       {/* ── ОСНОВНОЕ СОДЕРЖИМОЕ ── */}
       <div className="flex-1 overflow-y-auto overscroll-contain">
@@ -298,44 +386,40 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
           {/* INTRO */}
           {phase === 'intro' && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <div
-                className="rounded-2xl p-5 mb-5"
-                style={{ background: dimColor, border: `1.5px solid ${borderColor}` }}
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div
-                    className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                    style={{ background: 'var(--c-bg)', color: accentColor }}
-                  >
-                    <Award className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <div className="text-base font-bold" style={{ color: 'var(--c-text)' }}>{subjectLabel}</div>
-                    <div className="text-[11px]" style={{ color: 'var(--c-muted)' }}>3 задания · 20 минут</div>
-                  </div>
-                </div>
-                <p className="text-[13px] leading-relaxed mb-3" style={{ color: 'var(--c-text)' }}>
-                  Алгоритм случайно выберет <b>2 вопроса</b> и <b>1 задачу</b>. Подумай ответ
-                  устно или мысленно, тапни <b>«Показать ответ»</b> и сам себя оцени —
-                  <b> «Знал»</b> или <b> «Не знал»</b>.
-                </p>
-                <p className="text-[12px]" style={{ color: 'var(--c-muted)' }}>
-                  Таймер 20 минут запустится после кнопки «Начать». Можно прервать в любой
-                  момент — попытка сохранится с текущим результатом.
-                </p>
-              </div>
-
               <button
-                onClick={startExam}
-                className="w-full h-[52px] rounded-2xl font-bold text-[15px] transition active:scale-[0.98]"
+                onClick={() => startExam()} // Без параметров = случайный
+                className="w-full h-[60px] rounded-2xl font-bold text-[16px] flex items-center justify-center gap-3 transition active:scale-[0.98] mb-6"
                 style={{
                   background: accentColor,
                   color: 'var(--c-bg)',
                   boxShadow: `0 8px 24px color-mix(in srgb, ${accentColor} 35%, transparent)`,
                 }}
               >
-                Начать экзамен
+                <Dices className="w-6 h-6" />
+                Случайный билет
               </button>
+
+              <div className="mb-3 text-[13px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-muted)' }}>
+                Или выберите конкретный ({ticketsData.length}):
+              </div>
+
+              {/* Сетка билетов */}
+              <div className="grid grid-cols-5 gap-2 sm:grid-cols-6 md:grid-cols-8">
+                {ticketsData.map((ticket) => (
+                  <button
+                    key={ticket.id}
+                    onClick={() => startExam(ticket.id)}
+                    className="aspect-square rounded-xl font-bold text-[15px] flex items-center justify-center transition active:scale-90"
+                    style={{
+                      background: 'var(--c-card)',
+                      border: '1.5px solid var(--c-border)',
+                      color: 'var(--c-text)',
+                    }}
+                  >
+                    {ticket.ticketNumber}
+                  </button>
+                ))}
+              </div>
             </motion.div>
           )}
 
@@ -347,8 +431,7 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                 Недостаточно материала
               </h3>
               <p className="text-[13px] max-w-xs mx-auto" style={{ color: 'var(--c-muted)' }}>
-                Чтобы запустить экзамен, по предмету «{subjectLabel}» должно быть минимум
-                2 вопроса и 1 задача.
+                Ожидается загрузка файла с билетами.
               </p>
             </div>
           )}
@@ -365,17 +448,14 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                 className="text-[10px] font-bold uppercase tracking-widest mb-2"
                 style={{ color: accentColor }}
               >
-                {currentItem.type === 'question' ? `Вопрос ${currentIdx + 1}` : 'Задача'}
+                {currentItem.type === 'question' ? `Вопрос ${currentIdx + 1}` : 'Задача (Вопрос 3)'}
               </div>
               <div
                 className="rounded-2xl p-5 mb-5"
                 style={{ background: 'var(--c-card)', border: '1.5px solid var(--c-border)' }}
               >
-                <div
-                  className="text-[15px] leading-relaxed prose-sm"
-                  style={{ color: 'var(--c-text)' }}
-                >
-                  <ReactMarkdown>{currentItem.question}</ReactMarkdown>
+                <div className="text-[15px] leading-relaxed" style={{ color: 'var(--c-text)' }}>
+                  {renderFormattedText(currentItem.question)}
                 </div>
               </div>
 
@@ -401,7 +481,6 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
-              {/* Сам вопрос (короче, для контекста) */}
               <div
                 className="rounded-2xl p-4 mb-3"
                 style={{ background: dimColor, border: `1px solid ${borderColor}` }}
@@ -412,16 +491,11 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                 >
                   {currentItem.type === 'question' ? `Вопрос ${currentIdx + 1}` : 'Задача'}
                 </div>
-                <div
-                  className="text-[13px] leading-snug"
-                  style={{ color: 'var(--c-text)' }}
-                >
-                  <ReactMarkdown>{currentItem.question}</ReactMarkdown>
+                <div className="text-[13px] leading-snug" style={{ color: 'var(--c-text)' }}>
+                  {renderFormattedText(currentItem.question)}
                 </div>
               </div>
 
-              {/* Ответ — большой, контентный, скроллируется при длинном тексте через
-                  родительский overflow-y-auto */}
               <div
                 className="rounded-2xl p-5 mb-5"
                 style={{
@@ -436,11 +510,8 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                   <Check className="w-3.5 h-3.5" />
                   Правильный ответ
                 </div>
-                <div
-                  className="text-[14px] leading-relaxed prose-sm"
-                  style={{ color: 'var(--c-text)' }}
-                >
-                  <ReactMarkdown>{currentItem.answer}</ReactMarkdown>
+                <div className="text-[14px] leading-relaxed" style={{ color: 'var(--c-text)' }}>
+                  {renderFormattedText(currentItem.answer)}
                 </div>
               </div>
 
@@ -510,15 +581,18 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                       <div className="text-sm font-bold mb-2" style={{ color: verdict.color }}>
                         {pct}% — {verdict.label}
                       </div>
+                      <div className="text-[12px] font-medium mb-1" style={{ color: 'var(--c-text)' }}>
+                        Сдан Билет № {currentTicket}
+                      </div>
                       <div className="text-[11px]" style={{ color: 'var(--c-muted)' }}>
                         Время: {fmtTime(finalDurationRef.current)}
                       </div>
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="flex flex-col gap-3">
                       <button
-                        onClick={() => { startExam(); }}
-                        className="flex-1 h-[52px] rounded-2xl font-bold text-[14px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
+                        onClick={() => { setPhase('intro'); }}
+                        className="w-full h-[52px] rounded-2xl font-bold text-[14px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
                         style={{
                           background: 'var(--c-card)',
                           border: '1.5px solid var(--c-border)',
@@ -526,11 +600,11 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                         }}
                       >
                         <RefreshCw className="w-4 h-4" />
-                        Ещё раз
+                        Выбрать другой билет
                       </button>
                       <button
                         onClick={onClose}
-                        className="flex-1 h-[52px] rounded-2xl font-bold text-[14px] transition active:scale-[0.97]"
+                        className="w-full h-[52px] rounded-2xl font-bold text-[14px] transition active:scale-[0.97]"
                         style={{
                           background: accentColor,
                           color: 'var(--c-bg)',
@@ -571,7 +645,7 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                 Прервать экзамен?
               </div>
               <div className="text-[13px] mb-5" style={{ color: 'var(--c-muted)' }}>
-                Текущая попытка ({score}/{items.length}) сохранится как незавершённая.
+                Текущая попытка по Билету {currentTicket} ({score}/{items.length}) сохранится как незавершённая.
               </div>
               <div className="flex gap-2">
                 <button
