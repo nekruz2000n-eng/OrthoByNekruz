@@ -16,6 +16,7 @@ import { SubjectType }   from '@/components/SubjectSelectScreen';
 import { SUBJECTS, getSubject } from '@/lib/subjects';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExamScreen, loadExamHistory, ExamHistoryEntry } from './ExamScreen';
+import ticketsData from '@/data/ticketsData.json';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Theme = 'dark' | 'light' | 'bright';
@@ -640,15 +641,18 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             subject={subject}
             subjectLabel={subjectLabel}
             accentColor={accentColor}
-            dimColor={cfg?.dimColor    || 'var(--c-primary-dim)'}
+            dimColor={cfg?.dimColor || 'var(--c-primary-dim)'}
             borderColor={cfg?.borderColor || 'var(--c-primary-br)'}
-            questionsData={questionsData as any}
-            tasksData={tasksData as any}
+            
+            // Передаем новый пропс с билетами
+            ticketsData={ticketsData as any} 
+            
             onClose={() => { setShowExam(false); reloadExamHistory(); loadStats(); }}
             onResultSaved={reloadExamHistory}
           />
         )}
       </AnimatePresence>
+
     </>
   );
 };
