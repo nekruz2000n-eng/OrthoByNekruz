@@ -492,7 +492,11 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
       if (localGlossary.length > 0) {
         const sortedTerms = [...localGlossary]
           .sort((a, b) => b.term.length - a.term.length)
-          .map(g => g.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+          .map(g => g.term
+            .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            // ё ↔ е считаем одной буквой, иначе «трёхпунктный» в словаре не находит «трехпунктный» в тексте
+            .replace(/[её]/gi, '[её]')
+          );
 
         // Лемма + до 6 букв русского окончания → ловим падежи: «пародонтит» → «пародонтита/-у/-ом/-ами».
         glossaryRegex = new RegExp(`(?<=^|[^а-яА-ЯёЁa-zA-Z0-9])((?:${sortedTerms.join('|')})[а-яё]{0,6})(?=$|[^а-яА-ЯёЁa-zA-Z0-9])`, 'gi');
@@ -547,9 +551,11 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
               if (!part) return null;
 
               // Кликнутое слово может быть в падеже («пародонтита») — ищем самую длинную лемму, с которой оно начинается.
-              const partLower = part.toLowerCase();
+              // ё↔е нормализуем, чтобы «трехпунктный» в тексте находил «трёхпунктный» в словаре.
+              const normalize = (s: string) => s.toLowerCase().replace(/ё/g, 'е');
+              const partNorm = normalize(part);
               const foundTerm = localGlossary
-                .filter(g => partLower.startsWith(g.term.toLowerCase()))
+                .filter(g => partNorm.startsWith(normalize(g.term)))
                 .sort((a, b) => b.term.length - a.term.length)[0];
 
               if (foundTerm) {
