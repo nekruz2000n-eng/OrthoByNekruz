@@ -494,7 +494,8 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
           .sort((a, b) => b.term.length - a.term.length)
           .map(g => g.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 
-        glossaryRegex = new RegExp(`(?<=^|[^а-яА-ЯёЁa-zA-Z0-9])(${sortedTerms.join('|')})(?=$|[^а-яА-ЯёЁa-zA-Z0-9])`, 'gi');
+        // Лемма + до 6 букв русского окончания → ловим падежи: «пародонтит» → «пародонтита/-у/-ом/-ами».
+        glossaryRegex = new RegExp(`(?<=^|[^а-яА-ЯёЁa-zA-Z0-9])((?:${sortedTerms.join('|')})[а-яё]{0,6})(?=$|[^а-яА-ЯёЁa-zA-Z0-9])`, 'gi');
       }
     }
 
@@ -545,7 +546,11 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             return parts.map((part, pIdx) => {
               if (!part) return null;
 
-              const foundTerm = localGlossary.find(g => g.term.toLowerCase() === part.toLowerCase());
+              // Кликнутое слово может быть в падеже («пародонтита») — ищем самую длинную лемму, с которой оно начинается.
+              const partLower = part.toLowerCase();
+              const foundTerm = localGlossary
+                .filter(g => partLower.startsWith(g.term.toLowerCase()))
+                .sort((a, b) => b.term.length - a.term.length)[0];
 
               if (foundTerm) {
                 const linkStyle: React.CSSProperties = {
