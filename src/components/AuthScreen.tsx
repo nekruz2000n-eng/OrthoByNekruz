@@ -119,7 +119,19 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [loading, setLoading] = useState(false); // Флаг: идет ли сейчас загрузка (запрос на сервер)
   const [error, setError] = useState(false); // Флаг ошибки (для запуска анимации тряски)
   const [focused, setFocused] = useState(false); // В фокусе ли поле ввода ключа
-  
+const [isDemoVisible, setIsDemoVisible] = useState(true);
+
+  // Этот useEffect запрашивает статус из базы в момент открытия экрана
+  useEffect(() => {
+    fetch('/api/admin-config')
+      .then(res => res.json())
+      .then(data => {
+        if (typeof data.isDemoEnabled === 'boolean') {
+          setIsDemoVisible(data.isDemoEnabled); // Обновляет стейт реальными данными
+        }
+      })
+      .catch(err => console.error('Ошибка загрузки конфига демо:', err));
+  }, []);  
   // Время блокировки (в секундах) при неверном вводе. Берем из localStorage, если юзер обновил страницу.
   const [lockoutTime, setLockoutTime] = useState(() => {
     if (typeof window === 'undefined') return 0;
@@ -473,18 +485,21 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
             </button>
 
             {/* ── КНОПКА "ПОПРОБОВАТЬ ДЕМО" ── */}
-            <button
-              onClick={handleDemoClick}
-              disabled={loading}
-              className="w-full h-[52px] rounded-2xl text-[15px] font-medium transition-all"
-              style={{
-                background: 'transparent',
-                border: '1px solid hsl(var(--primary) / 0.15)',
-                color: 'hsl(var(--primary) / 0.8)',
-              }}
-            >
-              Попробовать демо
-            </button>
+            {/* ── КНОПКА "ПОПРОБОВАТЬ ДЕМО" ── */}
+            {isDemoVisible && (
+              <button
+                onClick={handleDemoClick}
+                disabled={loading}
+                className="w-full h-[52px] rounded-2xl text-[15px] font-medium transition-all"
+                style={{
+                  background: 'transparent',
+                  border: '1px solid hsl(var(--primary) / 0.15)',
+                  color: 'hsl(var(--primary) / 0.8)',
+                }}
+              >
+                Попробовать демо
+              </button>
+            )}
 
             {/* ── БЛОК ОШИБКИ ДЕМО ── (Выезжает только если есть ошибка демо-режима) */}
             {demoMessage && (

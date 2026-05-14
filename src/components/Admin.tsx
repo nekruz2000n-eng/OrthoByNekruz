@@ -314,6 +314,49 @@ export default function AdminPage() {
   const [toast,              setToast]              = useState<string | null>(null);
   const [expandedIds,        setExpandedIds]        = useState<Set<string>>(new Set());
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  УПРАВЛЕНИЕ ГЛОБАЛЬНОЙ КНОПКОЙ ДЕМО
+  // ═══════════════════════════════════════════════════════════════════════════
+  const [isDemoEnabled, setIsDemoEnabled] = useState(true);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
+
+  useEffect(() => {
+    // Получаем статус при загрузке
+    fetch('/api/admin-config')
+      .then(res => res.json())
+      .then(data => {
+        if (typeof data.isDemoEnabled === 'boolean') {
+          setIsDemoEnabled(data.isDemoEnabled);
+        }
+      })
+      .catch(err => console.error('Ошибка загрузки демо-конфига:', err));
+  }, []);
+
+  const toggleDemoButton = async () => {
+    setIsDemoLoading(true);
+    try {
+      const newValue = !isDemoEnabled;
+      const res = await fetch('/api/admin-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isDemoEnabled: newValue }),
+      });
+      
+      if (res.ok) {
+        setIsDemoEnabled(newValue);
+        // Используем твой тост для уведомления
+        showToast(newValue ? '✓ Демо-кнопка включена для всех' : '🚫 Демо-кнопка скрыта');
+      } else {
+        showToast('Ошибка при переключении');
+      }
+    } catch (error) {
+      showToast('Ошибка сети');
+    } finally {
+      setIsDemoLoading(false);
+    }
+  };
+  // ═══════════════════════════════════════════════════════════════════════════
+
   // Восстанавливаем пароль из sessionStorage при монтировании
   useEffect(() => {
     const saved = sessionStorage.getItem('admin_secret');
@@ -534,6 +577,7 @@ export default function AdminPage() {
       fontFamily: "-apple-system, 'SF Pro Display', system-ui, sans-serif",
       color: '#e5e5e5',
     }}>
+
       {toast && (
         <div style={{
           position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
@@ -547,7 +591,33 @@ export default function AdminPage() {
         </div>
       )}
 
-      <div style={{
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* ПАНЕЛЬ ГЛОБАЛЬНЫХ НАСТРОЕК */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      <div style={{ padding: '20px 20px 0 20px', flexShrink: 0 }}>
+        <div style={{
+          background: '#141414', border: '1px solid #222',
+          borderRadius: 16, padding: '16px', display: 'flex',
+          alignItems: 'center', justifyContent: 'space-between'
+        }}>
+          <div>
+            <div style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>Демо-вход</div>
+            <div style={{ color: '#888', fontSize: 13, marginTop: 4 }}>
+              {isDemoEnabled ? 'Кнопка отображается на экране входа' : 'Кнопка полностью скрыта'}
+            </div>
+          </div>
+          <ActionBtn 
+            onClick={toggleDemoButton} 
+            disabled={isDemoLoading} 
+            color={isDemoEnabled ? 'red' : 'green'}
+          >
+            {isDemoLoading ? '...' : isDemoEnabled ? 'Выключить' : 'Включить'}
+          </ActionBtn>
+        </div>
+      </div>
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+
+      {/* ДАЛЬШЕ ИДЕТ ТВОЙ ОСТАЛЬНОЙ КОД (например, <div style={{ padding: '...' }}> с шапкой) */}      <div style={{
         background: '#101010', borderBottom: '1px solid #1a1a1a',
         padding: '10px 13px',
         display: 'flex', alignItems: 'center', gap: 10,
