@@ -59,7 +59,7 @@ export async function POST(req: Request) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             chat_id: chatId,
-            text: 'Привет! 🦷\nТвой помощник по ортопедии готов к работе:',
+            text: 'Привет! 🦷\nТвой помощник готов к работе:',
             reply_markup: {
               inline_keyboard: [[{ text: '🚀 Открыть OrthoByNekruz', web_app: { url: 'https://ortho-by-nekruz.vercel.app/', fullscreen: true } }]],
             },
