@@ -16,7 +16,7 @@ import { SubjectType }   from '@/components/SubjectSelectScreen';
 import { SUBJECTS, getSubject } from '@/lib/subjects';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExamScreen, loadExamHistory, ExamHistoryEntry } from './ExamScreen';
-import ticketsData from '@/data/ticketsData.json';
+import orthoTicketsData from '@/data/ticketsData.json';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Theme = 'dark' | 'light' | 'bright';
@@ -239,8 +239,22 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   const tasksData     = isOrtho ? orthoTasksData     : microTasksData;
   const testsData     = isOrtho ? orthoTestsData     : microTestsData;
 
+  // ─── 1. МАРШРУТИЗАТОР БИЛЕТОВ (ДИНАМИЧЕСКИЙ ВЫБОР) ───
+  const getTicketsForSubject = (subjId: string) => {
+    switch (subjId) {
+      case 'ortho':
+        return orthoTicketsData; 
+      case 'micro':
+        // return microTicketsData; // Включишь, когда появится файл для микры
+        return []; 
+      default:
+        return []; 
+    }
+  };
+
+  const currentTickets = getTicketsForSubject(subject);
+
   // localStorage keys per subject (separate progress!)
-  // Используем lsPrefix из конфига для совместимости с любой дисциплиной
   const LS = {
     studied:    isOrtho ? 'studiedQuestions'    : `${cfg?.lsPrefix || subject}_studiedQuestions`,
     tasks:      isOrtho ? 'resolvedTasks'        : `${cfg?.lsPrefix || subject}_resolvedTasks`,
@@ -255,7 +269,6 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   const [showExam,           setShowExam]           = useState(false);
   const [examHistory,        setExamHistory]        = useState<ExamHistoryEntry[]>([]);
 
-  // Подгружаем историю экзаменов при смене предмета и после сохранения попытки
   const reloadExamHistory = () => setExamHistory(loadExamHistory(subject));
   useEffect(() => { reloadExamHistory(); /* eslint-disable-next-line */ }, [subject]);
 
@@ -270,7 +283,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
     const root = document.documentElement;
     if (root.classList.contains('bright'))     setTheme('bright');
     else if (root.classList.contains('dark'))  setTheme('dark');
-    else                                        setTheme('light');
+    else                                       setTheme('light');
   }, []);
 
   const applyTheme = (t: Theme) => {
@@ -326,7 +339,16 @@ export const StatsTab: React.FC<StatsTabProps> = ({
 
   return (
     <>
-      <div className="flex flex-col h-full overflow-x-hidden max-w-full" style={{ background: 'var(--c-bg)' }}>
+      {/* 2. ДОБАВЛЕНО: select-none для защиты от копирования текста */}
+      <div 
+        className="flex flex-col h-full overflow-x-hidden max-w-full select-none" 
+        style={{ 
+          background: 'var(--c-bg)',
+          WebkitUserSelect: 'none', 
+          userSelect: 'none',
+          WebkitTouchCallout: 'none' 
+        }}
+      >
 
         {/* Header */}
         <div
@@ -464,7 +486,9 @@ export const StatsTab: React.FC<StatsTabProps> = ({
               const bestPct  = examHistory.length
                 ? Math.max(...examHistory.map(h => Math.round((h.score / h.total) * 100)))
                 : 0;
-              const enoughData = questionsData.length >= 2 && tasksData.length >= 1;
+              
+              // 3. ИЗМЕНЕНО: Проверяем наличие билетов, а не вопросов
+              const enoughData = currentTickets.length > 0;
 
               return (
                 <div className="mx-1 flex flex-col gap-3">
@@ -498,15 +522,15 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                         {enoughData
                           ? lastTry
                             ? `Лучший: ${bestPct}% · попыток: ${examHistory.length}`
-                            : '2 вопроса + 1 задача · 20 минут'
-                          : 'Нужно минимум 2 вопроса и 1 задача'}
+                            : 'Официальные билеты · 20 минут'
+                          : 'Билеты в разработке'}
                       </div>
                     </div>
                     {enoughData && <ChevronRight className="w-5 h-5 opacity-80 flex-shrink-0" />}
                   </button>
 
                   {/* График прогресса (если попытки есть) */}
-                  {examHistory.length > 0 && (
+                  {examHistory.length > 0 && enoughData && (
                     <div
                       className="rounded-2xl p-4"
                       style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
@@ -644,8 +668,8 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             dimColor={cfg?.dimColor || 'var(--c-primary-dim)'}
             borderColor={cfg?.borderColor || 'var(--c-primary-br)'}
             
-            // Передаем новый пропс с билетами
-            ticketsData={ticketsData as any} 
+            // 4. ДОБАВЛЕНО: Передаем динамический пропс
+            ticketsData={currentTickets as any} 
             
             onClose={() => { setShowExam(false); reloadExamHistory(); loadStats(); }}
             onResultSaved={reloadExamHistory}
