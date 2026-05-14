@@ -617,17 +617,25 @@ export default function AdminPage() {
   const suspiciousCount = useMemo(() => users.filter(u => u.suspicious && !u.blocked).length, [users]);
   const microCount      = useMemo(() => users.filter(u => u.subjects.some(s => s !== 'ortho')).length, [users]);
 
-  const visible = useMemo(() => users.filter(u => {
-    if (filter === 'blocked'    && !u.blocked)                  return false;
-    if (filter === 'suspicious' && !u.suspicious && !u.blocked) return false;
-    if (filter === 'demo'       && !u.usedDemo)                 return false;
-    const q = search.trim().toLowerCase();
-    if (q) {
-      const hay = [u.tgId, u.username, u.firstName, u.lastName].filter(Boolean).join(' ').toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  }), [users, filter, search]);
+  const visible = useMemo(() => {
+    const filtered = users.filter(u => {
+      if (filter === 'blocked'    && !u.blocked)                  return false;
+      if (filter === 'suspicious' && !u.suspicious && !u.blocked) return false;
+      if (filter === 'demo'       && !u.usedDemo)                 return false;
+      const q = search.trim().toLowerCase();
+      if (q) {
+        const hay = [u.tgId, u.username, u.firstName, u.lastName].filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    // Новые регистрации — сверху. Без даты — в конец.
+    return [...filtered].sort((a, b) => {
+      const ta = a.registeredAt ? Date.parse(a.registeredAt) : 0;
+      const tb = b.registeredAt ? Date.parse(b.registeredAt) : 0;
+      return tb - ta;
+    });
+  }, [users, filter, search]);
 
   // ─── ЭКРАН ВХОДА ───────────────────────────────────────────────────────────
   const loginScreen = (
