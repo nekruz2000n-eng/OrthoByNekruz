@@ -213,23 +213,67 @@ function ActionBtn({
 
 // ── Карточка пользователя ─────────────────────────────────────────────────────
 function UserCard({
-  user, actioning, onAction, expanded, onToggle, availableSubjects,
+  user, actioning, onAction, expanded, onToggle, availableSubjects, onCopy,
 }: {
   user: User;
   actioning: string | null;
-  onAction: (tgId: string, action: Action, subjectId?: string, enabled?: boolean) => void;
+  onAction: (tgId: string, action: Action, subjectId?: string, enabled?: boolean, reason?: string) => void;
   expanded: boolean;
   onToggle: () => void;
   availableSubjects: SubjectInfo[];
+  onCopy: (text: string, label: string) => void;
 }) {
   const busy        = actioning === user.tgId;
   const name        = displayName(user);
   const hasFullKey  = user.activatedKey && user.activatedKey !== 'trial';
   const isTrial     = user.activatedKey === 'trial';
 
-  const statusColor = user.blocked ? T.danger : user.suspicious ? T.warn : T.success;
-  const avatarBg    = user.blocked ? T.dangerSoft : user.suspicious ? T.warnSoft : T.accentSoft;
-  const avatarFg    = user.blocked ? T.danger     : user.suspicious ? T.warn     : T.accent;
+  // «Новенький» — регистрация менее 24 ч назад
+  const isFresh = !!user.registeredAt &&
+    (Date.now() - Date.parse(user.registeredAt) < 24 * 3600 * 1000);
+
+  const statusColor = user.blocked ? T.danger
+    : user.suspicious ? T.warn
+    : isFresh ? T.info
+    : T.success;
+  const avatarBg    = user.blocked ? T.dangerSoft
+    : user.suspicious ? T.warnSoft
+    : isFresh ? T.infoSoft
+    : T.accentSoft;
+  const avatarFg    = user.blocked ? T.danger
+    : user.suspicious ? T.warn
+    : isFresh ? T.info
+    : T.accent;
+
+  // Модалка причины блокировки
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
+
+  // Long-press на ID → копировать
+  const pressTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressed = React.useRef(false);
+  const startPress = (e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    longPressed.current = false;
+    pressTimer.current = setTimeout(() => {
+      longPressed.current = true;
+      onCopy(user.tgId, 'ID скопирован');
+    }, 550);
+  };
+  const cancelPress = () => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+  };
+  const onIdClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // не разворачивать карточку
+    if (longPressed.current) {
+      longPressed.current = false; // только что был long-press, клик игнорируем
+    }
+  };
+
+  const tgChatHref = user.username
+    ? `https://t.me/${user.username}`
+    : `tg://user?id=${user.tgId}`;
 
   return (
     <div style={{
@@ -274,13 +318,28 @@ function UserCard({
             }}>{name}</div>
             {user.blocked && <Chip bg={T.dangerSoft} color={T.danger}>blocked</Chip>}
             {!user.blocked && user.suspicious && <Chip bg={T.warnSoft} color={T.warn}>подозр</Chip>}
+            {!user.blocked && !user.suspicious && isFresh && <Chip bg={T.infoSoft} color={T.info}>🆕 new</Chip>}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-            <span style={{
-              fontFamily: FONT_MONO, fontSize: 11,
-              color: T.textFaint, letterSpacing: 0.2,
-            }}>id {user.tgId}</span>
+            <span
+              onMouseDown={startPress}
+              onMouseUp={cancelPress}
+              onMouseLeave={cancelPress}
+              onTouchStart={startPress}
+              onTouchEnd={cancelPress}
+              onTouchCancel={cancelPress}
+              onClick={onIdClick}
+              title="Удерживай, чтобы скопировать"
+              style={{
+                fontFamily: FONT_MONO, fontSize: 11,
+                color: T.textFaint, letterSpacing: 0.2,
+                cursor: 'copy', userSelect: 'none',
+                padding: '1px 4px', margin: '-1px -4px',
+                borderRadius: 4,
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >id {user.tgId}</span>
             {hasFullKey && <Chip bg={T.accentSoft} color={T.accent}>ключ</Chip>}
             {isTrial    && <Chip bg={T.warnSoft}   color={T.warn}>trial</Chip>}
             {availableSubjects
@@ -331,6 +390,11 @@ function UserCard({
               color={user.fpChanges >= 3 ? T.danger : user.fpChanges >= 1 ? T.warn : undefined} />
             {user.blocked && (
               <Meta label="Заблокирован" value={fmtDate(user.blockedAt)} color={T.danger} />
+            )}
+            {user.blocked && user.blockedReason && user.blockedReason !== 'manual' && (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <Meta label="Причина блокировки" value={user.blockedReason} color={T.danger} />
+              </div>
             )}
           </div>
 
@@ -383,7 +447,7 @@ function UserCard({
               </ActionBtn>
             ) : (
               <ActionBtn variant="danger" disabled={busy} fullWidth
-                onClick={() => onAction(user.tgId, 'block')}>
+                onClick={() => { setBlockReason(''); setBlockOpen(true); }}>
                 {busy ? '...' : 'Заблокировать'}
               </ActionBtn>
             )}
@@ -393,6 +457,96 @@ function UserCard({
                 {busy ? '...' : 'Выдать демо повторно'}
               </ActionBtn>
             )}
+            <a
+              href={tgChatHref}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                background: T.infoSoft, color: T.info,
+                border: `1px solid ${T.info}33`,
+                borderRadius: 10, padding: '9px 13px',
+                fontSize: 13, fontWeight: 600, letterSpacing: 0.1,
+                textDecoration: 'none', minHeight: 38,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                flex: '1 1 0', whiteSpace: 'nowrap',
+                fontFamily: FONT_SANS,
+                WebkitTapHighlightColor: 'transparent',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              ✉ {user.username ? `@${user.username}` : 'Написать в TG'}
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Модалка причины блокировки ─── */}
+      {blockOpen && (
+        <div
+          onClick={e => { e.stopPropagation(); setBlockOpen(false); }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(31,27,20,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 18, backdropFilter: 'blur(4px)',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: T.surface, borderRadius: 16,
+              border: `1px solid ${T.border}`,
+              padding: 18, width: '100%', maxWidth: 380,
+              boxShadow: `0 20px 60px ${T.text}30`,
+              fontFamily: FONT_SANS,
+            }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 4 }}>
+              Заблокировать пользователя
+            </div>
+            <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 14 }}>
+              {name}
+            </div>
+            <label style={{
+              fontSize: 11, fontWeight: 600, color: T.textMuted,
+              textTransform: 'uppercase', letterSpacing: 0.5,
+              display: 'block', marginBottom: 6,
+            }}>Причина (необязательно)</label>
+            <textarea
+              value={blockReason}
+              onChange={e => setBlockReason(e.target.value.slice(0, 200))}
+              autoFocus
+              placeholder="Например: 2 аккаунта с одной IP / просил вернуть деньги без оснований…"
+              rows={3}
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                padding: '10px 12px', borderRadius: 10,
+                border: `1px solid ${T.border}`,
+                background: T.surfaceAlt, color: T.text,
+                fontSize: 14, fontFamily: FONT_SANS,
+                outline: 'none', resize: 'none',
+              }}
+            />
+            <div style={{
+              fontSize: 11, color: T.textFaint,
+              textAlign: 'right', marginTop: 4, marginBottom: 14,
+            }}>{blockReason.length}/200</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <ActionBtn variant="neutral" fullWidth onClick={() => setBlockOpen(false)}>
+                Отмена
+              </ActionBtn>
+              <ActionBtn
+                variant="danger"
+                fullWidth
+                disabled={busy}
+                onClick={() => {
+                  setBlockOpen(false);
+                  onAction(user.tgId, 'block', undefined, undefined, blockReason.trim() || undefined);
+                }}
+              >
+                Заблокировать
+              </ActionBtn>
+            </div>
           </div>
         </div>
       )}
@@ -438,12 +592,35 @@ export default function AdminPage() {
   const [loading,            setLoading]            = useState(false);
   const [filter,             setFilter]             = useState<Filter>('all');
   const [search,             setSearch]             = useState('');
+  const [debouncedSearch,    setDebouncedSearch]    = useState('');
   const [error,              setError]              = useState('');
   const [total,              setTotal]              = useState(0);
   const [demoCount,          setDemoCount]          = useState(0);
   const [actioning,          setActioning]          = useState<string | null>(null);
   const [toast,              setToast]              = useState<string | null>(null);
-  const [expandedIds,        setExpandedIds]        = useState<Set<string>>(new Set());
+  // expandedIds восстанавливаются из sessionStorage, чтобы после ↻ refresh карточки не схлопывались
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const saved = sessionStorage.getItem('admin_expanded_ids');
+      return saved ? new Set(JSON.parse(saved) as string[]) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Debounce строки поиска (200ms) — не перефильтровывать список на каждый символ
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 200);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Сохраняем раскрытые карточки в sessionStorage при каждом изменении
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('admin_expanded_ids', JSON.stringify([...expandedIds]));
+    } catch { /* private mode / quota */ }
+  }, [expandedIds]);
 
   // ── Глобальная кнопка демо ────────────────────────────────────────────────
   const [isDemoEnabled, setIsDemoEnabled] = useState(true);
@@ -459,17 +636,22 @@ export default function AdminPage() {
   }, []);
 
   const toggleDemoButton = async () => {
+    const initData = getTelegramInitData();
+    if (!initData) { showToast('Нет доступа: не в Telegram'); return; }
+
     setIsDemoLoading(true);
     try {
       const newValue = !isDemoEnabled;
       const res = await fetch('/api/admin-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isDemoEnabled: newValue }),
+        body: JSON.stringify({ isDemoEnabled: newValue, initData, secret }),
       });
       if (res.ok) {
         setIsDemoEnabled(newValue);
         showToast(newValue ? '✓ Демо-кнопка включена для всех' : 'Демо-кнопка скрыта');
+      } else if (res.status === 403) {
+        showToast('Нет прав');
       } else {
         showToast('Ошибка при переключении');
       }
@@ -479,6 +661,24 @@ export default function AdminPage() {
       setIsDemoLoading(false);
     }
   };
+
+  // Копирование в буфер с тостом
+  const copyToClipboard = useCallback(async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('✓ ' + label);
+    } catch {
+      // fallback для старых браузеров
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); showToast('✓ ' + label); }
+      catch { showToast('Не удалось скопировать'); }
+      document.body.removeChild(ta);
+    }
+  }, []);
 
   useEffect(() => {
     const saved = sessionStorage.getItem('admin_secret');
@@ -552,6 +752,7 @@ export default function AdminPage() {
     action: Action,
     subjectId?: string,
     enabled?: boolean,
+    reason?: string,
   ) => {
     const initData = getTelegramInitData();
     if (!initData) { showToast('Нет доступа: не в Telegram'); return; }
@@ -562,6 +763,9 @@ export default function AdminPage() {
       if (action === 'toggle_subject' && subjectId !== undefined) {
         body.subject = subjectId;
         body.enable  = enabled;
+      }
+      if (action === 'block' && reason) {
+        body.reason = reason;
       }
 
       const r = await fetch('/api/admin-users', {
@@ -576,7 +780,7 @@ export default function AdminPage() {
         if (u.tgId !== tgId) return u;
         switch (action) {
           case 'block':
-            return { ...u, blocked: true, blockedReason: 'manual', blockedAt: new Date().toISOString() };
+            return { ...u, blocked: true, blockedReason: reason || 'manual', blockedAt: new Date().toISOString() };
           case 'unblock':
             return { ...u, blocked: false, blockedReason: null, blockedAt: null, opensToday: 0, suspicious: u.fpChanges >= 2 };
           case 'reset_demo':
@@ -622,7 +826,7 @@ export default function AdminPage() {
       if (filter === 'blocked'    && !u.blocked)                  return false;
       if (filter === 'suspicious' && !u.suspicious && !u.blocked) return false;
       if (filter === 'demo'       && !u.usedDemo)                 return false;
-      const q = search.trim().toLowerCase();
+      const q = debouncedSearch.trim().toLowerCase();
       if (q) {
         const hay = [u.tgId, u.username, u.firstName, u.lastName].filter(Boolean).join(' ').toLowerCase();
         if (!hay.includes(q)) return false;
@@ -635,7 +839,7 @@ export default function AdminPage() {
       const tb = b.registeredAt ? Date.parse(b.registeredAt) : 0;
       return tb - ta;
     });
-  }, [users, filter, search]);
+  }, [users, filter, debouncedSearch]);
 
   // ─── ЭКРАН ВХОДА ───────────────────────────────────────────────────────────
   const loginScreen = (
@@ -940,6 +1144,7 @@ export default function AdminPage() {
                 expanded={expandedIds.has(u.tgId)}
                 onToggle={() => toggleExpand(u.tgId)}
                 availableSubjects={availableSubjects}
+                onCopy={copyToClipboard}
               />
             ))}
           </div>

@@ -73,7 +73,7 @@ function ensureSubjects(user: any): any {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { initData, secret, action, tgId, subject, enable } = req.body ?? {};
+  const { initData, secret, action, tgId, subject, enable, reason } = req.body ?? {};
 
   // ── Двойная защита: initData + ADMIN_TG_ID + ADMIN_SECRET ───────────────
   if (!initData || !secret || !verifyAdmin(String(initData), String(secret))) {
@@ -90,10 +90,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       user = ensureSubjects(user);
 
       if (action === 'block') {
+        // Причина — свободный текст до 200 символов; пусто → дефолт 'manual'
+        const cleanReason = String(reason ?? '').trim().slice(0, 200) || 'manual';
         await redis.set(`user_id:${tgId}`, {
           ...user,
           blocked:       true,
-          blockedReason: 'manual',
+          blockedReason: cleanReason,
           blockedAt:     new Date().toISOString(),
         });
         return res.status(200).json({ ok: true });
