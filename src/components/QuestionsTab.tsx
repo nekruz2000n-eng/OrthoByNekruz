@@ -17,6 +17,41 @@ import ReactMarkdown from 'react-markdown';
 
 interface GlossaryItem { term: string; definition: string; image?: string | string[]; }
 
+// ── Подсветка глоссария: стемминг для русских словоформ ─────────────────────
+// Леммы в glossary.json односложные/в начальной форме, а в тексте термины
+// стоят в любом падеже («жевательная мускулатура» → «жевательной мускулатуры»).
+// Каждое слово склоняется отдельно, поэтому матчим по основе слова.
+const _RU_ENDINGS = [
+  'ого','его','ому','ему','ыми','ими','ая','яя','ое','ее','ой','ый','ий',
+  'ую','юю','ые','ие','ых','их','ам','ям','ах','ях','ов','ев','ём','ом',
+  'ем','ей','а','я','ы','и','у','ю','е','о','й','ь',
+];
+function _ruStem(word: string): string {
+  const w = word.toLowerCase().replace(/ё/g, 'е');
+  if (w.length <= 3) return w;
+  for (const end of _RU_ENDINGS) {
+    if (w.length - end.length >= 3 && w.endsWith(end)) return w.slice(0, -end.length);
+  }
+  return w;
+}
+function _escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+// regex-источник для одного термина: каждое слово → основа + гибкий хвост.
+// Слова разделяются пробелом/дефисом. Границы — небуквенно-цифровые символы.
+function _termRegexSource(term: string): string {
+  const words = term.split(/[\s-]+/).filter(Boolean);
+  if (!words.length) return '';
+  const parts = words.map(w => {
+    const lw = w.toLowerCase().replace(/ё/g, 'е');
+    if (lw.length <= 2) return _escapeRe(lw);          // короткие («а», «in») — точно
+    return _escapeRe(_ruStem(lw)) + '[а-яё]*';          // основа + русское окончание
+  });
+  // Между словами термина допускаем не только пробел/дефис, но и пунктуацию:
+  // в тексте слова могут быть разделены скобками/запятыми («трансверзальная) окклюзия»).
+  return '(?<=^|[^а-яёa-z0-9])(?:' + parts.join('[^а-яёa-z0-9]{1,6}') + ')(?=$|[^а-яёa-z0-9])';
+}
+
 // ── AudioPlayer вынесен НА УРОВЕНЬ МОДУЛЯ ────────────────────────────────────
 const _AUDIO_CACHE = 'ortho-audio-v1';
 const _AUDIO_SPEEDS = [0.75, 1, 1.25, 1.5, 2];
@@ -476,41 +511,24 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   }, [dragging]);
 
 
-  // НОВЫЙ РЕНДЕР С ДИНАМИЧЕСКИМ ПОИСКОМ ГЛОССАРИЯ И ФИЛЬТРАЦИЕЙ
+  // ── РЕНДЕР С ПОДСВЕТКОЙ ГЛОССАРИЯ ─────────────────────────────────────────
+  // Ключевой момент: термины ищутся в «плоском» тексте (без markdown-разметки),
+  // потому что разметка `_` `**` физически стоит между словами терминов
+  // («__фиссурно__-бугорковых контактов») и порвала бы составной термин.
+  // Форматирование (bold/italic) накладывается отдельным проходом.
   const renderWithGlossary = (text: string, relatedTerms?: string[]) => {
     if (!text) return null;
 
-    let localGlossary: GlossaryItem[] = [];
-    let glossaryRegex: RegExp | null = null;
-
-    // Собираем регулярку только если в JSON переданы relatedTerms для этого вопроса
-    if (relatedTerms && relatedTerms.length > 0) {
-      localGlossary = glossaryTerms.filter(g =>
-        relatedTerms.some(rt => rt.toLowerCase() === g.term.toLowerCase())
-      );
-
-      if (localGlossary.length > 0) {
-        const sortedTerms = [...localGlossary]
-          .sort((a, b) => b.term.length - a.term.length)
-          .map(g => g.term
-            .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-            // ё ↔ е считаем одной буквой, иначе «трёхпунктный» в словаре не находит «трехпунктный» в тексте
-            .replace(/[её]/gi, '[её]')
-          );
-
-        // Лемма + до 6 букв русского окончания → ловим падежи: «пародонтит» → «пародонтита/-у/-ом/-ами».
-        glossaryRegex = new RegExp(`(?<=^|[^а-яА-ЯёЁa-zA-Z0-9])((?:${sortedTerms.join('|')})[а-яё]{0,6})(?=$|[^а-яА-ЯёЁa-zA-Z0-9])`, 'gi');
-      }
-    }
+    const localGlossary: GlossaryItem[] = (relatedTerms && relatedTerms.length)
+      ? glossaryTerms.filter(g => relatedTerms.some(rt => rt.toLowerCase() === g.term.toLowerCase()))
+      : [];
 
     return (
       <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
         {text.split('\n').map((line, lineIdx) => {
-          let isBoldState = false;
-          let isItalicState = false;
-
           if (line.trim() === '') return <div key={lineIdx} className="h-1" />;
 
+          // ── список-маркер ──
           const listMatch = line.match(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/);
           const isListItem = !!listMatch;
           let listMarker = isListItem ? listMatch![1].trim() : '';
@@ -519,99 +537,99 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             ? line.replace(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/, '')
             : line;
 
-          // Разбиваем только по ** и _
-          const tokens = cleanLine.split(/(\*\*|_)/g);
-
-          const renderedTokens = tokens.map((token, tIdx) => {
-            if (!token) return null;
-
-            if (token === '**') {
-              isBoldState = !isBoldState;
-              return null;
+          // ── 1. парсим markdown → плоский текст + формат на каждый символ ──
+          const chars: { ch: string; bold: boolean; italic: boolean }[] = [];
+          {
+            let bold = false, italic = false;
+            for (const tk of cleanLine.split(/(\*\*|_)/g)) {
+              if (tk === '**') { bold = !bold; continue; }
+              if (tk === '_')  { italic = !italic; continue; }
+              for (const ch of tk) chars.push({ ch, bold, italic });
             }
-            if (token === '_') {
-              isItalicState = !isItalicState;
-              return null;
-            }
+          }
+          const plain = chars.map(c => c.ch).join('');
 
-            const baseStyle: React.CSSProperties = {
-              fontWeight: isBoldState ? 700 : 'inherit',
-              color: isBoldState ? 'var(--c-text)' : 'inherit',
-              fontStyle: isItalicState ? 'italic' : 'normal',
-            };
-
-            if (!glossaryRegex) {
-              return <span key={`text-${lineIdx}-${tIdx}`} style={baseStyle}>{token}</span>;
-            }
-
-            // Сканируем кусок текста локальным глоссарием
-            const parts = token.split(glossaryRegex);
-
-            return parts.map((part, pIdx) => {
-              if (!part) return null;
-
-              // Кликнутое слово может быть в падеже («пародонтита») — ищем самую длинную лемму, с которой оно начинается.
-              // ё↔е нормализуем, чтобы «трехпунктный» в тексте находил «трёхпунктный» в словаре.
-              const normalize = (s: string) => s.toLowerCase().replace(/ё/g, 'е');
-              const partNorm = normalize(part);
-              const foundTerm = localGlossary
-                .filter(g => partNorm.startsWith(normalize(g.term)))
-                .sort((a, b) => b.term.length - a.term.length)[0];
-
-              if (foundTerm) {
-                const linkStyle: React.CSSProperties = {
-                  ...baseStyle,
-                  borderBottom: '1px dashed currentColor',
-                  cursor: 'pointer',
-                };
-
-                return (
-                  <span
-                    key={`link-${lineIdx}-${tIdx}-${pIdx}`}
-                    className="transition-opacity active:opacity-70"
-                    style={linkStyle}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      setTooltipTarget({
-                        top: r.top, bottom: r.bottom,
-                        left: r.left, right: r.right, width: r.width
-                      });
-                      setTooltipPos({ x: -9999, y: -9999 });
-                      setActiveTermDef(foundTerm.definition);
-                    }}
-                  >
-                    {part}
-                  </span>
-                );
+          // ── 2. ищем термины в плоском тексте ──
+          type Hit = { start: number; end: number; def: string };
+          const hits: Hit[] = [];
+          if (localGlossary.length && plain) {
+            const plainNorm = plain.toLowerCase().replace(/ё/g, 'е');
+            for (const g of localGlossary) {
+              const src = _termRegexSource(g.term);
+              if (!src) continue;
+              let re: RegExp;
+              try { re = new RegExp(src, 'g'); } catch { continue; }
+              let m: RegExpExecArray | null;
+              while ((m = re.exec(plainNorm)) !== null) {
+                if (m[0].length === 0) { re.lastIndex++; continue; }
+                hits.push({ start: m.index, end: m.index + m[0].length, def: g.definition });
               }
+            }
+          }
+          // убираем пересечения — оставляем более длинные/ранние совпадения
+          hits.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+          const accepted: Hit[] = [];
+          let lastEnd = -1;
+          for (const h of hits) {
+            if (h.start >= lastEnd) { accepted.push(h); lastEnd = h.end; }
+          }
 
-              return (
-                <span key={`text-${lineIdx}-${tIdx}-${pIdx}`} style={baseStyle}>
-                  {part}
+          // ── 3. нарезаем плоский текст: границы = смена формата ∪ границы хитов ──
+          const boundary = new Set<number>([0, plain.length]);
+          for (let i = 1; i < chars.length; i++) {
+            if (chars[i].bold !== chars[i - 1].bold || chars[i].italic !== chars[i - 1].italic) {
+              boundary.add(i);
+            }
+          }
+          for (const h of accepted) { boundary.add(h.start); boundary.add(h.end); }
+          const bounds = [...boundary].sort((a, b) => a - b);
+
+          const segs: React.ReactNode[] = [];
+          for (let bi = 0; bi < bounds.length - 1; bi++) {
+            const s = bounds[bi], e = bounds[bi + 1];
+            if (s >= e) continue;
+            const segText = plain.slice(s, e);
+            const fmt = chars[s] || { bold: false, italic: false };
+            const style: React.CSSProperties = {
+              fontWeight: fmt.bold ? 700 : 'inherit',
+              color: fmt.bold ? 'var(--c-text)' : 'inherit',
+              fontStyle: fmt.italic ? 'italic' : 'normal',
+            };
+            const hit = accepted.find(h => s >= h.start && e <= h.end);
+            if (hit) {
+              segs.push(
+                <span
+                  key={`g-${lineIdx}-${bi}`}
+                  className="transition-opacity active:opacity-70"
+                  style={{ ...style, borderBottom: '1px dashed currentColor', cursor: 'pointer' }}
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+                    setTooltipTarget({ top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width });
+                    setTooltipPos({ x: -9999, y: -9999 });
+                    setActiveTermDef(hit.def);
+                  }}
+                >
+                  {segText}
                 </span>
               );
-            });
-          });
+            } else {
+              segs.push(<span key={`t-${lineIdx}-${bi}`} style={style}>{segText}</span>);
+            }
+          }
 
           if (isListItem) {
             return (
               <div key={lineIdx} className="flex gap-2 mb-1.5 pl-2 mt-1">
-                <span
-                  className="text-[14px] leading-snug font-bold"
-                  style={{ color: 'var(--c-amber)' }}
-                >
+                <span className="text-[14px] leading-snug font-bold" style={{ color: 'var(--c-amber)' }}>
                   {listMarker}
                 </span>
-                <p className="m-0 flex-1 leading-snug">{renderedTokens}</p>
+                <p className="m-0 flex-1 leading-snug">{segs}</p>
               </div>
             );
           }
-
           return (
-            <p key={lineIdx} className="indent-4 mb-2 mt-1 last:mb-0">
-              {renderedTokens}
-            </p>
+            <p key={lineIdx} className="indent-4 mb-2 mt-1 last:mb-0">{segs}</p>
           );
         })}
       </div>
