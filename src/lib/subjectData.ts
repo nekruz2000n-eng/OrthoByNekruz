@@ -5,39 +5,64 @@
 //  Без кэша каждое повторное открытие предмета — лишний вызов функции Vercel
 //  и лишний трафик. Кэш в Cache API (как для аудио) убирает повторные запросы.
 //
-//  Прохождение тестов/вопросов на расход не влияет вообще — оно полностью
-//  локальное. Запрос идёт только при первой загрузке предмета.
+//  Инвалидация — по версии деплоя, а не по времени. Имя кэша содержит хеш
+//  коммита: пока ты не деплоишь, данные неизменны → кэш живёт сколько угодно
+//  и запросов нет вовсе. Задеплоил обновление → новый хеш → новое имя кэша →
+//  у всех студентов сразу свежие данные. Старые кэши подчищаются при запуске.
+//
+//  Прохождение тестов/вопросов на расход не влияет — оно полностью локальное.
 // ════════════════════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'subject-data-v1';
-const TTL_MS     = 6 * 60 * 60 * 1000; // 6 часов — данные обновятся максимум через 6 ч после деплоя
+const BUILD_ID    = process.env.NEXT_PUBLIC_BUILD_ID || 'dev';
+const CACHE_NAME   = `subject-data-${BUILD_ID}`;
+const CACHE_PREFIX = 'subject-data-';
+// В dev хеша нет — данные часто меняются, поэтому короткий TTL.
+// В проде имя кэша уникально для коммита, TTL не нужен (0 = бессрочно).
+const TTL_MS = BUILD_ID === 'dev' ? 5 * 60 * 1000 : 0;
 
 export type SubjectDataType = 'questions' | 'tasks' | 'tests' | 'glossary';
 
 type Cached = { ts: number; data: unknown[] };
+
+let _purged = false;
+// Удаляем кэши данных от прошлых деплоев — чтобы не копились.
+async function purgeOldCaches(): Promise<void> {
+  if (_purged || typeof caches === 'undefined') return;
+  _purged = true;
+  try {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys
+        .filter(k => k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME)
+        .map(k => caches.delete(k)),
+    );
+  } catch { /* не критично */ }
+}
 
 function cacheKey(subject: string, type: SubjectDataType): string {
   return `https://cache.local/subject-data/${subject}/${type}`;
 }
 
 /**
- * Возвращает массив данных предмета. Сначала пробует свежий кэш,
+ * Возвращает массив данных предмета. Сначала пробует кэш текущего деплоя,
  * иначе грузит с сервера и кэширует. При любой ошибке вернёт [].
  */
 export async function loadSubjectData(
   subject: string,
   type: SubjectDataType,
 ): Promise<unknown[]> {
+  void purgeOldCaches();
   const key = cacheKey(subject, type);
 
-  // 1. свежий кэш
+  // 1. кэш текущего деплоя
   try {
     if (typeof caches !== 'undefined') {
       const cache = await caches.open(CACHE_NAME);
       const hit   = await cache.match(key);
       if (hit) {
         const cached = (await hit.json()) as Cached;
-        if (cached && Array.isArray(cached.data) && Date.now() - cached.ts < TTL_MS) {
+        const fresh  = TTL_MS === 0 || Date.now() - cached.ts < TTL_MS;
+        if (cached && Array.isArray(cached.data) && fresh) {
           return cached.data;
         }
       }
