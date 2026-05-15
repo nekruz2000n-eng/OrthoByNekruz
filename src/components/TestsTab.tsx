@@ -5,6 +5,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import orthoTestsData from '@/data/tests.json';
 import { SubjectType } from '@/components/SubjectSelectScreen';
 import { getSubject } from '@/lib/subjects';
+import { loadSubjectData } from '@/lib/subjectData';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -75,17 +76,12 @@ export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
 
   useEffect(() => {
     if (isOrtho) return;
+    let cancelled = false;
     setMicroLoading(true);
-    const tgId    = localStorage.getItem('user_tg_id') || '';
-    const initDat = (window as any).Telegram?.WebApp?.initData || '';
-    fetch('/api/subject-data', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subject, type: 'tests', telegramId: tgId, initData: initDat }),
-    })
-      .then(r => r.json())
-      .then(d => { if (d.data) setMicroTestsData(d.data); })
-      .catch(() => {})
-      .finally(() => setMicroLoading(false));
+    loadSubjectData(subject, 'tests')
+      .then(d => { if (!cancelled) setMicroTestsData(d as any[]); })
+      .finally(() => { if (!cancelled) setMicroLoading(false); });
+    return () => { cancelled = true; };
   }, [subject]);
 
   // ── Derived ───────────────────────────────────────────────────────────────

@@ -5,15 +5,13 @@ import { createPortal } from 'react-dom';
 import orthoQuestionsData from '@/data/questions.json';
 import orthoTasksData     from '@/data/tasks.json';
 import orthoTestsData     from '@/data/tests.json';
-import microQuestionsData from '@/data/micro_questions.json';
-import microTasksData     from '@/data/micro_tasks.json';
-import microTestsData     from '@/data/micro_tests.json';
 import { ScrollArea }     from '@/components/ui/scroll-area';
 import { PieChart, Pie, Cell, ResponsiveContainer, Label } from 'recharts';
 import { BookOpen, ClipboardList, PenTool, Star, Trash2, Sun, Moon, Sparkles, Award, ChevronRight } from 'lucide-react';
 import { ToothIcon }     from './ToothIcon';
 import { SubjectType }   from '@/components/SubjectSelectScreen';
 import { SUBJECTS, getSubject } from '@/lib/subjects';
+import { loadSubjectData } from '@/lib/subjectData';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExamScreen, loadExamHistory, ExamHistoryEntry } from './ExamScreen';
 import orthoTicketsData from '@/data/ticketsData.json';
@@ -234,36 +232,33 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   const cfg     = getSubject(subject);
   const isOrtho = subject === 'ortho';
 
-  // Данные предмета: ortho/micro импортированы статически, остальные грузятся
-  // с сервера. Раньше для любого не-ortho брались данные микробиологии —
-  // отсюда неверная статистика у биологии и прочих предметов.
-  const STATIC_DATA: Record<string, { q: any[]; t: any[]; ts: any[] }> = {
-    ortho: { q: orthoQuestionsData, t: orthoTasksData, ts: orthoTestsData },
-    micro: { q: microQuestionsData, t: microTasksData, ts: microTestsData },
-  };
+  // Данные предмета: ortho импортирован статически, остальные грузятся через
+  // loadSubjectData (с кэшем). Раньше для любого не-ortho брались данные
+  // микробиологии — отсюда неверная статистика у биологии и прочих предметов.
+  const ORTHO_DATA = { q: orthoQuestionsData, t: orthoTasksData, ts: orthoTestsData };
 
-  const [counts, setCounts] = useState<{ q: number; t: number; ts: number }>(() => {
-    const s = STATIC_DATA[subject];
-    return s ? { q: s.q.length, t: s.t.length, ts: s.ts.length } : { q: 0, t: 0, ts: 0 };
-  });
+  const [counts, setCounts] = useState<{ q: number; t: number; ts: number }>(() =>
+    isOrtho
+      ? { q: ORTHO_DATA.q.length, t: ORTHO_DATA.t.length, ts: ORTHO_DATA.ts.length }
+      : { q: 0, t: 0, ts: 0 },
+  );
 
   useEffect(() => {
-    const s = STATIC_DATA[subject];
-    if (s) { setCounts({ q: s.q.length, t: s.t.length, ts: s.ts.length }); return; }
-    // Динамический предмет — считаем количества по реальным JSON через API
+    if (isOrtho) {
+      setCounts({ q: ORTHO_DATA.q.length, t: ORTHO_DATA.t.length, ts: ORTHO_DATA.ts.length });
+      return;
+    }
+    // Динамический предмет — берём реальные количества (loadSubjectData
+    // переиспользует кэш, заполненный вкладками «Тесты» и «Вопросы»).
     let cancelled = false;
-    const tgId    = localStorage.getItem('user_tg_id') || '';
-    const initDat = (window as any).Telegram?.WebApp?.initData || '';
     setCounts({ q: 0, t: 0, ts: 0 });
-    Promise.all((['questions', 'tasks', 'tests'] as const).map(type =>
-      fetch('/api/subject-data', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subject, type, telegramId: tgId, initData: initDat }),
-      })
-        .then(r => (r.ok ? r.json() : { data: [] }))
-        .then(d => (Array.isArray(d.data) ? d.data.length : 0))
-        .catch(() => 0)
-    )).then(([q, t, ts]) => { if (!cancelled) setCounts({ q, t, ts }); });
+    Promise.all([
+      loadSubjectData(subject, 'questions'),
+      loadSubjectData(subject, 'tasks'),
+      loadSubjectData(subject, 'tests'),
+    ]).then(([q, t, ts]) => {
+      if (!cancelled) setCounts({ q: q.length, t: t.length, ts: ts.length });
+    });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subject]);

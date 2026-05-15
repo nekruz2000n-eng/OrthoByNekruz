@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 're
 import orthoQuestionsData from '@/data/questions.json';
 import { SubjectType } from '@/components/SubjectSelectScreen';
 import { getSubject } from '@/lib/subjects';
+import { loadSubjectData } from '@/lib/subjectData';
 import glossaryData from '@/data/glossary.json';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -380,18 +381,12 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
 
   useEffect(() => {
     if (isOrtho) return;
+    let cancelled = false;
     setMicroLoading(true);
-    const tgId    = localStorage.getItem('user_tg_id') || '';
-    const initDat = (window as any).Telegram?.WebApp?.initData || '';
-    fetch('/api/subject-data', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ subject, type: 'questions', telegramId: tgId, initData: initDat }),
-    })
-      .then(r => r.json())
-      .then(d => { if (d.data) setMicroQuestionsData(d.data); })
-      .catch(() => {})
-      .finally(() => setMicroLoading(false));
+    loadSubjectData(subject, 'questions')
+      .then(d => { if (!cancelled) setMicroQuestionsData(d as any[]); })
+      .finally(() => { if (!cancelled) setMicroLoading(false); });
+    return () => { cancelled = true; };
   }, [subject]);
 
   useEffect(() => {
