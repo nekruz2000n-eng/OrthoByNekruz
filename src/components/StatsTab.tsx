@@ -6,8 +6,10 @@ import orthoQuestionsData from '@/data/questions.json';
 import orthoTasksData     from '@/data/tasks.json';
 import orthoTestsData     from '@/data/tests.json';
 import { ScrollArea }     from '@/components/ui/scroll-area';
-import { PieChart, Pie, Cell, ResponsiveContainer, Label } from 'recharts';
-import { BookOpen, ClipboardList, PenTool, Star, Trash2, Sun, Moon, Sparkles, Award, ChevronRight } from 'lucide-react';
+import {
+  BookOpen, ClipboardList, PenTool, Trash2, Sun, Moon, Sparkles,
+  Award, ChevronRight, Calendar, Pencil,
+} from 'lucide-react';
 import { ToothIcon }     from './ToothIcon';
 import { SubjectType }   from '@/components/SubjectSelectScreen';
 import { SUBJECTS, getSubject } from '@/lib/subjects';
@@ -20,10 +22,45 @@ import orthoTicketsData from '@/data/ticketsData.json';
 type Theme = 'dark' | 'light' | 'bright';
 
 const THEMES: { id: Theme; label: string; desc: string; icon: React.ReactNode }[] = [
-  { id: 'dark',   label: 'Тёмная',  desc: 'Для ночи', icon: <Moon     className="w-5 h-5" /> },
-  { id: 'light',  label: 'Светлая', desc: 'Бумага',   icon: <Sun      className="w-5 h-5" /> },
-  { id: 'bright', label: 'Яркая',   desc: 'Контраст', icon: <Sparkles className="w-5 h-5" /> },
+  { id: 'dark',   label: 'Тёмная',  desc: 'Для ночи', icon: <Moon     className="w-[18px] h-[18px]" /> },
+  { id: 'light',  label: 'Светлая', desc: 'Бумага',   icon: <Sun      className="w-[18px] h-[18px]" /> },
+  { id: 'bright', label: 'Яркая',   desc: 'Контраст', icon: <Sparkles className="w-[18px] h-[18px]" /> },
 ];
+
+const MONTHS_GEN = [
+  'января','февраля','марта','апреля','мая','июня',
+  'июля','августа','сентября','октября','ноября','декабря',
+];
+
+function daysWord(n: number): string {
+  const a = Math.abs(n) % 100, b = a % 10;
+  if (a > 10 && a < 20) return 'дней';
+  if (b > 1 && b < 5)   return 'дня';
+  if (b === 1)          return 'день';
+  return 'дней';
+}
+
+// ─── Кольцо прогресса (SVG) ───────────────────────────────────────────────────
+const Ring: React.FC<{ pct: number; color: string; size?: number; stroke?: number; label: string; sub?: string }> =
+({ pct, color, size = 128, stroke = 12, label, sub }) => {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const off = c * (1 - Math.max(0, Math.min(100, pct)) / 100);
+  return (
+    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--c-border)" strokeWidth={stroke} fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth={stroke} fill="none"
+          strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+        <div className="font-bold leading-none" style={{ fontSize: 30, color: 'var(--c-text)', letterSpacing: -1 }}>{label}</div>
+        {sub && <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-muted)' }}>{sub}</div>}
+      </div>
+    </div>
+  );
+};
 
 // ─── Subject bottom-sheet ─────────────────────────────────────────────────────
 interface SubjectSheetProps {
@@ -31,7 +68,7 @@ interface SubjectSheetProps {
   onSelect:          (s: SubjectType) => void;
   onClose:           () => void;
   hasMicro?:         boolean;
-  availableSubjects?: string[];   // ID открытых дисциплин у пользователя
+  availableSubjects?: string[];
 }
 
 const SubjectSheet: React.FC<SubjectSheetProps> = ({
@@ -40,16 +77,12 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
   availableSubjects,
 }) => {
   const [selected, setSelected] = useState<SubjectType>(currentSubject);
-
-  // Если availableSubjects не передан — fallback на старую логику с hasMicro
   const userSubjects: string[] = availableSubjects
     ?? ['ortho', ...(hasMicro ? ['micro'] : [])];
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // Студенту показываем ТОЛЬКО открытые ему дисциплины — закрытые скрыты.
-  // Порядок берём из SUBJECTS, чтобы ortho всегда была первой.
   const items = SUBJECTS
     .filter(s => userSubjects.includes(s.id))
     .map(s => ({
@@ -75,23 +108,16 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
     >
       <motion.div
         className="rounded-t-[28px] flex flex-col"
-        style={{
-          background: 'var(--c-card)',
-          borderTop: '1px solid var(--c-border)',
-          maxHeight:  '85vh',
-        }}
+        style={{ background: 'var(--c-card)', borderTop: '1px solid var(--c-border)', maxHeight: '85vh' }}
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 320 }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
           <div className="w-10 h-1 rounded-full" style={{ background: 'var(--c-border)' }} />
         </div>
-
-        {/* Заголовок */}
         <div className="text-center px-5 pb-3 pt-1 flex-shrink-0">
           <h3 className="text-base font-bold" style={{ color: 'var(--c-text)' }}>Сменить дисциплину</h3>
           <p className="text-xs mt-1" style={{ color: 'var(--c-muted)' }}>
@@ -100,70 +126,42 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
               : `Доступно: ${items.length} ${items.length === 1 ? 'предмет' : items.length < 5 ? 'предмета' : 'предметов'}`}
           </p>
         </div>
-
-        {/* Скроллируемый список карточек */}
-        <div
-          className="flex-1 overflow-y-auto overscroll-contain px-5"
-          style={{ WebkitOverflowScrolling: 'touch' as any }}
-        >
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5" style={{ WebkitOverflowScrolling: 'touch' as any }}>
           <div className="flex flex-col gap-2.5 py-2">
             {items.map(item => {
               const isSel = selected === item.id;
               const isCur = currentSubject === item.id;
-
               return (
                 <button
                   key={item.id}
                   onClick={() => setSelected(item.id)}
                   className="flex items-center gap-3 rounded-[18px] p-3.5 text-left transition-all duration-200 active:scale-[0.98]"
                   style={{
-                    background: isSel
-                      ? item.dimVar
-                      : 'color-mix(in srgb, var(--c-border) 25%, transparent)',
+                    background: isSel ? item.dimVar : 'color-mix(in srgb, var(--c-border) 25%, transparent)',
                     border: `1.5px solid ${isSel ? item.brVar : 'var(--c-border)'}`,
                   }}
                 >
-                  {/* Левая мини-иконка */}
                   <div
                     className="w-11 h-11 rounded-[13px] flex items-center justify-center flex-shrink-0"
                     style={{ background: item.dimVar, border: `1px solid ${item.brVar}` }}
                   >
                     <ToothIcon className="w-6 h-6" style={{ color: item.color }} variant={item.variant} />
                   </div>
-
-                  {/* Название + бейдж "Сейчас", и подпись */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                      <span
-                        className="text-[13px] font-bold leading-tight"
-                        style={{ color: 'var(--c-text)' }}
-                      >
-                        {item.label}
-                      </span>
+                      <span className="text-[13px] font-bold leading-tight" style={{ color: 'var(--c-text)' }}>{item.label}</span>
                       {isCur && (
-                        <span
-                          className="text-[8.5px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0"
-                          style={{ background: item.dimVar, color: item.color }}
-                        >
-                          Сейчас
-                        </span>
+                        <span className="text-[8.5px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0"
+                          style={{ background: item.dimVar, color: item.color }}>Сейчас</span>
                       )}
                     </div>
-                    <span
-                      className="text-[10.5px] block whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ color: 'var(--c-muted)' }}
-                    >
+                    <span className="text-[10.5px] block whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: 'var(--c-muted)' }}>
                       {item.sub}
                     </span>
                   </div>
-
-                  {/* Радио-чекбокс справа */}
                   <div
                     className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center transition-all duration-200"
-                    style={{
-                      background: isSel ? item.color : 'transparent',
-                      border: `1.5px solid ${isSel ? item.color : 'var(--c-border)'}`,
-                    }}
+                    style={{ background: isSel ? item.color : 'transparent', border: `1.5px solid ${isSel ? item.color : 'var(--c-border)'}` }}
                   >
                     {isSel && (
                       <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
@@ -176,8 +174,6 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
             })}
           </div>
         </div>
-
-        {/* Низ: кнопки */}
         <div
           className="flex-shrink-0 px-5 pt-2 pb-5"
           style={{
@@ -194,16 +190,9 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
               Отмена
             </button>
             <button
-              onClick={() => {
-                onSelect(selected);
-                onClose();
-              }}
+              onClick={() => { onSelect(selected); onClose(); }}
               className="flex-1 py-3 rounded-[16px] font-bold text-[13px] transition-all duration-200 active:scale-[0.98]"
-              style={{
-                background: getSubject(selected)?.color || 'var(--c-primary)',
-                color: 'var(--c-bg)',
-                cursor: 'pointer',
-              }}
+              style={{ background: getSubject(selected)?.color || 'var(--c-primary)', color: 'var(--c-bg)', cursor: 'pointer' }}
             >
               Выбрать
             </button>
@@ -235,11 +224,8 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   const cfg     = getSubject(subject);
   const isOrtho = subject === 'ortho';
 
-  // Данные предмета: ortho импортирован статически, остальные грузятся через
-  // loadSubjectData (с кэшем). Раньше для любого не-ortho брались данные
-  // микробиологии — отсюда неверная статистика у биологии и прочих предметов.
+  // Данные предмета
   const ORTHO_DATA = { q: orthoQuestionsData, t: orthoTasksData, ts: orthoTestsData };
-
   const [counts, setCounts] = useState<{ q: number; t: number; ts: number }>(() =>
     isOrtho
       ? { q: ORTHO_DATA.q.length, t: ORTHO_DATA.t.length, ts: ORTHO_DATA.ts.length }
@@ -251,8 +237,6 @@ export const StatsTab: React.FC<StatsTabProps> = ({
       setCounts({ q: ORTHO_DATA.q.length, t: ORTHO_DATA.t.length, ts: ORTHO_DATA.ts.length });
       return;
     }
-    // Динамический предмет — берём реальные количества (loadSubjectData
-    // переиспользует кэш, заполненный вкладками «Тесты» и «Вопросы»).
     let cancelled = false;
     setCounts({ q: 0, t: 0, ts: 0 });
     Promise.all([
@@ -266,26 +250,20 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subject]);
 
-  // ─── 1. МАРШРУТИЗАТОР БИЛЕТОВ (ДИНАМИЧЕСКИЙ ВЫБОР) ───
   const getTicketsForSubject = (subjId: string) => {
     switch (subjId) {
-      case 'ortho':
-        return orthoTicketsData; 
-      case 'micro':
-        // return microTicketsData; // Включишь, когда появится файл для микры
-        return []; 
-      default:
-        return []; 
+      case 'ortho': return orthoTicketsData;
+      default:      return [];
     }
   };
-
   const currentTickets = getTicketsForSubject(subject);
 
-  // localStorage keys per subject (separate progress!)
+  // localStorage ключи (раздельный прогресс по предметам)
   const LS = {
-    studied:    isOrtho ? 'studiedQuestions'    : `${cfg?.lsPrefix || subject}_studiedQuestions`,
-    tasks:      isOrtho ? 'resolvedTasks'        : `${cfg?.lsPrefix || subject}_resolvedTasks`,
-    testScores: isOrtho ? 'test_block_scores'    : `${cfg?.lsPrefix || subject}_test_block_scores`,
+    studied:    isOrtho ? 'studiedQuestions' : `${cfg?.lsPrefix || subject}_studiedQuestions`,
+    tasks:      isOrtho ? 'resolvedTasks'     : `${cfg?.lsPrefix || subject}_resolvedTasks`,
+    testScores: isOrtho ? 'test_block_scores' : `${cfg?.lsPrefix || subject}_test_block_scores`,
+    examDate:   `exam_date:${subject}`,
   };
 
   const [studiedCount,       setStudiedCount]       = useState(0);
@@ -295,13 +273,40 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   const [showSubjectSheet,   setShowSubjectSheet]   = useState(false);
   const [showExam,           setShowExam]           = useState(false);
   const [examHistory,        setExamHistory]        = useState<ExamHistoryEntry[]>([]);
+  const [examDate,           setExamDate]           = useState<string | null>(null);
+
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const reloadExamHistory = () => setExamHistory(loadExamHistory(subject));
   useEffect(() => { reloadExamHistory(); /* eslint-disable-next-line */ }, [subject]);
 
+  // ── Дата экзамена (per-subject, localStorage) ────────────────────────────
+  useEffect(() => {
+    try { setExamDate(localStorage.getItem(LS.examDate)); }
+    catch { setExamDate(null); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject]);
+
+  const saveExamDate = (iso: string) => {
+    if (!iso) return;
+    localStorage.setItem(LS.examDate, iso);
+    setExamDate(iso);
+  };
+  const clearExamDate = () => {
+    localStorage.removeItem(LS.examDate);
+    setExamDate(null);
+  };
+  const openDatePicker = () => {
+    const el = dateInputRef.current;
+    if (!el) return;
+    // showPicker — современный API; fallback на focus/click
+    try { (el as any).showPicker?.(); } catch {}
+    el.focus();
+  };
+
   const total = counts;
 
-  // ── Theme ────────────────────────────────────────────────────────────────
+  // ── Тема ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     const root = document.documentElement;
     if (root.classList.contains('bright'))     setTheme('bright');
@@ -317,7 +322,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
     localStorage.setItem('theme', t);
   };
 
-  // ── Stats ────────────────────────────────────────────────────────────────
+  // ── Прогресс ─────────────────────────────────────────────────────────────
   const loadStats = () => {
     try { setStudiedCount(JSON.parse(localStorage.getItem(LS.studied) || '[]').length); }       catch { setStudiedCount(0); }
     try { setResolvedTasksCount(JSON.parse(localStorage.getItem(LS.tasks) || '[]').length); }   catch { setResolvedTasksCount(0); }
@@ -341,7 +346,6 @@ export const StatsTab: React.FC<StatsTabProps> = ({
     const onVisible = () => { if (document.visibilityState === 'visible') loadStats(); };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  // total.ts — чтобы пересчитать кламп после асинхронной загрузки количеств
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subject, total.ts]);
 
@@ -350,59 +354,69 @@ export const StatsTab: React.FC<StatsTabProps> = ({
     t:  total.t  ? (resolvedTasksCount / total.t)  * 100 : 0,
     ts: total.ts ? (testsResolvedCount / total.ts) * 100 : 0,
   };
-  const overall = (pct.q + pct.t + pct.ts) / 3;
+  const overall = Math.round((pct.q + pct.t + pct.ts) / 3);
 
-  const accentColor    = cfg?.color || 'var(--c-primary)';
-  const subjectLabel   = cfg?.label || 'Ортопедия';
+  const accentColor  = cfg?.color || 'var(--c-primary)';
+  const subjectLabel = cfg?.label || 'Ортопедия';
 
-  const stats = [
-    { label: 'Вопросы', icon: <BookOpen     className="w-4 h-4" />, count: studiedCount,       tot: total.q,  p: pct.q,  barVar: 'hsl(210 70% 55%)' },
-    { label: 'Задачи',  icon: <PenTool      className="w-4 h-4" />, count: resolvedTasksCount, tot: total.t,  p: pct.t,  barVar: accentColor },
-    { label: 'Тесты',   icon: <ClipboardList className="w-4 h-4" />, count: testsResolvedCount, tot: total.ts, p: pct.ts, barVar: 'var(--c-amber)' },
+  const grade = overall >= 80 ? 'отлично' : overall >= 60 ? 'хорошо' : overall >= 35 ? 'идём' : 'старт';
+
+  // дни до экзамена
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const examDt = examDate ? new Date(examDate + 'T00:00:00') : null;
+  const daysLeft = examDt ? Math.ceil((examDt.getTime() - today.getTime()) / 86400000) : null;
+  const examPassed = daysLeft !== null && daysLeft < 0;
+  const dateLabel = examDt
+    ? `${examDt.getDate()} ${MONTHS_GEN[examDt.getMonth()]} ${examDt.getFullYear()}`
+    : null;
+
+  const tiles = [
+    { label: 'Вопросы', icon: <BookOpen      className="w-3.5 h-3.5" />, count: studiedCount,       tot: total.q,  p: Math.round(pct.q),  color: 'var(--c-info)'    },
+    { label: 'Задачи',  icon: <PenTool       className="w-3.5 h-3.5" />, count: resolvedTasksCount, tot: total.t,  p: Math.round(pct.t),  color: accentColor        },
+    { label: 'Тесты',   icon: <ClipboardList className="w-3.5 h-3.5" />, count: testsResolvedCount, tot: total.ts, p: Math.round(pct.ts), color: 'var(--c-amber)'   },
   ];
+
+  const bestPct = examHistory.length
+    ? Math.max(...examHistory.map(h => Math.round((h.score / h.total) * 100)))
+    : 0;
+  const lastTry = examHistory[examHistory.length - 1];
+  const enoughData = currentTickets.length > 0;
 
   return (
     <>
-      {/* 2. ДОБАВЛЕНО: select-none для защиты от копирования текста */}
-      <div 
-        className="flex flex-col h-full overflow-x-hidden max-w-full select-none" 
-        style={{ 
-          background: 'var(--c-bg)',
-          WebkitUserSelect: 'none', 
-          userSelect: 'none',
-          WebkitTouchCallout: 'none' 
-        }}
+      <div
+        className="flex flex-col h-full overflow-x-hidden max-w-full select-none"
+        style={{ background: 'var(--c-bg)', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}
       >
-
-        {/* Header */}
+        {/* ─── ШАПКА ─── */}
         <div
-          className="px-4 py-3 sticky top-0 z-10"
+          className="px-4 py-2.5 sticky top-0 z-10"
           style={{
-            background:           'color-mix(in srgb, var(--c-bg) 92%, transparent)',
-            backdropFilter:       'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            borderBottom:         '1px solid var(--c-border)',
-            paddingTop:           'var(--header-pt)',
+            background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
+            backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+            borderBottom: '1px solid var(--c-border)',
+            paddingTop: 'var(--header-pt)',
           }}
         >
-          <div className="flex justify-between items-center px-1">
-            <div className="flex items-center gap-3">
-              <ToothIcon className="w-9 h-9" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} />
-              <div>
-                <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>  {cfg?.brandName || 'OrthoByNekruz'}</h1>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>
-                  {subjectLabel}
-                </p>
-              </div>
+          <div className="flex items-center gap-3 px-1">
+            <div
+              className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-shrink-0"
+              style={{ background: 'var(--c-primary-dim)' }}
+            >
+              <ToothIcon className="w-6 h-6" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-[16px] font-bold tracking-tight leading-tight" style={{ color: 'var(--c-text)' }}>
+                {cfg?.brandName || 'OrthoByNekruz'}
+              </h1>
+              <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: accentColor }}>
+                {subjectLabel}
+              </p>
             </div>
             <button
               onClick={resetAll}
-              className="p-2 rounded-xl transition-all active:scale-95"
-              style={{
-                background: 'hsl(var(--destructive) / 0.1)',
-                border:     '1px solid hsl(var(--destructive) / 0.25)',
-                color:      'hsl(var(--destructive))',
-              }}
+              className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all active:scale-95"
+              style={{ background: 'var(--c-danger-soft)', border: '1px solid color-mix(in srgb, var(--c-danger) 33%, transparent)', color: 'var(--c-danger)' }}
               title="Сбросить прогресс"
             >
               <Trash2 className="w-4 h-4" />
@@ -411,258 +425,250 @@ export const StatsTab: React.FC<StatsTabProps> = ({
         </div>
 
         <ScrollArea className="flex-1 px-4 scroll-container">
-          <div className="space-y-5 mx-auto max-w-2xl pt-4 overflow-hidden" style={{ paddingBottom: 'var(--scroll-pb)' }}>
+          <div className="space-y-3.5 mx-auto max-w-2xl pt-4" style={{ paddingBottom: 'var(--scroll-pb)' }}>
 
-            {/* Theme switcher */}
-            <div className="rounded-2xl p-3" style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}>
+            {/* ─── HERO: кольцо готовности + дата экзамена ─── */}
+            <div
+              className="rounded-[20px] p-4"
+              style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
+            >
+              <div className="flex items-center gap-4">
+                <Ring pct={overall} color={accentColor} size={128} stroke={12}
+                  label={`${overall}%`} sub={grade} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-muted)' }}>
+                    {examPassed ? 'Экзамен' : 'До экзамена'}
+                  </div>
+                  {examDt ? (
+                    <>
+                      {examPassed ? (
+                        <div className="text-[15px] font-bold mt-1" style={{ color: 'var(--c-text)' }}>
+                          Прошёл
+                        </div>
+                      ) : (
+                        <div className="flex items-baseline gap-1.5 mt-1">
+                          <div className="font-bold leading-none" style={{ fontSize: 34, color: 'var(--c-text)', letterSpacing: -1.5 }}>
+                            {daysLeft}
+                          </div>
+                          <div className="text-[13px] font-medium" style={{ color: 'var(--c-muted)' }}>
+                            {daysWord(daysLeft as number)}
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                        <button
+                          onClick={openDatePicker}
+                          className="px-2.5 py-1.5 rounded-[9px] text-[12px] font-semibold inline-flex items-center gap-1.5"
+                          style={{ background: 'var(--c-primary-soft)', color: 'var(--c-primary-strong)', border: '1px solid var(--c-primary-br)' }}
+                        >
+                          <Calendar className="w-3 h-3" /> {dateLabel}
+                          <Pencil className="w-2.5 h-2.5" />
+                        </button>
+                        <button
+                          onClick={clearExamDate}
+                          className="text-[11px] font-semibold"
+                          style={{ color: 'var(--c-muted)' }}
+                        >
+                          сбросить
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <button
+                      onClick={openDatePicker}
+                      className="mt-2 px-3 py-2.5 rounded-[11px] text-[13px] font-bold inline-flex items-center gap-2 active:scale-[0.97]"
+                      style={{ background: accentColor, color: 'var(--c-bg)', border: 'none' }}
+                    >
+                      <Calendar className="w-3.5 h-3.5" /> Установить дату
+                    </button>
+                  )}
+                  {/* Нативный date-picker (скрыт; открывается кнопками выше) */}
+                  <input
+                    ref={dateInputRef}
+                    type="date"
+                    value={examDate || ''}
+                    onChange={e => saveExamDate(e.target.value)}
+                    className="sr-only"
+                    style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+                    aria-hidden="true"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ─── 3 ПЛИТКИ ПРОГРЕССА ─── */}
+            <div className="grid grid-cols-3 gap-2">
+              {tiles.map(s => (
+                <div
+                  key={s.label}
+                  className="rounded-[14px] p-2.5 flex flex-col gap-2"
+                  style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div
+                      className="w-[26px] h-[26px] rounded-lg flex items-center justify-center"
+                      style={{ background: `color-mix(in srgb, ${s.color} 16%, transparent)`, color: s.color }}
+                    >
+                      {s.icon}
+                    </div>
+                    <span className="text-[13px] font-mono font-bold" style={{ color: s.color }}>{s.p}%</span>
+                  </div>
+                  <div>
+                    <div className="text-[18px] font-bold leading-none" style={{ color: 'var(--c-text)', letterSpacing: -0.5 }}>
+                      {s.count}<span className="text-[11px] font-normal" style={{ color: 'var(--c-text-faint)' }}>/{s.tot}</span>
+                    </div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide mt-1" style={{ color: 'var(--c-muted)' }}>
+                      {s.label}
+                    </div>
+                  </div>
+                  <div className="h-[3px] w-full rounded-full overflow-hidden" style={{ background: 'var(--c-bg-subtle)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${Math.max(2, s.p)}%`, background: s.color }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ─── ПРОВЕРКА ГОТОВНОСТИ + ГРАФИК ─── */}
+            {!examHidden && (
+              <>
+                <button
+                  onClick={() => enoughData && setShowExam(true)}
+                  disabled={!enoughData}
+                  className="rounded-[18px] p-4 flex items-center gap-3.5 text-left transition active:scale-[0.99] w-full"
+                  style={{
+                    background: enoughData ? accentColor : 'var(--c-card)',
+                    color:      enoughData ? 'var(--c-bg)' : 'var(--c-muted)',
+                    boxShadow:  enoughData ? `0 8px 22px color-mix(in srgb, ${accentColor} 34%, transparent)` : 'none',
+                    border:     enoughData ? 'none' : '1px solid var(--c-border)',
+                    opacity:    enoughData ? 1 : 0.7,
+                    cursor:     enoughData ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  <div
+                    className="w-11 h-11 rounded-[13px] flex items-center justify-center flex-shrink-0"
+                    style={{ background: enoughData ? 'rgba(255,255,255,0.2)' : 'var(--c-border)' }}
+                  >
+                    <Award className="w-[22px] h-[22px]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[15px] font-bold">
+                      {enoughData ? 'Проверка готовности' : 'Экзамен недоступен'}
+                    </div>
+                    <div className="text-[12px] mt-0.5" style={{ opacity: 0.9 }}>
+                      {enoughData
+                        ? lastTry
+                          ? `Лучший: ${bestPct}% · попыток: ${examHistory.length}`
+                          : 'Официальные билеты · 20 минут'
+                        : 'Билеты в разработке'}
+                    </div>
+                  </div>
+                  {enoughData && <ChevronRight className="w-5 h-5 flex-shrink-0" style={{ opacity: 0.8 }} />}
+                </button>
+
+                {examHistory.length > 0 && enoughData && (
+                  <div className="rounded-[16px] p-3.5" style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-muted)' }}>
+                          История попыток
+                        </div>
+                        <div className="text-[13px] font-semibold mt-0.5" style={{ color: 'var(--c-text)' }}>
+                          Последние {examHistory.length} {examHistory.length === 1 ? 'попытка' : examHistory.length < 5 ? 'попытки' : 'попыток'}
+                        </div>
+                      </div>
+                      {lastTry && (
+                        <div className="text-[10.5px] font-bold px-2.5 py-1 rounded-full"
+                          style={{ background: 'var(--c-primary-soft)', color: 'var(--c-primary-strong)' }}>
+                          посл. {Math.round((lastTry.score / lastTry.total) * 100)}%
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-end gap-1.5 mb-2" style={{ height: 88 }}>
+                      {Array.from({ length: 10 }).map((_, idx) => {
+                        const entry = examHistory[idx];
+                        const p = entry ? Math.round((entry.score / entry.total) * 100) : 0;
+                        const empty = !entry;
+                        const barColor =
+                          empty ? 'var(--c-border)' :
+                          !entry.finished ? 'var(--c-text-faint)' :
+                          p >= 67 ? accentColor :
+                          p >= 34 ? 'var(--c-amber)' : 'var(--c-danger)';
+                        return (
+                          <div key={idx} className="flex-1 flex flex-col justify-end items-center gap-1" style={{ height: '100%' }}>
+                            {entry && (
+                              <span className="text-[9px] font-mono font-bold" style={{ color: barColor }}>{p}</span>
+                            )}
+                            <div
+                              className="w-full rounded-md transition-all duration-700"
+                              style={{
+                                height: empty ? '10%' : `${Math.max(10, p)}%`,
+                                background: barColor,
+                                opacity: empty ? 0.35 : 1,
+                                border: empty ? '1px dashed var(--c-border)' : 'none',
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-between text-[9.5px] font-semibold uppercase tracking-wide" style={{ color: 'var(--c-text-faint)' }}>
+                      <span>← старые</span>
+                      <span>новые →</span>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ─── ПЕРЕКЛЮЧАТЕЛЬ ТЕМ ─── */}
+            <div className="rounded-[16px] p-3" style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}>
               <p className="text-[10px] font-bold uppercase tracking-widest mb-2.5 px-1" style={{ color: 'var(--c-muted)' }}>
                 Тема оформления
               </p>
               <div className="grid grid-cols-3 gap-2">
-                {THEMES.map(t => {
-                  const active = theme === t.id;
+                {THEMES.map(tm => {
+                  const active = theme === tm.id;
                   return (
                     <button
-                      key={t.id}
-                      onClick={() => { setTheme(t.id); applyTheme(t.id); }}
+                      key={tm.id}
+                      onClick={() => { setTheme(tm.id); applyTheme(tm.id); }}
                       className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl transition-all duration-200 active:scale-95"
                       style={active
                         ? { background: 'var(--c-primary-dim)', border: '1.5px solid var(--c-primary-br)' }
                         : { background: 'var(--c-bg)',          border: '1.5px solid var(--c-border)' }}
                     >
-                      <span style={{ color: active ? 'var(--c-primary)' : 'var(--c-muted)' }}>{t.icon}</span>
-                      <span className="text-[12px] font-bold" style={{ color: active ? 'var(--c-primary)' : 'var(--c-text)' }}>{t.label}</span>
-                      <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: 'var(--c-muted)' }}>{t.desc}</span>
-                      {active && <div className="w-1 h-1 rounded-full" style={{ background: 'var(--c-primary)' }} />}
+                      <span style={{ color: active ? 'var(--c-primary)' : 'var(--c-muted)' }}>{tm.icon}</span>
+                      <span className="text-[12px] font-bold" style={{ color: active ? 'var(--c-primary)' : 'var(--c-text)' }}>{tm.label}</span>
+                      <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: 'var(--c-muted)' }}>{tm.desc}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Donut */}
-            <div className="flex flex-col items-center">
-              <div className="h-56 w-full relative animate-in fade-in zoom-in-95 duration-700">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={[{ v: overall }, { v: 100 - overall }]}
-                      cx="50%" cy="50%" innerRadius={72} outerRadius={92}
-                      paddingAngle={0} dataKey="v" startAngle={90} endAngle={-270}
-                    >
-                      <Cell fill={accentColor} stroke="none" />
-                      <Cell fill="var(--c-border)" stroke="none" />
-                      <Label
-                        value={`${Math.round(overall)}%`}
-                        position="center"
-                        fill={accentColor}
-                        style={{ fontSize: '26px', fontWeight: 700 }}
-                      />
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <span className="text-[10px] uppercase tracking-widest font-bold -mt-2" style={{ color: 'var(--c-muted)' }}>
-                Общая готовность
-              </span>
-            </div>
-
-            {/* Stat cards */}
-            <div className="grid gap-3 px-1">
-              {stats.map(s => (
-                <div
-                  key={s.label}
-                  className="rounded-2xl overflow-hidden relative"
-                  style={{ background: 'var(--c-card)', border: `1px solid color-mix(in srgb, ${s.barVar} 30%, transparent)` }}
-                >
-                  <div className="absolute top-0 left-0 w-[3px] h-full" style={{ background: s.barVar }} />
-                  <div className="px-4 pt-3 pb-1 pl-5 flex justify-between items-end">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span style={{ color: s.barVar }}>{s.icon}</span>
-                        <span className="text-sm font-semibold" style={{ color: s.barVar }}>{s.label}</span>
-                      </div>
-                      <div className="text-2xl font-bold" style={{ color: 'var(--c-text)' }}>
-                        {s.count}
-                        <span className="text-sm font-normal" style={{ color: 'var(--c-muted)' }}> / {s.tot}</span>
-                      </div>
-                      <p className="text-xs" style={{ color: 'var(--c-muted)' }}>
-                        {s.label === 'Вопросы' ? 'изучено' : s.label === 'Задачи' ? 'решено' : 'правильно'}
-                      </p>
-                    </div>
-                    <span className="text-lg font-bold" style={{ color: s.barVar }}>{Math.round(s.p)}%</span>
-                  </div>
-                  <div className="px-5 pb-3 pt-2">
-                    <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
-                      <div
-                        className="h-full rounded-full transition-all duration-1000"
-                        style={{ width: `${s.p}%`, background: s.barVar }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* ── EXAM CTA + ИСТОРИЯ ПОПЫТОК ── */}
-            {!examHidden && (() => {
-              const lastTry  = examHistory[examHistory.length - 1];
-              const bestPct  = examHistory.length
-                ? Math.max(...examHistory.map(h => Math.round((h.score / h.total) * 100)))
-                : 0;
-              
-              // 3. ИЗМЕНЕНО: Проверяем наличие билетов, а не вопросов
-              const enoughData = currentTickets.length > 0;
-
-              return (
-                <div className="mx-1 flex flex-col gap-3">
-                  {/* CTA-карточка */}
-                  <button
-                    onClick={() => enoughData && setShowExam(true)}
-                    disabled={!enoughData}
-                    className="rounded-2xl p-5 text-left transition active:scale-[0.99] flex items-center gap-4"
-                    style={{
-                      background: enoughData ? accentColor : 'var(--c-card)',
-                      color:      enoughData ? 'var(--c-bg)' : 'var(--c-muted)',
-                      boxShadow:  enoughData ? `0 8px 24px color-mix(in srgb, ${accentColor} 30%, transparent)` : 'none',
-                      border:     enoughData ? 'none' : '1px solid var(--c-border)',
-                      opacity:    enoughData ? 1 : 0.7,
-                      cursor:     enoughData ? 'pointer' : 'not-allowed',
-                    }}
-                  >
-                    <div
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-                      style={{
-                        background: enoughData ? 'rgba(255,255,255,0.18)' : 'var(--c-border)',
-                      }}
-                    >
-                      <Award className="w-6 h-6" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-base font-bold mb-0.5">
-                        {enoughData ? 'Проверка готовности' : 'Экзамен недоступен'}
-                      </div>
-                      <div className="text-[12px] opacity-85">
-                        {enoughData
-                          ? lastTry
-                            ? `Лучший: ${bestPct}% · попыток: ${examHistory.length}`
-                            : 'Официальные билеты · 20 минут'
-                          : 'Билеты в разработке'}
-                      </div>
-                    </div>
-                    {enoughData && <ChevronRight className="w-5 h-5 opacity-80 flex-shrink-0" />}
-                  </button>
-
-                  {/* График прогресса (если попытки есть) */}
-                  {examHistory.length > 0 && enoughData && (
-                    <div
-                      className="rounded-2xl p-4"
-                      style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <div className="text-[13px] font-bold" style={{ color: 'var(--c-text)' }}>
-                            История попыток
-                          </div>
-                          <div className="text-[10px]" style={{ color: 'var(--c-muted)' }}>
-                            Последние {examHistory.length} {examHistory.length === 1 ? 'попытка' : 'попытки'}
-                          </div>
-                        </div>
-                        {lastTry && (
-                          <div
-                            className="text-[10px] font-bold px-2 py-1 rounded-full"
-                            style={{ background: cfg?.dimColor || 'var(--c-primary-dim)', color: accentColor }}
-                          >
-                            Посл. {Math.round((lastTry.score / lastTry.total) * 100)}%
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Bar chart — 10 столбиков, высота = % */}
-                      <div className="flex items-end gap-1.5 h-24 mb-2">
-                        {Array.from({ length: 10 }).map((_, idx) => {
-                          const entry = examHistory[idx];
-                          const pct   = entry ? Math.round((entry.score / entry.total) * 100) : 0;
-                          const isPlaceholder = !entry;
-                          const barColor =
-                            isPlaceholder ? 'var(--c-border)' :
-                            !entry.finished ? 'color-mix(in srgb, var(--c-muted) 50%, transparent)' :
-                            pct >= 67 ? accentColor :
-                            pct >= 34 ? '#f59e0b' :
-                                        '#ef4444';
-                          return (
-                            <div
-                              key={idx}
-                              className="flex-1 rounded-t flex flex-col justify-end items-center gap-1"
-                              style={{ height: '100%' }}
-                              title={entry
-                                ? `${entry.score}/${entry.total} · ${new Date(entry.ts).toLocaleDateString('ru-RU')}${entry.finished ? '' : ' (прервано)'}`
-                                : 'Пусто'}
-                            >
-                              {entry && (
-                                <span className="text-[8px] font-bold tabular-nums" style={{ color: barColor }}>
-                                  {pct}
-                                </span>
-                              )}
-                              <div
-                                className="w-full rounded-md transition-all duration-700"
-                                style={{
-                                  height: isPlaceholder ? '8%' : `${Math.max(8, pct)}%`,
-                                  background: barColor,
-                                  opacity: isPlaceholder ? 0.4 : 1,
-                                }}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="flex justify-between text-[9px]" style={{ color: 'var(--c-muted)' }}>
-                        <span>старые →</span>
-                        <span>новые</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* ── CHANGE SUBJECT BUTTON ── */}
+            {/* ─── СМЕНИТЬ ДИСЦИПЛИНУ ─── */}
             <button
               onClick={() => setShowSubjectSheet(true)}
-              className="w-full rounded-[20px] p-4 flex items-center gap-4 transition-all duration-200 active:scale-[0.98]"
-              style={{
-                background: cfg?.dimColor    || 'var(--c-primary-dim)',
-                border:     `1.5px solid ${cfg?.borderColor || 'var(--c-primary-br)'}`,
-              }}
+              className="w-full rounded-[18px] p-4 flex items-center gap-3.5 transition-all duration-200 active:scale-[0.98]"
+              style={{ background: 'var(--c-primary-soft)', border: '1.5px solid var(--c-primary-br)' }}
             >
-              {/* Icon */}
               <div
-               className="p-3 rounded-full flex-shrink-0"
-               style={{ background: cfg?.dimColor || 'var(--c-primary-dim)' }}
+                className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: 'var(--c-card)', border: '1px solid var(--c-primary-br)' }}
               >
-                {/* Swap icon */}
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
                   stroke={accentColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
-                  <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
-                  <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
-                  <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
-                  <circle cx="12" cy="12" r="3"/>
-                  <path d="M12 9v6M9 12h6"/>
+                  <path d="M16 3l4 4-4 4" /><path d="M20 7H4" />
+                  <path d="M8 21l-4-4 4-4" /><path d="M4 17h16" />
                 </svg>
               </div>
-
-              <div className="flex-1 text-left">
-                <div className="text-sm font-bold" style={{ color: 'var(--c-text)' }}>Сменить дисциплину</div>
-                <div className="text-[11px] mt-0.5" style={{ color: 'var(--c-muted)' }}>
-                  Сейчас: {subjectLabel}
+              <div className="flex-1 text-left min-w-0">
+                <div className="text-[14px] font-bold" style={{ color: 'var(--c-text)' }}>Сменить дисциплину</div>
+                <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--c-muted)' }}>
+                  Сейчас: <span style={{ color: 'var(--c-text)', fontWeight: 600 }}>{subjectLabel}</span>
                 </div>
               </div>
-
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke={accentColor} strokeWidth="2" strokeLinecap="round">
-                <path d="M9 18l6-6-6-6"/>
-              </svg>
+              <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
             </button>
 
           </div>
@@ -682,7 +688,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Экзамен (полноэкранный модал через portal) */}
+      {/* Экзамен */}
       <AnimatePresence>
         {showExam && (
           <ExamScreen
@@ -691,16 +697,12 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             accentColor={accentColor}
             dimColor={cfg?.dimColor || 'var(--c-primary-dim)'}
             borderColor={cfg?.borderColor || 'var(--c-primary-br)'}
-            
-            // 4. ДОБАВЛЕНО: Передаем динамический пропс
-            ticketsData={currentTickets as any} 
-            
+            ticketsData={currentTickets as any}
             onClose={() => { setShowExam(false); reloadExamHistory(); loadStats(); }}
             onResultSaved={reloadExamHistory}
           />
         )}
       </AnimatePresence>
-
     </>
   );
 };
