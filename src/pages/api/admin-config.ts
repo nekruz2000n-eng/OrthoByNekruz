@@ -40,20 +40,40 @@ function verifyAdmin(initData: string, secret: string): boolean {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // GET — публичный (AuthScreen читает статус демо при загрузке)
+  // GET — публичный (AuthScreen + Watermark читают настройки при загрузке)
   if (req.method === 'GET') {
-    const isDemoEnabled = await redis.get('settings:is_demo_enabled');
-    return res.status(200).json({ isDemoEnabled: isDemoEnabled ?? true });
+    const [isDemoEnabled, isWatermarkEnabled] = await Promise.all([
+      redis.get('settings:is_demo_enabled'),
+      redis.get('settings:is_watermark_enabled'),
+    ]);
+    return res.status(200).json({
+      isDemoEnabled:      isDemoEnabled      ?? true,
+      isWatermarkEnabled: isWatermarkEnabled ?? true,
+    });
   }
 
   // POST — только админ с валидной initData и секретом
   if (req.method === 'POST') {
-    const { initData, secret, isDemoEnabled } = req.body ?? {};
+    const { initData, secret, isDemoEnabled, isWatermarkEnabled } = req.body ?? {};
     if (!initData || !secret || !verifyAdmin(String(initData), String(secret))) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    await redis.set('settings:is_demo_enabled', Boolean(isDemoEnabled));
-    return res.status(200).json({ success: true, isDemoEnabled: Boolean(isDemoEnabled) });
+    // Обновляем только переданные поля — частичный апдейт
+    if (typeof isDemoEnabled !== 'undefined') {
+      await redis.set('settings:is_demo_enabled', Boolean(isDemoEnabled));
+    }
+    if (typeof isWatermarkEnabled !== 'undefined') {
+      await redis.set('settings:is_watermark_enabled', Boolean(isWatermarkEnabled));
+    }
+    const [demo, wm] = await Promise.all([
+      redis.get('settings:is_demo_enabled'),
+      redis.get('settings:is_watermark_enabled'),
+    ]);
+    return res.status(200).json({
+      success:            true,
+      isDemoEnabled:      demo ?? true,
+      isWatermarkEnabled: wm   ?? true,
+    });
   }
 
   return res.status(405).json({ error: 'Method not allowed' });

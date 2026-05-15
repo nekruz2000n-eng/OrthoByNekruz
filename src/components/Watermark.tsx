@@ -20,6 +20,17 @@ import React, { useEffect, useState } from 'react';
  */
 export const Watermark: React.FC = () => {
   const [tgId, setTgId] = useState<string | null>(null);
+  // Глобальный тумблер из админки. По умолчанию включён, пока не пришёл ответ.
+  const [enabled, setEnabled] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/admin-config')
+      .then(r => r.json())
+      .then(d => {
+        if (typeof d.isWatermarkEnabled === 'boolean') setEnabled(d.isWatermarkEnabled);
+      })
+      .catch(() => { /* недоступен конфиг — оставляем watermark включённым */ });
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -46,6 +57,7 @@ export const Watermark: React.FC = () => {
     return () => clearInterval(iv);
   }, []);
 
+  if (!enabled) return null;
   if (!tgId) return null;
 
   // SVG-тайл с двумя строками: на скриншоте видно при увеличении.
