@@ -5,6 +5,7 @@ import orthoQuestionsData from '@/data/questions.json';
 import { SubjectType } from '@/components/SubjectSelectScreen';
 import { getSubject } from '@/lib/subjects';
 import { loadSubjectData } from '@/lib/subjectData';
+import { CachedImage } from '@/components/CachedImage';
 import glossaryData from '@/data/glossary.json';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -856,7 +857,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                       onClick={() => setZoomedImage(img)}
                       onTouchStart={e => e.preventDefault()}
                       onContextMenu={e => e.preventDefault()}>
-                      <img src={img} alt="" className="w-full h-auto object-contain max-h-80"
+                      <CachedImage src={img} alt="" className="w-full h-auto object-contain max-h-80"
                         loading="lazy" draggable={false} />
                       <div className="absolute inset-0" style={{ WebkitTouchCallout: 'none' }} />
                     </div>
@@ -944,7 +945,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                 onClick={e => { e.stopPropagation(); setZoomedImage(img); }}
                 onContextMenu={e => e.preventDefault()}
                 onTouchStart={e => { e.stopPropagation(); }}>
-                <img src={img} alt="" className="w-full h-auto object-contain max-h-32" loading="lazy" draggable={false} />
+                <CachedImage src={img} alt="" className="w-full h-auto object-contain max-h-32" loading="lazy" draggable={false} />
               </div>
             ))}
             <p className="text-sm font-normal" style={{ color: 'var(--c-text)' }}>{activeTermDef}</p>
@@ -1038,7 +1039,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             onClick={e => e.stopPropagation()}
             onContextMenu={e => e.preventDefault()}
           >
-            <img
+            <CachedImage
               ref={zoomImgRef}
               src={zoomedImage}
               alt=""
