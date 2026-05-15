@@ -234,10 +234,39 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   const cfg     = getSubject(subject);
   const isOrtho = subject === 'ortho';
 
-  // Data sets per subject
-  const questionsData = isOrtho ? orthoQuestionsData : microQuestionsData;
-  const tasksData     = isOrtho ? orthoTasksData     : microTasksData;
-  const testsData     = isOrtho ? orthoTestsData     : microTestsData;
+  // Данные предмета: ortho/micro импортированы статически, остальные грузятся
+  // с сервера. Раньше для любого не-ortho брались данные микробиологии —
+  // отсюда неверная статистика у биологии и прочих предметов.
+  const STATIC_DATA: Record<string, { q: any[]; t: any[]; ts: any[] }> = {
+    ortho: { q: orthoQuestionsData, t: orthoTasksData, ts: orthoTestsData },
+    micro: { q: microQuestionsData, t: microTasksData, ts: microTestsData },
+  };
+
+  const [counts, setCounts] = useState<{ q: number; t: number; ts: number }>(() => {
+    const s = STATIC_DATA[subject];
+    return s ? { q: s.q.length, t: s.t.length, ts: s.ts.length } : { q: 0, t: 0, ts: 0 };
+  });
+
+  useEffect(() => {
+    const s = STATIC_DATA[subject];
+    if (s) { setCounts({ q: s.q.length, t: s.t.length, ts: s.ts.length }); return; }
+    // Динамический предмет — считаем количества по реальным JSON через API
+    let cancelled = false;
+    const tgId    = localStorage.getItem('user_tg_id') || '';
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    setCounts({ q: 0, t: 0, ts: 0 });
+    Promise.all((['questions', 'tasks', 'tests'] as const).map(type =>
+      fetch('/api/subject-data', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject, type, telegramId: tgId, initData: initDat }),
+      })
+        .then(r => (r.ok ? r.json() : { data: [] }))
+        .then(d => (Array.isArray(d.data) ? d.data.length : 0))
+        .catch(() => 0)
+    )).then(([q, t, ts]) => { if (!cancelled) setCounts({ q, t, ts }); });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject]);
 
   // ─── 1. МАРШРУТИЗАТОР БИЛЕТОВ (ДИНАМИЧЕСКИЙ ВЫБОР) ───
   const getTicketsForSubject = (subjId: string) => {
@@ -272,11 +301,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   const reloadExamHistory = () => setExamHistory(loadExamHistory(subject));
   useEffect(() => { reloadExamHistory(); /* eslint-disable-next-line */ }, [subject]);
 
-  const total = {
-    q:  questionsData.length,
-    t:  tasksData.length,
-    ts: testsData.length,
-  };
+  const total = counts;
 
   // ── Theme ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -318,8 +343,9 @@ export const StatsTab: React.FC<StatsTabProps> = ({
     const onVisible = () => { if (document.visibilityState === 'visible') loadStats(); };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
+  // total.ts — чтобы пересчитать кламп после асинхронной загрузки количеств
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subject]);
+  }, [subject, total.ts]);
 
   const pct = {
     q:  total.q  ? (studiedCount       / total.q)  * 100 : 0,
