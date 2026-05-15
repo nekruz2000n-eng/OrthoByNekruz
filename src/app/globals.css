@@ -4,146 +4,154 @@
 
 @layer base {
   /* ═══════════════════════════════════════════════════
-     СВЕТЛАЯ ТЕМА — тёплая бумага (warm paper)
+     СВЕТЛАЯ ТЕМА — «warm paper» (палитра дизайнера)
      ═══════════════════════════════════════════════════ */
   :root {
-    --background:         45 20% 96%;
-    --foreground:         222 15% 15%;
+    --background:         42 31% 94%;
+    --foreground:         219 22% 15%;
     --card:               0 0% 100%;
-    --card-foreground:    222 22% 13%;
-    --popover:            42 20% 88%;
-    --popover-foreground: 222 22% 13%;
-    --primary:            142 55% 36%;
+    --card-foreground:    219 22% 15%;
+    --popover:            44 31% 90%;
+    --popover-foreground: 219 22% 15%;
+    --primary:            140 61% 41%;
     --primary-foreground: 0 0% 100%;
-    --secondary:          42 15% 83%;
-    --secondary-foreground: 222 22% 13%;
-    --muted:              42 15% 85%;
-    --muted-foreground:   220 10% 46%;
-    --accent:             142 55% 36%;
+    --secondary:          44 40% 91%;
+    --secondary-foreground: 219 22% 15%;
+    --muted:              44 31% 90%;
+    --muted-foreground:   220 9% 46%;
+    --accent:             140 61% 41%;
     --accent-foreground:  0 0% 100%;
-    --destructive:        0 80% 52%;
+    --destructive:        355 78% 56%;
     --destructive-foreground: 0 0% 100%;
-    --border:             220 15% 90%;
-    --input:              42 14% 74%;
-    --ring:               142 55% 36%;
+    --border:             228 9% 90%;
+    --input:              43 21% 80%;
+    --ring:               140 61% 41%;
     --radius:             0.75rem;
 
-    /* ─────────────────────────────────────────────────
-       СЕМАНТИЧЕСКИЕ ТОКЕНЫ.
-       Ленивые вычисления через var() — меняются
-       автоматически когда переключается .dark / .bright
-       ───────────────────────────────────────────────── */
-    --c-bg:          hsl(var(--background));
-    --c-card:        hsl(var(--card));
-    --c-border:      hsl(var(--border));
-    --c-text:        hsl(var(--foreground));
-    --c-muted:       hsl(var(--muted-foreground));
-    --c-primary:     hsl(var(--primary));
-    --c-primary-dim: hsl(var(--primary) / 0.12);
-    --c-primary-br:  hsl(var(--primary) / 0.28);
-    --c-primary-glo: hsl(var(--primary) / 0.06);
-    --c-amber:       hsl(38 78% 44%);
-    --c-amber-dim:   hsl(38 78% 44% / 0.1);
-    --c-amber-br:    hsl(38 78% 44% / 0.25);
-    /* Навигация — темнее фона чтобы выделялась */
-   /* Light Mode */
-[data-theme='light'] {
---c-nav-bg:     hsl(0, 0%, 100%, 0.85);   /* Белое стекло */
-    --c-nav-border:  hsl(210, 20%, 90%);      /* Едва заметная линия */
-    --c-nav-text:    hsl(215, 25%, 45%);      /* Спокойный серый */
-    --c-nav-active:  hsl(142, 76%, 36%);      /* Фирменный зеленый */
-    --c-nav-blur:    blur(12px);
-    --c-nav-shadow:  0 -4px 12px rgba(0, 0, 0, 0.05);
+    /* доп. палитра дизайнера (per-theme) */
+    --bg-subtle:      44 31% 90%;
+    --surface-alt:    44 52% 96%;
+    --border-strong:  43 21% 80%;
+    --text-faint:     43 9% 56%;
+    --chip:           44 40% 91%;
+    --primary-soft:   133 39% 90%;
+    --primary-strong: 139 59% 30%;
+    --amber:          39 82% 43%;
+    --info:           219 55% 46%;
 
-}
+    /* навигация */
+    --c-nav-bg:     hsl(0 0% 100% / 0.85);
+    --c-nav-border: hsl(var(--border));
 
     /* ─────────────────────────────────────────────────
-       SAFE AREAS — напрямую из Telegram CSS-переменных.
-       Telegram SDK автоматически инжектирует:
-         --tg-safe-area-inset-top        (системная строка)
-         --tg-safe-area-inset-bottom
-         --tg-content-safe-area-inset-top (шапка мини-апп)
-       Используем их прямо здесь — никакого JS,
-       никаких гонок при рефреше страницы.
+       СЕМАНТИЧЕСКИЕ ТОКЕНЫ — ленивые var(), меняются
+       автоматически при переключении .dark / .dark.bright
        ───────────────────────────────────────────────── */
-    /* Safe areas are written by JS (initTelegramApp)
-       via document.documentElement.style.setProperty.
-       Fallback values for non-Telegram environments: */
-    /* Дефолты для Fullsize-режима (JS перезаписывает при старте) */
+    --c-bg:            hsl(var(--background));
+    --c-bg-subtle:     hsl(var(--bg-subtle));
+    --c-card:          hsl(var(--card));
+    --c-surface-alt:   hsl(var(--surface-alt));
+    --c-border:        hsl(var(--border));
+    --c-border-strong: hsl(var(--border-strong));
+    --c-text:          hsl(var(--foreground));
+    --c-muted:         hsl(var(--muted-foreground));
+    --c-text-faint:    hsl(var(--text-faint));
+    --c-chip:          hsl(var(--chip));
+    --c-primary:       hsl(var(--primary));
+    --c-primary-soft:  hsl(var(--primary-soft));
+    --c-primary-strong:hsl(var(--primary-strong));
+    --c-primary-dim:   hsl(var(--primary) / 0.12);
+    --c-primary-br:    hsl(var(--primary) / 0.28);
+    --c-primary-glo:   hsl(var(--primary) / 0.06);
+    --c-amber:         hsl(var(--amber));
+    --c-amber-dim:     hsl(var(--amber) / 0.12);
+    --c-amber-br:      hsl(var(--amber) / 0.28);
+    --c-amber-soft:    hsl(var(--amber) / 0.14);
+    --c-danger:        hsl(var(--destructive));
+    --c-danger-soft:   hsl(var(--destructive) / 0.14);
+    --c-info:          hsl(var(--info));
+    --c-info-soft:     hsl(var(--info) / 0.14);
+
+    /* SAFE AREAS — дефолты для Fullsize-режима (JS перезаписывает) */
     --header-pt:  65px;
     --scroll-pb:  84px;
     --nav-bottom: 0px;
   }
 
   /* ═══════════════════════════════════════════════════
-     ТЁМНАЯ ТЕМА — нейтральный тёмный (для чтения)
+     ТЁМНАЯ ТЕМА — нейтральный тёмный (палитра дизайнера)
      ═══════════════════════════════════════════════════ */
   .dark {
-    --background:         222 10% 10%;
-    --foreground:         210 10% 85%;
-    --card:               222 10% 14%;
-    --card-foreground:    210 15% 88%;
-    --popover:            223 15% 11%;
-    --popover-foreground: 210 15% 88%;
-    --primary:            142 65% 48%;
-    --primary-foreground: 223 18% 5%;
-    --secondary:          223 12% 15%;
-    --secondary-foreground: 210 15% 88%;
-    --muted:              223 12% 13%;
-    --muted-foreground:   215 10% 52%;
-    --accent:             142 65% 48%;
-    --accent-foreground:  223 18% 5%;
-    --destructive:        0 72% 52%;
+    --background:         218 15% 10%;
+    --foreground:         222 14% 86%;
+    --card:               220 16% 15%;
+    --card-foreground:    222 14% 86%;
+    --popover:            218 17% 13%;
+    --popover-foreground: 222 14% 86%;
+    --primary:            138 61% 53%;
+    --primary-foreground: 218 25% 6%;
+    --secondary:          219 16% 18%;
+    --secondary-foreground: 222 14% 86%;
+    --muted:              218 17% 13%;
+    --muted-foreground:   219 8% 53%;
+    --accent:             138 61% 53%;
+    --accent-foreground:  218 25% 6%;
+    --destructive:        0 77% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border:             215 15% 20%;
-    --input:              223 14% 17%;
-    --ring:               142 65% 48%;
-    /* Навигация — заметно светлее тёмного фона */
-    /* Dark Mode */
-[data-theme='dark'] {
- --c-nav-bg:     hsl(220, 21%, 10%, 0.8);  /* Темное стекло */
-    --c-nav-border:  hsl(220, 20%, 20%);      /* Темная граница */
-    --c-nav-text:    hsl(210, 15%, 70%);      /* Светло-серый текст */
-    --c-nav-active:  hsl(142, 70%, 55%);      /* Яркий изумруд */
-    --c-nav-blur:    blur(15px);
-    --c-nav-shadow:  0 -8px 24px rgba(0, 0, 0, 0.3);}
+    --border:             219 16% 21%;
+    --input:              219 16% 18%;
+    --ring:               138 61% 53%;
+
+    --bg-subtle:      218 17% 13%;
+    --surface-alt:    219 16% 18%;
+    --border-strong:  219 14% 27%;
+    --text-faint:     221 11% 40%;
+    --chip:           219 16% 18%;
+    --primary-soft:   145 26% 16%;
+    --primary-strong: 138 69% 63%;
+    --amber:          40 68% 64%;
+    --info:           216 81% 68%;
+
+    --c-nav-bg:     hsl(220 16% 15% / 0.85);
+    --c-nav-border: hsl(var(--border));
   }
 
   /* ═══════════════════════════════════════════════════
-     ЯРКАЯ ТЕМА — AMOLED высокий контраст
+     ЯРКАЯ ТЕМА — AMOLED, cyan-акцент (палитра дизайнера)
      ═══════════════════════════════════════════════════ */
   .dark.bright {
-    --background:        0 0% 0%;
+    --background:         0 0% 0%;
     --foreground:         0 0% 97%;
-    --card:               220 15% 7%;
+    --card:               220 17% 7%;
     --card-foreground:    0 0% 97%;
-    --popover:            228 22% 8%;
+    --popover:            222 33% 6%;
     --popover-foreground: 0 0% 97%;
-    --primary:            180 70% 45%;
-    --primary-foreground: 228 25% 4%;
-    --secondary:          228 20% 12%;
+    --primary:            185 69% 49%;
+    --primary-foreground: 220 25% 4%;
+    --secondary:          216 19% 10%;
     --secondary-foreground: 0 0% 97%;
-    --muted:              228 20% 10%;
-    --muted-foreground:   215 8% 58%;
-    --accent:             142 78% 54%;
-    --accent-foreground:  228 25% 4%;
-    --destructive:        0 80% 55%;
+    --muted:              220 19% 9%;
+    --muted-foreground:   218 7% 56%;
+    --accent:             185 69% 49%;
+    --accent-foreground:  220 25% 4%;
+    --destructive:        0 86% 64%;
     --destructive-foreground: 0 0% 100%;
-    --border:             220 15% 15%;
-    --input:              228 20% 14%;
-    --ring:               142 78% 54%;
-    --c-amber:     hsl(38 90% 52%);
-    --c-amber-dim: hsl(38 90% 52% / 0.12);
-    --c-amber-br:  hsl(38 90% 52% / 0.28);
-    /* Навигация — заметно светлее AMOLED фона */
-   /* Accent Mode */
-[data-theme='vivid'] {
- --c-nav-bg:     hsl(222, 47%, 12%);       /* Глубокий синий (Deep Space) */
-    --c-nav-border:  hsl(217, 33%, 25%);      /* Синеватая граница */
-    --c-nav-text:    hsl(213, 27%, 80%);      /* Голубоватый текст */
-    --c-nav-active:  hsl(199, 89%, 48%);      /* Электрический голубой */
-    --c-nav-blur:    none;                    /* В яркой теме лучше четкий фон */
-    --c-nav-shadow:  0 -4px 20px rgba(14, 165, 233, 0.15); /* Цветное свечение */}
+    --border:             217 17% 15%;
+    --input:              216 19% 10%;
+    --ring:               185 69% 49%;
+
+    --bg-subtle:      222 33% 6%;
+    --surface-alt:    220 19% 9%;
+    --border-strong:  219 16% 21%;
+    --text-faint:     221 11% 40%;
+    --chip:           216 19% 10%;
+    --primary-soft:   187 46% 11%;
+    --primary-strong: 184 77% 61%;
+    --amber:          37 91% 55%;
+    --info:           216 81% 68%;
+
+    --c-nav-bg:     hsl(220 17% 7% / 0.92);
+    --c-nav-border: hsl(var(--border));
   }
 }
 
@@ -158,16 +166,11 @@
     position: fixed;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
-    /* Запрет резиновой прокрутки на уровне браузера */
     overscroll-behavior: none;
     overscroll-behavior-y: none;
-    /* touch-action: pan-x — браузер не обрабатывает
-       вертикальные жесты как scroll/pull-to-close на уровне html/body */
     touch-action: pan-x;
   }
 
-  /* Внутри скролл-контейнеров разрешаем вертикальный скролл,
-     но overscroll (bounce/close) по-прежнему заблокирован */
   .scroll-container {
     touch-action: pan-y;
     overscroll-behavior-y: contain;
@@ -177,19 +180,16 @@
 .glass-card {
   background: var(--c-card);
   border: 1px solid var(--c-border);
-  /* Добавляем мягкую тень для светлой темы */
   box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
   border-radius: var(--radius);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Эффект при клике на вопрос — современно и приятно */
 .glass-card:active {
   transform: scale(0.98);
   opacity: 0.9;
 }
 
-/* В темной теме тени не работают, там лучше оставить только границу */
 .dark .glass-card {
   box-shadow: none;
 }
@@ -199,7 +199,6 @@
 .scroll-container {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  /* touch-action и overscroll уже заданы в @layer base выше */
 }
 
 ::-webkit-scrollbar { width: 3px; }
@@ -227,11 +226,10 @@
 img {
   -webkit-user-drag: none;
   user-select: none;
-  -webkit-touch-callout: none;   /* ← блокирует iOS-меню при долгом нажатии */
-  pointer-events: none;          /* ← блокирует нативный клик по img */
+  -webkit-touch-callout: none;
+  pointer-events: none;
 }
 
-/* Обёртки картинок должны перехватывать клики вместо самого img */
 .img-protected-wrapper {
   -webkit-touch-callout: none;
   user-select: none;
