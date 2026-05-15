@@ -113,12 +113,22 @@ export default function Home() {
   // Хуки состояния теперь находятся на верхнем уровне компонента — там, где и должны быть
   const [subject,         setSubject]         = useState<string>(getDefaultSubjectId());
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+  const [navHidden, setNavHidden] = useState<Record<string, string[]>>({});
   const [showSubjectSelect, setShowSubjectSelect] = useState<boolean>(false);
   const [hasMicro,        setHasMicro]        = useState<boolean>(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading,       setIsLoading]       = useState<boolean>(true);
   const [activeTab,       setActiveTab]       = useState<TabType>('questions');
   const { toast }    = useToast();
+
+  // Если активный таб админ скрыл — переключаем на первый доступный
+  useEffect(() => {
+    const hidden = navHidden[subject] || [];
+    if (!hidden.includes(activeTab)) return;
+    const order: TabType[] = ['questions', 'tests', 'tasks', 'stats'];
+    const next = order.find(t => !hidden.includes(t));
+    if (next) setActiveTab(next);
+  }, [subject, navHidden, activeTab]);
   
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -221,6 +231,7 @@ export default function Home() {
         const list: string[] = Array.isArray(d.subjects) ? d.subjects : [];
         setAvailableSubjects(list);
         setHasMicro(list.includes('micro'));
+        setNavHidden(d.navHidden && typeof d.navHidden === 'object' ? d.navHidden : {});
         localStorage.setItem('available_subjects', JSON.stringify(list));
         // Legacy: для совместимости
         if (list.includes('micro')) localStorage.setItem('has_micro', 'true');
@@ -372,7 +383,11 @@ export default function Home() {
           />
         )}
       </div>
-      <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+      <Navigation
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        hiddenTabs={(navHidden[subject] || []) as TabType[]}
+      />
     </main>
   );
 }

@@ -19,6 +19,7 @@ interface User {
   opensToday:    number;
   fpChanges:     number;
   suspicious:    boolean;
+  navHidden:     Record<string, string[]>;
 }
 
 interface SubjectInfo {
@@ -29,7 +30,14 @@ interface SubjectInfo {
 }
 
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo';
-type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject';
+type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject' | 'toggle_section';
+
+const NAV_SECTIONS: { id: string; label: string }[] = [
+  { id: 'questions', label: 'Вопросы'    },
+  { id: 'tests',     label: 'Тесты'      },
+  { id: 'tasks',     label: 'Задачи'     },
+  { id: 'stats',     label: 'Статистика' },
+];
 
 // ── Палитра (Paper) ───────────────────────────────────────────────────────────
 const T = {
@@ -217,7 +225,7 @@ function UserCard({
 }: {
   user: User;
   actioning: string | null;
-  onAction: (tgId: string, action: Action, subjectId?: string, enabled?: boolean, reason?: string) => void;
+  onAction: (tgId: string, action: Action, subjectId?: string, enabled?: boolean, reason?: string, section?: string) => void;
   expanded: boolean;
   onToggle: () => void;
   availableSubjects: SubjectInfo[];
@@ -437,6 +445,67 @@ function UserCard({
               })}
             </div>
           </div>
+
+          {/* разделы навигации (per-subject, только для доступных предметов) */}
+          {user.subjects.length > 0 && (
+            <div>
+              <div style={{
+                fontSize: 11, color: T.textMuted, fontWeight: 600,
+                textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8,
+              }}>Разделы навигации</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {availableSubjects
+                  .filter(s => user.subjects.includes(s.id))
+                  .map(subj => {
+                    const hidden = new Set<string>(user.navHidden?.[subj.id] || []);
+                    return (
+                      <div key={subj.id} style={{
+                        background: T.surface, border: `1px solid ${T.border}`,
+                        borderRadius: 10, padding: '8px 10px',
+                      }}>
+                        <div style={{
+                          fontSize: 12, fontWeight: 600, color: T.text,
+                          marginBottom: 6,
+                        }}>{subj.shortLabel}</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {NAV_SECTIONS.map(sec => {
+                            const enabled = !hidden.has(sec.id);
+                            return (
+                              <button
+                                key={sec.id}
+                                onClick={() => onAction(user.tgId, 'toggle_section', subj.id, !enabled, undefined, sec.id)}
+                                disabled={busy}
+                                style={{
+                                  padding: '5px 10px', borderRadius: 8,
+                                  fontSize: 12, fontWeight: 600,
+                                  border: `1px solid ${enabled ? T.accent + '55' : T.border}`,
+                                  background: enabled ? T.accentSoft : T.surfaceAlt,
+                                  color: enabled ? T.accent : T.textFaint,
+                                  cursor: busy ? 'default' : 'pointer',
+                                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                                  fontFamily: FONT_SANS, opacity: busy ? 0.6 : 1,
+                                  textDecoration: enabled ? 'none' : 'line-through',
+                                  WebkitTapHighlightColor: 'transparent',
+                                }}
+                              >
+                                <span style={{
+                                  width: 12, height: 12, borderRadius: 3,
+                                  background: enabled ? T.accent : T.chipBg,
+                                  color: '#fff', fontSize: 9, fontWeight: 700,
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  lineHeight: 1,
+                                }}>{enabled ? '✓' : ''}</span>
+                                {sec.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
 
           {/* действия */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -753,6 +822,7 @@ export default function AdminPage() {
     subjectId?: string,
     enabled?: boolean,
     reason?: string,
+    section?: string,
   ) => {
     const initData = getTelegramInitData();
     if (!initData) { showToast('Нет доступа: не в Telegram'); return; }
@@ -762,6 +832,11 @@ export default function AdminPage() {
       const body: Record<string, unknown> = { secret, initData, action, tgId };
       if (action === 'toggle_subject' && subjectId !== undefined) {
         body.subject = subjectId;
+        body.enable  = enabled;
+      }
+      if (action === 'toggle_section' && subjectId !== undefined && section !== undefined) {
+        body.subject = subjectId;
+        body.section = section;
         body.enable  = enabled;
       }
       if (action === 'block' && reason) {
@@ -792,6 +867,15 @@ export default function AdminPage() {
               : u.subjects.filter(s => s !== subjectId);
             return { ...u, subjects: newSubjects, hasMicro: newSubjects.includes('micro') };
           }
+          case 'toggle_section': {
+            if (!subjectId || !section) return u;
+            const navHidden = { ...(u.navHidden || {}) };
+            const set = new Set<string>(navHidden[subjectId] || []);
+            if (enabled) set.delete(section); else set.add(section);
+            if (set.size === 0) delete navHidden[subjectId];
+            else navHidden[subjectId] = [...set];
+            return { ...u, navHidden };
+          }
           default:
             return u;
         }
@@ -808,6 +892,13 @@ export default function AdminPage() {
           const subj  = availableSubjects.find(s => s.id === subjectId);
           const label = subj?.shortLabel || subjectId;
           msg = enabled ? `✓ ${label} выдано` : `${label} отозвано`;
+          break;
+        }
+        case 'toggle_section': {
+          const sectionLabel = NAV_SECTIONS.find(s => s.id === section)?.label || section;
+          const subj  = availableSubjects.find(s => s.id === subjectId);
+          const subjLabel = subj?.shortLabel || subjectId;
+          msg = enabled ? `✓ «${sectionLabel}» включён в ${subjLabel}` : `«${sectionLabel}» скрыт в ${subjLabel}`;
           break;
         }
       }

@@ -73,7 +73,7 @@ function ensureSubjects(user: any): any {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { initData, secret, action, tgId, subject, enable, reason } = req.body ?? {};
+  const { initData, secret, action, tgId, subject, enable, reason, section } = req.body ?? {};
 
   // ── Двойная защита: initData + ADMIN_TG_ID + ADMIN_SECRET ───────────────
   if (!initData || !secret || !verifyAdmin(String(initData), String(secret))) {
@@ -188,6 +188,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ ok: true });
       }
 
+      // Включить/выключить раздел навигации (questions/tests/tasks/stats) у конкретного юзера в конкретном предмете
+      if (action === 'toggle_section') {
+        const subjectId = String(subject || '').trim();
+        const sectionId = String(section || '').trim();
+        const enabled   = enable === true || enable === 'true' || enable === '1';
+        const ALLOWED_SECTIONS = ['questions', 'tests', 'tasks', 'stats'];
+        if (!subjectId || !ALLOWED_SECTIONS.includes(sectionId)) {
+          return res.status(400).json({ error: 'Bad subject/section' });
+        }
+        const navHidden: Record<string, string[]> = { ...(user.navHidden || {}) };
+        const set = new Set<string>(navHidden[subjectId] || []);
+        if (enabled) set.delete(sectionId); else set.add(sectionId);
+        if (set.size === 0) delete navHidden[subjectId]; else navHidden[subjectId] = [...set];
+        await redis.set(`user_id:${tgId}`, { ...user, navHidden });
+        return res.status(200).json({ ok: true, navHidden });
+      }
+
       return res.status(400).json({ error: 'Unknown action' });
     }
 
@@ -256,6 +273,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         opensToday:    opens,
         fpChanges,
         suspicious,
+        navHidden:     (user.navHidden && typeof user.navHidden === 'object') ? user.navHidden : {},
       };
     });
 

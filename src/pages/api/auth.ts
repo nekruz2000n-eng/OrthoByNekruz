@@ -245,7 +245,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ── ПРОВЕРКА ДОСТУПНЫХ ДИСЦИПЛИН (новый режим) ──
     if (mode === 'check_subjects') {
       const userSubjects = getUserAvailableSubjects(user);
-      return res.status(200).json({ subjects: userSubjects });
+      // navHidden: { [subjectId]: ['stats', 'tasks', ...] } — какие табы скрыты для этого юзера
+      const navHidden = (user && (user as any).navHidden && typeof (user as any).navHidden === 'object')
+        ? (user as any).navHidden as Record<string, string[]>
+        : {};
+      return res.status(200).json({ subjects: userSubjects, navHidden });
     }
 
     // ── ОБЩАЯ АВТОРИЗАЦИЯ ──

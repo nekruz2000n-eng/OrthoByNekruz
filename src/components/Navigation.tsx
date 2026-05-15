@@ -9,16 +9,22 @@ export type TabType = 'questions' | 'tests' | 'tasks' | 'stats';
 interface NavigationProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
+  /** ID табов, которые надо скрыть (управляется из админки per-user per-subject) */
+  hiddenTabs?: TabType[];
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }) => {
-  
-  const tabs = [
+export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange, hiddenTabs }) => {
+
+  const allTabs = [
     { id: 'questions', label: 'Вопросы',    icon: BookOpen      },
     { id: 'tests',     label: 'Тесты',      icon: ClipboardList },
     { id: 'tasks',     label: 'Задачи',     icon: PenTool       },
     { id: 'stats',     label: 'Статистика', icon: BarChart3     },
   ];
+  const tabs = hiddenTabs && hiddenTabs.length
+    ? allTabs.filter(t => !hiddenTabs.includes(t.id as TabType))
+    : allTabs;
+  if (tabs.length === 0) return null; // все скрыты — навигацию не показываем
 
   return (
     <div
