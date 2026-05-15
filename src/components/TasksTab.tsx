@@ -112,14 +112,22 @@ export const TasksTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
   };
 
   // ── Форматирование текста с жирным ────────────────────────────────────────
+  // Курсив по _подчёркиваниям_ внутри текстового фрагмента
+  const renderItalic = (s: string, keyPrefix: string) =>
+    s.split('_').map((seg, k) =>
+      k % 2 === 1
+        ? <i key={`${keyPrefix}-i${k}`}>{seg}</i>
+        : <React.Fragment key={`${keyPrefix}-t${k}`}>{seg}</React.Fragment>
+    );
+
   const formatText = (text: string) => (
     <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
       {text.split('\n').map((line, i) => (
         <p key={i} className="mb-1 last:mb-0">
           {line.split('**').map((part, j) =>
             j % 2 === 1
-              ? <b key={j} style={{ color: 'var(--c-amber)', fontWeight: 600 }}>{part}</b>
-              : part
+              ? <b key={j} style={{ color: 'var(--c-amber)', fontWeight: 600 }}>{renderItalic(part, `b${i}-${j}`)}</b>
+              : <React.Fragment key={j}>{renderItalic(part, `t${i}-${j}`)}</React.Fragment>
           )}
         </p>
       ))}
