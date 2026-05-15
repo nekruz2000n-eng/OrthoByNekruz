@@ -53,6 +53,7 @@
     --c-surface-alt:   hsl(var(--surface-alt));
     --c-border:        hsl(var(--border));
     --c-border-strong: hsl(var(--border-strong));
+    --c-input:         hsl(var(--input));
     --c-text:          hsl(var(--foreground));
     --c-muted:         hsl(var(--muted-foreground));
     --c-text-faint:    hsl(var(--text-faint));
