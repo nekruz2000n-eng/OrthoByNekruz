@@ -222,12 +222,15 @@ interface StatsTabProps {
   hasMicro?:         boolean;
   onMicroUnlocked?:  () => void;
   availableSubjects?: string[];
+  /** Скрыть блок «Проверка готовности» (управляется из админки per-user) */
+  examHidden?:       boolean;
 }
 
 export const StatsTab: React.FC<StatsTabProps> = ({
   subject, onSubjectChange,
   hasMicro = false, onMicroUnlocked,
   availableSubjects,
+  examHidden = false,
 }) => {
   const cfg     = getSubject(subject);
   const isOrtho = subject === 'ortho';
@@ -502,7 +505,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             </div>
 
             {/* ── EXAM CTA + ИСТОРИЯ ПОПЫТОК ── */}
-            {(() => {
+            {!examHidden && (() => {
               const lastTry  = examHistory[examHistory.length - 1];
               const bestPct  = examHistory.length
                 ? Math.max(...examHistory.map(h => Math.round((h.score / h.total) * 100)))

@@ -32,11 +32,13 @@ interface SubjectInfo {
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo';
 type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject' | 'toggle_section';
 
+// Управляемые из админки разделы. Сам раздел «Статистика» не выключается
+// (там прогресс юзера), но внутри него можно скрыть блок «Проверка готовности».
 const NAV_SECTIONS: { id: string; label: string }[] = [
-  { id: 'questions', label: 'Вопросы'    },
-  { id: 'tests',     label: 'Тесты'      },
-  { id: 'tasks',     label: 'Задачи'     },
-  { id: 'stats',     label: 'Статистика' },
+  { id: 'questions', label: 'Вопросы'            },
+  { id: 'tests',     label: 'Тесты'              },
+  { id: 'tasks',     label: 'Задачи'             },
+  { id: 'exam',      label: 'Проверка готовности' },
 ];
 
 // ── Палитра (Paper) ───────────────────────────────────────────────────────────
