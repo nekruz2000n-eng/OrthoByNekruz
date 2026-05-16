@@ -119,6 +119,7 @@ export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading,       setIsLoading]       = useState<boolean>(true);
   const [activeTab,       setActiveTab]       = useState<TabType>('questions');
+  const [testMode,        setTestMode]        = useState<boolean>(false);
   const { toast }    = useToast();
 
   // Если активный таб админ скрыл — переключаем на первый доступный
@@ -368,7 +369,7 @@ export default function Home() {
     <main className="flex flex-col h-[100dvh] w-full relative overflow-hidden">
       <div className="flex-1 overflow-hidden relative">
         {activeTab === 'questions' && <QuestionsTab subject={subject} />}
-        {activeTab === 'tests'     && <TestsTab     subject={subject} />}
+        {activeTab === 'tests'     && <TestsTab     subject={subject} onTestModeChange={setTestMode} />}
         {activeTab === 'tasks'     && <TasksTab     subject={subject} onSecretTap={handleSecretTap} />}
         {activeTab === 'stats'     && (
           <StatsTab
@@ -384,11 +385,14 @@ export default function Home() {
           />
         )}
       </div>
-      <Navigation
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        hiddenTabs={(navHidden[subject] || []) as TabType[]}
-      />
+      {/* В режиме решения теста навигация скрыта — она перекрывала панель тогглов */}
+      {!testMode && (
+        <Navigation
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          hiddenTabs={(navHidden[subject] || []) as TabType[]}
+        />
+      )}
     </main>
   );
 }

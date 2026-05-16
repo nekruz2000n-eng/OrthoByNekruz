@@ -31,7 +31,16 @@ interface MistakeRecord {
 const LETTERS = ['А', 'Б', 'В', 'Г', 'Д', 'Е'];
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
+export const TestsTab = ({
+  onSecretTap,
+  subject = 'ortho',
+  onTestModeChange,
+}: {
+  onSecretTap?: () => void;
+  subject?: SubjectType;
+  /** Сообщает родителю, что открыт блок теста (чтобы скрыть навигацию) */
+  onTestModeChange?: (active: boolean) => void;
+}) => {
   const cfg          = getSubject(subject);
   const accentColor  = cfg?.color || 'var(--c-primary)';
   const lsScores     = subject === 'ortho' ? 'test_block_scores'    : `${cfg?.lsPrefix || subject}_test_block_scores`;
@@ -87,6 +96,12 @@ export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
       .finally(() => { if (!cancelled) setMicroLoading(false); });
     return () => { cancelled = true; };
   }, [subject]);
+
+  // Сообщаем родителю про режим теста (открыт блок) — чтобы скрыть навигацию.
+  useEffect(() => {
+    onTestModeChange?.(selectedBlock !== null);
+    return () => onTestModeChange?.(false);
+  }, [selectedBlock, onTestModeChange]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const TESTS_PER_BLOCK = 20;
@@ -543,7 +558,7 @@ export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
           background: 'color-mix(in srgb, var(--c-bg) 95%, transparent)',
           backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
           borderBottom: '1px solid var(--c-border)',
-          paddingTop: 'calc(var(--header-pt) - 24px)',
+          paddingTop: 'var(--header-pt)',
         }}>
         <button onClick={() => { resetTest(); setSelectedBlock(null); }}
           className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 active:scale-95"
@@ -659,31 +674,40 @@ export const TestsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () 
         </div>
       </ScrollArea>
 
-      {/* Нижние тогглы */}
-      <div className="flex-shrink-0 px-4 flex gap-2"
+      {/* Нижняя панель: тогглы + выход */}
+      <div className="flex-shrink-0 px-4 flex flex-col gap-2"
         style={{
           background: 'var(--c-card)', borderTop: '1px solid var(--c-border)',
-          paddingTop: 10, paddingBottom: 'calc(var(--nav-bottom, 12px) + 14px)',
+          paddingTop: 10, paddingBottom: 'calc(var(--nav-bottom, 12px) + 16px)',
         }}>
-        {([
-          { on: autoNext,       label: 'Авто-переход', Icon: Zap,     toggle: () => setAutoNext(v => !v),                       disabled: false },
-          { on: shuffleOptions, label: 'Перемешать',   Icon: Shuffle, toggle: () => { if (!showResult) setShuffleOptions(v => !v); }, disabled: showResult },
-        ]).map(t => (
-          <button key={t.label} onClick={t.toggle} disabled={t.disabled}
-            className="flex-1 h-10 rounded-[10px] inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold transition-all active:scale-95 disabled:opacity-40"
-            style={t.on
-              ? { background: 'var(--c-primary-dim)', border: '1px solid var(--c-primary-br)', color: 'var(--c-primary)' }
-              : { background: 'var(--c-bg-subtle)',   border: '1px solid var(--c-border)',     color: 'var(--c-muted)' }}>
-            <t.Icon className="w-3 h-3" />
-            {t.label}
-            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ml-0.5"
+        <div className="flex gap-2">
+          {([
+            { on: autoNext,       label: 'Авто-переход', Icon: Zap,     toggle: () => setAutoNext(v => !v),                            disabled: false },
+            { on: shuffleOptions, label: 'Перемешать',   Icon: Shuffle, toggle: () => { if (!showResult) setShuffleOptions(v => !v); }, disabled: showResult },
+          ]).map(t => (
+            <button key={t.label} onClick={t.toggle} disabled={t.disabled}
+              className="flex-1 h-10 rounded-[10px] inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold transition-all active:scale-95 disabled:opacity-40"
               style={t.on
-                ? { background: 'color-mix(in srgb, var(--c-primary) 25%, transparent)', color: 'var(--c-primary)' }
-                : { background: 'var(--c-chip)', color: 'var(--c-text-faint)' }}>
-              {t.on ? 'ВКЛ' : 'ВЫК'}
-            </span>
-          </button>
-        ))}
+                ? { background: 'var(--c-primary-dim)', border: '1px solid var(--c-primary-br)', color: 'var(--c-primary)' }
+                : { background: 'var(--c-bg-subtle)',   border: '1px solid var(--c-border)',     color: 'var(--c-muted)' }}>
+              <t.Icon className="w-3 h-3" />
+              {t.label}
+              <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ml-0.5"
+                style={t.on
+                  ? { background: 'color-mix(in srgb, var(--c-primary) 25%, transparent)', color: 'var(--c-primary)' }
+                  : { background: 'var(--c-chip)', color: 'var(--c-text-faint)' }}>
+                {t.on ? 'ВКЛ' : 'ВЫК'}
+              </span>
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => { resetTest(); setSelectedBlock(null); }}
+          className="h-10 rounded-[10px] inline-flex items-center justify-center gap-2 text-[12.5px] font-bold transition-all active:scale-95"
+          style={{ background: 'var(--c-danger-soft)', border: '1px solid color-mix(in srgb, var(--c-danger) 33%, transparent)', color: 'var(--c-danger)' }}
+        >
+          <ChevronLeft className="w-3.5 h-3.5" /> Выйти из теста
+        </button>
       </div>
     </div>
   );
