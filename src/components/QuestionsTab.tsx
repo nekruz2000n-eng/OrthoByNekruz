@@ -327,7 +327,7 @@ const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string })
 };
 
 // ── Картинки глоссария: карусель (одна на экране + точки, листание свайпом) ──
-const GlossaryImages: React.FC<{ images: string[]; onZoom: (src: string) => void }> = ({ images, onZoom }) => {
+const GlossaryImages: React.FC<{ images: string[]; onZoom: (list: string[], idx: number) => void }> = ({ images, onZoom }) => {
   const [idx, setIdx] = useState(0);
   const startX = React.useRef(0);
   const moved  = React.useRef(false);
@@ -348,15 +348,17 @@ const GlossaryImages: React.FC<{ images: string[]; onZoom: (src: string) => void
         onTouchEnd={e => {
           const dx = e.changedTouches[0].clientX - startX.current;
           if (Math.abs(dx) > 40) {
-            // свайп — листаем
+            // свайп — листаем; preventDefault подавляет синтетический click,
+            // иначе после свайпа открылся бы зум
+            e.preventDefault();
             if (dx < 0) setIdx(i => Math.min(images.length - 1, i + 1));
             else        setIdx(i => Math.max(0, i - 1));
-          } else if (!moved.current) {
-            // тап без движения — открыть зум
-            onZoom(cur);
           }
         }}
-        onClick={e => { e.stopPropagation(); }}
+        onClick={e => {
+          e.stopPropagation();              // не закрывать тултип
+          if (!moved.current) onZoom(images, safeIdx);  // тап — открыть зум
+        }}
       >
         <CachedImage src={cur} alt="" className="w-full h-auto object-contain max-h-32" loading="lazy" draggable={false} />
       </div>
@@ -404,10 +406,17 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const [activeTermDef, setActiveTermDef] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [fontSize, setFontSize] = useState(16);
-  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  // Зум: список картинок + индекс — чтобы можно было листать в большом масштабе
+  const [zoomList, setZoomList] = useState<string[]>([]);
+  const [zoomIdx,  setZoomIdx]  = useState(0);
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const zoomImgRef = useRef<HTMLImageElement | null>(null);
+
+  const openZoom = (list: string[], idx = 0) => {
+    setZoomList(list); setZoomIdx(idx);
+    setScale(1); setTranslate({ x: 0, y: 0 });
+  };
 
   const clampZoom = (t: {x: number; y: number}, s: number) => {
     const img = zoomImgRef.current;
@@ -420,7 +429,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     };
   };
 
-  const closeZoom = () => { setZoomedImage(null); setScale(1); setTranslate({ x: 0, y: 0 }); };
+  const closeZoom = () => { setZoomList([]); setScale(1); setTranslate({ x: 0, y: 0 }); };
 
   const initialDistance = useRef<number | null>(null);
   const initialFontSize = useRef(16);
@@ -948,11 +957,12 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                 {(() => {
                   const raw = readingQuestion.images || readingQuestion.image;
                   if (!raw) return null;
-                  return (Array.isArray(raw) ? raw : [raw]).map((img: string, i: number) => (
+                  const imgArr: string[] = Array.isArray(raw) ? raw : [raw];
+                  return imgArr.map((img: string, i: number) => (
                     <div key={i}
                       className="img-protected-wrapper rounded-2xl overflow-hidden cursor-pointer relative"
                       style={{ border: '1px solid var(--c-border)' }}
-                      onClick={() => setZoomedImage(img)}
+                      onClick={() => openZoom(imgArr, i)}
                       onTouchStart={e => e.preventDefault()}
                       onContextMenu={e => e.preventDefault()}>
                       <CachedImage src={img} alt="" className="w-full h-auto object-contain max-h-80"
@@ -1039,7 +1049,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             {found?.image && (
               <GlossaryImages
                 images={Array.isArray(found.image) ? found.image : [found.image]}
-                onZoom={setZoomedImage}
+                onZoom={openZoom}
               />
             )}
             <p className="text-sm font-normal" style={{ color: 'var(--c-text)' }}>{activeTermDef}</p>
@@ -1049,7 +1059,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
       })()}
 
       {/* ── ZOOM ИЗОБРАЖЕНИЯ ─────────────────────────────────────────────── */}
-      {zoomedImage && (
+      {zoomList.length > 0 && (
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center"
           style={{
@@ -1096,6 +1106,9 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                 y: e.touches[0].clientY,
                 translate,
               };
+            } else if (e.touches.length === 1 && scale === 1 && zoomList.length > 1) {
+              // свайп для листания, когда картинка не увеличена
+              (e.currentTarget as any).__swipe = { x: e.touches[0].clientX };
             }
           }}
           onTouchMove={e => {
@@ -1124,8 +1137,17 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             }
           }}
           onTouchEnd={e => {
-            delete (e.currentTarget as any).__ps;
-            delete (e.currentTarget as any).__pan;
+            const t = e.currentTarget as any;
+            if (t.__swipe) {
+              const dx = e.changedTouches[0].clientX - t.__swipe.x;
+              if (Math.abs(dx) > 50) {
+                if (dx < 0) setZoomIdx(i => Math.min(zoomList.length - 1, i + 1));
+                else        setZoomIdx(i => Math.max(0, i - 1));
+              }
+            }
+            delete t.__ps;
+            delete t.__pan;
+            delete t.__swipe;
           }}
         >
           <div
@@ -1135,7 +1157,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
           >
             <CachedImage
               ref={zoomImgRef}
-              src={zoomedImage}
+              src={zoomList[zoomIdx]}
               alt=""
               className="object-contain rounded-2xl select-none"
               style={{
@@ -1175,10 +1197,26 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
           )}
 
           <div
-            className="fixed left-0 right-0 flex justify-center z-[201]"
+            className="fixed left-0 right-0 flex flex-col items-center gap-3 z-[201]"
             style={{ bottom: 'calc(var(--nav-bottom, 12px) + 16px)' }}
             onClick={e => e.stopPropagation()}
           >
+            {/* Точки-индикатор + стрелки (если картинок несколько) */}
+            {zoomList.length > 1 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+                style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)' }}>
+                {zoomList.map((_, i) => (
+                  <button key={i} onClick={() => { setZoomIdx(i); setScale(1); setTranslate({ x: 0, y: 0 }); }}
+                    className="rounded-full transition-all duration-200"
+                    style={{
+                      width: i === zoomIdx ? 18 : 7, height: 7,
+                      background: i === zoomIdx ? '#fff' : 'rgba(255,255,255,0.4)',
+                    }}
+                    aria-label={`Картинка ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
             <button
               onClick={closeZoom}
               className="flex items-center gap-2 px-6 h-11 rounded-full text-sm font-semibold transition-all active:scale-95 shadow-2xl"
