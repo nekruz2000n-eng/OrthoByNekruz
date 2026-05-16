@@ -94,6 +94,34 @@ function useFonts() {
   }, []);
 }
 
+// ── Хук: полноэкранный режим TG, подтверждение закрытия, запрет свайпа вниз ──
+function useTelegramFullscreen(): number {
+  const [topInset, setTopInset] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // @ts-ignore
+    const tg = window.Telegram?.WebApp;
+    if (!tg) return;
+
+    tg.expand?.();
+    tg.enableClosingConfirmation?.();
+    if (typeof tg.disableVerticalSwipes === 'function') tg.disableVerticalSwipes();
+
+    // Отступ сверху: учитываем системный safe-area + область кнопки закрытия TG
+    const safe    = (tg.safeAreaInset?.top          ?? 0) as number;
+    const content = (tg.contentSafeAreaInset?.top   ?? 0) as number;
+    setTopInset(safe + content);
+
+    return () => {
+      tg.disableClosingConfirmation?.();
+      if (typeof tg.enableVerticalSwipes === 'function') tg.enableVerticalSwipes();
+    };
+  }, []);
+
+  return topInset;
+}
+
 // ── Хук: снимает блокировку скролла из globals.css ───────────────────────────
 function useAdminScroll() {
   useEffect(() => {
@@ -740,6 +768,7 @@ function StatTile({ label, value, accent }: { label: string; value: number; acce
 export default function AdminPage() {
   useFonts();
   useAdminScroll();
+  const topInset = useTelegramFullscreen();
 
   const [secret,             setSecret]             = useState('');
   const [authed,             setAuthed]             = useState(false);
@@ -1223,7 +1252,7 @@ export default function AdminPage() {
 
       {/* шапка */}
       <div style={{
-        padding: '12px 16px',
+        padding: `${12 + topInset}px 16px 12px`,
         display: 'flex', alignItems: 'center', gap: 11,
         background: T.surface, borderBottom: `1px solid ${T.border}`,
         position: 'sticky', top: 0, zIndex: 100, flexShrink: 0,
