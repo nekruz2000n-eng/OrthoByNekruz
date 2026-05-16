@@ -100,8 +100,8 @@ function useTelegramFullscreen(): number {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    // @ts-ignore
-    const tg = window.Telegram?.WebApp;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tg = (window as any).Telegram?.WebApp as any;
     if (!tg) return;
 
     tg.expand?.();
@@ -109,8 +109,8 @@ function useTelegramFullscreen(): number {
     if (typeof tg.disableVerticalSwipes === 'function') tg.disableVerticalSwipes();
 
     // Отступ сверху: учитываем системный safe-area + область кнопки закрытия TG
-    const safe    = (tg.safeAreaInset?.top          ?? 0) as number;
-    const content = (tg.contentSafeAreaInset?.top   ?? 0) as number;
+    const safe    = (tg.safeAreaInset?.top        ?? 0) as number;
+    const content = (tg.contentSafeAreaInset?.top ?? 0) as number;
     setTopInset(safe + content);
 
     return () => {
