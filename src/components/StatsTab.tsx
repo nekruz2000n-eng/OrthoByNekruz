@@ -21,10 +21,10 @@ import orthoTicketsData from '@/data/ticketsData.json';
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Theme = 'dark' | 'light' | 'bright';
 
-const THEMES: { id: Theme; label: string; desc: string; icon: React.ReactNode }[] = [
-  { id: 'dark',   label: 'Тёмная',  desc: 'Для ночи', icon: <Moon     className="w-[18px] h-[18px]" /> },
-  { id: 'light',  label: 'Светлая', desc: 'Бумага',   icon: <Sun      className="w-[18px] h-[18px]" /> },
-  { id: 'bright', label: 'Яркая',   desc: 'Контраст', icon: <Sparkles className="w-[18px] h-[18px]" /> },
+const THEMES: { id: Theme; label: string; icon: React.ReactNode }[] = [
+  { id: 'dark',   label: 'Тёмная',  icon: <Moon     className="w-[13px] h-[13px]" /> },
+  { id: 'light',  label: 'Светлая', icon: <Sun      className="w-[13px] h-[13px]" /> },
+  { id: 'bright', label: 'Яркая',   icon: <Sparkles className="w-[13px] h-[13px]" /> },
 ];
 
 const MONTHS_GEN = [
@@ -620,26 +620,28 @@ export const StatsTab: React.FC<StatsTabProps> = ({
               </>
             )}
 
-            {/* ─── ПЕРЕКЛЮЧАТЕЛЬ ТЕМ ─── */}
-            <div className="rounded-[16px] p-3" style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-2.5 px-1" style={{ color: 'var(--c-muted)' }}>
-                Тема оформления
-              </p>
-              <div className="grid grid-cols-3 gap-2">
+            {/* ─── ПЕРЕКЛЮЧАТЕЛЬ ТЕМ (slim) ─── */}
+            <div className="flex items-center gap-2.5">
+              <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'var(--c-muted)' }}>
+                Тема
+              </span>
+              <div
+                className="flex-1 grid grid-cols-3 gap-1.5 p-1 rounded-[12px]"
+                style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
+              >
                 {THEMES.map(tm => {
                   const active = theme === tm.id;
                   return (
                     <button
                       key={tm.id}
                       onClick={() => { setTheme(tm.id); applyTheme(tm.id); }}
-                      className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl transition-all duration-200 active:scale-95"
+                      className="h-[31px] rounded-[9px] inline-flex items-center justify-center gap-1.5 text-[12px] font-bold transition-all duration-150 active:scale-95"
                       style={active
-                        ? { background: 'var(--c-primary-dim)', border: '1.5px solid var(--c-primary-br)' }
-                        : { background: 'var(--c-bg)',          border: '1.5px solid var(--c-border)' }}
+                        ? { background: 'var(--c-primary)', color: '#fff' }
+                        : { background: 'transparent', color: 'var(--c-text)' }}
                     >
-                      <span style={{ color: active ? 'var(--c-primary)' : 'var(--c-muted)' }}>{tm.icon}</span>
-                      <span className="text-[12px] font-bold" style={{ color: active ? 'var(--c-primary)' : 'var(--c-text)' }}>{tm.label}</span>
-                      <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: 'var(--c-muted)' }}>{tm.desc}</span>
+                      <span style={{ color: active ? '#fff' : 'var(--c-muted)' }}>{tm.icon}</span>
+                      {tm.label}
                     </button>
                   );
                 })}
