@@ -326,6 +326,61 @@ const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string })
   );
 };
 
+// ── Картинки глоссария: карусель (одна на экране + точки, листание свайпом) ──
+const GlossaryImages: React.FC<{ images: string[]; onZoom: (src: string) => void }> = ({ images, onZoom }) => {
+  const [idx, setIdx] = useState(0);
+  const startX = React.useRef(0);
+  const moved  = React.useRef(false);
+
+  if (!images.length) return null;
+  const safeIdx = Math.min(idx, images.length - 1);
+  const cur = images[safeIdx];
+  const single = images.length === 1;
+
+  return (
+    <div className="mb-2">
+      <div
+        className="img-protected-wrapper rounded-xl overflow-hidden cursor-pointer relative"
+        style={{ border: '1px solid var(--c-border)' }}
+        onContextMenu={e => e.preventDefault()}
+        onTouchStart={e => { e.stopPropagation(); startX.current = e.touches[0].clientX; moved.current = false; }}
+        onTouchMove={e => { if (Math.abs(e.touches[0].clientX - startX.current) > 10) moved.current = true; }}
+        onTouchEnd={e => {
+          const dx = e.changedTouches[0].clientX - startX.current;
+          if (Math.abs(dx) > 40) {
+            // свайп — листаем
+            if (dx < 0) setIdx(i => Math.min(images.length - 1, i + 1));
+            else        setIdx(i => Math.max(0, i - 1));
+          } else if (!moved.current) {
+            // тап без движения — открыть зум
+            onZoom(cur);
+          }
+        }}
+        onClick={e => { e.stopPropagation(); }}
+      >
+        <CachedImage src={cur} alt="" className="w-full h-auto object-contain max-h-32" loading="lazy" draggable={false} />
+      </div>
+      {!single && (
+        <div className="flex justify-center items-center gap-1.5 mt-1.5">
+          {images.map((_, i) => (
+            <button
+              key={i}
+              onClick={e => { e.stopPropagation(); setIdx(i); }}
+              className="rounded-full transition-all duration-200"
+              style={{
+                width: i === safeIdx ? 16 : 6,
+                height: 6,
+                background: i === safeIdx ? 'var(--c-primary)' : 'var(--c-border)',
+              }}
+              aria-label={`Картинка ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
@@ -981,16 +1036,12 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
               cursor: dragging ? 'grabbing' : 'grab' 
             }}
             onMouseDown={handleTooltipMouseDown} onTouchStart={handleTooltipTouchStart} onClick={e => e.stopPropagation()}>
-            {found?.image && (Array.isArray(found.image) ? found.image : [found.image]).map((img, i) => (
-              <div key={i}
-                className="img-protected-wrapper mb-2 rounded-xl overflow-hidden cursor-pointer relative"
-                style={{ border: '1px solid var(--c-border)' }}
-                onClick={e => { e.stopPropagation(); setZoomedImage(img); }}
-                onContextMenu={e => e.preventDefault()}
-                onTouchStart={e => { e.stopPropagation(); }}>
-                <CachedImage src={img} alt="" className="w-full h-auto object-contain max-h-32" loading="lazy" draggable={false} />
-              </div>
-            ))}
+            {found?.image && (
+              <GlossaryImages
+                images={Array.isArray(found.image) ? found.image : [found.image]}
+                onZoom={setZoomedImage}
+              />
+            )}
             <p className="text-sm font-normal" style={{ color: 'var(--c-text)' }}>{activeTermDef}</p>
             <p className="text-[10px] mt-2 opacity-50" style={{ color: 'var(--c-muted)' }}>↔ перетащите</p>
           </div>
