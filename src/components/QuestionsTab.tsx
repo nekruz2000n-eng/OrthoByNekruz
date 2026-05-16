@@ -209,7 +209,7 @@ const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string })
         <div className="flex items-center gap-1.5">
           <span className="text-base">🎧</span>
           <span className="text-[10px] font-black uppercase tracking-widest"
-            style={{ color: accentColor }}>NotebookLM</span>
+            style={{ color: accentColor }}>Audio</span>
           {cached && (
             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
               style={{ background: `color-mix(in srgb, ${accentColor} 15%, transparent)`, color: accentColor }}>
