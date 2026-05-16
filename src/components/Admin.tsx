@@ -29,6 +29,11 @@ interface SubjectInfo {
   color:      string;
 }
 
+interface RateBlock {
+  tgId: string;
+  ttl:  number;
+}
+
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo';
 type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject' | 'toggle_section' | 'delete_user';
 
@@ -123,6 +128,15 @@ function useAdminScroll() {
       body.style.background  = prev.bodyBg;
     };
   }, []);
+}
+
+function fmtTTL(sec: number): string {
+  if (sec < 0) return 'истёк';
+  if (sec < 60) return `${sec}с`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}м`;
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return m > 0 ? `${h}ч ${m}м` : `${h}ч`;
 }
 
 function fmtDate(iso: string | null): string {
@@ -764,6 +778,12 @@ export default function AdminPage() {
     } catch { /* private mode / quota */ }
   }, [expandedIds]);
 
+  // ── Блокировки входа (rate-limit) ─────────────────────────────────────────
+  const [rateBlocks,         setRateBlocks]         = useState<RateBlock[]>([]);
+  const [rateBlocksLoading,  setRateBlocksLoading]  = useState(false);
+  const [rateBlocksExpanded, setRateBlocksExpanded] = useState(false);
+  const [clearingTgId,       setClearingTgId]       = useState<string | null>(null);
+
   // ── Глобальные настройки (демо-кнопка, watermark) ─────────────────────────
   const [isDemoEnabled,      setIsDemoEnabled]      = useState(true);
   const [isDemoLoading,      setIsDemoLoading]      = useState(false);
@@ -834,6 +854,46 @@ export default function AdminPage() {
     }
   };
 
+  const fetchRateBlocks = useCallback(async () => {
+    setRateBlocksLoading(true);
+    try {
+      const r = await fetch('/api/admin-rate-blocks', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'list', secret }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setRateBlocks(data.blocks ?? []);
+      }
+    } catch {
+      showToast('Ошибка загрузки блокировок');
+    } finally {
+      setRateBlocksLoading(false);
+    }
+  }, [secret]);
+
+  const clearRateBlock = async (tgId: string) => {
+    setClearingTgId(tgId);
+    try {
+      const r = await fetch('/api/admin-rate-blocks', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'clear', tgId, secret }),
+      });
+      if (r.ok) {
+        setRateBlocks(prev => prev.filter(b => b.tgId !== tgId));
+        showToast('✓ Блокировка снята');
+      } else {
+        showToast('Ошибка снятия блокировки');
+      }
+    } catch {
+      showToast('Ошибка сети');
+    } finally {
+      setClearingTgId(null);
+    }
+  };
+
   // Копирование в буфер с тостом
   const copyToClipboard = useCallback(async (text: string, label: string) => {
     try {
@@ -899,6 +959,16 @@ export default function AdminPage() {
 
       sessionStorage.setItem('admin_secret', s);
       setAuthed(true);
+
+      // Параллельно грузим блокировки входа
+      fetch('/api/admin-rate-blocks', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'list', secret: s }),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data) setRateBlocks(data.blocks ?? []); })
+        .catch(() => {});
     } catch {
       setError('Ошибка соединения');
     } finally {
@@ -1271,6 +1341,125 @@ export default function AdminPage() {
               transition: 'left 0.15s',
             }} />
           </button>
+        </div>
+
+        {/* блокировки входа */}
+        <div style={{
+          background: T.surface, border: `1px solid ${rateBlocks.length > 0 ? T.danger + '44' : T.border}`,
+          borderRadius: 14, marginBottom: 14, overflow: 'hidden',
+        }}>
+          <div
+            onClick={() => {
+              if (!rateBlocksExpanded && rateBlocks.length === 0) fetchRateBlocks();
+              setRateBlocksExpanded(v => !v);
+            }}
+            style={{
+              padding: '13px 14px',
+              display: 'flex', alignItems: 'center', gap: 12,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: rateBlocks.length > 0 ? T.dangerSoft : T.surfaceAlt,
+              color: rateBlocks.length > 0 ? T.danger : T.textMuted,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700, fontSize: 15, flexShrink: 0,
+            }}>🔒</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, marginBottom: 2 }}>
+                Блокировки входа
+                {rateBlocks.length > 0 && (
+                  <span style={{
+                    marginLeft: 8, background: T.dangerSoft, color: T.danger,
+                    borderRadius: 6, padding: '1px 7px', fontSize: 12, fontWeight: 700,
+                  }}>{rateBlocks.length}</span>
+                )}
+              </div>
+              <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.4 }}>
+                {rateBlocks.length === 0
+                  ? 'Нет активных блокировок по ключу'
+                  : `${rateBlocks.length} студент${rateBlocks.length === 1 ? '' : rateBlocks.length < 5 ? 'а' : 'ов'} заблокирован${rateBlocks.length === 1 ? '' : 'о'} после ошибок ввода`}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                onClick={e => { e.stopPropagation(); fetchRateBlocks(); }}
+                disabled={rateBlocksLoading}
+                style={{
+                  width: 30, height: 30, borderRadius: 8,
+                  background: T.surfaceAlt, border: `1px solid ${T.border}`,
+                  color: rateBlocksLoading ? T.textFaint : T.textMuted,
+                  fontSize: 14, cursor: rateBlocksLoading ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >{rateBlocksLoading ? '⏳' : '↻'}</button>
+              <span style={{
+                color: T.textFaint, fontSize: 13,
+                transform: rateBlocksExpanded ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.2s', display: 'inline-block',
+              }}>▾</span>
+            </div>
+          </div>
+
+          {rateBlocksExpanded && (
+            <div style={{ borderTop: `1px solid ${T.border}`, background: T.surfaceAlt }}>
+              {rateBlocksLoading ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: T.textFaint, fontSize: 13 }}>
+                  Загрузка...
+                </div>
+              ) : rateBlocks.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: T.textMuted, fontSize: 13 }}>
+                  Нет активных блокировок
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {rateBlocks.map((b, i) => {
+                    const knownUser = users.find(u => u.tgId === b.tgId);
+                    const busy = clearingTgId === b.tgId;
+                    return (
+                      <div key={b.tgId} style={{
+                        padding: '10px 14px',
+                        borderTop: i === 0 ? 'none' : `1px solid ${T.border}`,
+                        display: 'flex', alignItems: 'center', gap: 10,
+                      }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 13, fontWeight: 600, color: T.text,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {knownUser ? displayName(knownUser) : (
+                              <span style={{ fontFamily: FONT_MONO, color: T.textMuted }}>id {b.tgId}</span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                            {knownUser && (
+                              <span style={{
+                                fontFamily: FONT_MONO, fontSize: 10.5, color: T.textFaint,
+                              }}>id {b.tgId}</span>
+                            )}
+                            <span style={{
+                              background: T.dangerSoft, color: T.danger,
+                              borderRadius: 5, padding: '1px 6px',
+                              fontSize: 11, fontWeight: 600,
+                            }}>ещё {fmtTTL(b.ttl)}</span>
+                          </div>
+                        </div>
+                        <ActionBtn
+                          variant="success"
+                          disabled={busy}
+                          onClick={() => clearRateBlock(b.tgId)}
+                        >
+                          {busy ? '...' : 'Снять'}
+                        </ActionBtn>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* stat-плитки */}
