@@ -746,26 +746,39 @@ export default function AdminPage() {
 
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const apply = () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tg = (window as any).Telegram?.WebApp as any;
-      if (!tg) return false;
-      tg.expand?.();
-      tg.requestFullscreen?.();         // Bot API 8.0: убирает шапку TG полностью
-      tg.enableClosingConfirmation?.(); // подтверждение при закрытии
-      tg.disableVerticalSwipes?.();     // запрет свайпа вниз
-      tg.BackButton?.hide?.();          // скрываем кнопку «назад» в шапке TG
+    const tg = (window as any).Telegram?.WebApp as any;
+    if (!tg) return;
+
+    tg.expand?.();
+    tg.requestFullscreen?.();
+    tg.enableClosingConfirmation?.();
+    tg.disableVerticalSwipes?.();
+    tg.BackButton?.hide?.();
+
+    // contentSafeAreaInset.top обновляется ПОСЛЕ fullscreenChanged — слушаем его
+    const readInset = () => {
       const safe    = (tg.safeAreaInset?.top        ?? 0) as number;
       const content = (tg.contentSafeAreaInset?.top ?? 0) as number;
-      setTopInset(safe + content);
-      return true;
+      // Минимум 52px — высота кнопки закрытия TG в fullscreen
+      setTopInset(Math.max(safe + content, 52));
     };
 
-    if (apply()) return;
-    // Ретраи на случай если TG ещё не готов при первом рендере
-    const t1 = setTimeout(apply, 150);
-    const t2 = setTimeout(apply, 600);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    tg.onEvent?.('fullscreenChanged',  readInset);
+    tg.onEvent?.('viewportChanged',    readInset);
+    tg.onEvent?.('safeAreaChanged',    readInset);
+
+    // Попытки прочитать сразу и с задержками (TG может не сразу отдать значения)
+    readInset();
+    const t1 = setTimeout(readInset, 200);
+    const t2 = setTimeout(readInset, 700);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      tg.offEvent?.('fullscreenChanged', readInset);
+      tg.offEvent?.('viewportChanged',   readInset);
+      tg.offEvent?.('safeAreaChanged',   readInset);
+    };
   }, []);
 
   const [secret,             setSecret]             = useState('');
@@ -1250,7 +1263,7 @@ export default function AdminPage() {
 
       {/* шапка */}
       <div style={{
-        padding: `${12 + topInset}px 16px 12px`,
+        padding: `${topInset}px 16px 12px`,
         display: 'flex', alignItems: 'center', gap: 11,
         background: T.surface, borderBottom: `1px solid ${T.border}`,
         position: 'sticky', top: 0, zIndex: 100, flexShrink: 0,
