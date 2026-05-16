@@ -188,6 +188,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ ok: true });
       }
 
+      // Полное удаление пользователя — стираем все связанные ключи
+      if (action === 'delete_user') {
+        const id = String(tgId);
+        await redis.del(`user_id:${id}`);
+        await redis.del(`fingerprint_changes:${id}`);
+        await redis.srem('used_demo_ids', id);
+        // opens:<id>:<date> и opens_notified:<id>:<date> — за все даты
+        try {
+          const stale = await redis.keys(`opens*:${id}:*`);
+          if (stale.length) await redis.del(...stale);
+        } catch { /* keys может быть недоступен — не критично */ }
+        return res.status(200).json({ ok: true });
+      }
+
       // Включить/выключить раздел навигации (questions/tests/tasks/stats) у конкретного юзера в конкретном предмете
       if (action === 'toggle_section') {
         const subjectId = String(subject || '').trim();

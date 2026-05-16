@@ -30,7 +30,7 @@ interface SubjectInfo {
 }
 
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo';
-type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject' | 'toggle_section';
+type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject' | 'toggle_section' | 'delete_user';
 
 // Управляемые из админки разделы. Сам раздел «Статистика» не выключается
 // (там прогресс юзера), но внутри него можно скрыть блок «Проверка готовности».
@@ -258,6 +258,7 @@ function UserCard({
   // Модалка причины блокировки
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockReason, setBlockReason] = useState('');
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   // Long-press на ID → копировать
   const pressTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -548,6 +549,24 @@ function UserCard({
               ✉ {user.username ? `@${user.username}` : 'Написать в TG'}
             </a>
           </div>
+
+          {/* удаление навсегда */}
+          <button
+            onClick={() => setDeleteOpen(true)}
+            disabled={busy}
+            style={{
+              marginTop: 8, width: '100%',
+              background: 'transparent', color: T.danger,
+              border: `1px dashed ${T.danger}66`,
+              borderRadius: 10, padding: '9px',
+              fontSize: 12.5, fontWeight: 600, letterSpacing: 0.1,
+              cursor: busy ? 'default' : 'pointer',
+              fontFamily: FONT_SANS, opacity: busy ? 0.5 : 1,
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            🗑 Удалить пользователя навсегда
+          </button>
         </div>
       )}
 
@@ -616,6 +635,58 @@ function UserCard({
                 }}
               >
                 Заблокировать
+              </ActionBtn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Модалка подтверждения удаления ─── */}
+      {deleteOpen && (
+        <div
+          onClick={e => { e.stopPropagation(); setDeleteOpen(false); }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(31,27,20,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 18, backdropFilter: 'blur(4px)',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: T.surface, borderRadius: 16,
+              border: `1px solid ${T.border}`,
+              padding: 18, width: '100%', maxWidth: 380,
+              boxShadow: `0 20px 60px ${T.text}30`,
+              fontFamily: FONT_SANS,
+            }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 700, color: T.danger, marginBottom: 4 }}>
+              Удалить пользователя навсегда?
+            </div>
+            <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 6 }}>
+              {name}
+            </div>
+            <div style={{ fontSize: 12.5, color: T.text, marginBottom: 14, lineHeight: 1.5 }}>
+              Все данные пользователя будут <b>безвозвратно стёрты</b> из базы:
+              доступы, прогресс, история. Карточка исчезнет из админки.
+              Действие необратимо.
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <ActionBtn variant="neutral" fullWidth onClick={() => setDeleteOpen(false)}>
+                Отмена
+              </ActionBtn>
+              <ActionBtn
+                variant="danger"
+                fullWidth
+                disabled={busy}
+                onClick={() => {
+                  setDeleteOpen(false);
+                  onAction(user.tgId, 'delete_user');
+                }}
+              >
+                Удалить навсегда
               </ActionBtn>
             </div>
           </div>
@@ -882,6 +953,14 @@ export default function AdminPage() {
       });
 
       if (!r.ok) { showToast('Ошибка действия'); return; }
+
+      // Удаление — убираем пользователя из списка целиком
+      if (action === 'delete_user') {
+        setUsers(prev => prev.filter(u => u.tgId !== tgId));
+        setTotal(t => Math.max(0, t - 1));
+        showToast('🗑 Пользователь удалён');
+        return;
+      }
 
       setUsers(prev => prev.map(u => {
         if (u.tgId !== tgId) return u;
