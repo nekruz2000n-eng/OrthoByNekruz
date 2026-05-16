@@ -743,25 +743,30 @@ export default function AdminPage() {
   useAdminScroll();
 
   const [topInset, setTopInset] = useState(0);
-  const tgReady = React.useRef(false);
 
-  // Вызывается и из useEffect (если TG нативно инжектирован), и из onLoad скрипта
-  const setupTelegram = React.useCallback(() => {
-    if (tgReady.current) return;
+  useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tg = (window as any).Telegram?.WebApp as any;
-    if (!tg) return;
-    tgReady.current = true;
-    tg.expand?.();
-    tg.enableClosingConfirmation?.();
-    if (typeof tg.disableVerticalSwipes === 'function') tg.disableVerticalSwipes();
-    const safe    = (tg.safeAreaInset?.top        ?? 0) as number;
-    const content = (tg.contentSafeAreaInset?.top ?? 0) as number;
-    setTopInset(safe + content);
-  }, []);
+    const apply = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tg = (window as any).Telegram?.WebApp as any;
+      if (!tg) return false;
+      tg.expand?.();
+      tg.requestFullscreen?.();         // Bot API 8.0: убирает шапку TG полностью
+      tg.enableClosingConfirmation?.(); // подтверждение при закрытии
+      tg.disableVerticalSwipes?.();     // запрет свайпа вниз
+      tg.BackButton?.hide?.();          // скрываем кнопку «назад» в шапке TG
+      const safe    = (tg.safeAreaInset?.top        ?? 0) as number;
+      const content = (tg.contentSafeAreaInset?.top ?? 0) as number;
+      setTopInset(safe + content);
+      return true;
+    };
 
-  // Запасной вызов — если TG уже доступен до загрузки скрипта (нативная инжекция)
-  useEffect(() => { setupTelegram(); }, [setupTelegram]);
+    if (apply()) return;
+    // Ретраи на случай если TG ещё не готов при первом рендере
+    const t1 = setTimeout(apply, 150);
+    const t2 = setTimeout(apply, 600);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
 
   const [secret,             setSecret]             = useState('');
   const [authed,             setAuthed]             = useState(false);
@@ -1611,11 +1616,7 @@ export default function AdminPage() {
 
   return (
     <>
-      <Script
-        src="https://telegram.org/js/telegram-web-app.js"
-        strategy="afterInteractive"
-        onLoad={setupTelegram}
-      />
+      <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
       {!authed ? loginScreen : mainPanel}
     </>
   );
