@@ -635,32 +635,7 @@ export const TestsTab = ({
             })}
           </div>
 
-          {/* Фидбэк */}
-          {showResult && (() => {
-            const right = selectedOption === currentTest.correct;
-            return (
-              <div className="rounded-[13px] p-3.5 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-1 duration-200"
-                style={{
-                  background: right ? 'var(--c-primary-dim)' : 'var(--c-danger-soft)',
-                  border: `1px solid ${right ? 'var(--c-primary-br)' : 'color-mix(in srgb, var(--c-danger) 33%, transparent)'}`,
-                }}>
-                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: right ? 'var(--c-primary)' : 'var(--c-danger)', color: 'var(--c-bg)' }}>
-                  {right ? <Check className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                </div>
-                <div className="flex-1">
-                  <div className="text-[13px] font-bold" style={{ color: right ? 'var(--c-primary)' : 'var(--c-danger)' }}>
-                    {right ? 'Правильно' : 'Неправильно'}
-                  </div>
-                  {!right && (
-                    <div className="text-[12px] mt-1 leading-snug" style={{ color: 'var(--c-muted)' }}>
-                      Верный ответ: <span style={{ color: 'var(--c-text)', fontWeight: 600 }}>{currentTest.correct}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
+          
 
           {/* Кнопка «Следующий» */}
           {showResult && (
