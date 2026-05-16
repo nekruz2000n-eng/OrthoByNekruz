@@ -674,54 +674,69 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     <div className="flex flex-col h-full overflow-hidden max-w-full" style={{ background: 'var(--c-bg)' }}>
 
       {/* ── ШАПКА ─────────────────────────────────── */}
-      <div className="flex-shrink-0 px-4 pt-5 pb-3 space-y-3 sticky top-0 z-10"
-        style={{ 
-          background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)', 
-          backdropFilter: 'blur(16px)', 
-          WebkitBackdropFilter: 'blur(16px)', 
-          borderBottom: '1px solid var(--c-border)', 
-          paddingTop: 'var(--header-pt)' 
+      <div className="flex-shrink-0 px-4 py-2.5 sticky top-0 z-10"
+        style={{
+          background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderBottom: '1px solid var(--c-border)',
+          paddingTop: 'var(--header-pt)',
         }}>
-        <div className="flex justify-between items-center px-1">
-          <div className="flex items-center gap-3">
-            <ToothIcon className="w-9 h-9" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} />
-            <div>
-              <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>{cfg?.brandName || 'OrthoByNekruz'}</h1>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>
-                {cfg?.label || 'Ортопедия'}
-              </p>
-            </div>     
+        <div className="flex items-center gap-3 px-1">
+          <div className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-shrink-0" style={{ background: 'var(--c-primary-dim)' }}>
+            <ToothIcon className="w-6 h-6" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} onClick={onSecretTap} />
           </div>
-          
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: accentColor }}>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-[16px] font-bold tracking-tight leading-tight" style={{ color: 'var(--c-text)' }}>
+              {cfg?.brandName || 'OrthoByNekruz'}
+            </h1>
+            <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: accentColor }}>
+              Вопросы · {cfg?.label || subject}
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1 min-w-[64px]">
+            <span className="text-[11px] font-mono font-bold" style={{ color: accentColor }}>
               {studiedIds.size}/{questionsData.length}
             </span>
-            <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
+            <div className="w-[60px] h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
               <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
             </div>
           </div>
         </div>
-        
-        <div className="relative mx-1">
-          <Input placeholder="Поиск по вопросу или №..." value={search} onChange={e => setSearch(e.target.value)}
-            className="pl-10 h-11 border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
-            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)', caretColor: 'var(--c-primary)' }} />
+
+        {/* Поиск */}
+        <div className="relative mt-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--c-muted)' }} />
+          <Input placeholder="Поиск по вопросу или №…" value={search} onChange={e => setSearch(e.target.value)}
+            className="pl-10 h-11 border focus-visible:ring-0 focus-visible:ring-offset-0 text-sm rounded-xl"
+            style={{ background: 'var(--c-card)', borderColor: 'var(--c-border)', color: 'var(--c-text)', caretColor: 'var(--c-primary)' }} />
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--c-muted)' }}><X className="w-4 h-4" /></button>}
         </div>
-        
-        {/* Фильтр-табы */}
-        <div className="flex gap-1.5 mx-1">
-          {([['all', 'Все'], ['unstudied', 'Не изучены'], ['audio', '🎧 С аудио']] as const).map(([val, label]) => (
-            <button key={val} onClick={() => setFilter(val)}
-              className="flex-1 h-7 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all active:scale-95"
-              style={filter === val
-                ? { background: accentColor, color: '#fff' }
-                : { background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
-              {label}
-            </button>
-          ))}
+
+        {/* Фильтры-pills */}
+        <div className="flex gap-1.5 mt-2.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          {([
+            ['all',       'Все',        questionsData.length],
+            ['unstudied', 'Не изучены', Math.max(0, questionsData.length - studiedIds.size)],
+            ['audio',     'С аудио',    questionsData.filter((q: any) => !!q.audio).length],
+          ] as const).map(([val, label, cnt]) => {
+            const act = filter === val;
+            return (
+              <button key={val} onClick={() => setFilter(val as any)}
+                className="inline-flex items-center gap-1.5 px-3 h-8 rounded-full text-[12px] font-bold whitespace-nowrap transition-all active:scale-95"
+                style={act
+                  ? { background: accentColor, color: '#fff' }
+                  : { background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                {label}
+                <span className="text-[10px] font-mono px-1.5 rounded-md"
+                  style={act
+                    ? { background: 'rgba(255,255,255,0.25)', color: '#fff' }
+                    : { background: 'var(--c-chip)', color: 'var(--c-text-faint)' }}>
+                  {cnt}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -742,9 +757,11 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                 const studied = studiedIds.has(q.id);
                 const hasAudio = !!(q as any).audio;
                 return (
-                  <AccordionItem key={q.id} value={q.id.toString()} className="border-none rounded-2xl overflow-hidden w-full transition-all duration-200"
+                  <AccordionItem key={q.id} value={q.id.toString()} className="border-none rounded-2xl overflow-hidden w-full relative transition-all duration-200"
                     style={{ background: studied ? 'color-mix(in srgb, var(--c-primary) 6%, var(--c-card))' : 'var(--c-card)', border: studied ? '1px solid var(--c-primary-br)' : '1px solid var(--c-border)' }}>
-                    <AccordionTrigger className="px-4 py-3.5 hover:no-underline [&>svg]:hidden">
+                    <div className="absolute left-0 top-0 bottom-0 w-[3px]"
+                      style={{ background: studied ? 'var(--c-primary)' : 'var(--c-border)' }} />
+                    <AccordionTrigger className="px-4 py-3.5 pl-4 hover:no-underline [&>svg]:hidden">
                       <div className="flex items-start gap-3 text-left w-full pr-2">
                         <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border flex items-center justify-center transition-all"
                           style={studied ? { background: 'var(--c-primary-dim)', borderColor: 'var(--c-primary)' } : { borderColor: 'var(--c-border)' }}>
@@ -824,8 +841,34 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             transition={{ type: 'spring', damping: 28, stiffness: 320 }}
             className="fixed inset-0 z-[100] flex flex-col overflow-hidden" style={{ background: 'var(--c-bg)' }}>
 
+            {/* Top bar */}
+            <div className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
+              style={{
+                background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
+                backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+                borderBottom: '1px solid var(--c-border)',
+                paddingTop: 'calc(var(--header-pt) - 28px)',
+              }}>
+              <button onClick={() => setReadingQuestion(null)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-95"
+                style={{ background: 'transparent', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <div className="flex-1 text-center min-w-0">
+                <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-muted)' }}>Чтение</div>
+                <div className="text-[12px] font-mono font-bold leading-tight" style={{ color: 'var(--c-text)' }}>
+                  №{readingQuestion.id} · {cfg?.label || subject}
+                </div>
+              </div>
+              <button onClick={() => setReadingQuestion(null)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-95"
+                style={{ background: 'transparent', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
             {/* Контент */}
-            <div className="flex-1 overflow-y-auto px-5 pt-[var(--header-pt)] scroll-container"
+            <div className="flex-1 overflow-y-auto px-5 pt-2 scroll-container"
               onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
               
               <div className="space-y-4 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
