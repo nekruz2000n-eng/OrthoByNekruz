@@ -10,7 +10,7 @@
             "/images/1c.png",
             "/images/1d.png"
         ],
-        "audio": "",
+        "audio": "https://oshskvdyttfdojccvpsi.supabase.co/storage/v1/object/public/audio-lessons/1.m4a",
         "relatedTerms": [
             "пародонтит",
             "пародонтоз",
@@ -42,7 +42,7 @@
         "image": [
             "/images/2.png"
         ],
-        "audio": "",
+        "audio": "https://oshskvdyttfdojccvpsi.supabase.co/storage/v1/object/public/audio-lessons/2.m4a",
         "relatedTerms": [
             "аккер",
             "система нея",
@@ -153,7 +153,7 @@
         "image": [
             "/images/7.png"
         ],
-        "audio": "",
+        "audio": "https://oshskvdyttfdojccvpsi.supabase.co/storage/v1/object/public/audio-lessons/7.m4a",
         "relatedTerms": [
             "санация полости рта",
             "ятрогения",
@@ -227,7 +227,7 @@
         "image": [
             "/images/11.png"
         ],
-        "audio": "",
+        "audio": "https://oshskvdyttfdojccvpsi.supabase.co/storage/v1/object/public/audio-lessons/11.m4a",
         "relatedTerms": [
             "лицевая дуга",
             "монтажный столик",
