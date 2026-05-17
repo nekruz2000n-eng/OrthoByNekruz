@@ -213,14 +213,17 @@ interface StatsTabProps {
   onMicroUnlocked?:  () => void;
   availableSubjects?: string[];
   /** Скрыть блок «Проверка готовности» (управляется из админки per-user) */
-  examHidden?:       boolean;
+  examHidden?:      boolean;
+  /** Скрыть раздел «Полезные материалы» (управляется из админки per-user) */
+  materialsHidden?: boolean;
 }
 
 export const StatsTab: React.FC<StatsTabProps> = ({
   subject, onSubjectChange,
   hasMicro = false, onMicroUnlocked,
   availableSubjects,
-  examHidden = false,
+  examHidden      = false,
+  materialsHidden = false,
 }) => {
   const cfg     = getSubject(subject);
   const isOrtho = subject === 'ortho';
@@ -651,7 +654,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             </div>
 
             {/* ─── ПОЛЕЗНЫЕ МАТЕРИАЛЫ ─── */}
-            <button
+            {!materialsHidden && <button
               onClick={() => setShowResources(true)}
               className="w-full rounded-[18px] p-4 flex items-center gap-3.5 transition-all duration-200 active:scale-[0.98]"
               style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
@@ -669,7 +672,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
-            </button>
+            </button>}
 
             {/* ─── СМЕНИТЬ ДИСЦИПЛИНУ ─── */}
             <button

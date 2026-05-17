@@ -378,6 +378,7 @@ export default function Home() {
             availableSubjects={availableSubjects}
             hasMicro={hasMicro}
             examHidden={(navHidden[subject] || []).includes('exam')}
+            materialsHidden={(navHidden[subject] || []).includes('materials')}
             onMicroUnlocked={() => {
               setHasMicro(true);
               localStorage.setItem('has_micro', 'true');

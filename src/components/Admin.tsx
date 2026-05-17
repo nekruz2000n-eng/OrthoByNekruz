@@ -56,6 +56,7 @@ const NAV_SECTIONS: { id: string; label: string }[] = [
   { id: 'tests',     label: 'Тесты'              },
   { id: 'tasks',     label: 'Задачи'             },
   { id: 'exam',      label: 'Проверка готовности' },
+  { id: 'materials', label: 'Материалы'           },
 ];
 
 // ── Палитра (Paper) ───────────────────────────────────────────────────────────
