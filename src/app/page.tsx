@@ -111,7 +111,8 @@ function initTelegramApp(): () => void {
 
 export default function Home() {
   // Хуки состояния теперь находятся на верхнем уровне компонента — там, где и должны быть
-  const [subject,         setSubject]         = useState<string>(getDefaultSubjectId());
+  const [subject,         setSubjectRaw]      = useState<string>(getDefaultSubjectId());
+  const setSubject = (s: string) => { localStorage.setItem('last_subject', s); setSubjectRaw(s); };
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
   const [navHidden, setNavHidden] = useState<Record<string, string[]>>({});
   const [showSubjectSelect, setShowSubjectSelect] = useState<boolean>(false);
