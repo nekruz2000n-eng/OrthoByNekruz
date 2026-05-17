@@ -1159,7 +1159,13 @@ export default function AdminPage() {
             const newSubjects = enabled
               ? Array.from(new Set([...u.subjects, subjectId]))
               : u.subjects.filter(s => s !== subjectId);
-            return { ...u, subjects: newSubjects, hasMicro: newSubjects.includes('micro') };
+            const newNavHidden = { ...(u.navHidden || {}) };
+            if (enabled) {
+              newNavHidden[subjectId] = NAV_SECTIONS.map(s => s.id);
+            } else {
+              delete newNavHidden[subjectId];
+            }
+            return { ...u, subjects: newSubjects, hasMicro: newSubjects.includes('micro'), navHidden: newNavHidden };
           }
           case 'toggle_section': {
             if (!subjectId || !section) return u;

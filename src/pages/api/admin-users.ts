@@ -128,7 +128,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         subjects[subjectId] = enabled;
 
-        const updated: any = { ...user, subjects, _migrated_subjects: true };
+        const ALL_SECTIONS = ['questions', 'tests', 'tasks', 'exam', 'materials'];
+
+        const navHidden: Record<string, string[]> = { ...(user.navHidden || {}) };
+        if (enabled) {
+          // Все разделы скрыты по умолчанию — админ открывает нужные вручную
+          navHidden[subjectId] = ALL_SECTIONS;
+        } else {
+          // При отзыве доступа убираем запись navHidden для этого предмета
+          delete navHidden[subjectId];
+        }
+
+        const updated: any = { ...user, subjects, navHidden, _migrated_subjects: true };
 
         if (enabled) {
           updated[`${subjectId}_grantedAt`] = new Date().toISOString();
@@ -207,7 +218,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const subjectId = String(subject || '').trim();
         const sectionId = String(section || '').trim();
         const enabled   = enable === true || enable === 'true' || enable === '1';
-        const ALLOWED_SECTIONS = ['questions', 'tests', 'tasks', 'exam'];
+        const ALLOWED_SECTIONS = ['questions', 'tests', 'tasks', 'exam', 'materials'];
         if (!subjectId || !ALLOWED_SECTIONS.includes(sectionId)) {
           return res.status(400).json({ error: 'Bad subject/section' });
         }
