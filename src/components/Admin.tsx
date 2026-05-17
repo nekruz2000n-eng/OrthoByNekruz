@@ -843,6 +843,17 @@ export default function AdminPage() {
   const [resUploading,       setResUploading]       = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Глоссарий (кастомные записи) ─────────────────────────────────────────
+  const [glExpanded,    setGlExpanded]    = useState(false);
+  const [glSubject,     setGlSubject]     = useState('');
+  const [glEntries,     setGlEntries]     = useState<{ id: string; term: string; definition: string; image?: string }[]>([]);
+  const [glLoading,     setGlLoading]     = useState(false);
+  const [glDeleting,    setGlDeleting]    = useState<string | null>(null);
+  const [glAdding,      setGlAdding]      = useState(false);
+  const [glUploading,   setGlUploading]   = useState(false);
+  const [glForm,        setGlForm]        = useState({ term: '', definition: '', image: '' });
+  const glFileRef = useRef<HTMLInputElement>(null);
+
   // ── Связанные термины (relatedTerms) ──────────────────────────────────────
   const [rtExpanded,    setRtExpanded]    = useState(false);
   const [rtSubject,     setRtSubject]     = useState('');
@@ -1100,6 +1111,76 @@ export default function AdminPage() {
       } else { showToast('Ошибка сохранения'); }
     } catch { showToast('Ошибка сети'); }
     finally { setRtSaving(false); }
+  };
+
+  const fetchGlEntries = useCallback(async (subjId: string) => {
+    setGlLoading(true);
+    setGlEntries([]);
+    try {
+      const r = await fetch('/api/admin-glossary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'list', subjectId: subjId, secret }),
+      });
+      if (r.ok) { const d = await r.json(); setGlEntries(d.entries ?? []); }
+      else showToast('Ошибка загрузки глоссария');
+    } catch { showToast('Ошибка сети'); }
+    finally { setGlLoading(false); }
+  }, [secret]);
+
+  const addGlEntry = async () => {
+    if (!glForm.term.trim() || !glForm.definition.trim()) {
+      showToast('Заполни термин и определение'); return;
+    }
+    setGlAdding(true);
+    try {
+      const r = await fetch('/api/admin-glossary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add', subjectId: glSubject, entry: glForm, secret }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        setGlEntries(d.entries ?? []);
+        setGlForm({ term: '', definition: '', image: '' });
+        showToast('✓ Термин добавлен');
+      } else { showToast('Ошибка добавления'); }
+    } catch { showToast('Ошибка сети'); }
+    finally { setGlAdding(false); }
+  };
+
+  const deleteGlEntry = async (entryId: string) => {
+    setGlDeleting(entryId);
+    try {
+      const r = await fetch('/api/admin-glossary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', subjectId: glSubject, entryId, secret }),
+      });
+      if (r.ok) { const d = await r.json(); setGlEntries(d.entries ?? []); showToast('Удалено'); }
+      else { showToast('Ошибка удаления'); }
+    } catch { showToast('Ошибка сети'); }
+    finally { setGlDeleting(null); }
+  };
+
+  const uploadGlImage = async (file: File) => {
+    setGlUploading(true);
+    try {
+      const signRes = await fetch('/api/admin-upload-sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret, filename: file.name, contentType: file.type || 'image/jpeg' }),
+      });
+      if (!signRes.ok) { showToast('Ошибка получения URL загрузки'); return; }
+      const { signedUrl, publicUrl } = await signRes.json();
+      const putRes = await fetch(signedUrl, {
+        method: 'PUT', headers: { 'Content-Type': file.type || 'image/jpeg' }, body: file,
+      });
+      if (!putRes.ok) { showToast('Ошибка загрузки картинки'); return; }
+      setGlForm(f => ({ ...f, image: publicUrl }));
+      showToast('✓ Картинка загружена');
+    } catch { showToast('Ошибка сети'); }
+    finally { setGlUploading(false); }
   };
 
   // Копирование в буфер с тостом
@@ -1903,6 +1984,238 @@ export default function AdminPage() {
                     onClick={addResource}
                   >
                     {resMgrAdding ? '...' : '+ Добавить'}
+                  </ActionBtn>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* глоссарий — кастомные записи */}
+        <div style={{
+          background: T.surface, border: `1px solid ${T.border}`,
+          borderRadius: 14, marginBottom: 14, overflow: 'hidden',
+        }}>
+          <div
+            onClick={() => {
+              const next = !glExpanded;
+              setGlExpanded(next);
+              if (next && !glSubject && availableSubjects.length > 0) {
+                const first = availableSubjects[0].id;
+                setGlSubject(first);
+                fetchGlEntries(first);
+              }
+            }}
+            style={{
+              padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 12,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <div style={{
+              width: 36, height: 36, borderRadius: 10, background: T.warnSoft,
+              color: T.warn, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700, fontSize: 18, flexShrink: 0,
+            }}>📝</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, marginBottom: 2 }}>
+                Глоссарий
+              </div>
+              <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.4 }}>
+                Добавить термин + определение + картинку
+              </div>
+            </div>
+            <span style={{
+              color: T.textFaint, fontSize: 13,
+              transform: glExpanded ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.2s', display: 'inline-block',
+            }}>▾</span>
+          </div>
+
+          {glExpanded && (
+            <div style={{ borderTop: `1px solid ${T.border}`, background: T.surfaceAlt }}>
+              {/* вкладки предметов */}
+              <div style={{
+                display: 'flex', gap: 6, padding: '10px 14px 0',
+                overflowX: 'auto', scrollbarWidth: 'none',
+              } as React.CSSProperties}>
+                {availableSubjects.map(s => {
+                  const active = glSubject === s.id;
+                  return (
+                    <button key={s.id} onClick={() => {
+                      setGlSubject(s.id);
+                      fetchGlEntries(s.id);
+                    }} style={{
+                      padding: '5px 12px', borderRadius: 999, flexShrink: 0,
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      background: active ? T.warn : T.surface,
+                      color: active ? '#fff' : T.textMuted,
+                      border: `1px solid ${active ? T.warn : T.border}`,
+                      fontFamily: FONT_SANS, WebkitTapHighlightColor: 'transparent',
+                    }}>{s.shortLabel}</button>
+                  );
+                })}
+              </div>
+
+              {/* список существующих кастомных записей */}
+              <div style={{ padding: '10px 14px' }}>
+                {glLoading ? (
+                  <div style={{ padding: '12px 0', textAlign: 'center', color: T.textFaint, fontSize: 13 }}>
+                    Загрузка...
+                  </div>
+                ) : glEntries.length === 0 ? (
+                  <div style={{ padding: '8px 0', color: T.textMuted, fontSize: 13, textAlign: 'center' }}>
+                    Кастомных записей нет — добавь первую
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+                    {glEntries.map(entry => {
+                      const busy = glDeleting === entry.id;
+                      return (
+                        <div key={entry.id} style={{
+                          background: T.surface, border: `1px solid ${T.border}`,
+                          borderRadius: 10, padding: '8px 10px',
+                          display: 'flex', alignItems: 'flex-start', gap: 8,
+                        }}>
+                          {entry.image && (
+                            <img
+                              src={entry.image}
+                              alt={entry.term}
+                              style={{
+                                width: 48, height: 48, borderRadius: 6,
+                                objectFit: 'cover', flexShrink: 0,
+                              }}
+                            />
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: 12.5, fontWeight: 700, color: T.warn,
+                              marginBottom: 2,
+                            }}>{entry.term}</div>
+                            <div style={{
+                              fontSize: 12, color: T.textMuted, lineHeight: 1.4,
+                              overflow: 'hidden', display: '-webkit-box',
+                              WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                            } as React.CSSProperties}>{entry.definition}</div>
+                          </div>
+                          <button
+                            onClick={() => deleteGlEntry(entry.id)}
+                            disabled={busy}
+                            style={{
+                              background: T.dangerSoft, color: T.danger,
+                              border: `1px solid ${T.danger}33`,
+                              borderRadius: 8, padding: '4px 8px',
+                              fontSize: 12, fontWeight: 600,
+                              cursor: busy ? 'default' : 'pointer',
+                              opacity: busy ? 0.5 : 1, flexShrink: 0,
+                              fontFamily: FONT_SANS,
+                              WebkitTapHighlightColor: 'transparent',
+                            }}
+                          >{busy ? '...' : '✕'}</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* форма добавления нового термина */}
+                <div style={{
+                  background: T.surface, border: `1px solid ${T.warn}44`,
+                  borderRadius: 12, padding: '11px 12px',
+                  display: 'flex', flexDirection: 'column', gap: 8,
+                }}>
+                  <div style={{
+                    fontSize: 11, fontWeight: 700, color: T.warn,
+                    textTransform: 'uppercase', letterSpacing: 0.5,
+                  }}>Добавить термин</div>
+
+                  <input
+                    value={glForm.term}
+                    onChange={e => setGlForm(f => ({ ...f, term: e.target.value }))}
+                    placeholder="Термин *  (точно как в тексте вопроса)"
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      padding: '8px 10px', borderRadius: 8,
+                      border: `1px solid ${T.border}`,
+                      background: T.surfaceAlt, color: T.text,
+                      fontSize: 13, fontFamily: FONT_SANS, outline: 'none',
+                    }}
+                  />
+
+                  <textarea
+                    value={glForm.definition}
+                    onChange={e => setGlForm(f => ({ ...f, definition: e.target.value }))}
+                    placeholder="Определение *"
+                    rows={3}
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      padding: '8px 10px', borderRadius: 8,
+                      border: `1px solid ${T.border}`,
+                      background: T.surfaceAlt, color: T.text,
+                      fontSize: 13, fontFamily: FONT_SANS, outline: 'none',
+                      resize: 'vertical',
+                    }}
+                  />
+
+                  {/* картинка */}
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input
+                      value={glForm.image}
+                      onChange={e => setGlForm(f => ({ ...f, image: e.target.value }))}
+                      placeholder="URL картинки (необязательно)"
+                      style={{
+                        flex: 1, minWidth: 0, boxSizing: 'border-box',
+                        padding: '8px 10px', borderRadius: 8,
+                        border: `1px solid ${T.border}`,
+                        background: T.surfaceAlt, color: T.text,
+                        fontSize: 13, fontFamily: FONT_SANS, outline: 'none',
+                      }}
+                    />
+                    <input
+                      ref={glFileRef}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadGlImage(file);
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      onClick={() => glFileRef.current?.click()}
+                      disabled={glUploading}
+                      title="Загрузить картинку"
+                      style={{
+                        padding: '8px 11px', borderRadius: 8, flexShrink: 0,
+                        border: `1px solid ${T.border}`,
+                        background: glUploading ? T.surfaceAlt : T.surface,
+                        color: glUploading ? T.textFaint : T.textMuted,
+                        fontSize: 16, cursor: glUploading ? 'default' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >{glUploading ? '⏳' : '🖼'}</button>
+                  </div>
+
+                  {/* превью картинки если заполнен URL */}
+                  {glForm.image && (
+                    <img
+                      src={glForm.image}
+                      alt="preview"
+                      style={{
+                        height: 80, borderRadius: 8, objectFit: 'cover',
+                        border: `1px solid ${T.border}`, alignSelf: 'flex-start',
+                      }}
+                    />
+                  )}
+
+                  <ActionBtn
+                    variant="warn"
+                    fullWidth
+                    disabled={glAdding || !glForm.term.trim() || !glForm.definition.trim()}
+                    onClick={addGlEntry}
+                  >
+                    {glAdding ? '...' : '+ Добавить в глоссарий'}
                   </ActionBtn>
                 </div>
               </div>
