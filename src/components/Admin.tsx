@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import Script from 'next/script';
 
 interface User {
@@ -840,6 +840,8 @@ export default function AdminPage() {
   const [resMgrAdding,       setResMgrAdding]       = useState(false);
   const [resMgrDeleting,     setResMgrDeleting]     = useState<string | null>(null);
   const [resForm,            setResForm]            = useState<ResForm>({ type: 'link', title: '', url: '', description: '' });
+  const [resUploading,       setResUploading]       = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Блокировки входа (rate-limit) ─────────────────────────────────────────
   const [rateBlocks,         setRateBlocks]         = useState<RateBlock[]>([]);
@@ -1006,6 +1008,51 @@ export default function AdminPage() {
       } else { showToast('Ошибка удаления'); }
     } catch { showToast('Ошибка сети'); }
     finally   { setResMgrDeleting(null); }
+  };
+
+  const uploadFile = async (file: File) => {
+    setResUploading(true);
+    try {
+      // 1. Get signed URL
+      const signRes = await fetch('/api/admin-upload-sign', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ secret, filename: file.name, contentType: file.type || 'application/octet-stream' }),
+      });
+      if (!signRes.ok) { showToast('Ошибка получения URL загрузки'); return; }
+      const { signedUrl, publicUrl } = await signRes.json();
+
+      // 2. Upload directly to Supabase
+      const putRes = await fetch(signedUrl, {
+        method:  'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body:    file,
+      });
+      if (!putRes.ok) { showToast('Ошибка загрузки файла в хранилище'); return; }
+
+      // 3. Auto-detect type from extension
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+      const extTypeMap: Record<string, ResType> = {
+        pdf: 'pdf', docx: 'docx', doc: 'docx',
+        pptx: 'pptx', ppt: 'pptx',
+        mp4: 'video', mov: 'video', avi: 'video', mkv: 'video',
+      };
+      const detectedType = extTypeMap[ext] ?? 'link';
+
+      // 4. Auto-fill form
+      const baseName = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+      setResForm(f => ({
+        ...f,
+        url:   publicUrl,
+        type:  detectedType,
+        title: f.title.trim() ? f.title : baseName,
+      }));
+      showToast('✓ Файл загружен — заполни название и сохрани');
+    } catch {
+      showToast('Ошибка сети при загрузке файла');
+    } finally {
+      setResUploading(false);
+    }
   };
 
   // Копирование в буфер с тостом
@@ -1735,21 +1782,72 @@ export default function AdminPage() {
                   </div>
 
                   {/* поля */}
-                  {(['title', 'url', 'description'] as const).map(field => (
+                  <input
+                    value={resForm.title}
+                    onChange={e => setResForm(f => ({ ...f, title: e.target.value }))}
+                    placeholder="Название *"
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      padding: '8px 10px', borderRadius: 8,
+                      border: `1px solid ${T.border}`,
+                      background: T.surfaceAlt, color: T.text,
+                      fontSize: 13, fontFamily: FONT_SANS, outline: 'none',
+                    }}
+                  />
+
+                  {/* URL + кнопка загрузки файла */}
+                  <div style={{ display: 'flex', gap: 6 }}>
                     <input
-                      key={field}
-                      value={resForm[field]}
-                      onChange={e => setResForm(f => ({ ...f, [field]: e.target.value }))}
-                      placeholder={field === 'title' ? 'Название *' : field === 'url' ? 'Ссылка (URL) *' : 'Описание (необязательно)'}
+                      value={resForm.url}
+                      onChange={e => setResForm(f => ({ ...f, url: e.target.value }))}
+                      placeholder="Ссылка (URL) *"
                       style={{
-                        width: '100%', boxSizing: 'border-box',
+                        flex: 1, minWidth: 0, boxSizing: 'border-box',
                         padding: '8px 10px', borderRadius: 8,
                         border: `1px solid ${T.border}`,
                         background: T.surfaceAlt, color: T.text,
                         fontSize: 13, fontFamily: FONT_SANS, outline: 'none',
                       }}
                     />
-                  ))}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.docx,.doc,.pptx,.ppt,.mp4,.mov,.avi,.mkv"
+                      style={{ display: 'none' }}
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadFile(file);
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={resUploading}
+                      title="Загрузить файл в хранилище"
+                      style={{
+                        padding: '8px 11px', borderRadius: 8, flexShrink: 0,
+                        border: `1px solid ${T.border}`,
+                        background: resUploading ? T.surfaceAlt : T.surface,
+                        color: resUploading ? T.textFaint : T.textMuted,
+                        fontSize: 16, cursor: resUploading ? 'default' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >{resUploading ? '⏳' : '📎'}</button>
+                  </div>
+
+                  <input
+                    value={resForm.description}
+                    onChange={e => setResForm(f => ({ ...f, description: e.target.value }))}
+                    placeholder="Описание (необязательно)"
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      padding: '8px 10px', borderRadius: 8,
+                      border: `1px solid ${T.border}`,
+                      background: T.surfaceAlt, color: T.text,
+                      fontSize: 13, fontFamily: FONT_SANS, outline: 'none',
+                    }}
+                  />
 
                   <ActionBtn
                     variant="primary"
