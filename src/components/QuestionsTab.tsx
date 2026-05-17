@@ -6,7 +6,7 @@ import { SubjectType } from '@/components/SubjectSelectScreen';
 import { getSubject } from '@/lib/subjects';
 import { loadSubjectData } from '@/lib/subjectData';
 import { CachedImage } from '@/components/CachedImage';
-import glossaryData from '@/data/glossary.json';
+// glossaryData больше не импортируется статически — загружается динамически через loadSubjectData
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, BookOpen, CheckCircle2, Circle, X, Pencil, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
@@ -392,9 +392,16 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const lsNoteKey   = subject === 'ortho' ? 'userQuestionNotes' : `${cfg?.lsPrefix || subject}_userQuestionNotes`;
   const isOrtho     = subject === 'ortho';
 
-  const [microQuestionsData, setMicroQuestionsData] = useState<any[]>([]);
-  const [microLoading,       setMicroLoading]       = useState(false);
-  const questionsData = isOrtho ? orthoQuestionsData : microQuestionsData;
+  const [loadedQuestionsData, setLoadedQuestionsData] = useState<any[]>([]);
+  const [microLoading,        setMicroLoading]        = useState(false);
+  // Для ortho: показываем статику сразу, потом переключаемся на API-данные
+  // (API-данные содержат Redis-оверрайды relatedTerms)
+  const questionsData = loadedQuestionsData.length > 0
+    ? loadedQuestionsData
+    : (isOrtho ? (orthoQuestionsData as any[]) : []);
+
+  // Глоссарий загружается динамически — включает кастомные записи из Redis
+  const [dynamicGlossary, setDynamicGlossary] = useState<GlossaryItem[]>([]);
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'unstudied' | 'audio'>('all');
@@ -445,12 +452,19 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   }, [subject]);
 
   useEffect(() => {
-    if (isOrtho) return;
     let cancelled = false;
     setMicroLoading(true);
+    setLoadedQuestionsData([]);
     loadSubjectData(subject, 'questions')
-      .then(d => { if (!cancelled) setMicroQuestionsData(d as any[]); })
+      .then(d => { if (!cancelled) setLoadedQuestionsData(d as any[]); })
       .finally(() => { if (!cancelled) setMicroLoading(false); });
+    return () => { cancelled = true; };
+  }, [subject]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadSubjectData(subject, 'glossary')
+      .then(d => { if (!cancelled) setDynamicGlossary((d as GlossaryItem[]).flat()); });
     return () => { cancelled = true; };
   }, [subject]);
 
@@ -482,9 +496,8 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const progress = useMemo(() => questionsData.length ? (studiedIds.size / questionsData.length) * 100 : 0, [studiedIds, questionsData]);
 
   const glossaryTerms = useMemo(() => {
-    const flatData = (glossaryData as unknown as any[]).flat() as GlossaryItem[];
-    return flatData.sort((a, b) => b.term.length - a.term.length);
-  }, []);
+    return [...dynamicGlossary].sort((a, b) => b.term.length - a.term.length);
+  }, [dynamicGlossary]);
 
   const [tooltipTarget, setTooltipTarget] = useState<{
     top: number; bottom: number; left: number; right: number; width: number;

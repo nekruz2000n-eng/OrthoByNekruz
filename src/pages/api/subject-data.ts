@@ -119,6 +119,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    // Мёрж кастомных записей глоссария из Redis
+    if (type === 'glossary' && Array.isArray(data)) {
+      try {
+        const customRaw = await redis.get(`glossary_custom:${subjectCfg.id}`);
+        const custom: any[] = Array.isArray(customRaw) ? customRaw : [];
+        if (custom.length > 0) {
+          // Кастомные записи имеют приоритет: убираем из JSON те термины, что есть в Redis
+          const customTermsLower = new Set(custom.map((e: any) => String(e.term).toLowerCase()));
+          const base = (data as any[]).filter(e => !customTermsLower.has(String(e.term).toLowerCase()));
+          return res.status(200).json({ data: [...custom, ...base] });
+        }
+      } catch { /* Redis недоступен — отдаём только JSON */ }
+    }
+
+    // Мёрж Redis-оверрайдов relatedTerms для questions/tests/tasks
+    if (type !== 'glossary' && Array.isArray(data)) {
+      try {
+        const overridesRaw = await redis.get(`relatedTerms:${subjectCfg.id}:${type}`);
+        if (overridesRaw && typeof overridesRaw === 'object' && !Array.isArray(overridesRaw)) {
+          const overrides = overridesRaw as Record<string, string[]>;
+          const merged = (data as any[]).map(item => {
+            const id = String(item.id);
+            if (id in overrides) return { ...item, relatedTerms: overrides[id] };
+            return item;
+          });
+          return res.status(200).json({ data: merged });
+        }
+      } catch { /* Redis недоступен — отдаём JSON без оверрайдов */ }
+    }
+
     return res.status(200).json({ data });
 
   } catch (err) {

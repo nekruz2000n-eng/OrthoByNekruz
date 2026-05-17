@@ -843,6 +843,29 @@ export default function AdminPage() {
   const [resUploading,       setResUploading]       = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Глоссарий (кастомные записи) ─────────────────────────────────────────
+  const [glExpanded,    setGlExpanded]    = useState(false);
+  const [glSubject,     setGlSubject]     = useState('');
+  const [glEntries,     setGlEntries]     = useState<{ id: string; term: string; definition: string; image?: string }[]>([]);
+  const [glLoading,     setGlLoading]     = useState(false);
+  const [glDeleting,    setGlDeleting]    = useState<string | null>(null);
+  const [glAdding,      setGlAdding]      = useState(false);
+  const [glUploading,   setGlUploading]   = useState(false);
+  const [glForm,        setGlForm]        = useState({ term: '', definition: '', image: '' });
+  const glFileRef = useRef<HTMLInputElement>(null);
+
+  // ── Связанные термины (relatedTerms) ──────────────────────────────────────
+  const [rtExpanded,    setRtExpanded]    = useState(false);
+  const [rtSubject,     setRtSubject]     = useState('');
+  const [rtType,        setRtType]        = useState<'questions' | 'tests' | 'tasks'>('questions');
+  const [rtItems,       setRtItems]       = useState<{ id: string; preview: string; relatedTerms: string[] }[]>([]);
+  const [rtLoading,     setRtLoading]     = useState(false);
+  const [rtSearch,      setRtSearch]      = useState('');
+  const [rtSelectedId,  setRtSelectedId]  = useState<string | null>(null);
+  const [rtTerms,       setRtTerms]       = useState<string[]>([]);
+  const [rtSaving,      setRtSaving]      = useState(false);
+  const [rtNewTerm,     setRtNewTerm]     = useState('');
+
   // ── Блокировки входа (rate-limit) ─────────────────────────────────────────
   const [rateBlocks,         setRateBlocks]         = useState<RateBlock[]>([]);
   const [rateBlocksLoading,  setRateBlocksLoading]  = useState(false);
@@ -1053,6 +1076,111 @@ export default function AdminPage() {
     } finally {
       setResUploading(false);
     }
+  };
+
+  const fetchRtItems = useCallback(async (subjId: string, typeVal: 'questions' | 'tests' | 'tasks') => {
+    setRtLoading(true);
+    setRtItems([]);
+    setRtSelectedId(null);
+    setRtTerms([]);
+    try {
+      const r = await fetch('/api/admin-related-terms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'load_items', subjectId: subjId, type: typeVal, secret }),
+      });
+      if (r.ok) { const d = await r.json(); setRtItems(d.items ?? []); }
+      else showToast('Ошибка загрузки списка');
+    } catch { showToast('Ошибка сети'); }
+    finally { setRtLoading(false); }
+  }, [secret]);
+
+  const saveRtTerms = async (subjId: string, typeVal: string, itemId: string, terms: string[]) => {
+    setRtSaving(true);
+    try {
+      const r = await fetch('/api/admin-related-terms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_terms', subjectId: subjId, type: typeVal, itemId, terms, secret }),
+      });
+      if (r.ok) {
+        setRtItems(prev => prev.map(item =>
+          item.id === itemId ? { ...item, relatedTerms: terms } : item
+        ));
+        showToast('✓ Термины сохранены');
+      } else { showToast('Ошибка сохранения'); }
+    } catch { showToast('Ошибка сети'); }
+    finally { setRtSaving(false); }
+  };
+
+  const fetchGlEntries = useCallback(async (subjId: string) => {
+    setGlLoading(true);
+    setGlEntries([]);
+    try {
+      const r = await fetch('/api/admin-glossary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'list', subjectId: subjId, secret }),
+      });
+      if (r.ok) { const d = await r.json(); setGlEntries(d.entries ?? []); }
+      else showToast('Ошибка загрузки глоссария');
+    } catch { showToast('Ошибка сети'); }
+    finally { setGlLoading(false); }
+  }, [secret]);
+
+  const addGlEntry = async () => {
+    if (!glForm.term.trim() || !glForm.definition.trim()) {
+      showToast('Заполни термин и определение'); return;
+    }
+    setGlAdding(true);
+    try {
+      const r = await fetch('/api/admin-glossary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add', subjectId: glSubject, entry: glForm, secret }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        setGlEntries(d.entries ?? []);
+        setGlForm({ term: '', definition: '', image: '' });
+        showToast('✓ Термин добавлен');
+      } else { showToast('Ошибка добавления'); }
+    } catch { showToast('Ошибка сети'); }
+    finally { setGlAdding(false); }
+  };
+
+  const deleteGlEntry = async (entryId: string) => {
+    setGlDeleting(entryId);
+    try {
+      const r = await fetch('/api/admin-glossary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', subjectId: glSubject, entryId, secret }),
+      });
+      if (r.ok) { const d = await r.json(); setGlEntries(d.entries ?? []); showToast('Удалено'); }
+      else { showToast('Ошибка удаления'); }
+    } catch { showToast('Ошибка сети'); }
+    finally { setGlDeleting(null); }
+  };
+
+  const uploadGlImage = async (file: File) => {
+    setGlUploading(true);
+    try {
+      const signRes = await fetch('/api/admin-upload-sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret, filename: file.name, contentType: file.type || 'image/jpeg' }),
+      });
+      if (!signRes.ok) { showToast('Ошибка получения URL загрузки'); return; }
+      const { signedUrl, publicUrl } = await signRes.json();
+      const putRes = await fetch(signedUrl, {
+        method: 'PUT', headers: { 'Content-Type': file.type || 'image/jpeg' }, body: file,
+      });
+      if (!putRes.ok) { showToast('Ошибка загрузки картинки'); return; }
+      setGlForm(f => ({ ...f, image: publicUrl }));
+      showToast('✓ Картинка загружена');
+    } catch { showToast('Ошибка сети'); }
+    finally { setGlUploading(false); }
   };
 
   // Копирование в буфер с тостом
@@ -1859,6 +1987,497 @@ export default function AdminPage() {
                   </ActionBtn>
                 </div>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* глоссарий — кастомные записи */}
+        <div style={{
+          background: T.surface, border: `1px solid ${T.border}`,
+          borderRadius: 14, marginBottom: 14, overflow: 'hidden',
+        }}>
+          <div
+            onClick={() => {
+              const next = !glExpanded;
+              setGlExpanded(next);
+              if (next && !glSubject && availableSubjects.length > 0) {
+                const first = availableSubjects[0].id;
+                setGlSubject(first);
+                fetchGlEntries(first);
+              }
+            }}
+            style={{
+              padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 12,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <div style={{
+              width: 36, height: 36, borderRadius: 10, background: T.warnSoft,
+              color: T.warn, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700, fontSize: 18, flexShrink: 0,
+            }}>📝</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, marginBottom: 2 }}>
+                Глоссарий
+              </div>
+              <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.4 }}>
+                Добавить термин + определение + картинку
+              </div>
+            </div>
+            <span style={{
+              color: T.textFaint, fontSize: 13,
+              transform: glExpanded ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.2s', display: 'inline-block',
+            }}>▾</span>
+          </div>
+
+          {glExpanded && (
+            <div style={{ borderTop: `1px solid ${T.border}`, background: T.surfaceAlt }}>
+              {/* вкладки предметов */}
+              <div style={{
+                display: 'flex', gap: 6, padding: '10px 14px 0',
+                overflowX: 'auto', scrollbarWidth: 'none',
+              } as React.CSSProperties}>
+                {availableSubjects.map(s => {
+                  const active = glSubject === s.id;
+                  return (
+                    <button key={s.id} onClick={() => {
+                      setGlSubject(s.id);
+                      fetchGlEntries(s.id);
+                    }} style={{
+                      padding: '5px 12px', borderRadius: 999, flexShrink: 0,
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      background: active ? T.warn : T.surface,
+                      color: active ? '#fff' : T.textMuted,
+                      border: `1px solid ${active ? T.warn : T.border}`,
+                      fontFamily: FONT_SANS, WebkitTapHighlightColor: 'transparent',
+                    }}>{s.shortLabel}</button>
+                  );
+                })}
+              </div>
+
+              {/* список существующих кастомных записей */}
+              <div style={{ padding: '10px 14px' }}>
+                {glLoading ? (
+                  <div style={{ padding: '12px 0', textAlign: 'center', color: T.textFaint, fontSize: 13 }}>
+                    Загрузка...
+                  </div>
+                ) : glEntries.length === 0 ? (
+                  <div style={{ padding: '8px 0', color: T.textMuted, fontSize: 13, textAlign: 'center' }}>
+                    Кастомных записей нет — добавь первую
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+                    {glEntries.map(entry => {
+                      const busy = glDeleting === entry.id;
+                      return (
+                        <div key={entry.id} style={{
+                          background: T.surface, border: `1px solid ${T.border}`,
+                          borderRadius: 10, padding: '8px 10px',
+                          display: 'flex', alignItems: 'flex-start', gap: 8,
+                        }}>
+                          {entry.image && (
+                            <img
+                              src={entry.image}
+                              alt={entry.term}
+                              style={{
+                                width: 48, height: 48, borderRadius: 6,
+                                objectFit: 'cover', flexShrink: 0,
+                              }}
+                            />
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: 12.5, fontWeight: 700, color: T.warn,
+                              marginBottom: 2,
+                            }}>{entry.term}</div>
+                            <div style={{
+                              fontSize: 12, color: T.textMuted, lineHeight: 1.4,
+                              overflow: 'hidden', display: '-webkit-box',
+                              WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                            } as React.CSSProperties}>{entry.definition}</div>
+                          </div>
+                          <button
+                            onClick={() => deleteGlEntry(entry.id)}
+                            disabled={busy}
+                            style={{
+                              background: T.dangerSoft, color: T.danger,
+                              border: `1px solid ${T.danger}33`,
+                              borderRadius: 8, padding: '4px 8px',
+                              fontSize: 12, fontWeight: 600,
+                              cursor: busy ? 'default' : 'pointer',
+                              opacity: busy ? 0.5 : 1, flexShrink: 0,
+                              fontFamily: FONT_SANS,
+                              WebkitTapHighlightColor: 'transparent',
+                            }}
+                          >{busy ? '...' : '✕'}</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* форма добавления нового термина */}
+                <div style={{
+                  background: T.surface, border: `1px solid ${T.warn}44`,
+                  borderRadius: 12, padding: '11px 12px',
+                  display: 'flex', flexDirection: 'column', gap: 8,
+                }}>
+                  <div style={{
+                    fontSize: 11, fontWeight: 700, color: T.warn,
+                    textTransform: 'uppercase', letterSpacing: 0.5,
+                  }}>Добавить термин</div>
+
+                  <input
+                    value={glForm.term}
+                    onChange={e => setGlForm(f => ({ ...f, term: e.target.value }))}
+                    placeholder="Термин *  (точно как в тексте вопроса)"
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      padding: '8px 10px', borderRadius: 8,
+                      border: `1px solid ${T.border}`,
+                      background: T.surfaceAlt, color: T.text,
+                      fontSize: 13, fontFamily: FONT_SANS, outline: 'none',
+                    }}
+                  />
+
+                  <textarea
+                    value={glForm.definition}
+                    onChange={e => setGlForm(f => ({ ...f, definition: e.target.value }))}
+                    placeholder="Определение *"
+                    rows={3}
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      padding: '8px 10px', borderRadius: 8,
+                      border: `1px solid ${T.border}`,
+                      background: T.surfaceAlt, color: T.text,
+                      fontSize: 13, fontFamily: FONT_SANS, outline: 'none',
+                      resize: 'vertical',
+                    }}
+                  />
+
+                  {/* картинка */}
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input
+                      value={glForm.image}
+                      onChange={e => setGlForm(f => ({ ...f, image: e.target.value }))}
+                      placeholder="URL картинки (необязательно)"
+                      style={{
+                        flex: 1, minWidth: 0, boxSizing: 'border-box',
+                        padding: '8px 10px', borderRadius: 8,
+                        border: `1px solid ${T.border}`,
+                        background: T.surfaceAlt, color: T.text,
+                        fontSize: 13, fontFamily: FONT_SANS, outline: 'none',
+                      }}
+                    />
+                    <input
+                      ref={glFileRef}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadGlImage(file);
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      onClick={() => glFileRef.current?.click()}
+                      disabled={glUploading}
+                      title="Загрузить картинку"
+                      style={{
+                        padding: '8px 11px', borderRadius: 8, flexShrink: 0,
+                        border: `1px solid ${T.border}`,
+                        background: glUploading ? T.surfaceAlt : T.surface,
+                        color: glUploading ? T.textFaint : T.textMuted,
+                        fontSize: 16, cursor: glUploading ? 'default' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >{glUploading ? '⏳' : '🖼'}</button>
+                  </div>
+
+                  {/* превью картинки если заполнен URL */}
+                  {glForm.image && (
+                    <img
+                      src={glForm.image}
+                      alt="preview"
+                      style={{
+                        height: 80, borderRadius: 8, objectFit: 'cover',
+                        border: `1px solid ${T.border}`, alignSelf: 'flex-start',
+                      }}
+                    />
+                  )}
+
+                  <ActionBtn
+                    variant="warn"
+                    fullWidth
+                    disabled={glAdding || !glForm.term.trim() || !glForm.definition.trim()}
+                    onClick={addGlEntry}
+                  >
+                    {glAdding ? '...' : '+ Добавить в глоссарий'}
+                  </ActionBtn>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* связанные термины (relatedTerms) */}
+        <div style={{
+          background: T.surface, border: `1px solid ${T.border}`,
+          borderRadius: 14, marginBottom: 14, overflow: 'hidden',
+        }}>
+          <div
+            onClick={() => {
+              const next = !rtExpanded;
+              setRtExpanded(next);
+              if (next && !rtSubject && availableSubjects.length > 0) {
+                const first = availableSubjects[0].id;
+                setRtSubject(first);
+                fetchRtItems(first, rtType);
+              }
+            }}
+            style={{
+              padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 12,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <div style={{
+              width: 36, height: 36, borderRadius: 10, background: T.purpleSoft,
+              color: T.purple, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700, fontSize: 18, flexShrink: 0,
+            }}>📖</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, marginBottom: 2 }}>
+                Связанные термины
+              </div>
+              <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.4 }}>
+                relatedTerms для вопросов, тестов и задач
+              </div>
+            </div>
+            <span style={{
+              color: T.textFaint, fontSize: 13,
+              transform: rtExpanded ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.2s', display: 'inline-block',
+            }}>▾</span>
+          </div>
+
+          {rtExpanded && (
+            <div style={{ borderTop: `1px solid ${T.border}`, background: T.surfaceAlt }}>
+              {/* вкладки предметов */}
+              <div style={{
+                display: 'flex', gap: 6, padding: '10px 14px 0',
+                overflowX: 'auto', scrollbarWidth: 'none',
+              } as React.CSSProperties}>
+                {availableSubjects.map(s => {
+                  const active = rtSubject === s.id;
+                  return (
+                    <button key={s.id} onClick={() => {
+                      setRtSubject(s.id);
+                      fetchRtItems(s.id, rtType);
+                    }} style={{
+                      padding: '5px 12px', borderRadius: 999, flexShrink: 0,
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      background: active ? T.purple : T.surface,
+                      color: active ? '#fff' : T.textMuted,
+                      border: `1px solid ${active ? T.purple : T.border}`,
+                      fontFamily: FONT_SANS, WebkitTapHighlightColor: 'transparent',
+                    }}>{s.shortLabel}</button>
+                  );
+                })}
+              </div>
+
+              {/* вкладки раздела */}
+              <div style={{ display: 'flex', gap: 6, padding: '8px 14px 0' }}>
+                {([
+                  { id: 'questions', label: 'Вопросы' },
+                  { id: 'tests',     label: 'Тесты'   },
+                  { id: 'tasks',     label: 'Задачи'  },
+                ] as const).map(tab => {
+                  const active = rtType === tab.id;
+                  return (
+                    <button key={tab.id} onClick={() => {
+                      setRtType(tab.id);
+                      if (rtSubject) fetchRtItems(rtSubject, tab.id);
+                    }} style={{
+                      padding: '4px 11px', borderRadius: 999, flexShrink: 0,
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      background: active ? T.text : T.surface,
+                      color: active ? '#fff' : T.textMuted,
+                      border: `1px solid ${active ? T.text : T.border}`,
+                      fontFamily: FONT_SANS, WebkitTapHighlightColor: 'transparent',
+                    }}>{tab.label}</button>
+                  );
+                })}
+              </div>
+
+              {/* поиск по элементам */}
+              <div style={{ padding: '8px 14px 0', position: 'relative' }}>
+                <input
+                  value={rtSearch}
+                  onChange={e => setRtSearch(e.target.value)}
+                  placeholder="Поиск по тексту вопроса..."
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    padding: '7px 10px', borderRadius: 8,
+                    border: `1px solid ${T.border}`,
+                    background: T.surface, color: T.text,
+                    fontSize: 13, fontFamily: FONT_SANS, outline: 'none',
+                  }}
+                />
+              </div>
+
+              {/* список элементов */}
+              <div style={{ padding: '8px 14px', maxHeight: 280, overflowY: 'auto' }}>
+                {rtLoading ? (
+                  <div style={{ padding: '12px 0', textAlign: 'center', color: T.textFaint, fontSize: 13 }}>
+                    Загрузка...
+                  </div>
+                ) : rtItems.length === 0 ? (
+                  <div style={{ padding: '10px 0', color: T.textMuted, fontSize: 13, textAlign: 'center' }}>
+                    Нет данных
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {rtItems
+                      .filter(item => !rtSearch.trim() || item.preview.toLowerCase().includes(rtSearch.trim().toLowerCase()))
+                      .map(item => {
+                        const selected = rtSelectedId === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              if (selected) { setRtSelectedId(null); setRtTerms([]); return; }
+                              setRtSelectedId(item.id);
+                              setRtTerms([...item.relatedTerms]);
+                              setRtNewTerm('');
+                            }}
+                            style={{
+                              width: '100%', textAlign: 'left',
+                              padding: '7px 10px', borderRadius: 8,
+                              border: `1px solid ${selected ? T.purple + '66' : T.border}`,
+                              background: selected ? T.purpleSoft : T.surface,
+                              cursor: 'pointer', fontFamily: FONT_SANS,
+                              WebkitTapHighlightColor: 'transparent',
+                              display: 'flex', alignItems: 'center', gap: 8,
+                            }}
+                          >
+                            <span style={{
+                              fontFamily: FONT_MONO, fontSize: 10, color: T.textFaint,
+                              flexShrink: 0, minWidth: 28,
+                            }}>#{item.id}</span>
+                            <span style={{
+                              fontSize: 12.5, color: selected ? T.purple : T.text,
+                              flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>{item.preview}</span>
+                            {item.relatedTerms.length > 0 && (
+                              <span style={{
+                                background: T.purpleSoft, color: T.purple,
+                                borderRadius: 5, padding: '1px 6px',
+                                fontSize: 10.5, fontWeight: 600, flexShrink: 0,
+                              }}>{item.relatedTerms.length}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+
+              {/* редактор терминов выбранного элемента */}
+              {rtSelectedId && (
+                <div style={{
+                  margin: '0 14px 14px',
+                  background: T.surface, border: `1px solid ${T.purple}44`,
+                  borderRadius: 12, padding: '12px',
+                }}>
+                  <div style={{
+                    fontSize: 11, fontWeight: 700, color: T.purple,
+                    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10,
+                  }}>
+                    Термины для #{rtSelectedId}
+                  </div>
+
+                  {/* текущие термины — чипы с × */}
+                  {rtTerms.length > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+                      {rtTerms.map((term, i) => (
+                        <span key={i} style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          background: T.purpleSoft, color: T.purple,
+                          border: `1px solid ${T.purple}33`,
+                          borderRadius: 999, padding: '4px 8px 4px 10px',
+                          fontSize: 12.5, fontWeight: 500,
+                        }}>
+                          {term}
+                          <button
+                            onClick={() => {
+                              const next = rtTerms.filter((_, j) => j !== i);
+                              setRtTerms(next);
+                              saveRtTerms(rtSubject, rtType, rtSelectedId, next);
+                            }}
+                            disabled={rtSaving}
+                            style={{
+                              width: 16, height: 16, borderRadius: '50%',
+                              background: T.purple + '33', color: T.purple,
+                              border: 'none', cursor: 'pointer', padding: 0,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 10, lineHeight: 1, fontWeight: 700,
+                              WebkitTapHighlightColor: 'transparent',
+                            }}
+                          >×</button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: T.textFaint, marginBottom: 10 }}>
+                      Терминов пока нет — добавь первый
+                    </div>
+                  )}
+
+                  {/* ввод нового термина */}
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      value={rtNewTerm}
+                      onChange={e => setRtNewTerm(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && rtNewTerm.trim() && !rtSaving) {
+                          const t = rtNewTerm.trim().toLowerCase();
+                          if (rtTerms.includes(t)) { showToast('Термин уже есть'); return; }
+                          const next = [...rtTerms, t];
+                          setRtTerms(next);
+                          setRtNewTerm('');
+                          saveRtTerms(rtSubject, rtType, rtSelectedId, next);
+                        }
+                      }}
+                      placeholder="Новый термин (Enter для добавления)"
+                      style={{
+                        flex: 1, minWidth: 0, boxSizing: 'border-box',
+                        padding: '7px 10px', borderRadius: 8,
+                        border: `1px solid ${T.border}`,
+                        background: T.surfaceAlt, color: T.text,
+                        fontSize: 13, fontFamily: FONT_SANS, outline: 'none',
+                      }}
+                    />
+                    <ActionBtn
+                      variant="info"
+                      disabled={rtSaving || !rtNewTerm.trim()}
+                      onClick={() => {
+                        const t = rtNewTerm.trim().toLowerCase();
+                        if (!t) return;
+                        if (rtTerms.includes(t)) { showToast('Термин уже есть'); return; }
+                        const next = [...rtTerms, t];
+                        setRtTerms(next);
+                        setRtNewTerm('');
+                        saveRtTerms(rtSubject, rtType, rtSelectedId, next);
+                      }}
+                    >
+                      {rtSaving ? '...' : '+ Добавить'}
+                    </ActionBtn>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
