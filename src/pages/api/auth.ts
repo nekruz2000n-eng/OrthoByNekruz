@@ -14,6 +14,7 @@ const redis = Redis.fromEnv();
 const BOT_TOKEN        = process.env.BOT_TOKEN;
 const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || 'nzsdental';
 const TRIAL_DAYS       = Number(process.env.TRIAL_DAYS) || 0;
+const ADMIN_TG_ID      = process.env.ADMIN_TG_ID || '';
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  verifyTelegramInitData
@@ -204,7 +205,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     user = ensureSubjectsField(user);
 
     // 1. ПРОВЕРКА БЛОКИРОВКИ (Самый высокий приоритет)
-    if (user?.blocked === true) {
+    // Создатель приложения никогда не блокируется
+    const isOwner = ADMIN_TG_ID && tgIdStr === ADMIN_TG_ID;
+    if (!isOwner && user?.blocked === true) {
       return res.status(403).json({ error: 'Твой аккаунт заблокирован. Свяжись с администратором.', blocked: true });
     }
 

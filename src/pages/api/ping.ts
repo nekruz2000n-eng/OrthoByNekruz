@@ -75,6 +75,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const tgId  = String(telegramId);
 
+    // Создатель приложения — никогда не блокируется и не отслеживается
+    if (ADMIN_TG_ID && tgId === ADMIN_TG_ID) {
+      return res.status(200).json({ ok: true, opens: 0 });
+    }
+
     // ── ПРОВЕРКА БЛОКИРОВКИ ──────────────────────────────────────────────────
     const userData: any = await redis.get(`user_id:${tgId}`);
     if (userData?.blocked === true) {
