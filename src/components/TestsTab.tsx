@@ -113,7 +113,7 @@ export const TestsTab = ({
   }, [selectedBlock, onTestModeChange]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const TESTS_PER_BLOCK = 20;
+  const TESTS_PER_BLOCK = 25;
   const TOTAL_TESTS  = testsData.length;
   const TOTAL_BLOCKS = Math.ceil(TOTAL_TESTS / TESTS_PER_BLOCK);
 
@@ -121,7 +121,7 @@ export const TestsTab = ({
     const id = i + 1; const best = bestScores[id] || 0;
     return {
       id, range: `${i * TESTS_PER_BLOCK + 1}–${Math.min((i + 1) * TESTS_PER_BLOCK, TOTAL_TESTS)}`, best,
-      status: best === 20 ? 'perfect' : best > 0 ? 'started' : 'new' as 'perfect' | 'started' | 'new',
+      status: best === 25 ? 'perfect' : best > 0 ? 'started' : 'new' as 'perfect' | 'started' | 'new',
     };
   }), [bestScores, TOTAL_BLOCKS, TOTAL_TESTS]);
 
@@ -418,7 +418,7 @@ export const TestsTab = ({
                 <div className="flex items-baseline justify-between mb-2 px-1">
                   <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-muted)' }}>Блоки</span>
                   <span className="text-[11px] font-mono" style={{ color: 'var(--c-text-faint)' }}>
-                    по 20 тестов · {blocks.length} шт
+                    по 25 тестов · {blocks.length} шт
                   </span>
                 </div>
 
@@ -442,10 +442,10 @@ export const TestsTab = ({
                         <div className="text-[8.5px] font-mono font-bold uppercase" style={{ color: 'var(--c-text-faint)' }}>{b.range}</div>
                         <div className="w-full flex flex-col items-center gap-1">
                           {b.best > 0 && (
-                            <span className="text-[9px] font-mono font-bold" style={{ color: accent }}>{b.best}/20</span>
+                            <span className="text-[9px] font-mono font-bold" style={{ color: accent }}>{b.best}/25</span>
                           )}
                           <div className="h-[3px] rounded-full overflow-hidden" style={{ width: 'calc(100% - 4px)', background: 'var(--c-bg-subtle)' }}>
-                            <div className="h-full rounded-full" style={{ width: `${(b.best / 20) * 100}%`, background: accent }} />
+                            <div className="h-full rounded-full" style={{ width: `${(b.best / 25) * 100}%`, background: accent }} />
                           </div>
                         </div>
                       </button>
