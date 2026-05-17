@@ -305,10 +305,6 @@ export function getAllSubjectIds(): string[] {
 
 /** ID основной/первой дисциплины (для дефолтов и демо) */
 export function getDefaultSubjectId(): string {
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('last_subject');
-    if (saved) return saved;
-  }
   return SUBJECTS[0]?.id || 'ortho';
 }
 

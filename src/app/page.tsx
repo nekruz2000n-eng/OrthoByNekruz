@@ -112,7 +112,7 @@ function initTelegramApp(): () => void {
 export default function Home() {
   // Хуки состояния теперь находятся на верхнем уровне компонента — там, где и должны быть
   const [subject,         setSubjectRaw]      = useState<string>(getDefaultSubjectId());
-  const setSubject = (s: string) => { localStorage.setItem('last_subject', s); setSubjectRaw(s); };
+  const setSubject = useCallback((s: string) => { localStorage.setItem('last_subject', s); setSubjectRaw(s); }, []);
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
   const [navHidden, setNavHidden] = useState<Record<string, string[]>>({});
   const [showSubjectSelect, setShowSubjectSelect] = useState<boolean>(false);
@@ -267,6 +267,12 @@ export default function Home() {
       })
       .catch(() => {});
   }, [isAuthenticated]);
+
+  // ── Восстановление последнего предмета из localStorage (только на клиенте) ──
+  useEffect(() => {
+    const saved = localStorage.getItem('last_subject');
+    if (saved) setSubjectRaw(saved);
+  }, []);
 
   // ── Авторизация ───────────────────────────────────────────────────────────
   useEffect(() => {
