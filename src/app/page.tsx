@@ -229,6 +229,12 @@ export default function Home() {
     })
       .then(r => r.json())
       .then(d => {
+        // Пользователь был удалён — сбрасываем авторизацию и отправляем на ввод ключа
+        if (d.registered === false) {
+          ['is_authed', 'user_tg_id', 'available_subjects', 'subject_chosen', 'has_micro'].forEach(k => localStorage.removeItem(k));
+          setIsAuthenticated(false);
+          return;
+        }
         const list: string[] = Array.isArray(d.subjects) ? d.subjects : [];
         setAvailableSubjects(list);
         setHasMicro(list.includes('micro'));

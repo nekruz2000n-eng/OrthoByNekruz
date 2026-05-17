@@ -249,7 +249,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const navHidden = (user && (user as any).navHidden && typeof (user as any).navHidden === 'object')
         ? (user as any).navHidden as Record<string, string[]>
         : {};
-      return res.status(200).json({ subjects: userSubjects, navHidden });
+      return res.status(200).json({ subjects: userSubjects, navHidden, registered: !!user });
     }
 
     // ── ОБЩАЯ АВТОРИЗАЦИЯ ──
