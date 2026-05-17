@@ -1,31 +1,27 @@
 // ════════════════════════════════════════════════════════════════════════════
 //  Загрузка данных предмета с кэшированием на клиенте.
 //
-//  Зачем: /api/subject-data отдаёт весь массив тестов/вопросов (сотни КБ).
-//  Без кэша каждое повторное открытие предмета — лишний вызов функции Vercel
-//  и лишний трафик. Кэш в Cache API (как для аудио) убирает повторные запросы.
+//  Стратегия: данные хранятся в Cache API браузера с TTL 24 часа.
+//  Пока кэш свежий — ни одного запроса к серверу. Раз в сутки (или при
+//  новом деплое) данные обновляются автоматически.
 //
-//  Инвалидация — по версии деплоя, а не по времени. Имя кэша содержит хеш
-//  коммита: пока ты не деплоишь, данные неизменны → кэш живёт сколько угодно
-//  и запросов нет вовсе. Задеплоил обновление → новый хеш → новое имя кэша →
-//  у всех студентов сразу свежие данные. Старые кэши подчищаются при запуске.
-//
-//  Прохождение тестов/вопросов на расход не влияет — оно полностью локальное.
+//  При новом деплое BUILD_ID меняется → имя кэша меняется → старый кэш
+//  удаляется и данные сразу подтягиваются с сервера у всех студентов.
 // ════════════════════════════════════════════════════════════════════════════
 
-const BUILD_ID    = process.env.NEXT_PUBLIC_BUILD_ID || 'dev';
+const BUILD_ID     = process.env.NEXT_PUBLIC_BUILD_ID || 'dev';
 const CACHE_NAME   = `subject-data-${BUILD_ID}`;
 const CACHE_PREFIX = 'subject-data-';
-// В dev хеша нет — данные часто меняются, поэтому короткий TTL.
-// В проде имя кэша уникально для коммита, TTL не нужен (0 = бессрочно).
-const TTL_MS = BUILD_ID === 'dev' ? 5 * 60 * 1000 : 0;
+
+// dev: 5 минут (данные часто меняются при разработке)
+// prod: 24 часа — раз в сутки проверяем сервер
+const TTL_MS = BUILD_ID === 'dev' ? 5 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
 export type SubjectDataType = 'questions' | 'tasks' | 'tests' | 'glossary';
 
 type Cached = { ts: number; data: unknown[] };
 
 let _purged = false;
-// Удаляем кэши данных от прошлых деплоев — чтобы не копились.
 async function purgeOldCaches(): Promise<void> {
   if (_purged || typeof caches === 'undefined') return;
   _purged = true;
@@ -43,10 +39,24 @@ function cacheKey(subject: string, type: SubjectDataType): string {
   return `https://cache.local/subject-data/${subject}/${type}`;
 }
 
+async function fetchFromServer(subject: string, type: SubjectDataType): Promise<unknown[]> {
+  const tgId    = localStorage.getItem('user_tg_id') || '';
+  const initDat = (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initData) || '';
+  const r = await fetch('/api/subject-data', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ subject, type, telegramId: tgId, initData: initDat }),
+  });
+  if (!r.ok) return [];
+  const j = await r.json();
+  return Array.isArray(j.data) ? j.data : [];
+}
+
 /**
- * Возвращает массив данных предмета. Сначала пробует кэш текущего деплоя,
- * иначе грузит с сервера и кэширует. При любой ошибке вернёт [].
- * Глоссарий никогда не кэшируется — его записи добавляются динамически через Redis.
+ * Возвращает данные предмета.
+ * - Если кэш свежий (< 24ч) → отдаёт сразу, без запроса к серверу.
+ * - Если кэш устарел или отсутствует → загружает с сервера и кэширует.
+ * - При новом деплое кэш инвалидируется автоматически через BUILD_ID.
  */
 export async function loadSubjectData(
   subject: string,
@@ -54,61 +64,35 @@ export async function loadSubjectData(
 ): Promise<unknown[]> {
   void purgeOldCaches();
 
-  // Глоссарий всегда грузим свежим — он редактируется из админки без редеплоя
-  if (type === 'glossary') {
-    try {
-      const tgId    = localStorage.getItem('user_tg_id') || '';
-      const initDat = (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initData) || '';
-      const r = await fetch('/api/subject-data', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ subject, type, telegramId: tgId, initData: initDat }),
-      });
-      if (r.ok) { const j = await r.json(); if (Array.isArray(j.data)) return j.data; }
-    } catch {}
-    return [];
-  }
-
   const key = cacheKey(subject, type);
 
-  // 1. кэш текущего деплоя
+  // 1. Проверяем кэш
   try {
     if (typeof caches !== 'undefined') {
       const cache = await caches.open(CACHE_NAME);
       const hit   = await cache.match(key);
       if (hit) {
         const cached = (await hit.json()) as Cached;
-        const fresh  = TTL_MS === 0 || Date.now() - cached.ts < TTL_MS;
-        if (cached && Array.isArray(cached.data) && fresh) {
+        if (cached && Array.isArray(cached.data) && Date.now() - cached.ts < TTL_MS) {
           return cached.data;
         }
       }
     }
-  } catch { /* кэш недоступен (приватный режим и т.п.) — просто грузим с сервера */ }
+  } catch { /* приватный режим — идём напрямую */ }
 
-  // 2. загрузка с сервера
+  // 2. Загружаем с сервера
   let data: unknown[] = [];
   try {
-    const tgId    = localStorage.getItem('user_tg_id') || '';
-    const initDat = (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initData) || '';
-    const r = await fetch('/api/subject-data', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ subject, type, telegramId: tgId, initData: initDat }),
-    });
-    if (r.ok) {
-      const j = await r.json();
-      if (Array.isArray(j.data)) data = j.data;
-    }
-  } catch { /* сеть недоступна — вернём пустой массив */ }
+    data = await fetchFromServer(subject, type);
+  } catch { /* нет сети — вернём пустой */ }
 
-  // 3. сохраняем в кэш (только непустой ответ)
+  // 3. Кэшируем на 24 часа
   try {
     if (typeof caches !== 'undefined' && data.length) {
       const cache = await caches.open(CACHE_NAME);
       await cache.put(key, new Response(JSON.stringify({ ts: Date.now(), data } as Cached)));
     }
-  } catch { /* запись в кэш не критична */ }
+  } catch { /* не критично */ }
 
   return data;
 }
