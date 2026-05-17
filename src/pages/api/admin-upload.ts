@@ -20,12 +20,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!filename || !contentType || !fileBase64) {
     return res.status(400).json({ error: 'filename, contentType and fileBase64 required' });
   }
-  if (!SUPABASE_URL || !SERVICE_KEY) {
+  if (!SUPABASE_URL || !SERVICE_KEY || !SUPABASE_URL.startsWith('https://')) {
     return res.status(500).json({
       error: `Supabase not configured`,
       debug: {
-        SUPABASE_URL: process.env.SUPABASE_URL ? 'set' : 'missing',
-        NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'set' : 'missing',
+        SUPABASE_URL_value: (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '(empty)').slice(0, 40),
         SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY ? 'set' : 'missing',
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'set' : 'missing',
       },
