@@ -1051,7 +1051,11 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ secret, filename: file.name, contentType: file.type || 'application/octet-stream', fileBase64 }),
       });
-      if (!signRes.ok) { showToast('Ошибка загрузки файла'); return; }
+      if (!signRes.ok) {
+        const err = await signRes.json().catch(() => ({}));
+        showToast('Ошибка: ' + (err.error || err.detail || signRes.status));
+        return;
+      }
       const { publicUrl } = await signRes.json();
 
       // 3. Auto-detect type from extension
@@ -1188,7 +1192,11 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ secret, filename: file.name, contentType: file.type || 'image/jpeg', fileBase64 }),
       });
-      if (!signRes.ok) { showToast('Ошибка загрузки картинки'); return; }
+      if (!signRes.ok) {
+        const err = await signRes.json().catch(() => ({}));
+        showToast('Ошибка: ' + (err.error || err.detail || signRes.status));
+        return;
+      }
       const { publicUrl } = await signRes.json();
       setGlForm(f => ({ ...f, image: publicUrl }));
       showToast('✓ Картинка загружена');
