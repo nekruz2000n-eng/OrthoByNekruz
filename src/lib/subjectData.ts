@@ -46,12 +46,29 @@ function cacheKey(subject: string, type: SubjectDataType): string {
 /**
  * Возвращает массив данных предмета. Сначала пробует кэш текущего деплоя,
  * иначе грузит с сервера и кэширует. При любой ошибке вернёт [].
+ * Глоссарий никогда не кэшируется — его записи добавляются динамически через Redis.
  */
 export async function loadSubjectData(
   subject: string,
   type: SubjectDataType,
 ): Promise<unknown[]> {
   void purgeOldCaches();
+
+  // Глоссарий всегда грузим свежим — он редактируется из админки без редеплоя
+  if (type === 'glossary') {
+    try {
+      const tgId    = localStorage.getItem('user_tg_id') || '';
+      const initDat = (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initData) || '';
+      const r = await fetch('/api/subject-data', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ subject, type, telegramId: tgId, initData: initDat }),
+      });
+      if (r.ok) { const j = await r.json(); if (Array.isArray(j.data)) return j.data; }
+    } catch {}
+    return [];
+  }
+
   const key = cacheKey(subject, type);
 
   // 1. кэш текущего деплоя

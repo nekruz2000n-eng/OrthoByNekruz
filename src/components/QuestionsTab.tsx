@@ -6,7 +6,7 @@ import { SubjectType } from '@/components/SubjectSelectScreen';
 import { getSubject } from '@/lib/subjects';
 import { loadSubjectData } from '@/lib/subjectData';
 import { CachedImage } from '@/components/CachedImage';
-import glossaryData from '@/data/glossary.json';
+// glossaryData больше не импортируется статически — загружается динамически через loadSubjectData
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, BookOpen, CheckCircle2, Circle, X, Pencil, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
@@ -396,6 +396,9 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const [microLoading,       setMicroLoading]       = useState(false);
   const questionsData = isOrtho ? orthoQuestionsData : microQuestionsData;
 
+  // Глоссарий загружается динамически — включает кастомные записи из Redis
+  const [dynamicGlossary, setDynamicGlossary] = useState<GlossaryItem[]>([]);
+
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'unstudied' | 'audio'>('all');
   const [openAccordionId, setOpenAccordionId] = useState<string>('');
@@ -455,6 +458,13 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   }, [subject]);
 
   useEffect(() => {
+    let cancelled = false;
+    loadSubjectData(subject, 'glossary')
+      .then(d => { if (!cancelled) setDynamicGlossary((d as GlossaryItem[]).flat()); });
+    return () => { cancelled = true; };
+  }, [subject]);
+
+  useEffect(() => {
     if (!isLoaded) return;
     localStorage.setItem(lsKey, JSON.stringify(Array.from(studiedIds)));
     localStorage.setItem(lsNoteKey, JSON.stringify(userNotes));
@@ -482,9 +492,8 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const progress = useMemo(() => questionsData.length ? (studiedIds.size / questionsData.length) * 100 : 0, [studiedIds, questionsData]);
 
   const glossaryTerms = useMemo(() => {
-    const flatData = (glossaryData as unknown as any[]).flat() as GlossaryItem[];
-    return flatData.sort((a, b) => b.term.length - a.term.length);
-  }, []);
+    return [...dynamicGlossary].sort((a, b) => b.term.length - a.term.length);
+  }, [dynamicGlossary]);
 
   const [tooltipTarget, setTooltipTarget] = useState<{
     top: number; bottom: number; left: number; right: number; width: number;
