@@ -843,6 +843,18 @@ export default function AdminPage() {
   const [resUploading,       setResUploading]       = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Связанные термины (relatedTerms) ──────────────────────────────────────
+  const [rtExpanded,    setRtExpanded]    = useState(false);
+  const [rtSubject,     setRtSubject]     = useState('');
+  const [rtType,        setRtType]        = useState<'questions' | 'tests' | 'tasks'>('questions');
+  const [rtItems,       setRtItems]       = useState<{ id: string; preview: string; relatedTerms: string[] }[]>([]);
+  const [rtLoading,     setRtLoading]     = useState(false);
+  const [rtSearch,      setRtSearch]      = useState('');
+  const [rtSelectedId,  setRtSelectedId]  = useState<string | null>(null);
+  const [rtTerms,       setRtTerms]       = useState<string[]>([]);
+  const [rtSaving,      setRtSaving]      = useState(false);
+  const [rtNewTerm,     setRtNewTerm]     = useState('');
+
   // ── Блокировки входа (rate-limit) ─────────────────────────────────────────
   const [rateBlocks,         setRateBlocks]         = useState<RateBlock[]>([]);
   const [rateBlocksLoading,  setRateBlocksLoading]  = useState(false);
@@ -1053,6 +1065,41 @@ export default function AdminPage() {
     } finally {
       setResUploading(false);
     }
+  };
+
+  const fetchRtItems = useCallback(async (subjId: string, typeVal: 'questions' | 'tests' | 'tasks') => {
+    setRtLoading(true);
+    setRtItems([]);
+    setRtSelectedId(null);
+    setRtTerms([]);
+    try {
+      const r = await fetch('/api/admin-related-terms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'load_items', subjectId: subjId, type: typeVal, secret }),
+      });
+      if (r.ok) { const d = await r.json(); setRtItems(d.items ?? []); }
+      else showToast('Ошибка загрузки списка');
+    } catch { showToast('Ошибка сети'); }
+    finally { setRtLoading(false); }
+  }, [secret]);
+
+  const saveRtTerms = async (subjId: string, typeVal: string, itemId: string, terms: string[]) => {
+    setRtSaving(true);
+    try {
+      const r = await fetch('/api/admin-related-terms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_terms', subjectId: subjId, type: typeVal, itemId, terms, secret }),
+      });
+      if (r.ok) {
+        setRtItems(prev => prev.map(item =>
+          item.id === itemId ? { ...item, relatedTerms: terms } : item
+        ));
+        showToast('✓ Термины сохранены');
+      } else { showToast('Ошибка сохранения'); }
+    } catch { showToast('Ошибка сети'); }
+    finally { setRtSaving(false); }
   };
 
   // Копирование в буфер с тостом
@@ -1859,6 +1906,265 @@ export default function AdminPage() {
                   </ActionBtn>
                 </div>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* связанные термины (relatedTerms) */}
+        <div style={{
+          background: T.surface, border: `1px solid ${T.border}`,
+          borderRadius: 14, marginBottom: 14, overflow: 'hidden',
+        }}>
+          <div
+            onClick={() => {
+              const next = !rtExpanded;
+              setRtExpanded(next);
+              if (next && !rtSubject && availableSubjects.length > 0) {
+                const first = availableSubjects[0].id;
+                setRtSubject(first);
+                fetchRtItems(first, rtType);
+              }
+            }}
+            style={{
+              padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 12,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <div style={{
+              width: 36, height: 36, borderRadius: 10, background: T.purpleSoft,
+              color: T.purple, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700, fontSize: 18, flexShrink: 0,
+            }}>📖</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, marginBottom: 2 }}>
+                Связанные термины
+              </div>
+              <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.4 }}>
+                relatedTerms для вопросов, тестов и задач
+              </div>
+            </div>
+            <span style={{
+              color: T.textFaint, fontSize: 13,
+              transform: rtExpanded ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.2s', display: 'inline-block',
+            }}>▾</span>
+          </div>
+
+          {rtExpanded && (
+            <div style={{ borderTop: `1px solid ${T.border}`, background: T.surfaceAlt }}>
+              {/* вкладки предметов */}
+              <div style={{
+                display: 'flex', gap: 6, padding: '10px 14px 0',
+                overflowX: 'auto', scrollbarWidth: 'none',
+              } as React.CSSProperties}>
+                {availableSubjects.map(s => {
+                  const active = rtSubject === s.id;
+                  return (
+                    <button key={s.id} onClick={() => {
+                      setRtSubject(s.id);
+                      fetchRtItems(s.id, rtType);
+                    }} style={{
+                      padding: '5px 12px', borderRadius: 999, flexShrink: 0,
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      background: active ? T.purple : T.surface,
+                      color: active ? '#fff' : T.textMuted,
+                      border: `1px solid ${active ? T.purple : T.border}`,
+                      fontFamily: FONT_SANS, WebkitTapHighlightColor: 'transparent',
+                    }}>{s.shortLabel}</button>
+                  );
+                })}
+              </div>
+
+              {/* вкладки раздела */}
+              <div style={{ display: 'flex', gap: 6, padding: '8px 14px 0' }}>
+                {([
+                  { id: 'questions', label: 'Вопросы' },
+                  { id: 'tests',     label: 'Тесты'   },
+                  { id: 'tasks',     label: 'Задачи'  },
+                ] as const).map(tab => {
+                  const active = rtType === tab.id;
+                  return (
+                    <button key={tab.id} onClick={() => {
+                      setRtType(tab.id);
+                      if (rtSubject) fetchRtItems(rtSubject, tab.id);
+                    }} style={{
+                      padding: '4px 11px', borderRadius: 999, flexShrink: 0,
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      background: active ? T.text : T.surface,
+                      color: active ? '#fff' : T.textMuted,
+                      border: `1px solid ${active ? T.text : T.border}`,
+                      fontFamily: FONT_SANS, WebkitTapHighlightColor: 'transparent',
+                    }}>{tab.label}</button>
+                  );
+                })}
+              </div>
+
+              {/* поиск по элементам */}
+              <div style={{ padding: '8px 14px 0', position: 'relative' }}>
+                <input
+                  value={rtSearch}
+                  onChange={e => setRtSearch(e.target.value)}
+                  placeholder="Поиск по тексту вопроса..."
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    padding: '7px 10px', borderRadius: 8,
+                    border: `1px solid ${T.border}`,
+                    background: T.surface, color: T.text,
+                    fontSize: 13, fontFamily: FONT_SANS, outline: 'none',
+                  }}
+                />
+              </div>
+
+              {/* список элементов */}
+              <div style={{ padding: '8px 14px', maxHeight: 280, overflowY: 'auto' }}>
+                {rtLoading ? (
+                  <div style={{ padding: '12px 0', textAlign: 'center', color: T.textFaint, fontSize: 13 }}>
+                    Загрузка...
+                  </div>
+                ) : rtItems.length === 0 ? (
+                  <div style={{ padding: '10px 0', color: T.textMuted, fontSize: 13, textAlign: 'center' }}>
+                    Нет данных
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {rtItems
+                      .filter(item => !rtSearch.trim() || item.preview.toLowerCase().includes(rtSearch.trim().toLowerCase()))
+                      .map(item => {
+                        const selected = rtSelectedId === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              if (selected) { setRtSelectedId(null); setRtTerms([]); return; }
+                              setRtSelectedId(item.id);
+                              setRtTerms([...item.relatedTerms]);
+                              setRtNewTerm('');
+                            }}
+                            style={{
+                              width: '100%', textAlign: 'left',
+                              padding: '7px 10px', borderRadius: 8,
+                              border: `1px solid ${selected ? T.purple + '66' : T.border}`,
+                              background: selected ? T.purpleSoft : T.surface,
+                              cursor: 'pointer', fontFamily: FONT_SANS,
+                              WebkitTapHighlightColor: 'transparent',
+                              display: 'flex', alignItems: 'center', gap: 8,
+                            }}
+                          >
+                            <span style={{
+                              fontFamily: FONT_MONO, fontSize: 10, color: T.textFaint,
+                              flexShrink: 0, minWidth: 28,
+                            }}>#{item.id}</span>
+                            <span style={{
+                              fontSize: 12.5, color: selected ? T.purple : T.text,
+                              flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>{item.preview}</span>
+                            {item.relatedTerms.length > 0 && (
+                              <span style={{
+                                background: T.purpleSoft, color: T.purple,
+                                borderRadius: 5, padding: '1px 6px',
+                                fontSize: 10.5, fontWeight: 600, flexShrink: 0,
+                              }}>{item.relatedTerms.length}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+
+              {/* редактор терминов выбранного элемента */}
+              {rtSelectedId && (
+                <div style={{
+                  margin: '0 14px 14px',
+                  background: T.surface, border: `1px solid ${T.purple}44`,
+                  borderRadius: 12, padding: '12px',
+                }}>
+                  <div style={{
+                    fontSize: 11, fontWeight: 700, color: T.purple,
+                    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10,
+                  }}>
+                    Термины для #{rtSelectedId}
+                  </div>
+
+                  {/* текущие термины — чипы с × */}
+                  {rtTerms.length > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+                      {rtTerms.map((term, i) => (
+                        <span key={i} style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          background: T.purpleSoft, color: T.purple,
+                          border: `1px solid ${T.purple}33`,
+                          borderRadius: 999, padding: '4px 8px 4px 10px',
+                          fontSize: 12.5, fontWeight: 500,
+                        }}>
+                          {term}
+                          <button
+                            onClick={() => {
+                              const next = rtTerms.filter((_, j) => j !== i);
+                              setRtTerms(next);
+                              saveRtTerms(rtSubject, rtType, rtSelectedId, next);
+                            }}
+                            disabled={rtSaving}
+                            style={{
+                              width: 16, height: 16, borderRadius: '50%',
+                              background: T.purple + '33', color: T.purple,
+                              border: 'none', cursor: 'pointer', padding: 0,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 10, lineHeight: 1, fontWeight: 700,
+                              WebkitTapHighlightColor: 'transparent',
+                            }}
+                          >×</button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: T.textFaint, marginBottom: 10 }}>
+                      Терминов пока нет — добавь первый
+                    </div>
+                  )}
+
+                  {/* ввод нового термина */}
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      value={rtNewTerm}
+                      onChange={e => setRtNewTerm(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && rtNewTerm.trim() && !rtSaving) {
+                          const t = rtNewTerm.trim().toLowerCase();
+                          if (rtTerms.includes(t)) { showToast('Термин уже есть'); return; }
+                          const next = [...rtTerms, t];
+                          setRtTerms(next);
+                          setRtNewTerm('');
+                          saveRtTerms(rtSubject, rtType, rtSelectedId, next);
+                        }
+                      }}
+                      placeholder="Новый термин (Enter для добавления)"
+                      style={{
+                        flex: 1, minWidth: 0, boxSizing: 'border-box',
+                        padding: '7px 10px', borderRadius: 8,
+                        border: `1px solid ${T.border}`,
+                        background: T.surfaceAlt, color: T.text,
+                        fontSize: 13, fontFamily: FONT_SANS, outline: 'none',
+                      }}
+                    />
+                    <ActionBtn
+                      variant="info"
+                      disabled={rtSaving || !rtNewTerm.trim()}
+                      onClick={() => {
+                        const t = rtNewTerm.trim().toLowerCase();
+                        if (!t) return;
+                        if (rtTerms.includes(t)) { showToast('Термин уже есть'); return; }
+                        const next = [...rtTerms, t];
+                        setRtTerms(next);
+                        setRtNewTerm('');
+                        saveRtTerms(rtSubject, rtType, rtSelectedId, next);
+                      }}
+                    >
+                      {rtSaving ? '...' : '+ Добавить'}
+                    </ActionBtn>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

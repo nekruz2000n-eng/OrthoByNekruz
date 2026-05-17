@@ -119,6 +119,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    // Мёрж Redis-оверрайдов relatedTerms для questions/tests/tasks
+    if (type !== 'glossary' && Array.isArray(data)) {
+      try {
+        const overridesRaw = await redis.get(`relatedTerms:${subjectCfg.id}:${type}`);
+        if (overridesRaw && typeof overridesRaw === 'object' && !Array.isArray(overridesRaw)) {
+          const overrides = overridesRaw as Record<string, string[]>;
+          const merged = (data as any[]).map(item => {
+            const id = String(item.id);
+            if (id in overrides) return { ...item, relatedTerms: overrides[id] };
+            return item;
+          });
+          return res.status(200).json({ data: merged });
+        }
+      } catch { /* Redis недоступен — отдаём JSON без оверрайдов */ }
+    }
+
     return res.status(200).json({ data });
 
   } catch (err) {
