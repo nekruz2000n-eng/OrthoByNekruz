@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET   || '';
-const SUPABASE_URL = process.env.SUPABASE_URL   || '';
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const BUCKET       = 'materials';
 
 export const config = {
@@ -22,7 +22,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   if (!SUPABASE_URL || !SERVICE_KEY) {
     return res.status(500).json({
-      error: `Supabase not configured: URL=${!!SUPABASE_URL} KEY=${!!SERVICE_KEY}`,
+      error: `Supabase not configured`,
+      debug: {
+        SUPABASE_URL: process.env.SUPABASE_URL ? 'set' : 'missing',
+        NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'set' : 'missing',
+        SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY ? 'set' : 'missing',
+        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'set' : 'missing',
+      },
     });
   }
 
