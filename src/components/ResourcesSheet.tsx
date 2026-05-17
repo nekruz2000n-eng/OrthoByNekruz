@@ -175,7 +175,7 @@ export const ResourcesSheet: React.FC<ResourcesSheetProps> = ({ subject, accentC
                 Материалы пока не добавлены
               </div>
               <div className="text-[12px] mt-1" style={{ color: 'var(--c-text-faint)' }}>
-                Преподаватель добавит их позже
+                 Некруз добавит их позже
               </div>
             </div>
           ) : (
