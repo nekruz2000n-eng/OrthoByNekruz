@@ -17,6 +17,27 @@ const CACHE_PREFIX = 'subject-data-';
 // prod: 24 часа — раз в сутки проверяем сервер
 const TTL_MS = BUILD_ID === 'dev' ? 5 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
+// Как часто проверяем версию кэша у сервера (не чаще раза в 5 минут)
+const VERSION_CHECK_TTL = 5 * 60 * 1000;
+
+// Проверяет, не сбросил ли админ кэш. Если версия изменилась — удаляет Cache API.
+async function checkAndBustCache(): Promise<void> {
+  if (typeof window === 'undefined' || typeof caches === 'undefined') return;
+  try {
+    const lastCheck = Number(localStorage.getItem('cv_ts') || '0');
+    if (Date.now() - lastCheck < VERSION_CHECK_TTL) return;
+    localStorage.setItem('cv_ts', String(Date.now()));
+    const r = await fetch('/api/cache-version');
+    if (!r.ok) return;
+    const { version } = await r.json();
+    const local = localStorage.getItem('cv');
+    if (String(version) !== local) {
+      localStorage.setItem('cv', String(version));
+      await caches.delete(CACHE_NAME);
+    }
+  } catch { /* не критично */ }
+}
+
 export type SubjectDataType = 'questions' | 'tasks' | 'tests' | 'glossary';
 
 type Cached = { ts: number; data: unknown[] };
@@ -63,6 +84,7 @@ export async function loadSubjectData(
   type: SubjectDataType,
 ): Promise<unknown[]> {
   void purgeOldCaches();
+  await checkAndBustCache();
 
   const key = cacheKey(subject, type);
 

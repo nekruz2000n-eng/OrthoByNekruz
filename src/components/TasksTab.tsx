@@ -17,6 +17,7 @@ import {
 import { ToothIcon } from './ToothIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
+import { RichText, GlossaryItem } from '@/components/RichText';
 
 export const TasksTab = ({
   onSecretTap,
@@ -31,9 +32,10 @@ export const TasksTab = ({
   const accentColor = cfg?.color || 'var(--c-primary)';
   const isOrtho     = subject === 'ortho';
 
-  const [microTasksData, setMicroTasksData] = useState<any[]>([]);
-  const [microLoading,   setMicroLoading]   = useState(false);
-  const tasksData = isOrtho ? orthoTasksData : microTasksData;
+  const [loadedTasksData, setLoadedTasksData] = useState<any[]>([]);
+  const [microLoading,    setMicroLoading]    = useState(false);
+  const tasksData = loadedTasksData.length > 0 ? loadedTasksData : (isOrtho ? (orthoTasksData as any[]) : []);
+  const [dynamicGlossary, setDynamicGlossary] = useState<GlossaryItem[]>([]);
 
   const [search,      setSearch]      = useState('');
   const [resolvedIds, setResolvedIds] = useState<Set<number>>(new Set());
@@ -53,12 +55,19 @@ export const TasksTab = ({
   }, [subject]);
 
   useEffect(() => {
-    if (isOrtho) return;
     let cancelled = false;
     setMicroLoading(true);
+    setLoadedTasksData([]);
     loadSubjectData(subject, 'tasks')
-      .then(d => { if (!cancelled) setMicroTasksData(d as any[]); })
+      .then(d => { if (!cancelled) setLoadedTasksData(d as any[]); })
       .finally(() => { if (!cancelled) setMicroLoading(false); });
+    return () => { cancelled = true; };
+  }, [subject]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadSubjectData(subject, 'glossary')
+      .then(d => { if (!cancelled) setDynamicGlossary(d as GlossaryItem[]); });
     return () => { cancelled = true; };
   }, [subject]);
 
@@ -266,7 +275,7 @@ export const TasksTab = ({
       {/* ─── СПИСОК ─────────────────────────────────────────────────────── */}
       <ScrollArea className="flex-1 scroll-container">
         <div className="px-3 pt-2 mx-auto max-w-2xl w-full" style={{ paddingBottom: 'var(--scroll-pb)' }}>
-          {microLoading && !isOrtho ? (
+          {microLoading && tasksData.length === 0 ? (
             <div className="flex items-center justify-center py-24" style={{ color: 'var(--c-primary)' }}>
               <svg className="animate-spin w-8 h-8" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
@@ -436,12 +445,13 @@ export const TasksTab = ({
                     Задача №{readingTask.id}
                   </span>
                 </div>
-                <h2
-                  className="font-semibold leading-snug break-words"
-                  style={{ fontSize: `${fontSize * 1.15}px`, color: 'var(--c-text)' }}
-                >
-                  {formatText(readingTask.question)}
-                </h2>
+                <RichText
+                  text={readingTask.question}
+                  relatedTerms={(readingTask as any).relatedTerms}
+                  glossaryTerms={dynamicGlossary}
+                  fontSize={fontSize * 1.15}
+                  className="font-semibold"
+                />
 
                 <div className="flex items-center gap-2.5 pt-3" style={{ borderTop: '1px solid var(--c-border)' }}>
                   <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-primary)' }} />
@@ -450,12 +460,12 @@ export const TasksTab = ({
                   </span>
                 </div>
 
-                <div
-                  className="leading-relaxed break-words whitespace-pre-wrap"
-                  style={{ fontSize: `${fontSize}px`, color: 'var(--c-text)' }}
-                >
-                  {formatText(readingTask.answer)}
-                </div>
+                <RichText
+                  text={readingTask.answer}
+                  relatedTerms={(readingTask as any).relatedTerms}
+                  glossaryTerms={dynamicGlossary}
+                  fontSize={fontSize}
+                />
 
                 <PersonalNote id={readingTask.id} />
               </div>

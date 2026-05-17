@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { ToothIcon } from './ToothIcon';
 import ReactMarkdown from 'react-markdown';
+import { RichText, GlossaryItem } from '@/components/RichText';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type BlockId = number | 'mistakes';
@@ -49,9 +50,10 @@ export const TestsTab = ({
   const isOrtho      = subject === 'ortho';
 
   // ── Data ──────────────────────────────────────────────────────────────────
-  const [microTestsData, setMicroTestsData] = useState<any[]>([]);
-  const [microLoading,   setMicroLoading]   = useState(false);
-  const testsData = isOrtho ? orthoTestsData : microTestsData;
+  const [loadedTestsData, setLoadedTestsData] = useState<any[]>([]);
+  const [microLoading,    setMicroLoading]    = useState(false);
+  const testsData = loadedTestsData.length > 0 ? loadedTestsData : (isOrtho ? (orthoTestsData as any[]) : []);
+  const [dynamicGlossary, setDynamicGlossary] = useState<GlossaryItem[]>([]);
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [selectedBlock,    setSelectedBlock]    = useState<BlockId | null>(null);
@@ -88,12 +90,19 @@ export const TestsTab = ({
   }, [subject]);
 
   useEffect(() => {
-    if (isOrtho) return;
     let cancelled = false;
     setMicroLoading(true);
+    setLoadedTestsData([]);
     loadSubjectData(subject, 'tests')
-      .then(d => { if (!cancelled) setMicroTestsData(d as any[]); })
+      .then(d => { if (!cancelled) setLoadedTestsData(d as any[]); })
       .finally(() => { if (!cancelled) setMicroLoading(false); });
+    return () => { cancelled = true; };
+  }, [subject]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadSubjectData(subject, 'glossary')
+      .then(d => { if (!cancelled) setDynamicGlossary(d as GlossaryItem[]); });
     return () => { cancelled = true; };
   }, [subject]);
 
@@ -281,7 +290,7 @@ export const TestsTab = ({
               />
             </div>
 
-            {microLoading && !isOrtho ? (
+            {microLoading && testsData.length === 0 ? (
               <div className="flex items-center justify-center py-24" style={{ color: 'var(--c-primary)' }}>
                 <svg className="animate-spin w-8 h-8" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
@@ -596,9 +605,13 @@ export const TestsTab = ({
             <div className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--c-muted)' }}>
               Вопрос {currentTestIndex + 1}
             </div>
-            <div className="text-[16px] font-semibold leading-snug" style={{ color: 'var(--c-text)' }}>
-              {currentTest?.question}
-            </div>
+            <RichText
+              text={currentTest?.question || ''}
+              relatedTerms={(currentTest as any)?.relatedTerms}
+              glossaryTerms={dynamicGlossary}
+              fontSize={16}
+              className="font-semibold"
+            />
           </div>
 
           {/* Варианты */}
