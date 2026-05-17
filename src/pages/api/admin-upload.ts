@@ -27,19 +27,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const safeName = `${Date.now()}_${String(filename).replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-  const buffer   = Buffer.from(String(fileBase64), 'base64');
 
   try {
+    const buffer = Buffer.from(String(fileBase64), 'base64');
+    const blob   = new Blob([buffer], { type: String(contentType) });
+    const form   = new FormData();
+    form.append('file', blob, safeName);
+
     const uploadRes = await fetch(
       `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${safeName}`,
       {
         method:  'POST',
         headers: {
           'Authorization': `Bearer ${SERVICE_KEY}`,
-          'Content-Type':  String(contentType),
           'x-upsert':      'false',
         },
-        body: buffer,
+        body: form,
       },
     );
 
