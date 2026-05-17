@@ -865,6 +865,7 @@ export default function AdminPage() {
   const [rtTerms,       setRtTerms]       = useState<string[]>([]);
   const [rtSaving,      setRtSaving]      = useState(false);
   const [rtNewTerm,     setRtNewTerm]     = useState('');
+  const [rtBusting,     setRtBusting]     = useState(false);
 
   // ── Блокировки входа (rate-limit) ─────────────────────────────────────────
   const [rateBlocks,         setRateBlocks]         = useState<RateBlock[]>([]);
@@ -1111,6 +1112,21 @@ export default function AdminPage() {
       } else { showToast('Ошибка сохранения'); }
     } catch { showToast('Ошибка сети'); }
     finally { setRtSaving(false); }
+  };
+
+  const bustCache = async () => {
+    setRtBusting(true);
+    try {
+      const r = await fetch('/api/admin-cache-bust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret }),
+      });
+      if (r.ok) { showToast('✓ Кэш сброшен — все получат свежие данные в течение 5 мин'); }
+      else if (r.status === 401) { showToast('Нет прав'); }
+      else { showToast('Ошибка при сбросе кэша'); }
+    } catch { showToast('Ошибка сети'); }
+    finally { setRtBusting(false); }
   };
 
   const fetchGlEntries = useCallback(async (subjId: string) => {
@@ -2383,6 +2399,23 @@ export default function AdminPage() {
                       })}
                   </div>
                 )}
+              </div>
+
+              {/* сброс кэша */}
+              <div style={{ padding: '0 14px 14px', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={bustCache}
+                  disabled={rtBusting}
+                  style={{
+                    padding: '6px 14px', borderRadius: 8, border: `1px solid ${T.accent}44`,
+                    background: T.accentSoft, color: T.accent,
+                    fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                    fontFamily: FONT_SANS, WebkitTapHighlightColor: 'transparent',
+                    opacity: rtBusting ? 0.6 : 1,
+                  }}
+                >
+                  {rtBusting ? 'Сброс...' : '🔄 Обновить кэш у всех'}
+                </button>
               </div>
 
               {/* редактор терминов выбранного элемента */}
