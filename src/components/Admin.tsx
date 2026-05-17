@@ -34,6 +34,18 @@ interface RateBlock {
   ttl:  number;
 }
 
+type ResType = 'link' | 'pdf' | 'docx' | 'pptx' | 'video';
+interface ResItem  { id: string; type: ResType; title: string; url: string; description: string }
+interface ResForm  { type: ResType; title: string; url: string; description: string }
+
+const RES_TYPE_OPTS: { id: ResType; label: string; emoji: string }[] = [
+  { id: 'video', label: 'Видео',       emoji: '▶️' },
+  { id: 'pdf',   label: 'PDF',         emoji: '📄' },
+  { id: 'pptx',  label: 'Презентация', emoji: '📊' },
+  { id: 'docx',  label: 'Word',        emoji: '📝' },
+  { id: 'link',  label: 'Ссылка',      emoji: '🔗' },
+];
+
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo';
 type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject' | 'toggle_section' | 'delete_user';
 
@@ -818,6 +830,15 @@ export default function AdminPage() {
     } catch { /* private mode / quota */ }
   }, [expandedIds]);
 
+  // ── Материалы по предметам ────────────────────────────────────────────────
+  const [resMgrExpanded,     setResMgrExpanded]     = useState(false);
+  const [resMgrSubject,      setResMgrSubject]      = useState('');
+  const [resMgrList,         setResMgrList]         = useState<ResItem[]>([]);
+  const [resMgrLoading,      setResMgrLoading]      = useState(false);
+  const [resMgrAdding,       setResMgrAdding]       = useState(false);
+  const [resMgrDeleting,     setResMgrDeleting]     = useState<string | null>(null);
+  const [resForm,            setResForm]            = useState<ResForm>({ type: 'link', title: '', url: '', description: '' });
+
   // ── Блокировки входа (rate-limit) ─────────────────────────────────────────
   const [rateBlocks,         setRateBlocks]         = useState<RateBlock[]>([]);
   const [rateBlocksLoading,  setRateBlocksLoading]  = useState(false);
@@ -932,6 +953,57 @@ export default function AdminPage() {
     } finally {
       setClearingTgId(null);
     }
+  };
+
+  const fetchResources = useCallback(async (subjId: string) => {
+    setResMgrLoading(true);
+    try {
+      const r = await fetch('/api/admin-resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'list', subjectId: subjId, secret }),
+      });
+      if (r.ok) { const d = await r.json(); setResMgrList(d.resources ?? []); }
+    } catch { showToast('Ошибка загрузки материалов'); }
+    finally   { setResMgrLoading(false); }
+  }, [secret]);
+
+  const addResource = async () => {
+    if (!resForm.title.trim() || !resForm.url.trim()) {
+      showToast('Заполни название и ссылку'); return;
+    }
+    setResMgrAdding(true);
+    try {
+      const r = await fetch('/api/admin-resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add', subjectId: resMgrSubject, resource: resForm, secret }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        setResMgrList(d.resources ?? []);
+        setResForm({ type: 'link', title: '', url: '', description: '' });
+        showToast('✓ Материал добавлен');
+      } else { showToast('Ошибка добавления'); }
+    } catch { showToast('Ошибка сети'); }
+    finally   { setResMgrAdding(false); }
+  };
+
+  const deleteResource = async (resourceId: string) => {
+    setResMgrDeleting(resourceId);
+    try {
+      const r = await fetch('/api/admin-resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', subjectId: resMgrSubject, resourceId, secret }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        setResMgrList(d.resources ?? []);
+        showToast('Удалено');
+      } else { showToast('Ошибка удаления'); }
+    } catch { showToast('Ошибка сети'); }
+    finally   { setResMgrDeleting(null); }
   };
 
   // Копирование в буфер с тостом
@@ -1498,6 +1570,189 @@ export default function AdminPage() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* материалы по предметам */}
+        <div style={{
+          background: T.surface, border: `1px solid ${T.border}`,
+          borderRadius: 14, marginBottom: 14, overflow: 'hidden',
+        }}>
+          <div
+            onClick={() => {
+              const next = !resMgrExpanded;
+              setResMgrExpanded(next);
+              if (next && !resMgrSubject && availableSubjects.length > 0) {
+                const first = availableSubjects[0].id;
+                setResMgrSubject(first);
+                fetchResources(first);
+              }
+            }}
+            style={{
+              padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 12,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <div style={{
+              width: 36, height: 36, borderRadius: 10, background: T.accentSoft,
+              color: T.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700, fontSize: 18, flexShrink: 0,
+            }}>📚</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, marginBottom: 2 }}>
+                Материалы по предметам
+              </div>
+              <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.4 }}>
+                Ссылки, PDF, презентации и документы для студентов
+              </div>
+            </div>
+            <span style={{
+              color: T.textFaint, fontSize: 13,
+              transform: resMgrExpanded ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.2s', display: 'inline-block',
+            }}>▾</span>
+          </div>
+
+          {resMgrExpanded && (
+            <div style={{ borderTop: `1px solid ${T.border}`, background: T.surfaceAlt }}>
+              {/* вкладки предметов */}
+              <div style={{
+                display: 'flex', gap: 6, padding: '10px 14px 0',
+                overflowX: 'auto', scrollbarWidth: 'none',
+              } as React.CSSProperties}>
+                {availableSubjects.map(s => {
+                  const active = resMgrSubject === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        setResMgrSubject(s.id);
+                        setResMgrList([]);
+                        fetchResources(s.id);
+                      }}
+                      style={{
+                        padding: '5px 12px', borderRadius: 999, flexShrink: 0,
+                        fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                        background: active ? T.accent : T.surface,
+                        color: active ? '#fff' : T.textMuted,
+                        border: `1px solid ${active ? T.accent : T.border}`,
+                        fontFamily: FONT_SANS,
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >{s.shortLabel}</button>
+                  );
+                })}
+              </div>
+
+              {/* список материалов */}
+              <div style={{ padding: '10px 14px' }}>
+                {resMgrLoading ? (
+                  <div style={{ padding: '12px 0', textAlign: 'center', color: T.textFaint, fontSize: 13 }}>
+                    Загрузка...
+                  </div>
+                ) : resMgrList.length === 0 ? (
+                  <div style={{ padding: '10px 0', color: T.textMuted, fontSize: 13, textAlign: 'center' }}>
+                    Нет материалов — добавь первый
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+                    {resMgrList.map(item => {
+                      const opt = RES_TYPE_OPTS.find(o => o.id === item.type);
+                      const busy = resMgrDeleting === item.id;
+                      return (
+                        <div key={item.id} style={{
+                          background: T.surface, border: `1px solid ${T.border}`,
+                          borderRadius: 10, padding: '8px 10px',
+                          display: 'flex', alignItems: 'center', gap: 8,
+                        }}>
+                          <span style={{ fontSize: 16, flexShrink: 0 }}>{opt?.emoji}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: 12.5, fontWeight: 600, color: T.text,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>{item.title}</div>
+                            {item.description && (
+                              <div style={{
+                                fontSize: 11, color: T.textMuted, marginTop: 1,
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              }}>{item.description}</div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => deleteResource(item.id)}
+                            disabled={busy}
+                            style={{
+                              background: T.dangerSoft, color: T.danger,
+                              border: `1px solid ${T.danger}33`,
+                              borderRadius: 8, padding: '4px 8px',
+                              fontSize: 12, fontWeight: 600, cursor: busy ? 'default' : 'pointer',
+                              opacity: busy ? 0.5 : 1, flexShrink: 0, fontFamily: FONT_SANS,
+                              WebkitTapHighlightColor: 'transparent',
+                            }}
+                          >{busy ? '...' : '✕'}</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* форма добавления */}
+                <div style={{
+                  background: T.surface, border: `1px solid ${T.border}`,
+                  borderRadius: 12, padding: '11px 12px',
+                  display: 'flex', flexDirection: 'column', gap: 8,
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Добавить материал
+                  </div>
+
+                  {/* тип */}
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                    {RES_TYPE_OPTS.map(opt => {
+                      const active = resForm.type === opt.id;
+                      return (
+                        <button key={opt.id} onClick={() => setResForm(f => ({ ...f, type: opt.id }))} style={{
+                          padding: '4px 9px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+                          background: active ? T.accent : T.surfaceAlt,
+                          color: active ? '#fff' : T.textMuted,
+                          border: `1px solid ${active ? T.accent : T.border}`,
+                          cursor: 'pointer', fontFamily: FONT_SANS, display: 'inline-flex', alignItems: 'center', gap: 4,
+                          WebkitTapHighlightColor: 'transparent',
+                        }}>
+                          {opt.emoji} {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* поля */}
+                  {(['title', 'url', 'description'] as const).map(field => (
+                    <input
+                      key={field}
+                      value={resForm[field]}
+                      onChange={e => setResForm(f => ({ ...f, [field]: e.target.value }))}
+                      placeholder={field === 'title' ? 'Название *' : field === 'url' ? 'Ссылка (URL) *' : 'Описание (необязательно)'}
+                      style={{
+                        width: '100%', boxSizing: 'border-box',
+                        padding: '8px 10px', borderRadius: 8,
+                        border: `1px solid ${T.border}`,
+                        background: T.surfaceAlt, color: T.text,
+                        fontSize: 13, fontFamily: FONT_SANS, outline: 'none',
+                      }}
+                    />
+                  ))}
+
+                  <ActionBtn
+                    variant="primary"
+                    fullWidth
+                    disabled={resMgrAdding || !resForm.title.trim() || !resForm.url.trim()}
+                    onClick={addResource}
+                  >
+                    {resMgrAdding ? '...' : '+ Добавить'}
+                  </ActionBtn>
+                </div>
+              </div>
             </div>
           )}
         </div>
