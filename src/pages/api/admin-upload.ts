@@ -21,7 +21,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'filename, contentType and fileBase64 required' });
   }
   if (!SUPABASE_URL || !SERVICE_KEY) {
-    return res.status(500).json({ error: 'Supabase not configured' });
+    return res.status(500).json({
+      error: `Supabase not configured: URL=${!!SUPABASE_URL} KEY=${!!SERVICE_KEY}`,
+    });
   }
 
   const safeName = `${Date.now()}_${String(filename).replace(/[^a-zA-Z0-9._-]/g, '_')}`;
@@ -51,6 +53,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ publicUrl });
   } catch (err) {
     console.error('[admin-upload]', err);
-    return res.status(500).json({ error: 'Server error' });
+    return res.status(500).json({ error: String(err) });
   }
 }
