@@ -1034,25 +1034,25 @@ export default function AdminPage() {
     finally   { setResMgrDeleting(null); }
   };
 
+  const toBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload  = () => resolve((r.result as string).split(',')[1]);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+
   const uploadFile = async (file: File) => {
     setResUploading(true);
     try {
-      // 1. Get signed URL
-      const signRes = await fetch('/api/admin-upload-sign', {
+      const fileBase64 = await toBase64(file);
+      const signRes = await fetch('/api/admin-upload', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ secret, filename: file.name, contentType: file.type || 'application/octet-stream' }),
+        body:    JSON.stringify({ secret, filename: file.name, contentType: file.type || 'application/octet-stream', fileBase64 }),
       });
-      if (!signRes.ok) { showToast('Ошибка получения URL загрузки'); return; }
-      const { signedUrl, publicUrl } = await signRes.json();
-
-      // 2. Upload directly to Supabase
-      const putRes = await fetch(signedUrl, {
-        method:  'PUT',
-        headers: { 'Content-Type': file.type || 'application/octet-stream' },
-        body:    file,
-      });
-      if (!putRes.ok) { showToast('Ошибка загрузки файла в хранилище'); return; }
+      if (!signRes.ok) { showToast('Ошибка загрузки файла'); return; }
+      const { publicUrl } = await signRes.json();
 
       // 3. Auto-detect type from extension
       const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
@@ -1182,17 +1182,14 @@ export default function AdminPage() {
   const uploadGlImage = async (file: File) => {
     setGlUploading(true);
     try {
-      const signRes = await fetch('/api/admin-upload-sign', {
+      const fileBase64 = await toBase64(file);
+      const signRes = await fetch('/api/admin-upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secret, filename: file.name, contentType: file.type || 'image/jpeg' }),
+        body: JSON.stringify({ secret, filename: file.name, contentType: file.type || 'image/jpeg', fileBase64 }),
       });
-      if (!signRes.ok) { showToast('Ошибка получения URL загрузки'); return; }
-      const { signedUrl, publicUrl } = await signRes.json();
-      const putRes = await fetch(signedUrl, {
-        method: 'PUT', headers: { 'Content-Type': file.type || 'image/jpeg' }, body: file,
-      });
-      if (!putRes.ok) { showToast('Ошибка загрузки картинки'); return; }
+      if (!signRes.ok) { showToast('Ошибка загрузки картинки'); return; }
+      const { publicUrl } = await signRes.json();
       setGlForm(f => ({ ...f, image: publicUrl }));
       showToast('✓ Картинка загружена');
     } catch { showToast('Ошибка сети'); }
