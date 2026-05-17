@@ -34,11 +34,12 @@ interface RateBlock {
   ttl:  number;
 }
 
-type ResType = 'link' | 'pdf' | 'docx' | 'pptx' | 'video';
+type ResType = 'link' | 'pdf' | 'docx' | 'pptx' | 'video' | 'umkd';
 interface ResItem  { id: string; type: ResType; title: string; url: string; description: string }
 interface ResForm  { type: ResType; title: string; url: string; description: string }
 
 const RES_TYPE_OPTS: { id: ResType; label: string; emoji: string }[] = [
+  { id: 'umkd',  label: 'УМКД',        emoji: '🎓' },
   { id: 'video', label: 'Видео',       emoji: '▶️' },
   { id: 'pdf',   label: 'PDF',         emoji: '📄' },
   { id: 'pptx',  label: 'Презентация', emoji: '📊' },

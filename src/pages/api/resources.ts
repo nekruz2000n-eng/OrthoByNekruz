@@ -6,7 +6,7 @@ const redis = Redis.fromEnv();
 
 export interface Resource {
   id:          string;
-  type:        'link' | 'pdf' | 'docx' | 'pptx' | 'video';
+  type:        'link' | 'pdf' | 'docx' | 'pptx' | 'video' | 'umkd';
   title:       string;
   url:         string;
   description: string;

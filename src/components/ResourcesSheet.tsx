@@ -7,6 +7,7 @@ import type { Resource } from '@/pages/api/resources';
 
 // ── Иконка и цвет по типу ─────────────────────────────────────────────────────
 const TYPE_META: Record<Resource['type'], { emoji: string; label: string; color: string; bg: string }> = {
+  umkd:  { emoji: '🎓', label: 'УМКД',          color: '#0EA5E9', bg: 'rgba(14,165,233,0.12)'  },
   video: { emoji: '▶️', label: 'Видео',         color: '#EF4444', bg: 'rgba(239,68,68,0.12)'   },
   pdf:   { emoji: '📄', label: 'PDF',            color: '#F97316', bg: 'rgba(249,115,22,0.12)'  },
   docx:  { emoji: '📝', label: 'Word',           color: '#3B82F6', bg: 'rgba(59,130,246,0.12)'  },
@@ -14,7 +15,7 @@ const TYPE_META: Record<Resource['type'], { emoji: string; label: string; color:
   link:  { emoji: '🔗', label: 'Ссылка',        color: '#10B981', bg: 'rgba(16,185,129,0.12)'  },
 };
 
-const TYPE_ORDER: Resource['type'][] = ['video', 'pdf', 'pptx', 'docx', 'link'];
+const TYPE_ORDER: Resource['type'][] = ['umkd', 'video', 'pdf', 'pptx', 'docx', 'link'];
 
 function openUrl(url: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
