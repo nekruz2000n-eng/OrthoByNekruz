@@ -392,9 +392,13 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const lsNoteKey   = subject === 'ortho' ? 'userQuestionNotes' : `${cfg?.lsPrefix || subject}_userQuestionNotes`;
   const isOrtho     = subject === 'ortho';
 
-  const [microQuestionsData, setMicroQuestionsData] = useState<any[]>([]);
-  const [microLoading,       setMicroLoading]       = useState(false);
-  const questionsData = isOrtho ? orthoQuestionsData : microQuestionsData;
+  const [loadedQuestionsData, setLoadedQuestionsData] = useState<any[]>([]);
+  const [microLoading,        setMicroLoading]        = useState(false);
+  // Для ortho: показываем статику сразу, потом переключаемся на API-данные
+  // (API-данные содержат Redis-оверрайды relatedTerms)
+  const questionsData = loadedQuestionsData.length > 0
+    ? loadedQuestionsData
+    : (isOrtho ? (orthoQuestionsData as any[]) : []);
 
   // Глоссарий загружается динамически — включает кастомные записи из Redis
   const [dynamicGlossary, setDynamicGlossary] = useState<GlossaryItem[]>([]);
@@ -448,11 +452,11 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   }, [subject]);
 
   useEffect(() => {
-    if (isOrtho) return;
     let cancelled = false;
     setMicroLoading(true);
+    setLoadedQuestionsData([]);
     loadSubjectData(subject, 'questions')
-      .then(d => { if (!cancelled) setMicroQuestionsData(d as any[]); })
+      .then(d => { if (!cancelled) setLoadedQuestionsData(d as any[]); })
       .finally(() => { if (!cancelled) setMicroLoading(false); });
     return () => { cancelled = true; };
   }, [subject]);
