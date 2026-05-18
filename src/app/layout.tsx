@@ -2,7 +2,7 @@
 import "./globals.css";
 import React, { useEffect, useState } from 'react';
 import { AuthScreen } from '@/components/AuthScreen';
-import { Watermark }  from '@/components/Watermark';
+
 import { usePathname }  from 'next/navigation';
 import { Toaster }    from '@/components/ui/toaster';
 import { useToast }   from '@/hooks/use-toast';
@@ -194,8 +194,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthScreen onAuthenticated={() => setIsAuthenticated(true)} />
         )}
         <Toaster />
-        {/* Невидимый watermark с tgId — только когда юзер авторизован */}
-        {isAuthenticated && <Watermark />}
       </body>
     </html>
   );

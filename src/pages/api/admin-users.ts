@@ -199,6 +199,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ ok: true });
       }
 
+      if (action === 'toggle_paid') {
+        const newPaid = !user.paid;
+        await redis.set(`user_id:${tgId}`, { ...user, paid: newPaid });
+        return res.status(200).json({ ok: true, paid: newPaid });
+      }
+
       // Полное удаление пользователя — стираем все связанные ключи
       if (action === 'delete_user') {
         const id = String(tgId);
@@ -299,6 +305,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         fpChanges,
         suspicious,
         navHidden:     (user.navHidden && typeof user.navHidden === 'object') ? user.navHidden : {},
+        paid:          user.paid === true,
       };
     });
 

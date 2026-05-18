@@ -228,8 +228,18 @@ export default function Home() {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ telegramId: tgId, mode: 'check_subjects', initData: initDat }),
     })
-      .then(r => r.json())
+      .then(async r => {
+        const d = await r.json();
+        // Отписался от канала — разлогиниваем и возвращаем на экран входа
+        if (r.status === 403 && d.needSubscription) {
+          ['is_authed', 'user_tg_id', 'available_subjects', 'subject_chosen', 'has_micro'].forEach(k => localStorage.removeItem(k));
+          setIsAuthenticated(false);
+          return null;
+        }
+        return d;
+      })
       .then(d => {
+        if (!d) return;
         // Пользователь был удалён — сбрасываем авторизацию и отправляем на ввод ключа
         if (d.registered === false) {
           ['is_authed', 'user_tg_id', 'available_subjects', 'subject_chosen', 'has_micro'].forEach(k => localStorage.removeItem(k));

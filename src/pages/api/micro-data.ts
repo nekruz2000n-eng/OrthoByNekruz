@@ -31,13 +31,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const { type, telegramId, initData } = req.body;
 
-    if (!initData || !BOT_TOKEN || !telegramId) {
+    if (!BOT_TOKEN || !telegramId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const userId = verifyInitData(initData);
-    if (!userId || String(userId) !== String(telegramId)) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!initData) {
+      const inWL = await redis.sismember('sub_whitelist', String(telegramId));
+      if (!inWL) return res.status(401).json({ error: 'Unauthorized' });
+    } else {
+      const userId = verifyInitData(initData);
+      if (!userId || String(userId) !== String(telegramId)) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
     }
 
     const user: any = await redis.get(`user_id:${telegramId}`);

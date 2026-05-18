@@ -169,29 +169,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { key, telegramId, mode, initData } = req.body;
 
-  // СТРОГАЯ ЗАЩИТА: Без initData работа невозможна (Проект только для TG)
-  if (!initData) {
-    return res.status(403).json({ error: 'Доступ разрешен только через Telegram.' });
-  }
-
   const tgIdStr = String(telegramId || '').trim();
   if (!isValidTelegramId(tgIdStr)) {
     return res.status(400).json({ error: 'Некорректный Telegram ID.' });
   }
 
-  // ВЕРИФИКАЦИЯ ДАННЫХ TELEGRAM
   let username: string | null = null;
   let firstName: string | null = null;
   let lastName: string | null = null;
+  let skipSubscriptionCheck = false;
 
-  const tgUser = verifyTelegramInitData(initData, BOT_TOKEN || '');
-  if (!tgUser || String(tgUser.id) !== tgIdStr) {
-    return res.status(401).json({ error: 'Ошибка верификации данных.' });
+  if (!initData) {
+    // Нет initData (неофициальный клиент) — пропускаем только тех, кто в белом списке
+    const inWL = await redis.sismember('sub_whitelist', tgIdStr);
+    if (!inWL) {
+      return res.status(403).json({ error: 'Доступ разрешен только через Telegram.' });
+    }
+    skipSubscriptionCheck = true;
+  } else {
+    // Обычный путь: верифицируем данные от Telegram
+    const tgUser = verifyTelegramInitData(initData, BOT_TOKEN || '');
+    if (!tgUser || String(tgUser.id) !== tgIdStr) {
+      return res.status(401).json({ error: 'Ошибка верификации данных.' });
+    }
+    username = tgUser.username || null;
+    firstName = tgUser.first_name || null;
+    lastName = tgUser.last_name || null;
   }
-
-  username = tgUser.username || null;
-  firstName = tgUser.first_name || null;
-  lastName = tgUser.last_name || null;
 
   const ip = getIp(req);
 
@@ -211,13 +215,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Твой аккаунт заблокирован. Свяжись с администратором.', blocked: true });
     }
 
-    // 2. ЖЕСТКАЯ ПРОВЕРКА ПОДПИСКИ
-    const subscribed = await isSubscribed(Number(tgIdStr));
-    if (!subscribed) {
-      return res.status(403).json({
-        error: `Подпишись на @${CHANNEL_USERNAME} для доступа.`,
-        needSubscription: true,
-      });
+    // 2. ЖЕСТКАЯ ПРОВЕРКА ПОДПИСКИ (белый список и bypass обходят проверку)
+    if (!skipSubscriptionCheck) {
+      const inWhitelist = await redis.sismember('sub_whitelist', tgIdStr);
+      if (!inWhitelist) {
+        const subscribed = await isSubscribed(Number(tgIdStr));
+        if (!subscribed) {
+          return res.status(403).json({
+            error: `Подпишись на @${CHANNEL_USERNAME} для доступа.`,
+            needSubscription: true,
+          });
+        }
+      }
     }
 
     // --- ПОСЛЕ ЭТОЙ ТОЧКИ ПОЛЬЗОВАТЕЛЬ ТОЧНО НЕ ЗАБАНЕН И ТОЧНО ПОДПИСАН ---

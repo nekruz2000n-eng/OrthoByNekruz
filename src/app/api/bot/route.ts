@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { Redis } from '@upstash/redis';
 
+const redis = Redis.fromEnv();
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_TG_ID = process.env.ADMIN_TG_ID;
 const ADMIN_URL = process.env.ADMIN_URL || 'https://ortho-by-nekruz.vercel.app/admin';
@@ -21,6 +23,23 @@ async function isSubscribed(userId: number): Promise<boolean> {
 
 export async function POST(req: Request) {
   const update = await req.json();
+
+  // Событие отписки от канала
+  const chatMember = update?.chat_member ?? update?.my_chat_member;
+  if (chatMember) {
+    const chat     = chatMember.chat;
+    const newStatus = chatMember.new_chat_member?.status;
+    const userId   = chatMember.new_chat_member?.user?.id;
+    const isOurChannel = chat?.username === CHANNEL_USERNAME;
+    const isLeaving = ['left', 'kicked', 'banned'].includes(newStatus);
+
+    if (isOurChannel && isLeaving && userId) {
+      // Помечаем флагом — при следующем открытии приложения auth.ts заблокирует доступ
+      // (проверка подписки уже есть в auth.ts, этот флаг — для моментального логаута)
+      await redis.set(`unsub:${userId}`, 1, { ex: 60 * 60 * 24 * 7 }); // TTL 7 дней
+    }
+  }
+
   const message = update?.message;
 
   if (message && message.text) {

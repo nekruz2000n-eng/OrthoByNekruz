@@ -20,6 +20,7 @@ interface User {
   fpChanges:     number;
   suspicious:    boolean;
   navHidden:     Record<string, string[]>;
+  paid:          boolean;
 }
 
 interface SubjectInfo {
@@ -48,7 +49,7 @@ const RES_TYPE_OPTS: { id: ResType; label: string; emoji: string }[] = [
 ];
 
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo';
-type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject' | 'toggle_section' | 'delete_user';
+type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid';
 
 // Управляемые из админки разделы. Сам раздел «Статистика» не выключается
 // (там прогресс юзера), но внутри него можно скрыть блок «Проверка готовности».
@@ -380,7 +381,27 @@ function UserCard({
                 WebkitTapHighlightColor: 'transparent',
               }}
             >id {user.tgId}</span>
-            {hasFullKey && <Chip bg={T.accentSoft} color={T.accent}>ключ</Chip>}
+            {hasFullKey && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Chip bg={T.accentSoft} color={T.accent}>ключ</Chip>
+                <button
+                  onClick={e => { e.stopPropagation(); onAction(user.tgId, 'toggle_paid'); }}
+                  disabled={busy}
+                  title={user.paid ? 'Оплачено — нажми чтобы снять' : 'Отметить как оплачено'}
+                  style={{
+                    width: 20, height: 20, borderRadius: 5, flexShrink: 0,
+                    border: `1px solid ${user.paid ? T.success + '66' : T.border}`,
+                    background: user.paid ? T.successSoft : T.surfaceAlt,
+                    color: user.paid ? T.success : T.textFaint,
+                    fontSize: 12, lineHeight: 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: busy ? 'default' : 'pointer',
+                    WebkitTapHighlightColor: 'transparent',
+                    transition: 'background 0.15s, border-color 0.15s',
+                  }}
+                >{user.paid ? '💲' : ''}</button>
+              </span>
+            )}
             {isTrial    && <Chip bg={T.warnSoft}   color={T.warn}>trial</Chip>}
             {availableSubjects
               .filter(s => s.id !== 'ortho' && user.subjects.includes(s.id))
@@ -873,18 +894,23 @@ export default function AdminPage() {
   const [rateBlocksExpanded, setRateBlocksExpanded] = useState(false);
   const [clearingTgId,       setClearingTgId]       = useState<string | null>(null);
 
-  // ── Глобальные настройки (демо-кнопка, watermark) ─────────────────────────
-  const [isDemoEnabled,      setIsDemoEnabled]      = useState(true);
-  const [isDemoLoading,      setIsDemoLoading]      = useState(false);
-  const [isWatermarkEnabled, setIsWatermarkEnabled] = useState(true);
-  const [isWatermarkLoading, setIsWatermarkLoading] = useState(false);
+  // ── Белый список (обход проверки подписки) ────────────────────────────────
+  const [wlExpanded,   setWlExpanded]   = useState(false);
+  const [wlItems,      setWlItems]      = useState<string[]>([]);
+  const [wlLoading,    setWlLoading]    = useState(false);
+  const [wlInput,      setWlInput]      = useState('');
+  const [wlAdding,     setWlAdding]     = useState(false);
+  const [wlRemoving,   setWlRemoving]   = useState<string | null>(null);
+
+  // ── Глобальные настройки (демо-кнопка) ──────────────────────────────────
+  const [isDemoEnabled, setIsDemoEnabled] = useState(true);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
 
   useEffect(() => {
     fetch('/api/admin-config')
       .then(res => res.json())
       .then(data => {
-        if (typeof data.isDemoEnabled === 'boolean')      setIsDemoEnabled(data.isDemoEnabled);
-        if (typeof data.isWatermarkEnabled === 'boolean') setIsWatermarkEnabled(data.isWatermarkEnabled);
+        if (typeof data.isDemoEnabled === 'boolean') setIsDemoEnabled(data.isDemoEnabled);
       })
       .catch(err => console.error('Ошибка загрузки конфига:', err));
   }, []);
@@ -913,33 +939,6 @@ export default function AdminPage() {
       showToast('Ошибка сети');
     } finally {
       setIsDemoLoading(false);
-    }
-  };
-
-  const toggleWatermark = async () => {
-    const initData = getTelegramInitData();
-    if (!initData) { showToast('Нет доступа: не в Telegram'); return; }
-
-    setIsWatermarkLoading(true);
-    try {
-      const newValue = !isWatermarkEnabled;
-      const res = await fetch('/api/admin-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isWatermarkEnabled: newValue, initData, secret }),
-      });
-      if (res.ok) {
-        setIsWatermarkEnabled(newValue);
-        showToast(newValue ? '✓ Водяной знак включён' : 'Водяной знак отключён');
-      } else if (res.status === 403) {
-        showToast('Нет прав');
-      } else {
-        showToast('Ошибка при переключении');
-      }
-    } catch (error) {
-      showToast('Ошибка сети');
-    } finally {
-      setIsWatermarkLoading(false);
     }
   };
 
@@ -980,6 +979,70 @@ export default function AdminPage() {
       showToast('Ошибка сети');
     } finally {
       setClearingTgId(null);
+    }
+  };
+
+  const fetchWhitelist = useCallback(async () => {
+    setWlLoading(true);
+    try {
+      const r = await fetch('/api/admin-whitelist', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'list', secret }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setWlItems(data.ids ?? []);
+      }
+    } catch {
+      showToast('Ошибка загрузки белого списка');
+    } finally {
+      setWlLoading(false);
+    }
+  }, [secret]);
+
+  const addToWhitelist = async () => {
+    const id = wlInput.trim();
+    if (!id) return;
+    setWlAdding(true);
+    try {
+      const r = await fetch('/api/admin-whitelist', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'add', tgId: id, secret }),
+      });
+      if (r.ok) {
+        setWlItems(prev => prev.includes(id) ? prev : [...prev, id]);
+        setWlInput('');
+        showToast('✓ ID добавлен в белый список');
+      } else {
+        showToast('Ошибка добавления');
+      }
+    } catch {
+      showToast('Ошибка сети');
+    } finally {
+      setWlAdding(false);
+    }
+  };
+
+  const removeFromWhitelist = async (id: string) => {
+    setWlRemoving(id);
+    try {
+      const r = await fetch('/api/admin-whitelist', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'remove', tgId: id, secret }),
+      });
+      if (r.ok) {
+        setWlItems(prev => prev.filter(x => x !== id));
+        showToast('✓ ID удалён из белого списка');
+      } else {
+        showToast('Ошибка удаления');
+      }
+    } catch {
+      showToast('Ошибка сети');
+    } finally {
+      setWlRemoving(null);
     }
   };
 
@@ -1351,6 +1414,8 @@ export default function AdminPage() {
             return { ...u, blocked: false, blockedReason: null, blockedAt: null, opensToday: 0, suspicious: u.fpChanges >= 2 };
           case 'reset_demo':
             return { ...u, usedDemo: false };
+          case 'toggle_paid':
+            return { ...u, paid: !u.paid };
           case 'toggle_subject': {
             if (!subjectId) return u;
             const newSubjects = enabled
@@ -1385,6 +1450,11 @@ export default function AdminPage() {
         case 'block':          msg = '🚫 Заблокирован'; break;
         case 'unblock':        msg = '✓ Разблокирован'; break;
         case 'reset_demo':     msg = '✓ Демо выдан повторно'; break;
+        case 'toggle_paid': {
+          const nowPaid = !users.find(u => u.tgId === tgId)?.paid;
+          msg = nowPaid ? '💲 Отмечено как оплачено' : 'Отметка оплаты снята';
+          break;
+        }
         case 'toggle_subject': {
           const subj  = availableSubjects.find(s => s.id === subjectId);
           const label = subj?.shortLabel || subjectId;
@@ -1616,49 +1686,6 @@ export default function AdminPage() {
           </button>
         </div>
 
-        {/* водяной знак */}
-        <div style={{
-          background: T.surface, border: `1px solid ${T.border}`,
-          borderRadius: 14, padding: '13px 14px', marginBottom: 14,
-          display: 'flex', alignItems: 'center', gap: 12,
-        }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10, background: T.infoSoft,
-            color: T.info, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 700, fontSize: 15, flexShrink: 0,
-          }}>W</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, marginBottom: 2 }}>
-              Водяной знак
-            </div>
-            <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.4 }}>
-              {isWatermarkEnabled
-                ? 'tgId юзера наложен на все экраны (защита от скриншотов)'
-                : 'Водяной знак отключён для всех'}
-            </div>
-          </div>
-          <button
-            onClick={toggleWatermark}
-            disabled={isWatermarkLoading}
-            aria-label="Toggle watermark"
-            style={{
-              width: 44, height: 26, borderRadius: 999,
-              background: isWatermarkEnabled ? T.accent : T.borderStrong,
-              border: 'none', position: 'relative', flexShrink: 0,
-              cursor: isWatermarkLoading ? 'default' : 'pointer',
-              padding: 0, transition: 'background 0.15s',
-              opacity: isWatermarkLoading ? 0.6 : 1,
-            }}
-          >
-            <span style={{
-              position: 'absolute', top: 3, left: isWatermarkEnabled ? 21 : 3,
-              width: 20, height: 20, borderRadius: '50%',
-              background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-              transition: 'left 0.15s',
-            }} />
-          </button>
-        </div>
-
         {/* блокировки входа */}
         <div style={{
           background: T.surface, border: `1px solid ${rateBlocks.length > 0 ? T.danger + '44' : T.border}`,
@@ -1768,6 +1795,140 @@ export default function AdminPage() {
                           onClick={() => clearRateBlock(b.tgId)}
                         >
                           {busy ? '...' : 'Снять'}
+                        </ActionBtn>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* белый список — обход проверки подписки */}
+        <div style={{
+          background: T.surface, border: `1px solid ${T.border}`,
+          borderRadius: 14, marginBottom: 14, overflow: 'hidden',
+        }}>
+          <div
+            onClick={() => {
+              const next = !wlExpanded;
+              setWlExpanded(next);
+              if (next && wlItems.length === 0) fetchWhitelist();
+            }}
+            style={{
+              padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 12,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: wlItems.length > 0 ? T.successSoft : T.surfaceAlt,
+              color: wlItems.length > 0 ? T.success : T.textMuted,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700, fontSize: 18, flexShrink: 0,
+            }}>✅</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, marginBottom: 2 }}>
+                Белый список (без подписки)
+                {wlItems.length > 0 && (
+                  <span style={{
+                    marginLeft: 8, background: T.successSoft, color: T.success,
+                    borderRadius: 6, padding: '1px 7px', fontSize: 12, fontWeight: 700,
+                  }}>{wlItems.length}</span>
+                )}
+              </div>
+              <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.4 }}>
+                ID из списка проходят без проверки подписки на канал
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                onClick={e => { e.stopPropagation(); fetchWhitelist(); }}
+                disabled={wlLoading}
+                style={{
+                  width: 30, height: 30, borderRadius: 8,
+                  background: T.surfaceAlt, border: `1px solid ${T.border}`,
+                  color: wlLoading ? T.textFaint : T.textMuted,
+                  fontSize: 14, cursor: wlLoading ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >{wlLoading ? '⏳' : '↻'}</button>
+              <span style={{
+                color: T.textFaint, fontSize: 13,
+                transform: wlExpanded ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.2s', display: 'inline-block',
+              }}>▾</span>
+            </div>
+          </div>
+
+          {wlExpanded && (
+            <div style={{ borderTop: `1px solid ${T.border}`, background: T.surfaceAlt }}>
+              {/* поле ввода нового ID */}
+              <div style={{ padding: '12px 14px', display: 'flex', gap: 8 }}>
+                <input
+                  value={wlInput}
+                  onChange={e => setWlInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addToWhitelist(); }}
+                  placeholder="Telegram ID студента"
+                  style={{
+                    flex: 1, padding: '8px 11px',
+                    border: `1px solid ${T.border}`, borderRadius: 10,
+                    fontSize: 13, fontFamily: FONT_MONO,
+                    background: T.surface, color: T.text,
+                    outline: 'none',
+                  }}
+                />
+                <ActionBtn
+                  variant="success"
+                  disabled={wlAdding || !wlInput.trim()}
+                  onClick={addToWhitelist}
+                >
+                  {wlAdding ? '...' : 'Добавить'}
+                </ActionBtn>
+              </div>
+
+              {wlLoading ? (
+                <div style={{ padding: '14px', textAlign: 'center', color: T.textFaint, fontSize: 13 }}>
+                  Загрузка...
+                </div>
+              ) : wlItems.length === 0 ? (
+                <div style={{ padding: '14px', textAlign: 'center', color: T.textMuted, fontSize: 13 }}>
+                  Белый список пуст
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', borderTop: `1px solid ${T.border}` }}>
+                  {wlItems.map((id, i) => {
+                    const knownUser = users.find(u => u.tgId === id);
+                    const busy = wlRemoving === id;
+                    return (
+                      <div key={id} style={{
+                        padding: '10px 14px',
+                        borderTop: i === 0 ? 'none' : `1px solid ${T.border}`,
+                        display: 'flex', alignItems: 'center', gap: 10,
+                      }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 13, fontWeight: 600, color: T.text,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {knownUser ? displayName(knownUser) : (
+                              <span style={{ fontFamily: FONT_MONO, color: T.textMuted }}>id {id}</span>
+                            )}
+                          </div>
+                          {knownUser && (
+                            <span style={{ fontFamily: FONT_MONO, fontSize: 10.5, color: T.textFaint }}>
+                              id {id}
+                            </span>
+                          )}
+                        </div>
+                        <ActionBtn
+                          variant="danger"
+                          disabled={busy}
+                          onClick={() => removeFromWhitelist(id)}
+                        >
+                          {busy ? '...' : 'Удалить'}
                         </ActionBtn>
                       </div>
                     );
