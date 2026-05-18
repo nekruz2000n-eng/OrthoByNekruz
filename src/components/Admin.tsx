@@ -902,18 +902,15 @@ export default function AdminPage() {
   const [wlAdding,     setWlAdding]     = useState(false);
   const [wlRemoving,   setWlRemoving]   = useState<string | null>(null);
 
-  // ── Глобальные настройки (демо-кнопка, watermark) ─────────────────────────
-  const [isDemoEnabled,      setIsDemoEnabled]      = useState(true);
-  const [isDemoLoading,      setIsDemoLoading]      = useState(false);
-  const [isWatermarkEnabled, setIsWatermarkEnabled] = useState(true);
-  const [isWatermarkLoading, setIsWatermarkLoading] = useState(false);
+  // ── Глобальные настройки (демо-кнопка) ──────────────────────────────────
+  const [isDemoEnabled, setIsDemoEnabled] = useState(true);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
 
   useEffect(() => {
     fetch('/api/admin-config')
       .then(res => res.json())
       .then(data => {
-        if (typeof data.isDemoEnabled === 'boolean')      setIsDemoEnabled(data.isDemoEnabled);
-        if (typeof data.isWatermarkEnabled === 'boolean') setIsWatermarkEnabled(data.isWatermarkEnabled);
+        if (typeof data.isDemoEnabled === 'boolean') setIsDemoEnabled(data.isDemoEnabled);
       })
       .catch(err => console.error('Ошибка загрузки конфига:', err));
   }, []);
@@ -942,33 +939,6 @@ export default function AdminPage() {
       showToast('Ошибка сети');
     } finally {
       setIsDemoLoading(false);
-    }
-  };
-
-  const toggleWatermark = async () => {
-    const initData = getTelegramInitData();
-    if (!initData) { showToast('Нет доступа: не в Telegram'); return; }
-
-    setIsWatermarkLoading(true);
-    try {
-      const newValue = !isWatermarkEnabled;
-      const res = await fetch('/api/admin-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isWatermarkEnabled: newValue, initData, secret }),
-      });
-      if (res.ok) {
-        setIsWatermarkEnabled(newValue);
-        showToast(newValue ? '✓ Водяной знак включён' : 'Водяной знак отключён');
-      } else if (res.status === 403) {
-        showToast('Нет прав');
-      } else {
-        showToast('Ошибка при переключении');
-      }
-    } catch (error) {
-      showToast('Ошибка сети');
-    } finally {
-      setIsWatermarkLoading(false);
     }
   };
 
@@ -1709,49 +1679,6 @@ export default function AdminPage() {
           >
             <span style={{
               position: 'absolute', top: 3, left: isDemoEnabled ? 21 : 3,
-              width: 20, height: 20, borderRadius: '50%',
-              background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-              transition: 'left 0.15s',
-            }} />
-          </button>
-        </div>
-
-        {/* водяной знак */}
-        <div style={{
-          background: T.surface, border: `1px solid ${T.border}`,
-          borderRadius: 14, padding: '13px 14px', marginBottom: 14,
-          display: 'flex', alignItems: 'center', gap: 12,
-        }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10, background: T.infoSoft,
-            color: T.info, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 700, fontSize: 15, flexShrink: 0,
-          }}>W</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, marginBottom: 2 }}>
-              Водяной знак
-            </div>
-            <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.4 }}>
-              {isWatermarkEnabled
-                ? 'tgId юзера наложен на все экраны (защита от скриншотов)'
-                : 'Водяной знак отключён для всех'}
-            </div>
-          </div>
-          <button
-            onClick={toggleWatermark}
-            disabled={isWatermarkLoading}
-            aria-label="Toggle watermark"
-            style={{
-              width: 44, height: 26, borderRadius: 999,
-              background: isWatermarkEnabled ? T.accent : T.borderStrong,
-              border: 'none', position: 'relative', flexShrink: 0,
-              cursor: isWatermarkLoading ? 'default' : 'pointer',
-              padding: 0, transition: 'background 0.15s',
-              opacity: isWatermarkLoading ? 0.6 : 1,
-            }}
-          >
-            <span style={{
-              position: 'absolute', top: 3, left: isWatermarkEnabled ? 21 : 3,
               width: 20, height: 20, borderRadius: '50%',
               background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
               transition: 'left 0.15s',

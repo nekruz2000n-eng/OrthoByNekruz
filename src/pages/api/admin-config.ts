@@ -42,37 +42,25 @@ function verifyAdmin(initData: string, secret: string): boolean {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // GET — публичный (AuthScreen + Watermark читают настройки при загрузке)
   if (req.method === 'GET') {
-    const [isDemoEnabled, isWatermarkEnabled] = await Promise.all([
-      redis.get('settings:is_demo_enabled'),
-      redis.get('settings:is_watermark_enabled'),
-    ]);
+    const isDemoEnabled = await redis.get('settings:is_demo_enabled');
     return res.status(200).json({
-      isDemoEnabled:      isDemoEnabled      ?? true,
-      isWatermarkEnabled: isWatermarkEnabled ?? true,
+      isDemoEnabled: isDemoEnabled ?? true,
     });
   }
 
   // POST — только админ с валидной initData и секретом
   if (req.method === 'POST') {
-    const { initData, secret, isDemoEnabled, isWatermarkEnabled } = req.body ?? {};
+    const { initData, secret, isDemoEnabled } = req.body ?? {};
     if (!initData || !secret || !verifyAdmin(String(initData), String(secret))) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    // Обновляем только переданные поля — частичный апдейт
     if (typeof isDemoEnabled !== 'undefined') {
       await redis.set('settings:is_demo_enabled', Boolean(isDemoEnabled));
     }
-    if (typeof isWatermarkEnabled !== 'undefined') {
-      await redis.set('settings:is_watermark_enabled', Boolean(isWatermarkEnabled));
-    }
-    const [demo, wm] = await Promise.all([
-      redis.get('settings:is_demo_enabled'),
-      redis.get('settings:is_watermark_enabled'),
-    ]);
+    const demo = await redis.get('settings:is_demo_enabled');
     return res.status(200).json({
-      success:            true,
-      isDemoEnabled:      demo ?? true,
-      isWatermarkEnabled: wm   ?? true,
+      success:       true,
+      isDemoEnabled: demo ?? true,
     });
   }
 
