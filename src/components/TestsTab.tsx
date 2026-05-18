@@ -527,24 +527,24 @@ export const TestsTab = ({
                   const themePerfect = g.blocks.filter(b => b.status === 'perfect').length;
                   const themeTotal   = g.blocks.length;
                   return (
-                    <div key={g.theme} style={{ marginBottom: 4 }}>
+                    <div key={g.theme} style={{ marginBottom: 4, maxWidth: 'calc(100vw - 32px)', overflow: 'hidden' }}>
                       <button
                         onClick={() => setExpandedThemes(prev => {
                           const next = new Set(prev);
                           if (next.has(g.theme)) next.delete(g.theme); else next.add(g.theme);
                           return next;
                         })}
-                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 6, padding: '6px 4px', minWidth: 0 }}
+                        style={{ width: 'calc(100vw - 32px)', maxWidth: '100%', display: 'flex', alignItems: 'center', gap: 6, padding: '6px 4px', boxSizing: 'border-box' }}
                         className="active:opacity-70"
                       >
                         <ChevronDown
                           className="w-3 h-3 flex-shrink-0 transition-transform duration-200"
                           style={{ color: 'var(--c-muted)', transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
                         />
-                        <span style={{ flex: 1, textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--c-text)', minWidth: 0 }}>
+                        <span style={{ flex: 1, minWidth: 0, textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--c-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {g.theme}
                         </span>
-                        <span style={{ fontSize: 10, fontFamily: 'monospace', flexShrink: 0, color: themePerfect === themeTotal && themeTotal > 0 ? 'var(--c-primary)' : 'var(--c-text-faint)' }}>
+                        <span style={{ fontSize: 10, fontFamily: 'monospace', flexShrink: 0, marginLeft: 4, color: themePerfect === themeTotal && themeTotal > 0 ? 'var(--c-primary)' : 'var(--c-text-faint)' }}>
                           {themePerfect}/{themeTotal}
                         </span>
                       </button>
