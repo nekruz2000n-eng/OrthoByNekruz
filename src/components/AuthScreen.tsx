@@ -530,7 +530,16 @@ const [isDemoVisible, setIsDemoVisible] = useState(true);
             {/* ── ПРОСЬБА ПОДПИСАТЬСЯ ── */}
             {needsSubscription && (
               <p className="text-[10px] text-center text-destructive animate-pulse">
-                Subscribe to @nzsdental and try again
+                Подпишись на{' '}
+                <a
+                  href="https://t.me/nzsdental"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ textDecoration: 'underline' }}
+                >
+                  @nzsdental
+                </a>
+                {' '}и попробуй снова
               </p>
             )}
           </div>
