@@ -873,6 +873,14 @@ export default function AdminPage() {
   const [rateBlocksExpanded, setRateBlocksExpanded] = useState(false);
   const [clearingTgId,       setClearingTgId]       = useState<string | null>(null);
 
+  // ── Белый список (обход проверки подписки) ────────────────────────────────
+  const [wlExpanded,   setWlExpanded]   = useState(false);
+  const [wlItems,      setWlItems]      = useState<string[]>([]);
+  const [wlLoading,    setWlLoading]    = useState(false);
+  const [wlInput,      setWlInput]      = useState('');
+  const [wlAdding,     setWlAdding]     = useState(false);
+  const [wlRemoving,   setWlRemoving]   = useState<string | null>(null);
+
   // ── Глобальные настройки (демо-кнопка, watermark) ─────────────────────────
   const [isDemoEnabled,      setIsDemoEnabled]      = useState(true);
   const [isDemoLoading,      setIsDemoLoading]      = useState(false);
@@ -980,6 +988,70 @@ export default function AdminPage() {
       showToast('Ошибка сети');
     } finally {
       setClearingTgId(null);
+    }
+  };
+
+  const fetchWhitelist = useCallback(async () => {
+    setWlLoading(true);
+    try {
+      const r = await fetch('/api/admin-whitelist', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'list', secret }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setWlItems(data.ids ?? []);
+      }
+    } catch {
+      showToast('Ошибка загрузки белого списка');
+    } finally {
+      setWlLoading(false);
+    }
+  }, [secret]);
+
+  const addToWhitelist = async () => {
+    const id = wlInput.trim();
+    if (!id) return;
+    setWlAdding(true);
+    try {
+      const r = await fetch('/api/admin-whitelist', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'add', tgId: id, secret }),
+      });
+      if (r.ok) {
+        setWlItems(prev => prev.includes(id) ? prev : [...prev, id]);
+        setWlInput('');
+        showToast('✓ ID добавлен в белый список');
+      } else {
+        showToast('Ошибка добавления');
+      }
+    } catch {
+      showToast('Ошибка сети');
+    } finally {
+      setWlAdding(false);
+    }
+  };
+
+  const removeFromWhitelist = async (id: string) => {
+    setWlRemoving(id);
+    try {
+      const r = await fetch('/api/admin-whitelist', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'remove', tgId: id, secret }),
+      });
+      if (r.ok) {
+        setWlItems(prev => prev.filter(x => x !== id));
+        showToast('✓ ID удалён из белого списка');
+      } else {
+        showToast('Ошибка удаления');
+      }
+    } catch {
+      showToast('Ошибка сети');
+    } finally {
+      setWlRemoving(null);
     }
   };
 
@@ -1768,6 +1840,140 @@ export default function AdminPage() {
                           onClick={() => clearRateBlock(b.tgId)}
                         >
                           {busy ? '...' : 'Снять'}
+                        </ActionBtn>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* белый список — обход проверки подписки */}
+        <div style={{
+          background: T.surface, border: `1px solid ${T.border}`,
+          borderRadius: 14, marginBottom: 14, overflow: 'hidden',
+        }}>
+          <div
+            onClick={() => {
+              const next = !wlExpanded;
+              setWlExpanded(next);
+              if (next && wlItems.length === 0) fetchWhitelist();
+            }}
+            style={{
+              padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 12,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: wlItems.length > 0 ? T.successSoft : T.surfaceAlt,
+              color: wlItems.length > 0 ? T.success : T.textMuted,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700, fontSize: 18, flexShrink: 0,
+            }}>✅</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, marginBottom: 2 }}>
+                Белый список (без подписки)
+                {wlItems.length > 0 && (
+                  <span style={{
+                    marginLeft: 8, background: T.successSoft, color: T.success,
+                    borderRadius: 6, padding: '1px 7px', fontSize: 12, fontWeight: 700,
+                  }}>{wlItems.length}</span>
+                )}
+              </div>
+              <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.4 }}>
+                ID из списка проходят без проверки подписки на канал
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                onClick={e => { e.stopPropagation(); fetchWhitelist(); }}
+                disabled={wlLoading}
+                style={{
+                  width: 30, height: 30, borderRadius: 8,
+                  background: T.surfaceAlt, border: `1px solid ${T.border}`,
+                  color: wlLoading ? T.textFaint : T.textMuted,
+                  fontSize: 14, cursor: wlLoading ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >{wlLoading ? '⏳' : '↻'}</button>
+              <span style={{
+                color: T.textFaint, fontSize: 13,
+                transform: wlExpanded ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.2s', display: 'inline-block',
+              }}>▾</span>
+            </div>
+          </div>
+
+          {wlExpanded && (
+            <div style={{ borderTop: `1px solid ${T.border}`, background: T.surfaceAlt }}>
+              {/* поле ввода нового ID */}
+              <div style={{ padding: '12px 14px', display: 'flex', gap: 8 }}>
+                <input
+                  value={wlInput}
+                  onChange={e => setWlInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addToWhitelist(); }}
+                  placeholder="Telegram ID студента"
+                  style={{
+                    flex: 1, padding: '8px 11px',
+                    border: `1px solid ${T.border}`, borderRadius: 10,
+                    fontSize: 13, fontFamily: FONT_MONO,
+                    background: T.surface, color: T.text,
+                    outline: 'none',
+                  }}
+                />
+                <ActionBtn
+                  variant="success"
+                  disabled={wlAdding || !wlInput.trim()}
+                  onClick={addToWhitelist}
+                >
+                  {wlAdding ? '...' : 'Добавить'}
+                </ActionBtn>
+              </div>
+
+              {wlLoading ? (
+                <div style={{ padding: '14px', textAlign: 'center', color: T.textFaint, fontSize: 13 }}>
+                  Загрузка...
+                </div>
+              ) : wlItems.length === 0 ? (
+                <div style={{ padding: '14px', textAlign: 'center', color: T.textMuted, fontSize: 13 }}>
+                  Белый список пуст
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', borderTop: `1px solid ${T.border}` }}>
+                  {wlItems.map((id, i) => {
+                    const knownUser = users.find(u => u.tgId === id);
+                    const busy = wlRemoving === id;
+                    return (
+                      <div key={id} style={{
+                        padding: '10px 14px',
+                        borderTop: i === 0 ? 'none' : `1px solid ${T.border}`,
+                        display: 'flex', alignItems: 'center', gap: 10,
+                      }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 13, fontWeight: 600, color: T.text,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {knownUser ? displayName(knownUser) : (
+                              <span style={{ fontFamily: FONT_MONO, color: T.textMuted }}>id {id}</span>
+                            )}
+                          </div>
+                          {knownUser && (
+                            <span style={{ fontFamily: FONT_MONO, fontSize: 10.5, color: T.textFaint }}>
+                              id {id}
+                            </span>
+                          )}
+                        </div>
+                        <ActionBtn
+                          variant="danger"
+                          disabled={busy}
+                          onClick={() => removeFromWhitelist(id)}
+                        >
+                          {busy ? '...' : 'Удалить'}
                         </ActionBtn>
                       </div>
                     );

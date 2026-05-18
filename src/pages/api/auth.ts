@@ -211,13 +211,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Твой аккаунт заблокирован. Свяжись с администратором.', blocked: true });
     }
 
-    // 2. ЖЕСТКАЯ ПРОВЕРКА ПОДПИСКИ
-    const subscribed = await isSubscribed(Number(tgIdStr));
-    if (!subscribed) {
-      return res.status(403).json({
-        error: `Подпишись на @${CHANNEL_USERNAME} для доступа.`,
-        needSubscription: true,
-      });
+    // 2. ЖЕСТКАЯ ПРОВЕРКА ПОДПИСКИ (белый список обходит проверку)
+    const inWhitelist = await redis.sismember('sub_whitelist', tgIdStr);
+    if (!inWhitelist) {
+      const subscribed = await isSubscribed(Number(tgIdStr));
+      if (!subscribed) {
+        return res.status(403).json({
+          error: `Подпишись на @${CHANNEL_USERNAME} для доступа.`,
+          needSubscription: true,
+        });
+      }
     }
 
     // --- ПОСЛЕ ЭТОЙ ТОЧКИ ПОЛЬЗОВАТЕЛЬ ТОЧНО НЕ ЗАБАНЕН И ТОЧНО ПОДПИСАН ---
