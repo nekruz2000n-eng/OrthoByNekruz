@@ -561,7 +561,13 @@ export const TestsTab = ({
                   );
                 }) : (
                   <div className="grid grid-cols-4 gap-2">
-                    {blocks.map(b => <BlockButton key={b.id} b={b} onSelect={() => { resetTest(); setSelectedBlock(b.id); }} />)}
+                    {blocks.map((b, i) => (
+                      <BlockButton
+                        key={b.id}
+                        b={{ ...b, localId: i + 1, range: `${i * TESTS_PER_BLOCK + 1}–${Math.min((i + 1) * TESTS_PER_BLOCK, TOTAL_TESTS)}` }}
+                        onSelect={() => { resetTest(); setSelectedBlock(b.id); }}
+                      />
+                    ))}
                   </div>
                 )}
               </>
