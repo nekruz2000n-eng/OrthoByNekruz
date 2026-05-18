@@ -105,7 +105,8 @@ export const TestsTab = ({
   const [isEditingNote,    setIsNoteEditing]    = useState(false);
   const [localTestsNote,   setLocalTestsNote]   = useState('');
   const [prevBest,         setPrevBest]         = useState(0);
-  const [collapsedThemes,  setCollapsedThemes]  = useState<Set<string>>(new Set());
+  const [expandedThemes,   setExpandedThemes]   = useState<Set<string>>(new Set());
+  const [showByTheme,      setShowByTheme]      = useState(false);
   const noteRef = useRef<HTMLTextAreaElement>(null);
 
   // ── Effects ───────────────────────────────────────────────────────────────
@@ -499,23 +500,36 @@ export const TestsTab = ({
                   </DialogContent>
                 </Dialog>
 
-                {/* Заголовок «Блоки» */}
-                <div className="flex items-baseline justify-between mb-2 px-1">
+                {/* Заголовок «Блоки» + переключатель по темам */}
+                <div className="flex items-center justify-between mb-2 px-1">
                   <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-muted)' }}>Блоки</span>
-                  <span className="text-[11px] font-mono" style={{ color: 'var(--c-text-faint)' }}>
-                    по 25 тестов · {blocks.length} шт
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {hasThemes && (
+                      <button
+                        onClick={() => { setShowByTheme(v => !v); setExpandedThemes(new Set()); }}
+                        className="text-[10px] font-bold px-2 py-1 rounded-lg transition-all active:scale-95"
+                        style={showByTheme
+                          ? { background: 'var(--c-primary-dim)', color: 'var(--c-primary)', border: '1px solid var(--c-primary-br)' }
+                          : { background: 'var(--c-chip)', color: 'var(--c-muted)', border: '1px solid var(--c-border)' }}
+                      >
+                        По темам
+                      </button>
+                    )}
+                    <span className="text-[11px] font-mono" style={{ color: 'var(--c-text-faint)' }}>
+                      {showByTheme && themeGroups ? `${themeGroups.length} тем` : `${blocks.length} шт`}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Сетка блоков — с группировкой по темам или без */}
-                {hasThemes && themeGroups ? themeGroups.map(g => {
-                  const isCollapsed = collapsedThemes.has(g.theme);
+                {hasThemes && showByTheme && themeGroups ? themeGroups.map(g => {
+                  const isExpanded = expandedThemes.has(g.theme);
                   const themePerfect = g.blocks.filter(b => b.status === 'perfect').length;
                   const themeTotal   = g.blocks.length;
                   return (
                     <div key={g.theme} style={{ marginBottom: 4 }}>
                       <button
-                        onClick={() => setCollapsedThemes(prev => {
+                        onClick={() => setExpandedThemes(prev => {
                           const next = new Set(prev);
                           if (next.has(g.theme)) next.delete(g.theme); else next.add(g.theme);
                           return next;
@@ -525,19 +539,19 @@ export const TestsTab = ({
                       >
                         <ChevronDown
                           className="w-3 h-3 flex-shrink-0 transition-transform duration-200"
-                          style={{ color: 'var(--c-muted)', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+                          style={{ color: 'var(--c-muted)', transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
                         />
-                        <span style={{ flex: 1, textAlign: 'left', fontSize: 11, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--c-text)', minWidth: 0 }}>
+                        <span style={{ flex: 1, textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--c-text)', minWidth: 0 }}>
                           {g.theme}
                         </span>
                         <span style={{ fontSize: 10, fontFamily: 'monospace', flexShrink: 0, color: themePerfect === themeTotal && themeTotal > 0 ? 'var(--c-primary)' : 'var(--c-text-faint)' }}>
                           {themePerfect}/{themeTotal}
                         </span>
                       </button>
-                      {!isCollapsed && (
+                      {isExpanded && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                           {g.blocks.map(b => (
-                            <div key={b.id} style={{ width: 'calc(25% - 6px)' }}>
+                            <div key={b.id} style={{ width: 'calc((100vw - 56px) / 4)' }}>
                               <BlockButton b={b} onSelect={() => { resetTest(); setSelectedBlock(b.id); }} />
                             </div>
                           ))}
