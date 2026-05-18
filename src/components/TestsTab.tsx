@@ -535,7 +535,7 @@ export const TestsTab = ({
                         </span>
                       </button>
                       {!isCollapsed && (
-                        <div className="grid grid-cols-4 gap-2" style={{ marginBottom: 8 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, width: '100%', marginBottom: 8 }}>
                           {g.blocks.map(b => <BlockButton key={b.id} b={b} onSelect={() => { resetTest(); setSelectedBlock(b.id); }} />)}
                         </div>
                       )}
