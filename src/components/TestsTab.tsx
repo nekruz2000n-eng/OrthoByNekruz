@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import {
   CheckCircle2, XCircle, RotateCcw, Zap, ChevronLeft, Search, Check,
   Medal, Pencil, Trash2, FileText, Shuffle, AlertTriangle, Flame,
-  Award, ArrowRight, ArrowLeft,
+  Award, ArrowRight, ArrowLeft, ChevronDown,
 } from 'lucide-react';
 import { ToothIcon } from './ToothIcon';
 import ReactMarkdown from 'react-markdown';
@@ -30,6 +30,40 @@ interface MistakeRecord {
 }
 
 const LETTERS = ['А', 'Б', 'В', 'Г', 'Д', 'Е'];
+
+// ─── Block button (shared between flat and themed grids) ──────────────────────
+const BlockButton = ({
+  b, onSelect,
+}: {
+  b: { id: number; localId: number; range: string; size: number; best: number; status: 'perfect' | 'started' | 'new' };
+  onSelect: () => void;
+}) => {
+  const isPerfect = b.status === 'perfect';
+  const isStarted = b.status === 'started';
+  const accent = isPerfect ? 'var(--c-primary)' : isStarted ? 'var(--c-amber)' : 'var(--c-text-faint)';
+  return (
+    <button onClick={onSelect}
+      className="rounded-[13px] flex flex-col items-center justify-between transition-all active:scale-95 relative overflow-hidden"
+      style={{
+        aspectRatio: '1 / 1.12', padding: '7px 5px 6px',
+        background: isPerfect ? 'var(--c-primary-soft)' : isStarted ? 'var(--c-amber-soft)' : 'var(--c-card)',
+        border: `1.5px solid ${isPerfect ? 'var(--c-primary-br)' : isStarted ? 'var(--c-amber-br)' : 'var(--c-border)'}`,
+      }}>
+      {isPerfect && <div className="absolute top-1.5 right-1.5" style={{ color: 'var(--c-amber)' }}><Medal className="w-[11px] h-[11px]" /></div>}
+      <div className="text-[20px] font-bold leading-none mt-1.5"
+        style={{ color: isPerfect ? 'var(--c-primary)' : 'var(--c-text)', letterSpacing: -0.5 }}>{b.localId}</div>
+      <div className="text-[8.5px] font-mono font-bold uppercase" style={{ color: 'var(--c-text-faint)' }}>{b.range}</div>
+      <div className="w-full flex flex-col items-center gap-1">
+        {b.best > 0 && (
+          <span className="text-[9px] font-mono font-bold" style={{ color: accent }}>{b.best}/{b.size}</span>
+        )}
+        <div className="h-[3px] rounded-full overflow-hidden" style={{ width: 'calc(100% - 4px)', background: 'var(--c-bg-subtle)' }}>
+          <div className="h-full rounded-full" style={{ width: `${(b.best / b.size) * 100}%`, background: accent }} />
+        </div>
+      </div>
+    </button>
+  );
+};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const TestsTab = ({
@@ -71,6 +105,7 @@ export const TestsTab = ({
   const [isEditingNote,    setIsNoteEditing]    = useState(false);
   const [localTestsNote,   setLocalTestsNote]   = useState('');
   const [prevBest,         setPrevBest]         = useState(0);
+  const [collapsedThemes,  setCollapsedThemes]  = useState<Set<string>>(new Set());
   const noteRef = useRef<HTMLTextAreaElement>(null);
 
   // ── Effects ───────────────────────────────────────────────────────────────
@@ -117,26 +152,77 @@ export const TestsTab = ({
   const TOTAL_TESTS  = testsData.length;
   const TOTAL_BLOCKS = Math.ceil(TOTAL_TESTS / TESTS_PER_BLOCK);
 
-  const blocks = useMemo(() => Array.from({ length: TOTAL_BLOCKS }, (_, i) => {
-    const id = i + 1; const best = bestScores[id] || 0;
-    return {
-      id, range: `${i * TESTS_PER_BLOCK + 1}–${Math.min((i + 1) * TESTS_PER_BLOCK, TOTAL_TESTS)}`, best,
-      status: best === 25 ? 'perfect' : best > 0 ? 'started' : 'new' as 'perfect' | 'started' | 'new',
-    };
-  }), [bestScores, TOTAL_BLOCKS, TOTAL_TESTS]);
-
-  const perfectCount = useMemo(() => blocks.filter(b => b.status === 'perfect').length, [blocks]);
-  const startedCount = useMemo(() => blocks.filter(b => b.status === 'started').length, [blocks]);
-
   const processed = useMemo(() =>
     testsData.map(t => ({ ...t, correctIndex: t.options.findIndex((o: string) => o === t.correct) })),
     [testsData]);
 
+  const hasThemes = useMemo(() => processed.some((t: any) => t.theme), [processed]);
+
+  // Двухуровневая группировка: тема → блоки по 25 вопросов
+  const themeGroups = useMemo(() => {
+    if (!hasThemes) return null;
+    const groups: { theme: string; questions: any[] }[] = [];
+    const themeIndex = new Map<string, number>();
+    for (const q of processed) {
+      const theme = (q as any).theme || 'Общий раздел';
+      if (!themeIndex.has(theme)) {
+        themeIndex.set(theme, groups.length);
+        groups.push({ theme, questions: [] });
+      }
+      groups[themeIndex.get(theme)!].questions.push(q);
+    }
+    let blockId = 1;
+    return groups.map(g => {
+      const blocks: { id: number; localId: number; range: string; questions: any[]; size: number; best: number; status: 'perfect' | 'started' | 'new' }[] = [];
+      for (let i = 0; i < g.questions.length; i += TESTS_PER_BLOCK) {
+        const chunk = g.questions.slice(i, i + TESTS_PER_BLOCK);
+        const id = blockId++;
+        const best = bestScores[id] || 0;
+        const size = chunk.length;
+        blocks.push({
+          id, localId: blocks.length + 1,
+          range: `${i + 1}–${Math.min(i + TESTS_PER_BLOCK, g.questions.length)}`,
+          questions: chunk, size, best,
+          status: best === size ? 'perfect' : best > 0 ? 'started' : 'new',
+        });
+      }
+      return { theme: g.theme, blocks };
+    });
+  }, [hasThemes, processed, bestScores, TESTS_PER_BLOCK]);
+
+  const blocks = useMemo(() => {
+    if (hasThemes && themeGroups) return themeGroups.flatMap(g => g.blocks);
+    return Array.from({ length: TOTAL_BLOCKS }, (_, i) => {
+      const id = i + 1; const best = bestScores[id] || 0;
+      const questions = processed.slice(i * TESTS_PER_BLOCK, (i + 1) * TESTS_PER_BLOCK);
+      const size = questions.length;
+      return {
+        id, localId: id,
+        range: `${i * TESTS_PER_BLOCK + 1}–${Math.min((i + 1) * TESTS_PER_BLOCK, TOTAL_TESTS)}`,
+        questions, size, best,
+        status: (best === size ? 'perfect' : best > 0 ? 'started' : 'new') as 'perfect' | 'started' | 'new',
+      };
+    });
+  }, [hasThemes, themeGroups, bestScores, TOTAL_BLOCKS, TOTAL_TESTS, processed, TESTS_PER_BLOCK]);
+
+  const perfectCount = useMemo(() => blocks.filter(b => b.status === 'perfect').length, [blocks]);
+  const startedCount = useMemo(() => blocks.filter(b => b.status === 'started').length, [blocks]);
+
   const blockTests = useMemo(() => {
     if (selectedBlock === null) return [];
     if (selectedBlock === 'mistakes') return mistakes.slice(0, 100);
-    return processed.slice((selectedBlock - 1) * TESTS_PER_BLOCK, selectedBlock * TESTS_PER_BLOCK);
-  }, [selectedBlock, processed, mistakes]);
+    return blocks.find(b => b.id === selectedBlock)?.questions || [];
+  }, [selectedBlock, blocks, mistakes]);
+
+  const questionBlockMap = useMemo(() => {
+    const map = new Map<string, { blockId: number; indexInBlock: number }>();
+    for (const block of blocks) {
+      block.questions.forEach((q: any, idx: number) => {
+        map.set(q.id, { blockId: block.id, indexInBlock: idx });
+      });
+    }
+    return map;
+  }, [blocks]);
 
   const searchResults = useMemo(() => {
     if (!search) return [];
@@ -220,12 +306,11 @@ export const TestsTab = ({
   };
 
   const startFromQuestion = (id: string) => {
-    const idx = processed.findIndex(t => t.id === id);
-    if (idx !== -1) {
-      setSelectedBlock(Math.floor(idx / TESTS_PER_BLOCK) + 1);
-      resetTest();
-      setCurrentTestIndex(idx % TESTS_PER_BLOCK);
-    }
+    const info = questionBlockMap.get(id);
+    if (!info) return;
+    setSelectedBlock(info.blockId);
+    resetTest();
+    setCurrentTestIndex(info.indexInBlock);
   };
 
   // ── Шапка (общая для экрана блоков) ──────────────────────────────────────
@@ -422,36 +507,50 @@ export const TestsTab = ({
                   </span>
                 </div>
 
-                {/* Сетка блоков */}
-                <div className="grid grid-cols-4 gap-2">
-                  {blocks.map(b => {
-                    const isPerfect = b.status === 'perfect';
-                    const isStarted = b.status === 'started';
-                    const accent = isPerfect ? 'var(--c-primary)' : isStarted ? 'var(--c-amber)' : 'var(--c-text-faint)';
-                    return (
-                      <button key={b.id} onClick={() => { resetTest(); setSelectedBlock(b.id); }}
-                        className="rounded-[13px] flex flex-col items-center justify-between transition-all active:scale-95 relative overflow-hidden"
-                        style={{
-                          aspectRatio: '1 / 1.12', padding: '7px 5px 6px',
-                          background: isPerfect ? 'var(--c-primary-soft)' : isStarted ? 'var(--c-amber-soft)' : 'var(--c-card)',
-                          border: `1.5px solid ${isPerfect ? 'var(--c-primary-br)' : isStarted ? 'var(--c-amber-br)' : 'var(--c-border)'}`,
-                        }}>
-                        {isPerfect && <div className="absolute top-1.5 right-1.5" style={{ color: 'var(--c-amber)' }}><Medal className="w-[11px] h-[11px]" /></div>}
-                        <div className="text-[20px] font-bold leading-none mt-1.5"
-                          style={{ color: isPerfect ? 'var(--c-primary)' : 'var(--c-text)', letterSpacing: -0.5 }}>{b.id}</div>
-                        <div className="text-[8.5px] font-mono font-bold uppercase" style={{ color: 'var(--c-text-faint)' }}>{b.range}</div>
-                        <div className="w-full flex flex-col items-center gap-1">
-                          {b.best > 0 && (
-                            <span className="text-[9px] font-mono font-bold" style={{ color: accent }}>{b.best}/25</span>
+                {/* Сетка блоков — с группировкой по темам или без */}
+                {hasThemes && themeGroups ? (
+                  <div className="flex flex-col gap-3">
+                    {themeGroups.map(g => {
+                      const isCollapsed = collapsedThemes.has(g.theme);
+                      const themePerfect = g.blocks.filter(b => b.status === 'perfect').length;
+                      const themeStarted = g.blocks.filter(b => b.status === 'started').length;
+                      return (
+                        <div key={g.theme}>
+                          <button
+                            onClick={() => setCollapsedThemes(prev => {
+                              const next = new Set(prev);
+                              if (next.has(g.theme)) next.delete(g.theme); else next.add(g.theme);
+                              return next;
+                            })}
+                            className="w-full flex items-center gap-2 px-1 mb-2 active:opacity-70"
+                          >
+                            <ChevronDown
+                              className="w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200"
+                              style={{ color: 'var(--c-muted)', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+                            />
+                            <span className="flex-1 text-left text-[11px] font-bold uppercase tracking-wide truncate" style={{ color: 'var(--c-text)' }}>
+                              {g.theme}
+                            </span>
+                            <span className="text-[10px] font-mono flex-shrink-0" style={{ color: 'var(--c-text-faint)' }}>
+                              {themePerfect > 0 && <span style={{ color: 'var(--c-primary)' }}>{themePerfect}✓ </span>}
+                              {themeStarted > 0 && <span style={{ color: 'var(--c-amber)' }}>{themeStarted}… </span>}
+                              {g.blocks.length} бл
+                            </span>
+                          </button>
+                          {!isCollapsed && (
+                            <div className="grid grid-cols-4 gap-2">
+                              {g.blocks.map(b => <BlockButton key={b.id} b={b} onSelect={() => { resetTest(); setSelectedBlock(b.id); }} />)}
+                            </div>
                           )}
-                          <div className="h-[3px] rounded-full overflow-hidden" style={{ width: 'calc(100% - 4px)', background: 'var(--c-bg-subtle)' }}>
-                            <div className="h-full rounded-full" style={{ width: `${(b.best / 25) * 100}%`, background: accent }} />
-                          </div>
                         </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {blocks.map(b => <BlockButton key={b.id} b={b} onSelect={() => { resetTest(); setSelectedBlock(b.id); }} />)}
+                  </div>
+                )}
               </>
             )}
           </div>
