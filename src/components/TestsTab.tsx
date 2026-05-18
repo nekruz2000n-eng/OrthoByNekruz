@@ -509,36 +509,34 @@ export const TestsTab = ({
 
                 {/* Сетка блоков — с группировкой по темам или без */}
                 {hasThemes && themeGroups ? (
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1 w-full overflow-hidden">
                     {themeGroups.map(g => {
                       const isCollapsed = collapsedThemes.has(g.theme);
                       const themePerfect = g.blocks.filter(b => b.status === 'perfect').length;
-                      const themeStarted = g.blocks.filter(b => b.status === 'started').length;
+                      const themeTotal   = g.blocks.length;
                       return (
-                        <div key={g.theme}>
+                        <div key={g.theme} className="w-full overflow-hidden">
                           <button
                             onClick={() => setCollapsedThemes(prev => {
                               const next = new Set(prev);
                               if (next.has(g.theme)) next.delete(g.theme); else next.add(g.theme);
                               return next;
                             })}
-                            className="w-full flex items-center gap-2 px-1 mb-2 active:opacity-70"
+                            className="w-full flex items-center gap-2 px-1 py-2 min-w-0 active:opacity-70"
                           >
                             <ChevronDown
-                              className="w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200"
+                              className="w-3 h-3 flex-shrink-0 transition-transform duration-200"
                               style={{ color: 'var(--c-muted)', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
                             />
-                            <span className="flex-1 text-left text-[11px] font-bold uppercase tracking-wide truncate" style={{ color: 'var(--c-text)' }}>
+                            <span className="flex-1 text-left text-[11px] font-semibold truncate min-w-0" style={{ color: 'var(--c-text)' }}>
                               {g.theme}
                             </span>
-                            <span className="text-[10px] font-mono flex-shrink-0" style={{ color: 'var(--c-text-faint)' }}>
-                              {themePerfect > 0 && <span style={{ color: 'var(--c-primary)' }}>{themePerfect}✓ </span>}
-                              {themeStarted > 0 && <span style={{ color: 'var(--c-amber)' }}>{themeStarted}… </span>}
-                              {g.blocks.length} бл
+                            <span className="text-[10px] font-mono flex-shrink-0 ml-1" style={{ color: themePerfect === themeTotal ? 'var(--c-primary)' : 'var(--c-text-faint)' }}>
+                              {themePerfect}/{themeTotal}
                             </span>
                           </button>
                           {!isCollapsed && (
-                            <div className="grid grid-cols-4 gap-2">
+                            <div className="grid grid-cols-4 gap-2 w-full mb-2">
                               {g.blocks.map(b => <BlockButton key={b.id} b={b} onSelect={() => { resetTest(); setSelectedBlock(b.id); }} />)}
                             </div>
                           )}
