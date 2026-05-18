@@ -45,7 +45,7 @@ const BlockButton = ({
     <button onClick={onSelect}
       className="rounded-[13px] flex flex-col items-center justify-between transition-all active:scale-95 relative overflow-hidden"
       style={{
-        aspectRatio: '1 / 1.12', padding: '7px 5px 6px',
+        width: '100%', aspectRatio: '1 / 1.12', padding: '7px 5px 6px',
         background: isPerfect ? 'var(--c-primary-soft)' : isStarted ? 'var(--c-amber-soft)' : 'var(--c-card)',
         border: `1.5px solid ${isPerfect ? 'var(--c-primary-br)' : isStarted ? 'var(--c-amber-br)' : 'var(--c-border)'}`,
       }}>
@@ -535,8 +535,12 @@ export const TestsTab = ({
                         </span>
                       </button>
                       {!isCollapsed && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, width: '100%', marginBottom: 8 }}>
-                          {g.blocks.map(b => <BlockButton key={b.id} b={b} onSelect={() => { resetTest(); setSelectedBlock(b.id); }} />)}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                          {g.blocks.map(b => (
+                            <div key={b.id} style={{ width: 'calc(25% - 6px)' }}>
+                              <BlockButton b={b} onSelect={() => { resetTest(); setSelectedBlock(b.id); }} />
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
