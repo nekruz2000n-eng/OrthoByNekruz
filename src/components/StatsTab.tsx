@@ -2,9 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import orthoQuestionsData from '@/data/questions.json';
-import orthoTasksData     from '@/data/tasks.json';
-import orthoTestsData     from '@/data/tests.json';
 import { ScrollArea }     from '@/components/ui/scroll-area';
 import {
   BookOpen, ClipboardList, PenTool, Trash2, Sun, Moon, Sparkles,
@@ -228,19 +225,9 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   const cfg     = getSubject(subject);
   const isOrtho = subject === 'ortho';
 
-  // Данные предмета
-  const ORTHO_DATA = { q: orthoQuestionsData, t: orthoTasksData, ts: orthoTestsData };
-  const [counts, setCounts] = useState<{ q: number; t: number; ts: number }>(() =>
-    isOrtho
-      ? { q: ORTHO_DATA.q.length, t: ORTHO_DATA.t.length, ts: ORTHO_DATA.ts.length }
-      : { q: 0, t: 0, ts: 0 },
-  );
+  const [counts, setCounts] = useState<{ q: number; t: number; ts: number }>({ q: 0, t: 0, ts: 0 });
 
   useEffect(() => {
-    if (isOrtho) {
-      setCounts({ q: ORTHO_DATA.q.length, t: ORTHO_DATA.t.length, ts: ORTHO_DATA.ts.length });
-      return;
-    }
     let cancelled = false;
     setCounts({ q: 0, t: 0, ts: 0 });
     Promise.all([
@@ -251,7 +238,6 @@ export const StatsTab: React.FC<StatsTabProps> = ({
       if (!cancelled) setCounts({ q: q.length, t: t.length, ts: ts.length });
     });
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subject]);
 
   const getTicketsForSubject = (subjId: string) => {

@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import orthoTestsData from '@/data/tests.json';
 import { SubjectType } from '@/components/SubjectSelectScreen';
 import { getSubject } from '@/lib/subjects';
 import { loadSubjectData } from '@/lib/subjectData';
@@ -81,12 +80,10 @@ export const TestsTab = ({
   const lsScores     = subject === 'ortho' ? 'test_block_scores'    : `${cfg?.lsPrefix || subject}_test_block_scores`;
   const lsNote       = subject === 'ortho' ? 'tests_personal_note'  : `${cfg?.lsPrefix || subject}_tests_personal_note`;
   const lsMistakes   = subject === 'ortho' ? 'test_mistakes'        : `${cfg?.lsPrefix || subject}_test_mistakes`;
-  const isOrtho      = subject === 'ortho';
-
   // ── Data ──────────────────────────────────────────────────────────────────
   const [loadedTestsData, setLoadedTestsData] = useState<any[]>([]);
   const [microLoading,    setMicroLoading]    = useState(false);
-  const testsData = loadedTestsData.length > 0 ? loadedTestsData : (isOrtho ? (orthoTestsData as any[]) : []);
+  const testsData = loadedTestsData;
   const [dynamicGlossary, setDynamicGlossary] = useState<GlossaryItem[]>([]);
 
   // ── State ─────────────────────────────────────────────────────────────────

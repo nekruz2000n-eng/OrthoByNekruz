@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
-import orthoQuestionsData from '@/data/questions.json';
 import { SubjectType } from '@/components/SubjectSelectScreen';
 import { getSubject } from '@/lib/subjects';
 import { loadSubjectData } from '@/lib/subjectData';
@@ -16,43 +15,9 @@ import {
 import { ToothIcon } from './ToothIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
+import { termRegexSource as _termRegexSource } from '@/lib/glossaryUtils';
 
 interface GlossaryItem { term: string; definition: string; image?: string | string[]; }
-
-// ── Подсветка глоссария: стемминг для русских словоформ ─────────────────────
-// Леммы в glossary.json односложные/в начальной форме, а в тексте термины
-// стоят в любом падеже («жевательная мускулатура» → «жевательной мускулатуры»).
-// Каждое слово склоняется отдельно, поэтому матчим по основе слова.
-const _RU_ENDINGS = [
-  'ого','его','ому','ему','ыми','ими','ая','яя','ое','ее','ой','ый','ий',
-  'ую','юю','ые','ие','ых','их','ам','ям','ах','ях','ов','ев','ём','ом',
-  'ем','ей','а','я','ы','и','у','ю','е','о','й','ь',
-];
-function _ruStem(word: string): string {
-  const w = word.toLowerCase().replace(/ё/g, 'е');
-  if (w.length <= 3) return w;
-  for (const end of _RU_ENDINGS) {
-    if (w.length - end.length >= 3 && w.endsWith(end)) return w.slice(0, -end.length);
-  }
-  return w;
-}
-function _escapeRe(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-// regex-источник для одного термина: каждое слово → основа + гибкий хвост.
-// Слова разделяются пробелом/дефисом. Границы — небуквенно-цифровые символы.
-function _termRegexSource(term: string): string {
-  const words = term.split(/[\s-]+/).filter(Boolean);
-  if (!words.length) return '';
-  const parts = words.map(w => {
-    const lw = w.toLowerCase().replace(/ё/g, 'е');
-    if (lw.length <= 2) return _escapeRe(lw);          // короткие («а», «in») — точно
-    return _escapeRe(_ruStem(lw)) + '[а-яё]*';          // основа + русское окончание
-  });
-  // Между словами термина допускаем не только пробел/дефис, но и пунктуацию:
-  // в тексте слова могут быть разделены скобками/запятыми («трансверзальная) окклюзия»).
-  return '(?<=^|[^а-яёa-z0-9])(?:' + parts.join('[^а-яёa-z0-9]{1,6}') + ')(?=$|[^а-яёa-z0-9])';
-}
 
 // ── AudioPlayer вынесен НА УРОВЕНЬ МОДУЛЯ ────────────────────────────────────
 const _AUDIO_CACHE = 'ortho-audio-v1';
@@ -390,15 +355,9 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const accentColor = cfg?.color || 'var(--c-primary)';
   const lsKey       = subject === 'ortho' ? 'studiedQuestions'  : `${cfg?.lsPrefix || subject}_studiedQuestions`;
   const lsNoteKey   = subject === 'ortho' ? 'userQuestionNotes' : `${cfg?.lsPrefix || subject}_userQuestionNotes`;
-  const isOrtho     = subject === 'ortho';
-
   const [loadedQuestionsData, setLoadedQuestionsData] = useState<any[]>([]);
   const [microLoading,        setMicroLoading]        = useState(false);
-  // Для ortho: показываем статику сразу, потом переключаемся на API-данные
-  // (API-данные содержат Redis-оверрайды relatedTerms)
-  const questionsData = loadedQuestionsData.length > 0
-    ? loadedQuestionsData
-    : (isOrtho ? (orthoQuestionsData as any[]) : []);
+  const questionsData = loadedQuestionsData;
 
   // Глоссарий загружается динамически — включает кастомные записи из Redis
   const [dynamicGlossary, setDynamicGlossary] = useState<GlossaryItem[]>([]);
@@ -820,7 +779,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
       {/* ── СПИСОК ────────────────────────────────── */}
       <ScrollArea className="flex-1 scroll-container">
         <div className="py-3 px-3 mx-auto max-w-2xl w-full" style={{ paddingBottom: 'var(--scroll-pb)' }}>
-          {microLoading && !isOrtho ? (
+          {microLoading ? (
               <div className="flex items-center justify-center py-24" style={{ color: 'var(--c-amber)' }}>
                 <svg className="animate-spin w-8 h-8" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>

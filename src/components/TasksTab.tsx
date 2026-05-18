@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import orthoTasksData from '@/data/tasks.json';
 import { SubjectType } from '@/components/SubjectSelectScreen';
 import { getSubject } from '@/lib/subjects';
 import { loadSubjectData } from '@/lib/subjectData';
@@ -30,11 +29,9 @@ export const TasksTab = ({
   const lsTasks     = subject === 'ortho' ? 'resolvedTasks'  : `${cfg?.lsPrefix || subject}_resolvedTasks`;
   const lsNotes     = subject === 'ortho' ? 'userTaskNotes'  : `${cfg?.lsPrefix || subject}_userTaskNotes`;
   const accentColor = cfg?.color || 'var(--c-primary)';
-  const isOrtho     = subject === 'ortho';
-
   const [loadedTasksData, setLoadedTasksData] = useState<any[]>([]);
   const [microLoading,    setMicroLoading]    = useState(false);
-  const tasksData = loadedTasksData.length > 0 ? loadedTasksData : (isOrtho ? (orthoTasksData as any[]) : []);
+  const tasksData = loadedTasksData;
   const [dynamicGlossary, setDynamicGlossary] = useState<GlossaryItem[]>([]);
 
   const [search,      setSearch]      = useState('');

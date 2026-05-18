@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
-import { createHmac } from 'crypto';
 import {
   SUBJECTS,
   getUserAvailableSubjects,
@@ -8,6 +7,7 @@ import {
   createDemoSubjects,
   getDemoSubjectId,
 } from '@/lib/subjects';
+import { verifyInitDataUser } from '@/lib/verifyInitData';
 
 const redis = Redis.fromEnv();
 
@@ -16,47 +16,6 @@ const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || 'nzsdental';
 const TRIAL_DAYS       = Number(process.env.TRIAL_DAYS) || 0;
 const ADMIN_TG_ID      = process.env.ADMIN_TG_ID || '';
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  verifyTelegramInitData
-//
-//  Проверяет, что initData пришла от настоящего Telegram.
-// ═══════════════════════════════════════════════════════════════════════════
-function verifyTelegramInitData(
-  initData: string,
-  botToken: string
-): { id: number; username?: string; first_name?: string; last_name?: string; [key: string]: any } | null {
-  try {
-    const params = new URLSearchParams(initData);
-    const hash   = params.get('hash');
-    if (!hash) return null;
-
-    params.delete('hash');
-    const dataCheckString = Array.from(params.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => `${k}=${v}`)
-      .join('\n');
-
-    const secretKey = createHmac('sha256', 'WebAppData')
-      .update(botToken)
-      .digest();
-
-    const expectedHash = createHmac('sha256', secretKey)
-      .update(dataCheckString)
-      .digest('hex');
-
-    if (expectedHash !== hash) return null;
-
-    const authDate = Number(params.get('auth_date') || '0');
-    const now      = Math.floor(Date.now() / 1000);
-    if (now - authDate > 86400) return null;
-
-    const userStr = params.get('user');
-    if (!userStr) return null;
-    return JSON.parse(userStr);
-  } catch {
-    return null;
-  }
-}
 
 // ── Валидация Telegram ID ──
 const isValidTelegramId = (id: string): boolean => {
@@ -188,7 +147,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     skipSubscriptionCheck = true;
   } else {
     // Обычный путь: верифицируем данные от Telegram
-    const tgUser = verifyTelegramInitData(initData, BOT_TOKEN || '');
+    const tgUser = verifyInitDataUser(initData, BOT_TOKEN || '');
     if (!tgUser || String(tgUser.id) !== tgIdStr) {
       return res.status(401).json({ error: 'Ошибка верификации данных.' });
     }

@@ -22,31 +22,12 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { Redis }      from '@upstash/redis';
-import { createHmac } from 'crypto';
+import { Redis }                from '@upstash/redis';
 import { getSubject, getAllDataFileNames } from '@/lib/subjects';
+import { verifyInitDataId }     from '@/lib/verifyInitData';
 
 const redis     = Redis.fromEnv();
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
-
-function verifyInitData(initData: string): number | null {
-  try {
-    const params = new URLSearchParams(initData);
-    const hash   = params.get('hash');
-    if (!hash) return null;
-    params.delete('hash');
-    const str    = [...params.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => `${k}=${v}`).join('\n');
-    const secret   = createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
-    const expected = createHmac('sha256', secret).update(str).digest('hex');
-    if (expected !== hash) return null;
-    const authDate = Number(params.get('auth_date') || '0');
-    if (Math.floor(Date.now() / 1000) - authDate > 86400) return null;
-    const user = JSON.parse(params.get('user') || '{}');
-    return user.id || null;
-  } catch { return null; }
-}
 
 function userHasSubject(user: any, subjectId: string): boolean {
   if (!user) return false;
@@ -97,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(401).json({ error: 'Unauthorized' });
       }
     } else {
-      const userId = verifyInitData(String(initData));
+      const userId = verifyInitDataId(String(initData), BOT_TOKEN);
       if (!userId || String(userId) !== String(telegramId)) {
         return res.status(401).json({ error: 'Unauthorized' });
       }

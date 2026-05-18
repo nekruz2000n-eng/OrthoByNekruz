@@ -2,39 +2,12 @@
 
 import React, { useState, useMemo, useRef, useLayoutEffect, useEffect } from 'react';
 import { CachedImage } from '@/components/CachedImage';
+import { termRegexSource as _termRegexSource } from '@/lib/glossaryUtils';
 
 export interface GlossaryItem {
   term:        string;
   definition:  string;
   image?:      string | string[];
-}
-
-// ── Russian stemming ──────────────────────────────────────────────────────────
-const _RU_ENDINGS = [
-  'ого','его','ому','ему','ыми','ими','ая','яя','ое','ее','ой','ый','ий',
-  'ую','юю','ые','ие','ых','их','ам','ям','ах','ях','ов','ев','ём','ом',
-  'ем','ей','а','я','ы','и','у','ю','е','о','й','ь',
-];
-function _ruStem(word: string): string {
-  const w = word.toLowerCase().replace(/ё/g, 'е');
-  if (w.length <= 3) return w;
-  for (const end of _RU_ENDINGS) {
-    if (w.length - end.length >= 3 && w.endsWith(end)) return w.slice(0, -end.length);
-  }
-  return w;
-}
-function _escapeRe(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-function _termRegexSource(term: string): string {
-  const words = term.split(/[\s-]+/).filter(Boolean);
-  if (!words.length) return '';
-  const parts = words.map(w => {
-    const lw = w.toLowerCase().replace(/ё/g, 'е');
-    if (lw.length <= 2) return _escapeRe(lw);
-    return _escapeRe(_ruStem(lw)) + '[а-яё]*';
-  });
-  return '(?<=^|[^а-яёa-z0-9])(?:' + parts.join('[^а-яёa-z0-9]{1,6}') + ')(?=$|[^а-яёa-z0-9])';
 }
 
 // ── Миниатюры картинок с листанием ───────────────────────────────────────────
