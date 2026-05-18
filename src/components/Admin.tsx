@@ -20,6 +20,7 @@ interface User {
   fpChanges:     number;
   suspicious:    boolean;
   navHidden:     Record<string, string[]>;
+  paid:          boolean;
 }
 
 interface SubjectInfo {
@@ -48,7 +49,7 @@ const RES_TYPE_OPTS: { id: ResType; label: string; emoji: string }[] = [
 ];
 
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo';
-type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject' | 'toggle_section' | 'delete_user';
+type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid';
 
 // Управляемые из админки разделы. Сам раздел «Статистика» не выключается
 // (там прогресс юзера), но внутри него можно скрыть блок «Проверка готовности».
@@ -380,7 +381,27 @@ function UserCard({
                 WebkitTapHighlightColor: 'transparent',
               }}
             >id {user.tgId}</span>
-            {hasFullKey && <Chip bg={T.accentSoft} color={T.accent}>ключ</Chip>}
+            {hasFullKey && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Chip bg={T.accentSoft} color={T.accent}>ключ</Chip>
+                <button
+                  onClick={e => { e.stopPropagation(); onAction(user.tgId, 'toggle_paid'); }}
+                  disabled={busy}
+                  title={user.paid ? 'Оплачено — нажми чтобы снять' : 'Отметить как оплачено'}
+                  style={{
+                    width: 20, height: 20, borderRadius: 5, flexShrink: 0,
+                    border: `1px solid ${user.paid ? T.success + '66' : T.border}`,
+                    background: user.paid ? T.successSoft : T.surfaceAlt,
+                    color: user.paid ? T.success : T.textFaint,
+                    fontSize: 12, lineHeight: 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: busy ? 'default' : 'pointer',
+                    WebkitTapHighlightColor: 'transparent',
+                    transition: 'background 0.15s, border-color 0.15s',
+                  }}
+                >{user.paid ? '💲' : ''}</button>
+              </span>
+            )}
             {isTrial    && <Chip bg={T.warnSoft}   color={T.warn}>trial</Chip>}
             {availableSubjects
               .filter(s => s.id !== 'ortho' && user.subjects.includes(s.id))
@@ -1423,6 +1444,8 @@ export default function AdminPage() {
             return { ...u, blocked: false, blockedReason: null, blockedAt: null, opensToday: 0, suspicious: u.fpChanges >= 2 };
           case 'reset_demo':
             return { ...u, usedDemo: false };
+          case 'toggle_paid':
+            return { ...u, paid: !u.paid };
           case 'toggle_subject': {
             if (!subjectId) return u;
             const newSubjects = enabled
@@ -1457,6 +1480,11 @@ export default function AdminPage() {
         case 'block':          msg = '🚫 Заблокирован'; break;
         case 'unblock':        msg = '✓ Разблокирован'; break;
         case 'reset_demo':     msg = '✓ Демо выдан повторно'; break;
+        case 'toggle_paid': {
+          const nowPaid = !users.find(u => u.tgId === tgId)?.paid;
+          msg = nowPaid ? '💲 Отмечено как оплачено' : 'Отметка оплаты снята';
+          break;
+        }
         case 'toggle_subject': {
           const subj  = availableSubjects.find(s => s.id === subjectId);
           const label = subj?.shortLabel || subjectId;
