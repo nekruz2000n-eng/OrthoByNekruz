@@ -508,43 +508,40 @@ export const TestsTab = ({
                 </div>
 
                 {/* Сетка блоков — с группировкой по темам или без */}
-                {hasThemes && themeGroups ? (
-                  <div className="flex flex-col gap-1 w-full overflow-hidden">
-                    {themeGroups.map(g => {
-                      const isCollapsed = collapsedThemes.has(g.theme);
-                      const themePerfect = g.blocks.filter(b => b.status === 'perfect').length;
-                      const themeTotal   = g.blocks.length;
-                      return (
-                        <div key={g.theme} className="w-full overflow-hidden">
-                          <button
-                            onClick={() => setCollapsedThemes(prev => {
-                              const next = new Set(prev);
-                              if (next.has(g.theme)) next.delete(g.theme); else next.add(g.theme);
-                              return next;
-                            })}
-                            className="w-full flex items-center gap-2 px-1 py-2 min-w-0 active:opacity-70"
-                          >
-                            <ChevronDown
-                              className="w-3 h-3 flex-shrink-0 transition-transform duration-200"
-                              style={{ color: 'var(--c-muted)', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
-                            />
-                            <span className="flex-1 text-left text-[11px] font-semibold truncate min-w-0" style={{ color: 'var(--c-text)' }}>
-                              {g.theme}
-                            </span>
-                            <span className="text-[10px] font-mono flex-shrink-0 ml-1" style={{ color: themePerfect === themeTotal ? 'var(--c-primary)' : 'var(--c-text-faint)' }}>
-                              {themePerfect}/{themeTotal}
-                            </span>
-                          </button>
-                          {!isCollapsed && (
-                            <div className="grid grid-cols-4 gap-2 w-full mb-2">
-                              {g.blocks.map(b => <BlockButton key={b.id} b={b} onSelect={() => { resetTest(); setSelectedBlock(b.id); }} />)}
-                            </div>
-                          )}
+                {hasThemes && themeGroups ? themeGroups.map(g => {
+                  const isCollapsed = collapsedThemes.has(g.theme);
+                  const themePerfect = g.blocks.filter(b => b.status === 'perfect').length;
+                  const themeTotal   = g.blocks.length;
+                  return (
+                    <div key={g.theme} style={{ marginBottom: 4 }}>
+                      <button
+                        onClick={() => setCollapsedThemes(prev => {
+                          const next = new Set(prev);
+                          if (next.has(g.theme)) next.delete(g.theme); else next.add(g.theme);
+                          return next;
+                        })}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 6, padding: '6px 4px', minWidth: 0 }}
+                        className="active:opacity-70"
+                      >
+                        <ChevronDown
+                          className="w-3 h-3 flex-shrink-0 transition-transform duration-200"
+                          style={{ color: 'var(--c-muted)', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+                        />
+                        <span style={{ flex: 1, textAlign: 'left', fontSize: 11, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--c-text)', minWidth: 0 }}>
+                          {g.theme}
+                        </span>
+                        <span style={{ fontSize: 10, fontFamily: 'monospace', flexShrink: 0, color: themePerfect === themeTotal && themeTotal > 0 ? 'var(--c-primary)' : 'var(--c-text-faint)' }}>
+                          {themePerfect}/{themeTotal}
+                        </span>
+                      </button>
+                      {!isCollapsed && (
+                        <div className="grid grid-cols-4 gap-2" style={{ marginBottom: 8 }}>
+                          {g.blocks.map(b => <BlockButton key={b.id} b={b} onSelect={() => { resetTest(); setSelectedBlock(b.id); }} />)}
                         </div>
-                      );
-                    })}
-                  </div>
-                ) : (
+                      )}
+                    </div>
+                  );
+                }) : (
                   <div className="grid grid-cols-4 gap-2">
                     {blocks.map(b => <BlockButton key={b.id} b={b} onSelect={() => { resetTest(); setSelectedBlock(b.id); }} />)}
                   </div>
