@@ -80,7 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const { subject, type, telegramId, initData } = req.body ?? {};
 
-    if (!initData || !BOT_TOKEN || !telegramId || !subject || !type) {
+    if (!BOT_TOKEN || !telegramId || !subject || !type) {
       return res.status(400).json({ error: 'Bad request' });
     }
 
@@ -89,10 +89,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Unknown subject' });
     }
 
-    // 1. Криптопроверка initData + сверка id
-    const userId = verifyInitData(String(initData));
-    if (!userId || String(userId) !== String(telegramId)) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    // 1. Верификация: либо через initData, либо через белый список
+    if (!initData) {
+      // Нет initData (неофициальный клиент) — проверяем белый список
+      const inWL = await redis.sismember('sub_whitelist', String(telegramId));
+      if (!inWL) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+    } else {
+      const userId = verifyInitData(String(initData));
+      if (!userId || String(userId) !== String(telegramId)) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
     }
 
     // 2. Проверка доступа к дисциплине
