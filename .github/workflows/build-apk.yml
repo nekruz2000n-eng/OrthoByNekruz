@@ -34,8 +34,17 @@ jobs:
 
       - name: Fix Kotlin stdlib conflict
         run: |
-          echo "kotlin.stdlib.default.dependency=false" >> android/gradle.properties
-          echo "android.suppressKotlinVersionCompatibilityCheck=true" >> android/gradle.properties
+          cat >> android/build.gradle << 'EOF'
+
+          subprojects {
+              configurations.all {
+                  resolutionStrategy {
+                      force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22"
+                      force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22"
+                  }
+              }
+          }
+          EOF
 
       - name: Sync Capacitor
         run: npx cap sync android
