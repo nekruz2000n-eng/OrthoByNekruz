@@ -156,7 +156,20 @@ export const TestsTab = ({
 
   const hasThemes = useMemo(() => processed.some((t: any) => t.theme), [processed]);
 
-  // Двухуровневая группировка: тема → блоки по 25 вопросов
+  // Плоские глобальные блоки — всегда 25 вопросов подряд, ID 1..N
+  const blocks = useMemo(() => Array.from({ length: TOTAL_BLOCKS }, (_, i) => {
+    const id = i + 1; const best = bestScores[id] || 0;
+    const questions = processed.slice(i * TESTS_PER_BLOCK, (i + 1) * TESTS_PER_BLOCK);
+    const size = questions.length;
+    return {
+      id, localId: id,
+      range: `${i * TESTS_PER_BLOCK + 1}–${Math.min((i + 1) * TESTS_PER_BLOCK, TOTAL_TESTS)}`,
+      questions, size, best,
+      status: (best === size ? 'perfect' : best > 0 ? 'started' : 'new') as 'perfect' | 'started' | 'new',
+    };
+  }), [bestScores, TOTAL_BLOCKS, TOTAL_TESTS, processed, TESTS_PER_BLOCK]);
+
+  // Тема-блоки — отдельно, используют отрицательные ID чтобы не конфликтовать с плоскими
   const themeGroups = useMemo(() => {
     if (!hasThemes) return null;
     const groups: { theme: string; questions: any[] }[] = [];
@@ -169,39 +182,22 @@ export const TestsTab = ({
       }
       groups[themeIndex.get(theme)!].questions.push(q);
     }
-    let blockId = 1;
+    let blockId = -1;
     return groups.map(g => {
-      const blocks: { id: number; localId: number; range: string; questions: any[]; size: number; best: number; status: 'perfect' | 'started' | 'new' }[] = [];
+      const tblocks: { id: number; localId: number; range: string; questions: any[]; size: number; best: number; status: 'perfect' | 'started' | 'new' }[] = [];
       for (let i = 0; i < g.questions.length; i += TESTS_PER_BLOCK) {
         const chunk = g.questions.slice(i, i + TESTS_PER_BLOCK);
-        const id = blockId++;
-        const best = bestScores[id] || 0;
         const size = chunk.length;
-        blocks.push({
-          id, localId: blocks.length + 1,
+        tblocks.push({
+          id: blockId--, localId: tblocks.length + 1,
           range: `${i + 1}–${Math.min(i + TESTS_PER_BLOCK, g.questions.length)}`,
-          questions: chunk, size, best,
-          status: best === size ? 'perfect' : best > 0 ? 'started' : 'new',
+          questions: chunk, size, best: 0,
+          status: 'new',
         });
       }
-      return { theme: g.theme, blocks };
+      return { theme: g.theme, blocks: tblocks };
     });
-  }, [hasThemes, processed, bestScores, TESTS_PER_BLOCK]);
-
-  const blocks = useMemo(() => {
-    if (hasThemes && themeGroups) return themeGroups.flatMap(g => g.blocks);
-    return Array.from({ length: TOTAL_BLOCKS }, (_, i) => {
-      const id = i + 1; const best = bestScores[id] || 0;
-      const questions = processed.slice(i * TESTS_PER_BLOCK, (i + 1) * TESTS_PER_BLOCK);
-      const size = questions.length;
-      return {
-        id, localId: id,
-        range: `${i * TESTS_PER_BLOCK + 1}–${Math.min((i + 1) * TESTS_PER_BLOCK, TOTAL_TESTS)}`,
-        questions, size, best,
-        status: (best === size ? 'perfect' : best > 0 ? 'started' : 'new') as 'perfect' | 'started' | 'new',
-      };
-    });
-  }, [hasThemes, themeGroups, bestScores, TOTAL_BLOCKS, TOTAL_TESTS, processed, TESTS_PER_BLOCK]);
+  }, [hasThemes, processed, TESTS_PER_BLOCK]);
 
   const perfectCount = useMemo(() => blocks.filter(b => b.status === 'perfect').length, [blocks]);
   const startedCount = useMemo(() => blocks.filter(b => b.status === 'started').length, [blocks]);
@@ -209,8 +205,13 @@ export const TestsTab = ({
   const blockTests = useMemo(() => {
     if (selectedBlock === null) return [];
     if (selectedBlock === 'mistakes') return mistakes.slice(0, 100);
+    if (typeof selectedBlock === 'number' && selectedBlock < 0) {
+      // Тема-блок
+      const all = themeGroups?.flatMap(g => g.blocks) || [];
+      return all.find(b => b.id === selectedBlock)?.questions || [];
+    }
     return blocks.find(b => b.id === selectedBlock)?.questions || [];
-  }, [selectedBlock, blocks, mistakes]);
+  }, [selectedBlock, blocks, themeGroups, mistakes]);
 
   const questionBlockMap = useMemo(() => {
     const map = new Map<string, { blockId: number; indexInBlock: number }>();
@@ -270,7 +271,7 @@ export const TestsTab = ({
     if (currentTestIndex < blockTests.length - 1) {
       setCurrentTestIndex(i => i + 1); setSelectedOption(null); setShowResult(false);
     } else {
-      if (selectedBlock !== null && selectedBlock !== 'mistakes') {
+      if (selectedBlock !== null && selectedBlock !== 'mistakes' && (selectedBlock as number) > 0) {
         const nb = { ...bestScores };
         const cur = nb[selectedBlock as number] || 0;
         setPrevBest(cur);
