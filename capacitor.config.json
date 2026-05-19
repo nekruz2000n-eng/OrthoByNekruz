@@ -1,0 +1,9 @@
+{
+  "appId": "com.orthobynekruz.app",
+  "appName": "OrthoByNekruz",
+  "webDir": "public",
+  "server": {
+    "url": "https://ortho-by-nekruz.vercel.app",
+    "cleartext": false
+  }
+}

@@ -107,15 +107,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               setTimeout(disableSwipe, 1500);
               setTimeout(disableSwipe, 3000);
 
-              // ── Кнопка Назад с подтверждением ───────────────────────────
-              try {
-                tg.BackButton.show();
-                tg.BackButton.onClick(function() {
-                  tg.showConfirm('Выйти из OrthoByNekruz?', function(ok) {
-                    if (ok) tg.close();
-                  });
-                });
-              } catch(e) {}
+              // ── Скрываем нативную кнопку Назад (используем свой X в шапке) ──
+              try { tg.BackButton.hide(); } catch(e) {}
 
               // ── Подтверждение при закрытии X ────────────────────────────
               try { tg.enableClosingConfirmation(); } catch(e) {}
@@ -131,7 +124,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               var tgTop    = (tg.contentSafeAreaInsets && tg.contentSafeAreaInsets.top)  || 0;
               var tgBottom = (tg.contentSafeAreaInsets && tg.contentSafeAreaInsets.bottom) || 0;
               var isFS     = tg.isFullscreen === true || tgTop > 0;
-              root.style.setProperty('--header-pt',  (sysTop + tgTop + 65) + 'px');
+              root.style.setProperty('--header-pt',  (sysTop + tgTop + (isFS ? 65 : 12)) + 'px');
               root.style.setProperty('--scroll-pb',  (tgBottom + (isFS ? 100 : 84)) + 'px');
               root.style.setProperty('--nav-bottom', (tgBottom + (isFS ? 20 : 0)) + 'px');
 
