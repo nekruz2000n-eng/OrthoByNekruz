@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Set up Java 17
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -31,6 +31,11 @@ jobs:
 
       - name: Add Android platform
         run: npx cap add android
+
+      - name: Fix Kotlin stdlib conflict
+        run: |
+          echo "kotlin.stdlib.default.dependency=false" >> android/gradle.properties
+          echo "android.suppressKotlinVersionCompatibilityCheck=true" >> android/gradle.properties
 
       - name: Sync Capacitor
         run: npx cap sync android
