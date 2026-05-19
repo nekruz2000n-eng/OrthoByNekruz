@@ -107,15 +107,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               setTimeout(disableSwipe, 1500);
               setTimeout(disableSwipe, 3000);
 
-              // ── Кнопка Назад с подтверждением ───────────────────────────
-              try {
-                tg.BackButton.show();
-                tg.BackButton.onClick(function() {
-                  tg.showConfirm('Выйти из OrthoByNekruz?', function(ok) {
-                    if (ok) tg.close();
-                  });
-                });
-              } catch(e) {}
+              // ── Скрываем нативную кнопку Назад (используем свой X в шапке) ──
+              try { tg.BackButton.hide(); } catch(e) {}
 
               // ── Подтверждение при закрытии X ────────────────────────────
               try { tg.enableClosingConfirmation(); } catch(e) {}

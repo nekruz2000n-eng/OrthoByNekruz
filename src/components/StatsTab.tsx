@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { ScrollArea }     from '@/components/ui/scroll-area';
 import {
   BookOpen, ClipboardList, PenTool, Trash2, Sun, Moon, Sparkles,
-  Award, ChevronRight, Calendar, Pencil,
+  Award, ChevronRight, Calendar, Pencil, X,
 } from 'lucide-react';
 import { ToothIcon }     from './ToothIcon';
 import { SubjectType }   from '@/components/SubjectSelectScreen';
@@ -404,14 +404,27 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                 {subjectLabel}
               </p>
             </div>
-            <button
-              onClick={resetAll}
-              className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all active:scale-95"
-              style={{ background: 'var(--c-danger-soft)', border: '1px solid color-mix(in srgb, var(--c-danger) 33%, transparent)', color: 'var(--c-danger)' }}
-              title="Сбросить прогресс"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={resetAll}
+                className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all active:scale-95"
+                style={{ background: 'var(--c-danger-soft)', border: '1px solid color-mix(in srgb, var(--c-danger) 33%, transparent)', color: 'var(--c-danger)' }}
+                title="Сбросить прогресс"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
+                  const tg = (window as any).Telegram?.WebApp;
+                  if (tg?.showConfirm) tg.showConfirm('Выйти из OrthoByNekruz?', (ok: boolean) => { if (ok) tg.close(); });
+                  else tg?.close?.();
+                }}
+                className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 flex-shrink-0"
+                style={{ color: 'var(--c-muted)' }}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
 
