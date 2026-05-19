@@ -730,26 +730,13 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
               Вопросы · {cfg?.label || subject}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex flex-col items-end gap-1 min-w-[64px]">
-              <span className="text-[11px] font-mono font-bold" style={{ color: accentColor }}>
-                {studiedIds.size}/{questionsData.length}
-              </span>
-              <div className="w-[60px] h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
-                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
-              </div>
+          <div className="flex flex-col items-end gap-1 min-w-[64px]">
+            <span className="text-[11px] font-mono font-bold" style={{ color: accentColor }}>
+              {studiedIds.size}/{questionsData.length}
+            </span>
+            <div className="w-[60px] h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
+              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
             </div>
-            <button
-              onClick={() => {
-                const tg = (window as any).Telegram?.WebApp;
-                if (tg?.showConfirm) tg.showConfirm('Выйти из OrthoByNekruz?', (ok: boolean) => { if (ok) tg.close(); });
-                else tg?.close?.();
-              }}
-              className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 flex-shrink-0"
-              style={{ color: 'var(--c-muted)' }}
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
         </div>
 

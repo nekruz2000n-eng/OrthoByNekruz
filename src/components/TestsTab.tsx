@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import {
   CheckCircle2, XCircle, RotateCcw, Zap, ChevronLeft, Search, Check,
   Medal, Pencil, Trash2, FileText, Shuffle, AlertTriangle, Flame,
-  Award, ArrowRight, ArrowLeft, ChevronDown, X,
+  Award, ArrowRight, ArrowLeft, ChevronDown,
 } from 'lucide-react';
 import { ToothIcon } from './ToothIcon';
 import ReactMarkdown from 'react-markdown';
@@ -335,25 +335,12 @@ export const TestsTab = ({
             Тесты · {cfg?.label || subject}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span
-            className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg"
-            style={{ background: 'var(--c-chip)', color: 'var(--c-muted)' }}
-          >
-            {TOTAL_TESTS} тестов
-          </span>
-          <button
-            onClick={() => {
-              const tg = (window as any).Telegram?.WebApp;
-              if (tg?.showConfirm) tg.showConfirm('Выйти из OrthoByNekruz?', (ok: boolean) => { if (ok) tg.close(); });
-              else tg?.close?.();
-            }}
-            className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 flex-shrink-0"
-            style={{ color: 'var(--c-muted)' }}
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        <span
+          className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg"
+          style={{ background: 'var(--c-chip)', color: 'var(--c-muted)' }}
+        >
+          {TOTAL_TESTS} тестов
+        </span>
       </div>
     </div>
   );
