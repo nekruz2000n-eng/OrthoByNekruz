@@ -543,7 +543,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
 
   // ── РЕНДЕР С ПОДСВЕТКОЙ ГЛОССАРИЯ ─────────────────────────────────────────
   // ДОБАВЛЕН ФЛАГ isNested
- const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boolean = false) => {
+const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boolean = false) => {
   if (!text) return null;
 
   const localGlossary: GlossaryItem[] = isNested 
@@ -665,7 +665,6 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     </div>
   );
 };
-
   const PersonalNote = ({ id }: { id: number }) => {
     const [editing, setEditing] = useState(false);
     const note = userNotes[id] || '';
