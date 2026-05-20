@@ -5,7 +5,6 @@ import { SubjectType } from '@/components/SubjectSelectScreen';
 import { getSubject } from '@/lib/subjects';
 import { loadSubjectData } from '@/lib/subjectData';
 import { CachedImage } from '@/components/CachedImage';
-// glossaryData больше не импортируется статически — загружается динамически через loadSubjectData
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, BookOpen, CheckCircle2, Circle, X, Pencil, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
@@ -17,7 +16,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { termRegexSource as _termRegexSource } from '@/lib/glossaryUtils';
 
-interface GlossaryItem { term: string; definition: string; image?: string | string[]; }
+// Добавили variations
+interface GlossaryItem { term: string; variations?: string[]; definition: string; image?: string | string[]; }
 
 // ── AudioPlayer вынесен НА УРОВЕНЬ МОДУЛЯ ────────────────────────────────────
 const _AUDIO_CACHE = 'ortho-audio-v1';
@@ -313,8 +313,6 @@ const GlossaryImages: React.FC<{ images: string[]; onZoom: (list: string[], idx:
         onTouchEnd={e => {
           const dx = e.changedTouches[0].clientX - startX.current;
           if (Math.abs(dx) > 40) {
-            // свайп — листаем; preventDefault подавляет синтетический click,
-            // иначе после свайпа открылся бы зум
             e.preventDefault();
             if (dx < 0) setIdx(i => Math.min(images.length - 1, i + 1));
             else        setIdx(i => Math.max(0, i - 1));
@@ -359,7 +357,6 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const [microLoading,        setMicroLoading]        = useState(false);
   const questionsData = loadedQuestionsData;
 
-  // Глоссарий загружается динамически — включает кастомные записи из Redis
   const [dynamicGlossary, setDynamicGlossary] = useState<GlossaryItem[]>([]);
 
   const [search, setSearch] = useState('');
@@ -369,10 +366,14 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const [userNotes, setUserNotes] = useState<Record<number, string>>({});
   const [isLoaded, setIsLoaded] = useState(false);
   const [readingQuestion, setReadingQuestion] = useState<any | null>(null);
-  const [activeTermDef, setActiveTermDef] = useState<string | null>(null);
+
+  // СТЕК ГЛОССАРИЯ ВМЕСТО ОДНОЙ ПЕРЕМЕННОЙ
+  const [termDefStack, setTermDefStack] = useState<string[]>([]);
+  const activeTermDef = termDefStack.length > 0 ? termDefStack[termDefStack.length - 1] : null;
+
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [fontSize, setFontSize] = useState(16);
-  // Зум: список картинок + индекс — чтобы можно было листать в большом масштабе
+  
   const [zoomList, setZoomList] = useState<string[]>([]);
   const [zoomIdx,  setZoomIdx]  = useState(0);
   const [scale, setScale] = useState(1);
@@ -467,35 +468,32 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     if (!activeTermDef || !tooltipTarget || !tooltipRef.current) return;
     const popup = tooltipRef.current.getBoundingClientRect();
     
-    const GAP = 24; // ⬇️ Отступ по вертикали (~1 см над словом)
+    const GAP = 24; 
     const PAD = 10;
     const vw  = window.innerWidth;
     const vh  = window.innerHeight;
 
-    // По вертикали: ставим выше слова на размер GAP
     let y = tooltipTarget.top - popup.height - GAP;
     
-    // Если сверху не влезает, показываем под словом
     if (y < PAD) {
       y = tooltipTarget.bottom + GAP;
-      // Если и снизу не влезает, прижимаем к нижнему краю экрана
       if (y + popup.height > vh - PAD) {
         y = Math.max(PAD, vh - popup.height - PAD);
       }
     }
 
-    // ⬇️ По горизонтали: ставим строго по центру дисплея
     let x = (vw / 2) - (popup.width / 2);
 
     setTooltipPos({ x, y });
   }, [activeTermDef, tooltipTarget]);
 
+  // ЗАКРЫТИЕ СТЕКА ПО КЛИКУ
   useEffect(() => {
-    if (!activeTermDef) return;
-    const h = () => setActiveTermDef(null);
+    if (termDefStack.length === 0) return;
+    const h = () => setTermDefStack([]);
     document.addEventListener('click', h);
     return () => document.removeEventListener('click', h);
-  }, [activeTermDef]);
+  }, [termDefStack]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
@@ -544,23 +542,22 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
 
 
   // ── РЕНДЕР С ПОДСВЕТКОЙ ГЛОССАРИЯ ─────────────────────────────────────────
-  // Ключевой момент: термины ищутся в «плоском» тексте (без markdown-разметки),
-  // потому что разметка `_` `**` физически стоит между словами терминов
-  // («__фиссурно__-бугорковых контактов») и порвала бы составной термин.
-  // Форматирование (bold/italic) накладывается отдельным проходом.
-  const renderWithGlossary = (text: string, relatedTerms?: string[]) => {
+  // ДОБАВЛЕН ФЛАГ isNested
+  const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boolean = false) => {
     if (!text) return null;
 
-    const localGlossary: GlossaryItem[] = (relatedTerms && relatedTerms.length)
-      ? glossaryTerms.filter(g => relatedTerms.some(rt => rt.toLowerCase() === g.term.toLowerCase()))
-      : [];
+    // Внутри тултипа ищем по всем терминам. Вне тултипа — только по relatedTerms
+    const localGlossary: GlossaryItem[] = isNested 
+      ? glossaryTerms 
+      : (relatedTerms && relatedTerms.length)
+        ? glossaryTerms.filter(g => relatedTerms.some(rt => rt.toLowerCase() === g.term.toLowerCase()))
+        : [];
 
     return (
       <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
         {text.split('\n').map((line, lineIdx) => {
           if (line.trim() === '') return <div key={lineIdx} className="h-1" />;
 
-          // ── список-маркер ──
           const listMatch = line.match(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/);
           const isListItem = !!listMatch;
           let listMarker = isListItem ? listMatch![1].trim() : '';
@@ -569,7 +566,6 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             ? line.replace(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/, '')
             : line;
 
-          // ── 1. парсим markdown → плоский текст + формат на каждый символ ──
           const chars: { ch: string; bold: boolean; italic: boolean }[] = [];
           {
             let bold = false, italic = false;
@@ -581,24 +577,34 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
           }
           const plain = chars.map(c => c.ch).join('');
 
-          // ── 2. ищем термины в плоском тексте ──
           type Hit = { start: number; end: number; def: string };
           const hits: Hit[] = [];
           if (localGlossary.length && plain) {
             const plainNorm = plain.toLowerCase().replace(/ё/g, 'е');
+            
             for (const g of localGlossary) {
-              const src = _termRegexSource(g.term);
-              if (!src) continue;
-              let re: RegExp;
-              try { re = new RegExp(src, 'g'); } catch { continue; }
-              let m: RegExpExecArray | null;
-              while ((m = re.exec(plainNorm)) !== null) {
-                if (m[0].length === 0) { re.lastIndex++; continue; }
-                hits.push({ start: m.index, end: m.index + m[0].length, def: g.definition });
+              // ИЩЕМ САМ ТЕРМИН И ЕГО ВАРИАЦИИ
+              const formsToSearch = [g.term, ...(g.variations || [])];
+              
+              for (const form of formsToSearch) {
+                const src = _termRegexSource(form); // Используем ваш безопасный генератор регулярки
+                if (!src) continue;
+                
+                let re: RegExp;
+                try { re = new RegExp(src, 'g'); } catch { continue; }
+                let m: RegExpExecArray | null;
+                while ((m = re.exec(plainNorm)) !== null) {
+                  if (m[0].length === 0) { re.lastIndex++; continue; }
+                  
+                  // ПРЕДОТВРАЩАЕМ БЕСКОНЕЧНЫЕ ССЫЛКИ САМО НА СЕБЯ
+                  if (isNested && g.definition === text) continue;
+                  
+                  hits.push({ start: m.index, end: m.index + m[0].length, def: g.definition });
+                }
               }
             }
           }
-          // убираем пересечения — оставляем более длинные/ранние совпадения
+          
           hits.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
           const accepted: Hit[] = [];
           let lastEnd = -1;
@@ -606,7 +612,6 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
             if (h.start >= lastEnd) { accepted.push(h); lastEnd = h.end; }
           }
 
-          // ── 3. нарезаем плоский текст: границы = смена формата ∪ границы хитов ──
           const boundary = new Set<number>([0, plain.length]);
           for (let i = 1; i < chars.length; i++) {
             if (chars[i].bold !== chars[i - 1].bold || chars[i].italic !== chars[i - 1].italic) {
@@ -628,18 +633,25 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
               fontStyle: fmt.italic ? 'italic' : 'normal',
             };
             const hit = accepted.find(h => s >= h.start && e <= h.end);
+            
             if (hit) {
               segs.push(
                 <span
                   key={`g-${lineIdx}-${bi}`}
                   className="transition-opacity active:opacity-70"
-                  style={{ ...style, borderBottom: '1px dashed currentColor', cursor: 'pointer' }}
+                  style={{ ...style, borderBottom: '1px dashed currentColor', cursor: 'pointer', color: 'var(--c-primary)' }}
                   onClick={(ev) => {
                     ev.stopPropagation();
-                    const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
-                    setTooltipTarget({ top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width });
-                    setTooltipPos({ x: -9999, y: -9999 });
-                    setActiveTermDef(hit.def);
+                    if (isNested) {
+                      // ДОБАВЛЯЕМ В СТЕК БЕЗ СМЕЩЕНИЯ ОКНА
+                      setTermDefStack(prev => [...prev, hit.def]);
+                    } else {
+                      // НОВЫЙ КЛИК - ПОЗИЦИОНИРУЕМ ОКНО
+                      const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+                      setTooltipTarget({ top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width });
+                      setTooltipPos({ x: -9999, y: -9999 });
+                      setTermDefStack([hit.def]);
+                    }
                   }}
                 >
                   {segText}
@@ -1018,14 +1030,36 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
               cursor: dragging ? 'grabbing' : 'grab' 
             }}
             onMouseDown={handleTooltipMouseDown} onTouchStart={handleTooltipTouchStart} onClick={e => e.stopPropagation()}>
+            
+            {/* Кнопка "Назад" во вложенном тултипе */}
+            {termDefStack.length > 1 && (
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: 'color-mix(in srgb, var(--c-text) 10%, transparent)' }}>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setTermDefStack(p => p.slice(0, -1)); }}
+                  className="flex items-center gap-1 text-[12px] font-bold active:scale-95 transition-transform"
+                  style={{ color: 'var(--c-primary)' }}
+                >
+                  <ArrowLeft className="w-3 h-3" /> Назад
+                </button>
+                <span className="text-[10px] uppercase tracking-wider opacity-50" style={{ color: 'var(--c-text)' }}>
+                  Вложенный термин
+                </span>
+              </div>
+            )}
+
             {found?.image && (
               <GlossaryImages
                 images={Array.isArray(found.image) ? found.image : [found.image]}
                 onZoom={openZoom}
               />
             )}
-            <p className="text-sm font-normal" style={{ color: 'var(--c-text)' }}>{activeTermDef}</p>
-            <p className="text-[10px] mt-2 opacity-50" style={{ color: 'var(--c-muted)' }}>↔ перетащите</p>
+            
+            {/* Рендерим текст определения с поиском глоссария внутри него (isNested = true) */}
+            <div className="text-sm font-normal" style={{ color: 'var(--c-text)' }}>
+               {renderWithGlossary(found?.definition || '', undefined, true)}
+            </div>
+            
+            <p className="text-[10px] mt-3 opacity-50 flex justify-center" style={{ color: 'var(--c-muted)' }}>↔ перетащите</p>
           </div>
         );
       })()}
@@ -1079,7 +1113,6 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
                 translate,
               };
             } else if (e.touches.length === 1 && scale === 1 && zoomList.length > 1) {
-              // свайп для листания, когда картинка не увеличена
               (e.currentTarget as any).__swipe = { x: e.touches[0].clientX };
             }
           }}
