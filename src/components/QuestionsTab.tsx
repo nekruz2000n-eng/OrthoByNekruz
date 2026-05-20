@@ -485,7 +485,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     let x = (vw / 2) - (popup.width / 2);
 
     setTooltipPos({ x, y });
-    }, [tooltipTarget]);
+  }, [activeTermDef, tooltipTarget]);
 
   // ЗАКРЫТИЕ СТЕКА ПО КЛИКУ
   useEffect(() => {
