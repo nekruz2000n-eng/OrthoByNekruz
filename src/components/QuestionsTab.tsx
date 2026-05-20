@@ -468,7 +468,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     if (!activeTermDef || !tooltipTarget || !tooltipRef.current) return;
     const popup = tooltipRef.current.getBoundingClientRect();
     
-    const GAP = 24; 
+    const GAP = 12; 
     const PAD = 10;
     const vw  = window.innerWidth;
     const vh  = window.innerHeight;
@@ -482,8 +482,7 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
       }
     }
 
-    let x = (vw / 2) - (popup.width / 2);
-
+  const x = Math.max(PAD, Math.min(tooltipTarget.left, vw - popup.width - PAD));
     setTooltipPos({ x, y });
   }, [tooltipTarget]);
   
