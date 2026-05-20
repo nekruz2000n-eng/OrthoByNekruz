@@ -543,142 +543,128 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
 
   // ── РЕНДЕР С ПОДСВЕТКОЙ ГЛОССАРИЯ ─────────────────────────────────────────
   // ДОБАВЛЕН ФЛАГ isNested
- const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boolean = false) => {
-    if (!text) return null;
+ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boolean = false) => {
+  if (!text) return null;
 
-    // Внутри тултипа ищем по всем терминам. Вне тултипа — только по relatedTerms
-    const localGlossary: GlossaryItem[] = isNested 
-      ? glossaryTerms 
-      : (relatedTerms && relatedTerms.length)
-        ? glossaryTerms.filter(g => relatedTerms.some(rt => rt.toLowerCase() === g.term.toLowerCase()))
-        : [];
+  const localGlossary: GlossaryItem[] = isNested 
+    ? glossaryTerms 
+    : (relatedTerms && relatedTerms.length)
+      ? glossaryTerms.filter(g => relatedTerms.some(rt => rt.toLowerCase() === g.term.toLowerCase()))
+      : [];
 
-    return (
-      <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
-        {text.split('\n').map((line, lineIdx) => {
-          if (line.trim() === '') return <div key={lineIdx} className="h-1" />;
+  return (
+    <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
+      {text.split('\n').map((line, lineIdx) => {
+        if (line.trim() === '') return <div key={lineIdx} className="h-1" />;
 
-          const listMatch = line.match(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/);
-          const isListItem = !!listMatch;
-          let listMarker = isListItem ? listMatch![1].trim() : '';
-          if (listMarker === '-' || listMarker === '*') listMarker = '•';
-          const cleanLine = isListItem
-            ? line.replace(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/, '')
-            : line;
+        const listMatch = line.match(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/);
+        const isListItem = !!listMatch;
+        let listMarker = isListItem ? listMatch![1].trim() : '';
+        if (listMarker === '-' || listMarker === '*') listMarker = '•';
+        const cleanLine = isListItem ? line.replace(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/, '') : line;
 
-          const chars: { ch: string; bold: boolean; italic: boolean }[] = [];
-          {
-            let bold = false, italic = false;
-            for (const tk of cleanLine.split(/(\*\*|_)/g)) {
-              if (tk === '**') { bold = !bold; continue; }
-              if (tk === '_')  { italic = !italic; continue; }
-              for (const ch of tk) chars.push({ ch, bold, italic });
-            }
-          }
-          const plain = chars.map(c => c.ch).join('');
+        const chars: { ch: string; bold: boolean; italic: boolean }[] = [];
+        let bold = false, italic = false;
+        for (const tk of cleanLine.split(/(\*\*|_)/g)) {
+          if (tk === '**') { bold = !bold; continue; }
+          if (tk === '_')  { italic = !italic; continue; }
+          for (const ch of tk) chars.push({ ch, bold, italic });
+        }
+        const plain = chars.map(c => c.ch).join('');
 
-          type Hit = { start: number; end: number; def: string };
-          const hits: Hit[] = [];
-          if (localGlossary.length && plain) {
-            const plainNorm = plain.toLowerCase().replace(/ё/g, 'е');
-            
-            for (const g of localGlossary) {
-              // ИЩЕМ САМ ТЕРМИН И ЕГО ВАРИАЦИИ
-              const formsToSearch = [g.term, ...(g.variations || [])];
-              
-              for (const form of formsToSearch) {
-                const src = _termRegexSource(form); // Используем ваш безопасный генератор регулярки
-                if (!src) continue;
-                
-                let re: RegExp;
-                try { re = new RegExp(src, 'g'); } catch { continue; }
-                let m: RegExpExecArray | null;
-                while ((m = re.exec(plainNorm)) !== null) {
-                  if (m[0].length === 0) { re.lastIndex++; continue; }
-                  
-                  // ПРЕДОТВРАЩАЕМ БЕСКОНЕЧНЫЕ ССЫЛКИ САМО НА СЕБЯ
-                  if (isNested && g.definition === text) continue;
-                  
-                  hits.push({ start: m.index, end: m.index + m[0].length, def: g.definition });
-                }
-              }
-            }
-          }
-          
-          hits.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
-          const accepted: Hit[] = [];
-          let lastEnd = -1;
-          for (const h of hits) {
-            if (h.start >= lastEnd) { accepted.push(h); lastEnd = h.end; }
-          }
+        type Hit = { start: number; end: number; def: string };
+        const hits: Hit[] = [];
+        if (localGlossary.length && plain) {
+          const plainNorm = plain.toLowerCase().replace(/ё/g, 'е');
+          
+          for (const g of localGlossary) {
+            const formsToSearch = [g.term, ...(g.variations || [])];
+            
+            for (const form of formsToSearch) {
+              const safeForm = form.toLowerCase().replace(/ё/g, 'е').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const src = `(?<=^|[^а-яА-ЯёЁa-zA-Z0-9])(${safeForm})(?=[^а-яА-ЯёЁa-zA-Z0-9]|$)`;
+              
+              let re: RegExp;
+              try { re = new RegExp(src, 'gi'); } catch { continue; }
+              
+              let m: RegExpExecArray | null;
+              while ((m = re.exec(plainNorm)) !== null) {
+                if (m[0].length === 0) { re.lastIndex++; continue; }
+                if (isNested && g.definition === text) continue;
+                hits.push({ start: m.index, end: m.index + m[0].length, def: g.definition });
+              }
+            }
+          }
+        }
+        
+        hits.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+        const accepted: Hit[] = [];
+        let lastEnd = -1;
+        for (const h of hits) {
+          if (h.start >= lastEnd) { accepted.push(h); lastEnd = h.end; }
+        }
 
-          const boundary = new Set<number>([0, plain.length]);
-          for (let i = 1; i < chars.length; i++) {
-            if (chars[i].bold !== chars[i - 1].bold || chars[i].italic !== chars[i - 1].italic) {
-              boundary.add(i);
-            }
-          }
-          for (const h of accepted) { boundary.add(h.start); boundary.add(h.end); }
-          const bounds = [...boundary].sort((a, b) => a - b);
+        const boundary = new Set<number>([0, plain.length]);
+        for (let i = 1; i < chars.length; i++) {
+          if (chars[i].bold !== chars[i - 1].bold || chars[i].italic !== chars[i - 1].italic) boundary.add(i);
+        }
+        for (const h of accepted) { boundary.add(h.start); boundary.add(h.end); }
+        const bounds = [...boundary].sort((a, b) => a - b);
 
-          const segs: React.ReactNode[] = [];
-          for (let bi = 0; bi < bounds.length - 1; bi++) {
-            const s = bounds[bi], e = bounds[bi + 1];
-            if (s >= e) continue;
-            const segText = plain.slice(s, e);
-            const fmt = chars[s] || { bold: false, italic: false };
-            const style: React.CSSProperties = {
-              fontWeight: fmt.bold ? 700 : 'inherit',
-              color: fmt.bold ? 'var(--c-text)' : 'inherit',
-              fontStyle: fmt.italic ? 'italic' : 'normal',
-            };
-            const hit = accepted.find(h => s >= h.start && e <= h.end);
-            
-            if (hit) {
-              segs.push(
-                <span
-                  key={`g-${lineIdx}-${bi}`}
-                  className="transition-opacity active:opacity-70"
-                  style={{ ...style, borderBottom: '1px dashed currentColor', cursor: 'pointer', color: 'var(--c-primary)' }}
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    if (isNested) {
-                      // ДОБАВЛЯЕМ В СТЕК БЕЗ СМЕЩЕНИЯ ОКНА
-                      setTermDefStack(prev => [...prev, hit.def]);
-                    } else {
-                      // НОВЫЙ КЛИК - ПОЗИЦИОНИРУЕМ ОКНО
-                      const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
-                      setTooltipTarget({ top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width });
-                      setTooltipPos({ x: -9999, y: -9999 });
-                      setTermDefStack([hit.def]);
-                    }
-                  }}
-                >
-                  {segText}
-                </span>
-              );
-            } else {
-              segs.push(<span key={`t-${lineIdx}-${bi}`} style={style}>{segText}</span>);
-            }
-          }
+        const segs: React.ReactNode[] = [];
+        for (let bi = 0; bi < bounds.length - 1; bi++) {
+          const s = bounds[bi], e = bounds[bi + 1];
+          if (s >= e) continue;
+          const segText = plain.slice(s, e);
+          const fmt = chars[s] || { bold: false, italic: false };
+          const style: React.CSSProperties = {
+            fontWeight: fmt.bold ? 700 : 'inherit',
+            color: fmt.bold ? 'var(--c-text)' : 'inherit',
+            fontStyle: fmt.italic ? 'italic' : 'normal',
+          };
+          const hit = accepted.find(h => s >= h.start && e <= h.end);
+          
+          if (hit) {
+            segs.push(
+              <span
+                key={`g-${lineIdx}-${bi}`}
+                className="transition-opacity active:opacity-70"
+                style={{ ...style, borderBottom: '1px dashed currentColor', cursor: 'pointer', color: 'var(--c-primary)' }}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  if (isNested) {
+                    setTermDefStack(prev => [...prev, hit.def]);
+                  } else {
+                    const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+                    setTooltipTarget({ top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width });
+                    setTooltipPos({ x: -9999, y: -9999 });
+                    setTermDefStack([hit.def]);
+                  }
+                }}
+              >
+                {segText}
+              </span>
+            );
+          } else {
+            segs.push(<span key={`t-${lineIdx}-${bi}`} style={style}>{segText}</span>);
+          }
+        }
 
-          if (isListItem) {
-            return (
-              <div key={lineIdx} className="flex gap-2 mb-1.5 pl-2 mt-1">
-                <span className="text-[14px] leading-snug font-bold" style={{ color: 'var(--c-amber)' }}>
-                  {listMarker}
-                </span>
-                <p className="m-0 flex-1 leading-snug">{segs}</p>
-              </div>
-            );
-          }
-          return (
-            <p key={lineIdx} className="indent-4 mb-2 mt-1 last:mb-0">{segs}</p>
-          );
-        })}
-      </div>
-    );
-  };
+        if (isListItem) {
+          return (
+            <div key={lineIdx} className="flex gap-2 mb-1.5 pl-2 mt-1">
+              <span className="text-[14px] leading-snug font-bold" style={{ color: 'var(--c-amber)' }}>
+                {listMarker}
+              </span>
+              <p className="m-0 flex-1 leading-snug">{segs}</p>
+            </div>
+          );
+        }
+        return <p key={lineIdx} className="indent-4 mb-2 mt-1 last:mb-0">{segs}</p>;
+      })}
+    </div>
+  );
+};
 
   const PersonalNote = ({ id }: { id: number }) => {
     const [editing, setEditing] = useState(false);
