@@ -1001,55 +1001,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
         )}
       </AnimatePresence>
 
-      {/* ── ТУЛТИП ГЛОССАРИЯ ──────────────────────── */}
-      {activeTermDef && (() => {
-        const found = glossaryTerms.find(g => g.definition === activeTermDef);
-        return (
-          <div ref={tooltipRef} className="fixed z-[200] rounded-2xl p-4 shadow-2xl max-w-[280px] select-none"
-            style={{ 
-              left: tooltipPos.x, 
-              top: tooltipPos.y, 
-          
-              background: 'var(--c-card)', 
-              border: '1px solid var(--c-primary-br)', 
-              cursor: dragging ? 'grabbing' : 'grab' 
-            }}
-            onMouseDown={handleTooltipMouseDown} onTouchStart={handleTooltipTouchStart} onClick={e => e.stopPropagation()}>
-            
-            {/* Кнопка "Назад" во вложенном тултипе */}
-            {termDefStack.length > 1 && (
-              <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: 'color-mix(in srgb, var(--c-text) 10%, transparent)' }}>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setTermDefStack(p => p.slice(0, -1)); }}
-                  className="flex items-center gap-1 text-[12px] font-bold active:scale-95 transition-transform"
-                  style={{ color: 'var(--c-primary)' }}
-                >
-                  <ArrowLeft className="w-3 h-3" /> Назад
-                </button>
-                <span className="text-[10px] uppercase tracking-wider opacity-50" style={{ color: 'var(--c-text)' }}>
-                  Вложенный термин
-                </span>
-              </div>
-            )}
-
-            {found?.image && (
-              <GlossaryImages
-                images={Array.isArray(found.image) ? found.image : [found.image]}
-                onZoom={openZoom}
-              />
-            )}
-            
-            {/* Рендерим текст определения с поиском глоссария внутри него (isNested = true) */}
-            <div className="text-sm font-normal" style={{ color: 'var(--c-text)' }}>
-               {renderWithGlossary(found?.definition || '', undefined, true)}
-            </div>
-            
-            <p className="text-[10px] mt-3 opacity-50 flex justify-center" style={{ color: 'var(--c-muted)' }}>↔ перетащите</p>
-          </div>
-        );
-      })()}
-
-      {/* ── ZOOM ИЗОБРАЖЕНИЯ ─────────────────────────────────────────────── */}
+     {/* ── ZOOM ИЗОБРАЖЕНИЯ ─────────────────────────────────────────────── */}
       {zoomList.length > 0 && (
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center"
@@ -1059,7 +1011,11 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
             touchAction:    'none',
             overscrollBehavior: 'contain',
           }}
-          onClick={closeZoom}
+          // 👇 ИЗМЕНЕНИЕ ЗДЕСЬ: останавливаем клик, чтобы глоссарий не закрылся
+          onClick={(e) => {
+            e.stopPropagation();
+            closeZoom();
+          }}
           onWheel={e => {
             e.preventDefault();
             const delta    = e.deltaY > 0 ? -0.25 : 0.25;
@@ -1161,7 +1117,9 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                 userSelect:      'none',
               }}
               draggable={false}
-              onDoubleClick={() => {
+              onDoubleClick={(e) => {
+                // 👇 ИЗМЕНЕНИЕ ЗДЕСЬ: на всякий случай тоже останавливаем всплытие
+                e.stopPropagation();
                 if (scale > 1) {
                   setScale(1);
                   setTranslate({ x: 0, y: 0 });
@@ -1196,7 +1154,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
                 style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)' }}>
                 {zoomList.map((_, i) => (
-                  <button key={i} onClick={() => { setZoomIdx(i); setScale(1); setTranslate({ x: 0, y: 0 }); }}
+                  <button key={i} onClick={(e) => { e.stopPropagation(); setZoomIdx(i); setScale(1); setTranslate({ x: 0, y: 0 }); }}
                     className="rounded-full transition-all duration-200"
                     style={{
                       width: i === zoomIdx ? 18 : 7, height: 7,
@@ -1208,7 +1166,11 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
               </div>
             )}
             <button
-              onClick={closeZoom}
+              onClick={(e) => {
+                // 👇 ИЗМЕНЕНИЕ ЗДЕСЬ
+                e.stopPropagation();
+                closeZoom();
+              }}
               className="flex items-center gap-2 px-6 h-11 rounded-full text-sm font-semibold transition-all active:scale-95 shadow-2xl"
               style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)' }}
             >
