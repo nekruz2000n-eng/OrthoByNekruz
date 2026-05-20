@@ -637,7 +637,27 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                   } else {
                     const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
                     setTooltipTarget({ top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width });
-                    setTooltipPos({ x: -9999, y: -9999 });
+                    
+                    // --- МГНОВЕННЫЙ РАСЧЕТ ПОЗИЦИИ ---
+                    let safeX = r.left;
+                    let safeY = r.bottom + 8; // Показываем чуть ниже слова
+
+                    // Защита от выхода за экран (считаем, что ширина тултипа ~280px)
+                    if (safeX + 280 > window.innerWidth) {
+                      safeX = window.innerWidth - 290;
+                    }
+                    // Если внизу мало места, открываем над словом (считаем высоту ~200px)
+                    if (safeY + 200 > window.innerHeight) {
+                      safeY = r.top - 210;
+                    }
+
+                    // Не даем уйти за левый верхний край
+                    safeX = Math.max(10, safeX);
+                    safeY = Math.max(10, safeY);
+
+                    setTooltipPos({ x: safeX, y: safeY });
+                    // ---------------------------------
+                    
                     setTermDefStack([hit.def]);
                   }
                 }}
