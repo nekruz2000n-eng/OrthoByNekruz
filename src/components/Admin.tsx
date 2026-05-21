@@ -16,7 +16,7 @@ interface User {
   usedDemo:      boolean;
   activatedKey:  string | null;
   registeredAt:  string | null;
-  lastLogin:     string | null;
+   lastLogin:     string | null;
   loginCount:    number;
   opensToday:    number;
   fpChanges:     number;
@@ -443,7 +443,7 @@ function UserCard({
             display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 14px',
           }}>
             <Meta label="Зарегистрирован" value={fmtDate(user.registeredAt)} mono />
-            {user.lastLogin && (
+             {user.lastLogin && (
               <Meta label="Последний вход" value={fmtDate(user.lastLogin)} mono />
             )}
             {user.loginCount > 0 && (
@@ -831,7 +831,7 @@ export default function AdminPage() {
   const [availableSubjects,  setAvailableSubjects]  = useState<SubjectInfo[]>([]);
   const [loading,            setLoading]            = useState(false);
   const [filter,             setFilter]             = useState<Filter>('all');
-  const [sortBy,             setSortBy]             = useState<SortBy>('registered');
+    const [sortBy,             setSortBy]             = useState<SortBy>('registered');
   const [search,             setSearch]             = useState('');
   const [debouncedSearch,    setDebouncedSearch]    = useState('');
   const [error,              setError]              = useState('');
@@ -1107,30 +1107,36 @@ export default function AdminPage() {
     finally   { setResMgrDeleting(null); }
   };
 
-  const toBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload  = () => resolve((r.result as string).split(',')[1]);
-      r.onerror = reject;
-      r.readAsDataURL(file);
-    });
+ 
 
   const uploadFile = async (file: File) => {
     setResUploading(true);
     try {
-      const fileBase64 = await toBase64(file);
-      const signRes = await fetch('/api/admin-upload', {
-        method:  'POST',
+            const signRes = await fetch('/api/admin-upload-sign', {
+
+       method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ secret, filename: file.name, contentType: file.type || 'application/octet-stream', fileBase64 }),
+        body:    JSON.stringify({ secret, filename: file.name, contentType: file.type || 'application/octet-stream' }),
       });
+
       if (!signRes.ok) {
         const err = await signRes.json().catch(() => ({}));
-        showToast('Ошибка: ' + (err.error || err.detail || signRes.status));
+        showToast('Ошибка: ' + (err.error || signRes.status));
         return;
       }
-      const { publicUrl } = await signRes.json();
+ const { signedUrl, publicUrl } = await signRes.json();
 
+      // Step 2: upload the file binary directly to Supabase — bypasses Vercel body limit
+      const uploadRes = await fetch(signedUrl, {
+        method:  'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body:    file,
+      });
+      if (!uploadRes.ok) {
+        const text = await uploadRes.text().catch(() => '');
+        showToast('Ошибка загрузки: ' + (text || uploadRes.status));
+        return;
+      }
       // 3. Auto-detect type from extension
       const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
       const extTypeMap: Record<string, ResType> = {
@@ -1257,26 +1263,48 @@ export default function AdminPage() {
   };
 
   const uploadGlImage = async (file: File) => {
-    setGlUploading(true);
-    try {
-      const fileBase64 = await toBase64(file);
-      const signRes = await fetch('/api/admin-upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secret, filename: file.name, contentType: file.type || 'image/jpeg', fileBase64 }),
-      });
-      if (!signRes.ok) {
-        const err = await signRes.json().catch(() => ({}));
-        showToast('Ошибка: ' + (err.error || err.detail || signRes.status));
-        return;
-      }
-      const { publicUrl } = await signRes.json();
-      setGlForm(f => ({ ...f, image: publicUrl }));
-      showToast('✓ Картинка загружена');
-    } catch { showToast('Ошибка сети'); }
-    finally { setGlUploading(false); }
-  };
+  setGlUploading(true);
+  try {
+    const signRes = await fetch('/api/admin-upload-sign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret, filename: file.name, contentType: file.type || 'image/jpeg' }),
+    });
 
+    // 1. Читаем JSON ровно один раз здесь
+    const signData = await signRes.json().catch(() => ({}));
+
+    // 2. Проверяем успешность запроса
+    if (!signRes.ok) {
+      showToast('Ошибка: ' + (signData.error || signRes.status));
+      return;
+    }
+
+    // 3. Спокойно забираем урлы из уже прочитанного объекта
+    const { signedUrl, publicUrl } = signData;
+
+    // Дальше твой код загрузки файла — тут всё чётко:
+    const uploadRes = await fetch(signedUrl, {
+      method:  'PUT',
+      headers: { 'Content-Type': file.type || 'image/jpeg' },
+      body:    file,
+    });
+
+    if (!uploadRes.ok) {
+      const text = await uploadRes.text().catch(() => '');
+      showToast('Ошибка загрузки: ' + (text || uploadRes.status));
+      return;
+    }
+
+    setGlForm(f => ({ ...f, image: publicUrl }));
+    showToast('✓ Картинка загружена');
+  } catch (err) { 
+    console.error(err); // лучше логировать, чтобы видеть реальную причину в консоли
+    showToast('Ошибка сети'); 
+  } finally { 
+    setGlUploading(false); 
+  }
+};
   // Копирование в буфер с тостом
   const copyToClipboard = useCallback(async (text: string, label: string) => {
     try {
@@ -1501,8 +1529,9 @@ export default function AdminPage() {
       }
       return true;
     });
+    // Новые регистрации — сверху. Без даты — в конец.
     return [...filtered].sort((a, b) => {
-      if (sortBy === 'loginCount') return b.loginCount - a.loginCount;
+       if (sortBy === 'loginCount') return b.loginCount - a.loginCount;
       if (sortBy === 'lastLogin') {
         const ta = a.lastLogin ? Date.parse(a.lastLogin) : 0;
         const tb = b.lastLogin ? Date.parse(b.lastLogin) : 0;
@@ -1513,7 +1542,6 @@ export default function AdminPage() {
       return tb - ta;
     });
   }, [users, filter, debouncedSearch, sortBy]);
-
   // ─── ЭКРАН ВХОДА ───────────────────────────────────────────────────────────
   const loginScreen = (
     <div style={{
@@ -2768,7 +2796,7 @@ export default function AdminPage() {
           })}
         </div>
 
-        {/* сортировка */}
+     {/* сортировка */}
         <div style={{
           display: 'flex', gap: 6, marginBottom: 10,
           overflowX: 'auto', paddingBottom: 2,
