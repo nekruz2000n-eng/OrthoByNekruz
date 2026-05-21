@@ -1030,7 +1030,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
             touchAction:    'none',
             overscrollBehavior: 'contain',
           }}
-          onClick={closeZoom}
+          onClick={e => { e.stopPropagation(); closeZoom(); }}
           onWheel={e => {
             e.preventDefault();
             const delta    = e.deltaY > 0 ? -0.25 : 0.25;
@@ -1178,7 +1178,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
               </div>
             )}
             <button
-              onClick={closeZoom}
+              onClick={e => { e.stopPropagation(); closeZoom(); }}
               className="flex items-center gap-2 px-6 h-11 rounded-full text-sm font-semibold transition-all active:scale-95 shadow-2xl"
               style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)' }}
             >
