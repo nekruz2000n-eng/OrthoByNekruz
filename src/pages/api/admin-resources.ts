@@ -5,6 +5,9 @@ import type { Resource } from './resources';
 
 const redis        = Redis.fromEnv();
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const BUCKET       = 'materials';
 
 async function getResources(subjectId: string): Promise<Resource[]> {
   const raw = await redis.get(`resources:${subjectId}`);
@@ -53,8 +56,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (action === 'delete') {
     if (!resourceId) return res.status(400).json({ error: 'resourceId required' });
     const resources = await getResources(subjectId);
+    const target    = resources.find(r => r.id === resourceId);
     const updated   = resources.filter(r => r.id !== resourceId);
     await redis.set(`resources:${subjectId}`, updated);
+
+    // Удаляем файл из Supabase Storage если он там хранится
+    if (target && SUPABASE_URL && SERVICE_KEY) {
+      const prefix = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/`;
+      if (target.url.startsWith(prefix)) {
+        const filePath = target.url.slice(prefix.length);
+        await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}`, {
+          method:  'DELETE',
+          headers: {
+            'Authorization': `Bearer ${SERVICE_KEY}`,
+            'Content-Type':  'application/json',
+          },
+          body: JSON.stringify({ prefixes: [filePath] }),
+        }).catch(err => console.error('[admin-resources] Storage delete error:', err));
+      }
+    }
+
     return res.status(200).json({ ok: true, resources: updated });
   }
 
