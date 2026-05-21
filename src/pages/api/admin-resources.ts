@@ -65,9 +65,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const prefix = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/`;
       if (target.url.startsWith(prefix)) {
         const filePath = target.url.slice(prefix.length);
-        await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${filePath}`, {
+        await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}`, {
           method:  'DELETE',
-          headers: { 'Authorization': `Bearer ${SERVICE_KEY}` },
+          headers: {
+            'Authorization': `Bearer ${SERVICE_KEY}`,
+            'Content-Type':  'application/json',
+          },
+          body: JSON.stringify({ prefixes: [filePath] }),
         }).catch(err => console.error('[admin-resources] Storage delete error:', err));
       }
     }
