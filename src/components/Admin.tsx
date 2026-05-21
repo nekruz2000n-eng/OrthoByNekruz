@@ -1106,60 +1106,59 @@ export default function AdminPage() {
     finally   { setResMgrDeleting(null); }
   };
 
-  const uploadFile = async (file: File) => {
-    setResUploading(true);
-    try {
-      const signRes = await fetch('/api/admin-upload-sign', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ secret, filename: file.name, contentType: file.type || 'application/octet-stream' }),
-      });
+ const uploadFile = async (file: File) => {
+  setResUploading(true);
+  try {
+    // 1. Получаем разрешение
+    const signRes = await fetch('/api/admin-upload-sign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret, filename: file.name, contentType: file.type || 'application/octet-stream' }),
+    });
 
-      // ИСПРАВЛЕНИЕ 1: читаем JSON ровно один раз
-      const signData = await signRes.json().catch(() => ({}));
-
-      if (!signRes.ok) {
-        showToast('Ошибка: ' + (signData.error || signRes.status));
-        return;
-      }
-      
-      const { signedUrl, publicUrl } = signData;
-
-      // Step 2: upload the file binary directly to Supabase — bypasses Vercel body limit
-      const uploadRes = await fetch(signedUrl, {
-        method:  'PUT',
-        headers: { 'Content-Type': file.type || 'application/octet-stream' },
-        body:    file,
-      });
-      if (!uploadRes.ok) {
-        const text = await uploadRes.text().catch(() => '');
-        showToast('Ошибка загрузки: ' + (text || uploadRes.status));
-        return;
-      }
-      // 3. Auto-detect type from extension
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-      const extTypeMap: Record<string, ResType> = {
-        pdf: 'pdf', docx: 'docx', doc: 'docx',
-        pptx: 'pptx', ppt: 'pptx',
-        mp4: 'video', mov: 'video', avi: 'video', mkv: 'video',
-      };
-      const detectedType = extTypeMap[ext] ?? 'link';
-
-      // 4. Auto-fill form
-      const baseName = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
-      setResForm(f => ({
-        ...f,
-        url:   publicUrl,
-        type:  detectedType,
-        title: f.title.trim() ? f.title : baseName,
-      }));
-      showToast('✓ Файл загружен — заполни название и сохрани');
-    } catch {
-      showToast('Ошибка сети при загрузке файла');
-    } finally {
-      setResUploading(false);
+    const signData = await signRes.json().catch(() => ({}));
+    if (!signRes.ok) {
+      showToast('Ошибка: ' + (signData.error || signRes.status));
+      return;
     }
-  };
+
+    const { signedUrl, publicUrl } = signData;
+
+    // 2. Загружаем файл напрямую в Supabase
+    const uploadRes = await fetch(signedUrl, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': file.type || 'application/octet-stream',
+        // Некоторые версии Supabase Storage требуют этот заголовок для PUT:
+        'x-upsert': 'true' 
+      },
+      body: file,
+    });
+
+    if (!uploadRes.ok) {
+      const text = await uploadRes.text().catch(() => '');
+      showToast('Ошибка загрузки: ' + (text || uploadRes.status));
+      return;
+    }
+
+    // 3. Обновляем форму
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    const extTypeMap: Record<string, ResType> = {
+      pdf: 'pdf', docx: 'docx', doc: 'docx', pptx: 'pptx', ppt: 'pptx',
+      mp4: 'video', mov: 'video', avi: 'video', mkv: 'video',
+    };
+    const detectedType = extTypeMap[ext] ?? 'link';
+    const baseName = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+    
+    setResForm(f => ({ ...f, url: publicUrl, type: detectedType, title: f.title.trim() ? f.title : baseName }));
+    showToast('✓ Файл загружен');
+  } catch (err) {
+    console.error(err);
+    showToast('Ошибка сети');
+  } finally {
+    setResUploading(false);
+  }
+};
 
   const fetchRtItems = useCallback(async (subjId: string, typeVal: 'questions' | 'tests' | 'tasks') => {
     setRtLoading(true);
