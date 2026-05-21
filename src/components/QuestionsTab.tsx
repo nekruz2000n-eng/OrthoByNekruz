@@ -687,28 +687,35 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
           borderBottom: '1px solid var(--c-border)',
           paddingTop: 'var(--header-pt)',
         }}>
-        <div className="flex items-center gap-3 px-1">
-          <div className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-shrink-0" style={{ background: 'var(--c-primary-dim)' }}>
-            <ToothIcon className="w-6 h-6" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} onClick={onSecretTap} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-[16px] font-bold tracking-tight leading-tight" style={{ color: 'var(--c-text)' }}>
-              {cfg?.brandName || 'OrthoByNekruz'}
-            </h1>
-            <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: accentColor }}>
-              Вопросы · {cfg?.label || subject}
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-1 min-w-[64px]">
-            <span className="text-[11px] font-mono font-bold" style={{ color: accentColor }}>
-              {studiedIds.size}/{questionsData.length}
-            </span>
-            <div className="w-[60px] h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
-              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
-            </div>
-          </div>
-        </div>
+       <div className="flex items-start justify-between px-1">
+  {/* 1. Левая безопасная зона (75px) — защищает от кнопки "Назад" в iOS */}
+  <div className="w-[75px] flex-shrink-0" />
 
+  {/* 2. Центрированный блок с логотипом и названием */}
+  <div className="flex flex-col items-center justify-center flex-1 min-w-0">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ background: 'var(--c-primary-dim)' }}>
+        <ToothIcon className="w-5 h-5" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} onClick={onSecretTap} />
+      </div>
+      <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
+        {cfg?.brandName || 'OrthoByNekruz'}
+      </h1>
+    </div>
+    <p className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color: accentColor }}>
+      Вопросы · {cfg?.label || subject}
+    </p>
+  </div>
+
+  {/* 3. Правая безопасная зона (75px) — сжимает счетчик, защищая от меню "..." */}
+  <div className="w-[75px] flex flex-col items-end gap-1 flex-shrink-0 pt-1">
+    <span className="text-[11px] font-mono font-bold" style={{ color: accentColor }}>
+      {studiedIds.size}/{questionsData.length}
+    </span>
+    <div className="w-[60px] h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
+      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
+    </div>
+  </div>
+</div>
         <div className="relative mt-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--c-muted)' }} />
           <Input placeholder="Поиск по вопросу или №…" value={search} onChange={e => setSearch(e.target.value)}
