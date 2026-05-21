@@ -1127,11 +1127,7 @@ export default function AdminPage() {
     // 2. Загружаем файл напрямую в Supabase
     const uploadRes = await fetch(signedUrl, {
       method: 'PUT',
-      headers: { 
-        'Content-Type': file.type || 'application/octet-stream',
-        // Некоторые версии Supabase Storage требуют этот заголовок для PUT:
-        'x-upsert': 'true' 
-      },
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
       body: file,
     });
 
