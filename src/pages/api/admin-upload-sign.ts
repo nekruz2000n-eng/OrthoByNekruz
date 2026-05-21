@@ -27,6 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           'Authorization': `Bearer ${SERVICE_KEY}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({}),
       },
     );
 
