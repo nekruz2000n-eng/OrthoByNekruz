@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 const SUPABASE_URL = process.env.SUPABASE_URL || ''; // Проверь: БЕЗ слэша на конце!
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
-const BUCKET       = 'materials';
+const BUCKET       = 'MATERIALS';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).end();
