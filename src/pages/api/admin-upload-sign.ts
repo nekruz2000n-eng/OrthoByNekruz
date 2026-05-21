@@ -10,49 +10,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { secret, filename, contentType } = req.body ?? {};
 
-  if (!secret || String(secret) !== ADMIN_SECRET) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-  if (!filename || !contentType) {
-    return res.status(400).json({ error: 'filename and contentType required' });
-  }
+  if (!secret || String(secret) !== ADMIN_SECRET) return res.status(403).json({ error: 'Forbidden' });
+  if (!filename || !contentType) return res.status(400).json({ error: 'Missing params' });
 
-  // Создаем безопасное имя файла
   const safeName = `${Date.now()}_${String(filename).replace(/[^a-zA-Z0-9._-]/g, '_')}`;
   
-  // Правильный путь для API Supabase: bucket/filename
-  const path = `${BUCKET}/${safeName}`;
+  // Пытаемся использовать официальный REST API для создания signed upload URL
+  // Путь: /storage/v1/object/create-signed-upload-url/{bucket}/{path}
+  const url = `${SUPABASE_URL}/storage/v1/object/create-signed-upload-url/${BUCKET}/${encodeURIComponent(safeName)}`;
 
   try {
-    // Используем эндпоинт create-signed-upload-url
-    const signRes = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/create-signed-upload-url/${path}`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${SERVICE_KEY}`,
-          'apikey': SERVICE_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}), 
-      }
-    );
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SERVICE_KEY}`,
+        'apikey': SERVICE_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
 
-    const data = await signRes.json();
+    const data = await response.json();
 
-    if (!signRes.ok) {
-      console.error('[admin-upload-sign] Supabase error:', signRes.status, data);
-      return res.status(502).json({ error: data.message || 'Failed to get signed URL' });
+    if (!response.ok) {
+      console.error('[DEBUG] Supabase API failed:', { 
+        url, 
+        status: response.status, 
+        data 
+      });
+      return res.status(response.status).json(data);
     }
 
-    // Supabase возвращает signedURL в поле signedUrl (с маленькой u)
-    const signedUrl = data.signedUrl;
-    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${path}`;
-
-    return res.status(200).json({ signedUrl, publicUrl });
-    
+    return res.status(200).json({ 
+      signedUrl: data.signedUrl, 
+      publicUrl: `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${safeName}` 
+    });
   } catch (err) {
-    console.error('[admin-upload-sign] Error:', err);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return res.status(500).json({ error: 'System error' });
   }
 }
