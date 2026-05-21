@@ -23,14 +23,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Sanitize: keep only safe chars, prepend timestamp to avoid collisions
   const safeName = `${Date.now()}_${String(filename).replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 
+    // 1. Формируем правильный путь к файлу
+  const path = `${BUCKET}/${safeName}`;
+
+  // 2. Делаем запрос к API Supabase для получения signed URL
   const signRes = await fetch(
-    `${SUPABASE_URL}/storage/v1/object/upload/sign/${BUCKET}/${safeName}`,
+    `${SUPABASE_URL}/storage/v1/object/create-signed-upload-url/${path}`,
     {
-      method:  'POST',
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${SERVICE_KEY}`,
-        'Content-Type':  'application/json',
+        'apikey': SERVICE_KEY, // Важно: для Supabase API нужен apikey
+        'Content-Type': 'application/json',
       },
+      // Тело можно оставить пустым или передать параметры, если нужно
+      body: JSON.stringify({}), 
     },
   );
 
