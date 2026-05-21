@@ -192,18 +192,21 @@ const [isDemoVisible, setIsDemoVisible] = useState(true);
     const timer = setTimeout(() => {
       const tg = (window as any).Telegram?.WebApp;
       if (tg) {
+        // Обновляем initData при каждой попытке — он может появиться позже
+        if (tg.initData) setInitData(tg.initData);
+
         // Пытаемся достать ID из разных мест
         let id = tg.initDataUnsafe?.user?.id;
         if (!id && tg.initData) {
           try { id = JSON.parse(new URLSearchParams(tg.initData).get('user') || '{}').id; } catch {}
         }
-        if (id) { 
+        if (id) {
           setAutoTgId(String(id)); // Успешно нашли!
-          setIdChecked(true); 
+          setIdChecked(true);
         }
-        else { 
-          setDebugInfo(`Attempt ${idCheckAttempts}: No ID`); 
-          setIdCheckAttempts(p => p + 1); 
+        else {
+          setDebugInfo(`Attempt ${idCheckAttempts}: No ID`);
+          setIdCheckAttempts(p => p + 1);
         }
       } else {
         setIdCheckAttempts(p => p + 1);
@@ -211,6 +214,27 @@ const [isDemoVisible, setIsDemoVisible] = useState(true);
     }, attemptInterval);
     return () => clearTimeout(timer);
   }, [mounted, autoTgId, idCheckAttempts]);
+
+  // Продолжаем искать ID в фоне после показа поля ручного ввода
+  // На некоторых версиях Telegram initData появляется с задержкой > 10 секунд
+  const [bgAttempts, setBgAttempts] = useState(0);
+  const maxBgAttempts = 40;
+  useEffect(() => {
+    if (!mounted || !idChecked || autoTgId !== null || bgAttempts >= maxBgAttempts) return;
+    const timer = setTimeout(() => {
+      const tg = (window as any).Telegram?.WebApp;
+      if (tg) {
+        if (tg.initData) setInitData(prev => prev || tg.initData);
+        let id = tg.initDataUnsafe?.user?.id;
+        if (!id && tg.initData) {
+          try { id = JSON.parse(new URLSearchParams(tg.initData).get('user') || '{}').id; } catch {}
+        }
+        if (id) setAutoTgId(String(id));
+      }
+      setBgAttempts(p => p + 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [mounted, idChecked, autoTgId, bgAttempts]);
 
   // ── Секретная функция сброса (6 быстрых тапов по названию) ──
   const tapCountRef = useRef(0);
@@ -259,6 +283,10 @@ const [isDemoVisible, setIsDemoVisible] = useState(true);
           setError(true);
           setErrorMessage('Твой аккаунт заблокирован. Свяжись с администратором.');
           setTimeout(() => setErrorMessage(''), 6000);
+        } else if (res.status === 403 && data.noInitData) {
+          setError(true);
+          setErrorMessage('Открой приложение через кнопку бота в Telegram, а не через браузер.');
+          setTimeout(() => setErrorMessage(''), 8000);
         } else if (res.status === 403) {
           setNeedsSubscription(true); // Просим подписаться на канал
         } else {
