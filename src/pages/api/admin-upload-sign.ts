@@ -1,55 +1,51 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET   || '';
+const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const BUCKET       = 'materials';
-
-export const config = {
-  api: { bodyParser: false },
-};
+const BUCKET       = 'materials'; // строчные — точно как имя бакета в Supabase
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const secret      = req.headers['x-admin-secret'] as string;
-  const filename    = req.headers['x-filename'] as string;
-  const contentType = req.headers['content-type'] || 'application/octet-stream';
+  const { secret, filename, contentType } = req.body ?? {};
 
-  if (!secret || secret !== ADMIN_SECRET) return res.status(403).json({ error: 'Forbidden' });
-  if (!filename) return res.status(400).json({ error: 'Missing x-filename header' });
-  if (!SUPABASE_URL || !SERVICE_KEY) return res.status(500).json({ error: 'Supabase not configured' });
+  if (!secret || String(secret) !== ADMIN_SECRET) return res.status(403).json({ error: 'Forbidden' });
+  if (!filename || !contentType) return res.status(400).json({ error: 'Missing params' });
+  if (!SUPABASE_URL || !SERVICE_KEY) {
+    return res.status(500).json({ error: 'Supabase not configured' });
+  }
 
-  const safeName = `${Date.now()}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+  const safeName = `${Date.now()}_${String(filename).replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 
   try {
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(chunk as Buffer);
-    const buffer = Buffer.concat(chunks);
-
-    const uploadRes = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${safeName}`,
+    const signRes = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/upload/sign/${BUCKET}/${safeName}`,
       {
-        method:  'POST',
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${SERVICE_KEY}`,
-          'Content-Type':  String(contentType),
-          'x-upsert':      'false',
+          'Content-Type': 'application/json',
         },
-        body: buffer,
+        body: JSON.stringify({}),
       },
     );
 
-    if (!uploadRes.ok) {
-      const text = await uploadRes.text().catch(() => '');
-      console.error('[admin-upload] Supabase error:', uploadRes.status, text);
-      return res.status(502).json({ error: 'Upload failed', detail: text });
+    const data = await signRes.json();
+
+    if (!signRes.ok) {
+      console.error('[admin-upload-sign] Supabase error:', signRes.status, data);
+      return res.status(502).json({ error: data.message || 'Supabase error' });
     }
 
+    // Supabase возвращает signedURL (заглавные), может быть относительным URL
+    const rawUrl: string = data.signedURL || data.signedUrl || '';
+    const signedUrl = rawUrl.startsWith('http') ? rawUrl : `${SUPABASE_URL}${rawUrl}`;
     const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${safeName}`;
-    return res.status(200).json({ publicUrl });
+
+    return res.status(200).json({ signedUrl, publicUrl });
   } catch (err) {
-    console.error('[admin-upload]', err);
+    console.error('[admin-upload-sign]', err);
     return res.status(500).json({ error: String(err) });
   }
 }

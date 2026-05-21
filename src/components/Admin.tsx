@@ -1114,7 +1114,8 @@ export default function AdminPage() {
       headers: {
         'Content-Type':   file.type || 'application/octet-stream',
         'X-Admin-Secret': secret,
-        'X-Filename':     file.name,
+        'X-Filename':     encodeURIComponent(file.name),  // ← должно быть
+
       },
       body: file,
     });
