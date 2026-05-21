@@ -16,8 +16,6 @@ interface User {
   usedDemo:      boolean;
   activatedKey:  string | null;
   registeredAt:  string | null;
-  lastLogin:     string | null;
-  loginCount:    number;
   opensToday:    number;
   fpChanges:     number;
   suspicious:    boolean;
@@ -51,7 +49,6 @@ const RES_TYPE_OPTS: { id: ResType; label: string; emoji: string }[] = [
 ];
 
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo';
-type SortBy = 'registered' | 'lastLogin' | 'loginCount';
 type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid';
 
 // Управляемые из админки разделы. Сам раздел «Статистика» не выключается
@@ -443,12 +440,6 @@ function UserCard({
             display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 14px',
           }}>
             <Meta label="Зарегистрирован" value={fmtDate(user.registeredAt)} mono />
-            {user.lastLogin && (
-              <Meta label="Последний вход" value={fmtDate(user.lastLogin)} mono />
-            )}
-            {user.loginCount > 0 && (
-              <Meta label="Всего входов" value={String(user.loginCount)} />
-            )}
             {user.activatedKey && (
               <Meta label="Ключ"
                 value={user.activatedKey === 'trial' ? 'триал' : `···${user.activatedKey.slice(-4)}`}
@@ -831,7 +822,6 @@ export default function AdminPage() {
   const [availableSubjects,  setAvailableSubjects]  = useState<SubjectInfo[]>([]);
   const [loading,            setLoading]            = useState(false);
   const [filter,             setFilter]             = useState<Filter>('all');
-  const [sortBy,             setSortBy]             = useState<SortBy>('registered');
   const [search,             setSearch]             = useState('');
   const [debouncedSearch,    setDebouncedSearch]    = useState('');
   const [error,              setError]              = useState('');
@@ -1265,46 +1255,41 @@ export default function AdminPage() {
   const uploadGlImage = async (file: File) => {
   setGlUploading(true);
   try {
-    // Шаг 1: Запрашиваем signed URL у роута с суффиксом -sign
-    // Передаем только метаданные, БЕЗ fileBase64
     const signRes = await fetch('/api/admin-upload-sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        secret, 
-        filename: file.name, 
-        contentType: file.type || 'image/jpeg' 
-      }),
+      body: JSON.stringify({ secret, filename: file.name, contentType: file.type || 'image/jpeg' }),
     });
 
-    // Проверяем статус ответа сервера
+    // 1. Читаем JSON ровно один раз здесь
+    const signData = await signRes.json().catch(() => ({}));
+
+    // 2. Проверяем успешность запроса
     if (!signRes.ok) {
-      const err = await signRes.json().catch(() => ({}));
-      showToast('Ошибка: ' + (err.error || err.detail || signRes.status));
+      showToast('Ошибка: ' + (signData.error || signRes.status));
       return;
     }
 
-    // Читаем ответ один раз — забираем и ссылку для загрузки (url), и будущую публичную ссылку (publicUrl)
-    const { url, publicUrl } = await signRes.json();
+    // 3. Спокойно забираем урлы из уже прочитанного объекта
+    const { signedUrl, publicUrl } = signData;
 
-    // Шаг 2: Отправляем чистый файл напрямую в Supabase (или S3), минуя Vercel
-    const uploadRes = await fetch(url, {
-      method: 'PUT', // Для signed URL обычно используется метод PUT
+    // Дальше твой код загрузки файла — тут всё чётко:
+    const uploadRes = await fetch(signedUrl, {
+      method:  'PUT',
       headers: { 'Content-Type': file.type || 'image/jpeg' },
-      body: file,    // Передаем сам файл целиком, никакой base64 больше не нужен
+      body:    file,
     });
 
     if (!uploadRes.ok) {
-      showToast('Ошибка при прямой загрузке файла в хранилище');
+      const text = await uploadRes.text().catch(() => '');
+      showToast('Ошибка загрузки: ' + (text || uploadRes.status));
       return;
     }
 
-    // Шаг 3: Обновляем состояние формы полученным publicUrl
     setGlForm(f => ({ ...f, image: publicUrl }));
     showToast('✓ Картинка загружена');
-
-  } catch (error) { 
-    console.error(error);
+  } catch (err) { 
+    console.error(err); // лучше логировать, чтобы видеть реальную причину в консоли
     showToast('Ошибка сети'); 
   } finally { 
     setGlUploading(false); 
@@ -1534,18 +1519,13 @@ export default function AdminPage() {
       }
       return true;
     });
+    // Новые регистрации — сверху. Без даты — в конец.
     return [...filtered].sort((a, b) => {
-      if (sortBy === 'loginCount') return b.loginCount - a.loginCount;
-      if (sortBy === 'lastLogin') {
-        const ta = a.lastLogin ? Date.parse(a.lastLogin) : 0;
-        const tb = b.lastLogin ? Date.parse(b.lastLogin) : 0;
-        return tb - ta;
-      }
       const ta = a.registeredAt ? Date.parse(a.registeredAt) : 0;
       const tb = b.registeredAt ? Date.parse(b.registeredAt) : 0;
       return tb - ta;
     });
-  }, [users, filter, debouncedSearch, sortBy]);
+  }, [users, filter, debouncedSearch]);
 
   // ─── ЭКРАН ВХОДА ───────────────────────────────────────────────────────────
   const loginScreen = (
@@ -2796,35 +2776,6 @@ export default function AdminPage() {
                     borderRadius: 8, padding: '1px 7px', minWidth: 18, textAlign: 'center',
                   }}>{tab.count}</span>
                 )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* сортировка */}
-        <div style={{
-          display: 'flex', gap: 6, marginBottom: 10,
-          overflowX: 'auto', paddingBottom: 2,
-          scrollbarWidth: 'none', msOverflowStyle: 'none',
-        } as React.CSSProperties}>
-          {([
-            { id: 'registered' as SortBy,  label: 'Новые сначала' },
-            { id: 'lastLogin'  as SortBy,  label: 'Последний вход' },
-            { id: 'loginCount' as SortBy,  label: 'Кол-во входов'  },
-          ] as { id: SortBy; label: string }[]).map(opt => {
-            const active = sortBy === opt.id;
-            return (
-              <button key={opt.id} onClick={() => setSortBy(opt.id)} style={{
-                padding: '6px 12px', borderRadius: 999,
-                fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                whiteSpace: 'nowrap', flex: '0 0 auto',
-                border: `1px solid ${active ? T.accent : T.border}`,
-                background: active ? T.accentSoft : T.surface,
-                color: active ? T.accent : T.textMuted,
-                fontFamily: FONT_SANS,
-                WebkitTapHighlightColor: 'transparent',
-              }}>
-                {active ? '↓ ' : ''}{opt.label}
               </button>
             );
           })}
