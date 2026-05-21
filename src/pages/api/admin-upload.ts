@@ -6,38 +6,26 @@ const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SE
 const BUCKET       = 'materials';
 
 export const config = {
-  api: { bodyParser: { sizeLimit: '50mb' } },
+  api: { bodyParser: false },
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { secret, filename, contentType, fileBase64 } = req.body ?? {};
+  const secret      = req.headers['x-admin-secret'] as string;
+  const filename    = req.headers['x-filename'] as string;
+  const contentType = req.headers['content-type'] || 'application/octet-stream';
 
-  if (!secret || String(secret) !== ADMIN_SECRET) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-  if (!filename || !contentType || !fileBase64) {
-    return res.status(400).json({ error: 'filename, contentType and fileBase64 required' });
-  }
-  if (!SUPABASE_URL || !SERVICE_KEY || !SUPABASE_URL.startsWith('https://')) {
-    return res.status(500).json({
-      error: `Supabase not configured`,
-      debug: {
-        SUPABASE_URL_value: (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '(empty)').slice(0, 40),
-        SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY ? 'set' : 'missing',
-        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'set' : 'missing',
-      },
-    });
-  }
+  if (!secret || secret !== ADMIN_SECRET) return res.status(403).json({ error: 'Forbidden' });
+  if (!filename) return res.status(400).json({ error: 'Missing x-filename header' });
+  if (!SUPABASE_URL || !SERVICE_KEY) return res.status(500).json({ error: 'Supabase not configured' });
 
-  const safeName = `${Date.now()}_${String(filename).replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+  const safeName = `${Date.now()}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 
   try {
-    const buffer = Buffer.from(String(fileBase64), 'base64');
-    const blob   = new Blob([buffer], { type: String(contentType) });
-    const form   = new FormData();
-    form.append('file', blob, safeName);
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(chunk as Buffer);
+    const buffer = Buffer.concat(chunks);
 
     const uploadRes = await fetch(
       `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${safeName}`,
@@ -45,9 +33,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         method:  'POST',
         headers: {
           'Authorization': `Bearer ${SERVICE_KEY}`,
+          'Content-Type':  String(contentType),
           'x-upsert':      'false',
         },
-        body: form,
+        body: buffer,
       },
     );
 
