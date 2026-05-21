@@ -379,41 +379,43 @@ export const StatsTab: React.FC<StatsTabProps> = ({
         className="flex flex-col h-full overflow-x-hidden max-w-full select-none"
         style={{ background: 'var(--c-bg)', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}
       >
-        {/* ─── ШАПКА ─── */}
-        <div
-          className="px-4 py-2.5 sticky top-0 z-10"
-          style={{
-            background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
-            backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-            borderBottom: '1px solid var(--c-border)',
-            paddingTop: 'var(--header-pt)',
-          }}
-        >
-          <div className="flex items-center gap-3 px-1">
-            <div
-              className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-shrink-0"
-              style={{ background: 'var(--c-primary-dim)' }}
-            >
-              <ToothIcon className="w-6 h-6" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-[16px] font-bold tracking-tight leading-tight" style={{ color: 'var(--c-text)' }}>
-                {cfg?.brandName || 'OrthoByNekruz'}
-              </h1>
-              <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: accentColor }}>
-                {subjectLabel}
-              </p>
-            </div>
-            <button
-              onClick={resetAll}
-              className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all active:scale-95"
-              style={{ background: 'var(--c-danger-soft)', border: '1px solid color-mix(in srgb, var(--c-danger) 33%, transparent)', color: 'var(--c-danger)' }}
-              title="Сбросить прогресс"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+       {/* ─── ШАПКА ─── */}
+              <div
+                className="px-4 pt-1 pb-3 sticky top-0 z-10"
+                style={{
+                  background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
+                  backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+                  borderBottom: '1px solid var(--c-border)',
+                  /* Тот же отступ, что и везде */
+                  paddingTop: 'max(12px, calc(var(--header-pt) - 24px))',
+                }}
+              >
+                <div className="flex items-start justify-between px-1">
+                  {/* 1. Левая безопасная зона */}
+                  <div className="w-[75px] flex-shrink-0" />
+
+                  {/* 2. Центрированный блок */}
+                  <div className="flex flex-col items-center justify-center flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0"
+                        style={{ background: 'var(--c-primary-dim)' }}
+                      >
+                        <ToothIcon className="w-5 h-5" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} />
+                      </div>
+                      <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
+                        {cfg?.brandName || 'OrthoByNekruz'}
+                      </h1>
+                    </div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mt-1 mb-1 text-center" style={{ color: accentColor }}>
+                      Статистика · {cfg?.label || subject}
+                    </p>
+                  </div>
+
+                  {/* 3. Правая безопасная зона (вместо корзины) */}
+                  <div className="w-[75px] flex-shrink-0" />
+                </div>
+              </div>
 
         <ScrollArea className="flex-1 px-4 scroll-container">
           <div className="space-y-3.5 mx-auto max-w-2xl pt-4" style={{ paddingBottom: 'var(--scroll-pb)' }}>
@@ -424,8 +426,21 @@ export const StatsTab: React.FC<StatsTabProps> = ({
               style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
             >
               <div className="flex items-center gap-4">
-                <Ring pct={overall} color={accentColor} size={128} stroke={12}
-                  label={`${overall}%`} sub={grade} />
+                {/* Обертка для кольца с обработчиком двойного тапа */}
+        <div 
+          className="flex flex-col items-center justify-center cursor-pointer select-none active:scale-[0.98] transition-transform"
+          onDoubleClick={(e) => {
+            e.preventDefault();
+            resetAll();
+          }}
+        >
+          <Ring pct={overall} color={accentColor} size={128} stroke={12} label={`${overall}%`} sub={grade} />
+          
+          {/* Микро-подсказка */}
+          <span className="text-[8px] uppercase tracking-wider font-bold mt-1.5 opacity-40" style={{ color: 'var(--c-muted)' }}>
+            2x тап = сброс
+          </span>
+        </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-muted)' }}>
                     {examPassed ? 'Экзамен' : 'До экзамена'}

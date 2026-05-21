@@ -314,36 +314,51 @@ export const TestsTab = ({
 
   // ── Шапка (общая для экрана блоков) ──────────────────────────────────────
   const Header = () => (
-    <div
-      className="px-4 py-2.5 sticky top-0 z-10"
-      style={{
-        background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
-        backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-        borderBottom: '1px solid var(--c-border)',
-        paddingTop: 'var(--header-pt)',
-      }}
-    >
-      <div className="flex items-center gap-3 px-1">
-        <div className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-shrink-0" style={{ background: 'var(--c-primary-dim)' }}>
-          <ToothIcon className="w-6 h-6" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} onClick={onSecretTap} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-[16px] font-bold tracking-tight leading-tight" style={{ color: 'var(--c-text)' }}>
+  <div
+    className="px-4 pt-1 pb-3 sticky top-0 z-10"
+    style={{
+      background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
+      backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+      borderBottom: '1px solid var(--c-border)',
+      /* Тот же уменьшенный отступ, что и во вкладке вопросов */
+      paddingTop: 'max(12px, calc(var(--header-pt) - 24px))',
+    }}
+  >
+    <div className="flex items-start justify-between px-1">
+      {/* 1. Левая безопасная зона */}
+      <div className="w-[75px] flex-shrink-0" />
+
+      {/* 2. Центрированный блок */}
+      <div className="flex flex-col items-center justify-center flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ background: 'var(--c-primary-dim)' }}>
+            <ToothIcon className="w-5 h-5" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} onClick={onSecretTap} />
+          </div>
+          <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
             {cfg?.brandName || 'OrthoByNekruz'}
           </h1>
-          <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: accentColor }}>
+        </div>
+        
+        <div className="flex flex-col items-center mt-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5 text-center" style={{ color: accentColor }}>
             Тесты · {cfg?.label || subject}
           </p>
+          
+          {/* Плашка (pill) с количеством тестов вместо прогресс-бара */}
+          <span
+            className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full"
+            style={{ background: 'var(--c-chip)', color: 'var(--c-muted)' }}
+          >
+            {TOTAL_TESTS} тестов
+          </span>
         </div>
-        <span
-          className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg"
-          style={{ background: 'var(--c-chip)', color: 'var(--c-muted)' }}
-        >
-          {TOTAL_TESTS} тестов
-        </span>
       </div>
+
+      {/* 3. Правая безопасная зона */}
+      <div className="w-[75px] flex-shrink-0" />
     </div>
-  );
+  </div>
+);
 
   // ══════════════════════════════════════════════════════════════════════════
   // ЭКРАН ВЫБОРА БЛОКА

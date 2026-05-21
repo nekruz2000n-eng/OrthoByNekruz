@@ -203,47 +203,58 @@ export const TasksTab = ({
   return (
     <div className="flex flex-col h-full overflow-hidden max-w-full" style={{ background: 'var(--c-bg)' }}>
 
-      {/* ─── ШАПКА ───────────────────────────────────────────────────────── */}
-      <div
-        className="px-4 py-2.5 sticky top-0 z-10"
-        style={{
-          background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          borderBottom: '1px solid var(--c-border)',
-          paddingTop: 'var(--header-pt)',
-        }}
-      >
-        <div className="flex items-center gap-3 px-1">
-          <div
-            className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-shrink-0"
-            style={{ background: `color-mix(in srgb, ${accentColor} 14%, transparent)` }}
-          >
-            <ToothIcon
-              className="w-6 h-6"
-              style={{ color: accentColor }}
-              variant={cfg?.iconVariant || 'perfect'}
-              onClick={onSecretTap}
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-[16px] font-bold tracking-tight leading-tight" style={{ color: 'var(--c-text)' }}>
-              {cfg?.brandName || 'OrthoByNekruz'}
-            </h1>
-            <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: accentColor }}>
-              Задачи · {cfg?.label || subject}
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-1 min-w-[64px]">
-            <span className="text-[11px] font-mono font-bold" style={{ color: accentColor }}>
-              {resolvedIds.size}/{tasksData.length}
-            </span>
-            <div className="w-[60px] h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
-              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
-            </div>
-          </div>
+     {/* ─── ШАПКА ───────────────────────────────────────────────────────── */}
+<div
+  className="px-4 pt-1 pb-3 sticky top-0 z-10"
+  style={{
+    background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    borderBottom: '1px solid var(--c-border)',
+    /* Тот же уменьшенный отступ, что и в других вкладках */
+    paddingTop: 'max(12px, calc(var(--header-pt) - 24px))',
+  }}
+>
+  <div className="flex items-start justify-between px-1">
+    {/* 1. Левая безопасная зона */}
+    <div className="w-[75px] flex-shrink-0" />
+
+    {/* 2. Центрированный блок с логотипом, названием и прогрессом */}
+    <div className="flex flex-col items-center justify-center flex-1 min-w-0">
+      <div className="flex items-center gap-2">
+        <div
+          className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0"
+          style={{ background: `color-mix(in srgb, ${accentColor} 14%, transparent)` }}
+        >
+          <ToothIcon
+            className="w-5 h-5"
+            style={{ color: accentColor }}
+            variant={cfg?.iconVariant || 'perfect'}
+            onClick={onSecretTap}
+          />
+        </div>
+        <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
+          {cfg?.brandName || 'OrthoByNekruz'}
+        </h1>
+      </div>
+      
+      {/* Обертка w-fit для выравнивания полоски по ширине текста */}
+      <div className="flex flex-col items-stretch w-fit mt-1">
+        <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5 text-center" style={{ color: accentColor }}>
+          Задачи · {cfg?.label || subject}
+        </p>
+
+        {/* Полоска прогресса (w-full заполнит ровно ширину текста) */}
+        <div className="w-full h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
+          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
         </div>
       </div>
+    </div>
+
+    {/* 3. Правая безопасная зона */}
+    <div className="w-[75px] flex-shrink-0" />
+  </div>
+</div>
 
       {/* ─── ПОИСК ───────────────────────────────────────────────────────── */}
       <div className="px-4 pt-3 pb-1">

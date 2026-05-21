@@ -679,39 +679,42 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
   return (
     <div className="flex flex-col h-full overflow-hidden max-w-full" style={{ background: 'var(--c-bg)' }}>
 
-      <div className="flex-shrink-0 px-4 pt-1 pb-3 sticky top-0 z-10"
-  style={{
-    background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
-    backdropFilter: 'blur(16px)',
-    WebkitBackdropFilter: 'blur(16px)',
-    borderBottom: '1px solid var(--c-border)',
-    /* Срезаем 24 пикселя, но оставляем минимум 12px на всякий случай */
-    paddingTop: 'max(12px, calc(var(--header-pt) - 24px))', 
-  }}>
- <div className="flex items-start justify-between px-1">
-  {/* 1. Левая безопасная зона (75px) — защищает от кнопки "Назад" */}
-  <div className="w-[75px] flex-shrink-0" />
+                    <div className="flex-shrink-0 px-4 pt-1 pb-3 sticky top-0 z-10"
+                        style={{
+                           background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
+                           backdropFilter: 'blur(16px)',
+                           WebkitBackdropFilter: 'blur(16px)',
+                          borderBottom: '1px solid var(--c-border)',
+                          /* Срезаем 24 пикселя, но оставляем минимум 12px на всякий случай */
+                          paddingTop: 'max(12px, calc(var(--header-pt) - 24px))', 
+                        }}>
+              <div className="flex items-start justify-between px-1">
+                {/* 1. Левая безопасная зона (75px) — защищает от кнопки "Назад" */}
+                <div className="w-[75px] flex-shrink-0" />
 
-  {/* 2. Центрированный блок с логотипом, названием и прогрессом */}
-  <div className="flex flex-col items-center justify-center flex-1 min-w-0">
-    <div className="flex items-center gap-2">
-      <div className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ background: 'var(--c-primary-dim)' }}>
-        <ToothIcon className="w-5 h-5" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} onClick={onSecretTap} />
-      </div>
-      <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
-        {cfg?.brandName || 'OrthoByNekruz'}
-      </h1>
-    </div>
-    
-    <p className="text-[10px] font-bold uppercase tracking-widest mt-1 mb-2" style={{ color: accentColor }}>
-      Вопросы · {cfg?.label || subject}
-    </p>
+                {/* 2. Центрированный блок с логотипом, названием и прогрессом */}
+                <div className="flex flex-col items-center justify-center flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ background: 'var(--c-primary-dim)' }}>
+                      <ToothIcon className="w-5 h-5" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} onClick={onSecretTap} />
+                    </div>
+                    <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
+                      {cfg?.brandName || 'OrthoByNekruz'}
+                    </h1>
+                  </div>
+                  
+                  {/* Обертка w-fit, которая "обтягивает" текст, а полоска растягивается на 100% от этой ширины */}
+                  <div className="flex flex-col items-stretch w-fit mt-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5 text-center" style={{ color: accentColor }}>
+                      Вопросы · {cfg?.label || subject}
+                    </p>
 
-    {/* Полоска прогресса (отцентрирована, ширина подогнана под текст) */}
-    <div className="w-full max-w-[160px] h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
-      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
-    </div>
-  </div>
+                    {/* Полоска прогресса (w-full заполнит ровно ширину текста выше) */}
+                    <div className="w-full h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
+                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
+                    </div>
+                  </div>
+                </div>
 
   {/* 3. Правая безопасная зона (75px) — теперь пустая, только для симметрии и защиты от меню "..." */}
   <div className="w-[75px] flex-shrink-0" />
