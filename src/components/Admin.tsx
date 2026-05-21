@@ -16,7 +16,7 @@ interface User {
   usedDemo:      boolean;
   activatedKey:  string | null;
   registeredAt:  string | null;
-   lastLogin:     string | null;
+  lastLogin:     string | null;
   loginCount:    number;
   opensToday:    number;
   fpChanges:     number;
@@ -57,9 +57,9 @@ type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject' | 'toggle_se
 // Управляемые из админки разделы. Сам раздел «Статистика» не выключается
 // (там прогресс юзера), но внутри него можно скрыть блок «Проверка готовности».
 const NAV_SECTIONS: { id: string; label: string }[] = [
-  { id: 'questions', label: 'Вопросы'            },
-  { id: 'tests',     label: 'Тесты'              },
-  { id: 'tasks',     label: 'Задачи'             },
+  { id: 'questions', label: 'Вопросы'             },
+  { id: 'tests',     label: 'Тесты'               },
+  { id: 'tasks',     label: 'Задачи'              },
   { id: 'exam',      label: 'Проверка готовности' },
   { id: 'materials', label: 'Материалы'           },
 ];
@@ -111,7 +111,6 @@ function useFonts() {
     document.head.appendChild(link);
   }, []);
 }
-
 
 // ── Хук: снимает блокировку скролла из globals.css ───────────────────────────
 function useAdminScroll() {
@@ -223,12 +222,12 @@ function ActionBtn({
   fullWidth?: boolean;
 }) {
   const variants: Record<BtnVariant, { bg: string; fg: string; border: string }> = {
-    primary: { bg: T.accent,      fg: '#fff',     border: T.accent },
-    danger:  { bg: T.dangerSoft,  fg: T.danger,   border: T.danger + '33' },
-    success: { bg: T.successSoft, fg: T.success,  border: T.success + '33' },
-    warn:    { bg: T.warnSoft,    fg: T.warn,     border: T.warn + '33' },
-    info:    { bg: T.infoSoft,    fg: T.info,     border: T.info + '33' },
-    neutral: { bg: T.surface,     fg: T.textMuted,border: T.border },
+    primary: { bg: T.accent,      fg: '#fff',      border: T.accent },
+    danger:  { bg: T.dangerSoft,  fg: T.danger,    border: T.danger + '33' },
+    success: { bg: T.successSoft, fg: T.success,   border: T.success + '33' },
+    warn:    { bg: T.warnSoft,    fg: T.warn,      border: T.warn + '33' },
+    info:    { bg: T.infoSoft,    fg: T.info,      border: T.info + '33' },
+    neutral: { bg: T.surface,     fg: T.textMuted, border: T.border },
   };
   const v = variants[variant];
   return (
@@ -831,7 +830,7 @@ export default function AdminPage() {
   const [availableSubjects,  setAvailableSubjects]  = useState<SubjectInfo[]>([]);
   const [loading,            setLoading]            = useState(false);
   const [filter,             setFilter]             = useState<Filter>('all');
-    const [sortBy,             setSortBy]             = useState<SortBy>('registered');
+  const [sortBy,             setSortBy]             = useState<SortBy>('registered');
   const [search,             setSearch]             = useState('');
   const [debouncedSearch,    setDebouncedSearch]    = useState('');
   const [error,              setError]              = useState('');
@@ -1107,24 +1106,24 @@ export default function AdminPage() {
     finally   { setResMgrDeleting(null); }
   };
 
- 
-
   const uploadFile = async (file: File) => {
     setResUploading(true);
     try {
-            const signRes = await fetch('/api/admin-upload-sign', {
-
-       method:  'POST',
+      const signRes = await fetch('/api/admin-upload-sign', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ secret, filename: file.name, contentType: file.type || 'application/octet-stream' }),
       });
 
+      // ИСПРАВЛЕНИЕ 1: читаем JSON ровно один раз
+      const signData = await signRes.json().catch(() => ({}));
+
       if (!signRes.ok) {
-        const err = await signRes.json().catch(() => ({}));
-        showToast('Ошибка: ' + (err.error || signRes.status));
+        showToast('Ошибка: ' + (signData.error || signRes.status));
         return;
       }
- const { signedUrl, publicUrl } = await signRes.json();
+      
+      const { signedUrl, publicUrl } = signData;
 
       // Step 2: upload the file binary directly to Supabase — bypasses Vercel body limit
       const uploadRes = await fetch(signedUrl, {
@@ -1263,48 +1262,49 @@ export default function AdminPage() {
   };
 
   const uploadGlImage = async (file: File) => {
-  setGlUploading(true);
-  try {
-    const signRes = await fetch('/api/admin-upload-sign', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret, filename: file.name, contentType: file.type || 'image/jpeg' }),
-    });
+    setGlUploading(true);
+    try {
+      const signRes = await fetch('/api/admin-upload-sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret, filename: file.name, contentType: file.type || 'image/jpeg' }),
+      });
 
-    // 1. Читаем JSON ровно один раз здесь
-    const signData = await signRes.json().catch(() => ({}));
+      // 1. Читаем JSON ровно один раз здесь
+      const signData = await signRes.json().catch(() => ({}));
 
-    // 2. Проверяем успешность запроса
-    if (!signRes.ok) {
-      showToast('Ошибка: ' + (signData.error || signRes.status));
-      return;
+      // 2. Проверяем успешность запроса
+      if (!signRes.ok) {
+        showToast('Ошибка: ' + (signData.error || signRes.status));
+        return;
+      }
+
+      // 3. Спокойно забираем урлы из уже прочитанного объекта
+      const { signedUrl, publicUrl } = signData;
+
+      // Дальше твой код загрузки файла — тут всё чётко:
+      const uploadRes = await fetch(signedUrl, {
+        method:  'PUT',
+        headers: { 'Content-Type': file.type || 'image/jpeg' },
+        body:    file,
+      });
+
+      if (!uploadRes.ok) {
+        const text = await uploadRes.text().catch(() => '');
+        showToast('Ошибка загрузки: ' + (text || uploadRes.status));
+        return;
+      }
+
+      setGlForm(f => ({ ...f, image: publicUrl }));
+      showToast('✓ Картинка загружена');
+    } catch (err) { 
+      console.error(err); // лучше логировать, чтобы видеть реальную причину в консоли
+      showToast('Ошибка сети'); 
+    } finally { 
+      setGlUploading(false); 
     }
+  };
 
-    // 3. Спокойно забираем урлы из уже прочитанного объекта
-    const { signedUrl, publicUrl } = signData;
-
-    // Дальше твой код загрузки файла — тут всё чётко:
-    const uploadRes = await fetch(signedUrl, {
-      method:  'PUT',
-      headers: { 'Content-Type': file.type || 'image/jpeg' },
-      body:    file,
-    });
-
-    if (!uploadRes.ok) {
-      const text = await uploadRes.text().catch(() => '');
-      showToast('Ошибка загрузки: ' + (text || uploadRes.status));
-      return;
-    }
-
-    setGlForm(f => ({ ...f, image: publicUrl }));
-    showToast('✓ Картинка загружена');
-  } catch (err) { 
-    console.error(err); // лучше логировать, чтобы видеть реальную причину в консоли
-    showToast('Ошибка сети'); 
-  } finally { 
-    setGlUploading(false); 
-  }
-};
   // Копирование в буфер с тостом
   const copyToClipboard = useCallback(async (text: string, label: string) => {
     try {
@@ -1519,7 +1519,7 @@ export default function AdminPage() {
 
   const visible = useMemo(() => {
     const filtered = users.filter(u => {
-      if (filter === 'blocked'    && !u.blocked)                  return false;
+      if (filter === 'blocked'    && !u.blocked)                return false;
       if (filter === 'suspicious' && !u.suspicious && !u.blocked) return false;
       if (filter === 'demo'       && !u.usedDemo)                 return false;
       const q = debouncedSearch.trim().toLowerCase();
@@ -2356,7 +2356,7 @@ export default function AdminPage() {
                   <input
                     value={glForm.term}
                     onChange={e => setGlForm(f => ({ ...f, term: e.target.value }))}
-                    placeholder="Термин *  (точно как в тексте вопроса)"
+                    placeholder="Термин * (точно как в тексте вопроса)"
                     style={{
                       width: '100%', boxSizing: 'border-box',
                       padding: '8px 10px', borderRadius: 8,
@@ -2764,10 +2764,10 @@ export default function AdminPage() {
           scrollbarWidth: 'none', msOverflowStyle: 'none',
         } as React.CSSProperties}>
           {[
-            { id: 'all' as Filter,        label: 'Все',        count: total,           accent: T.accent  },
-            { id: 'blocked' as Filter,    label: 'Блок',       count: blockedCount,    accent: T.danger  },
-            { id: 'suspicious' as Filter, label: 'Подозрит.',  count: suspiciousCount, accent: T.warn    },
-            { id: 'demo' as Filter,       label: 'Демо',       count: demoCount,       accent: T.purple  },
+            { id: 'all' as Filter,        label: 'Все',        count: total,            accent: T.accent  },
+            { id: 'blocked' as Filter,    label: 'Блок',       count: blockedCount,     accent: T.danger  },
+            { id: 'suspicious' as Filter, label: 'Подозрит.',  count: suspiciousCount,  accent: T.warn    },
+            { id: 'demo' as Filter,       label: 'Демо',       count: demoCount,        accent: T.purple  },
           ].map(tab => {
             const active = filter === tab.id;
             return (
@@ -2803,13 +2803,13 @@ export default function AdminPage() {
           scrollbarWidth: 'none', msOverflowStyle: 'none',
         } as React.CSSProperties}>
           {([
-            { id: 'registered' as SortBy,  label: 'Новые сначала' },
-            { id: 'lastLogin'  as SortBy,  label: 'Последний вход' },
-            { id: 'loginCount' as SortBy,  label: 'Кол-во входов'  },
-          ] as { id: SortBy; label: string }[]).map(opt => {
-            const active = sortBy === opt.id;
+            { id: 'registered', label: 'Новые сначала' },
+            { id: 'lastLogin',  label: 'Последний вход' },
+            { id: 'loginCount', label: 'Кол-во входов'  },
+          ] as const).map(opt => {
+            const active = (sortBy as string) === opt.id;
             return (
-              <button key={opt.id} onClick={() => setSortBy(opt.id)} style={{
+              <button key={opt.id} onClick={() => setSortBy(opt.id as SortBy)} style={{
                 padding: '6px 12px', borderRadius: 999,
                 fontSize: 12, fontWeight: 600, cursor: 'pointer',
                 whiteSpace: 'nowrap', flex: '0 0 auto',
