@@ -687,11 +687,11 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
           borderBottom: '1px solid var(--c-border)',
           paddingTop: 'var(--header-pt)',
         }}>
-       <div className="flex items-start justify-between px-1">
-  {/* 1. Левая безопасная зона (75px) — защищает от кнопки "Назад" в iOS */}
+ <div className="flex items-start justify-between px-1">
+  {/* 1. Левая безопасная зона (75px) — защищает от кнопки "Назад" */}
   <div className="w-[75px] flex-shrink-0" />
 
-  {/* 2. Центрированный блок с логотипом и названием */}
+  {/* 2. Центрированный блок с логотипом, названием и прогрессом */}
   <div className="flex flex-col items-center justify-center flex-1 min-w-0">
     <div className="flex items-center gap-2">
       <div className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ background: 'var(--c-primary-dim)' }}>
@@ -701,20 +701,19 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
         {cfg?.brandName || 'OrthoByNekruz'}
       </h1>
     </div>
-    <p className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color: accentColor }}>
+    
+    <p className="text-[10px] font-bold uppercase tracking-widest mt-1 mb-2" style={{ color: accentColor }}>
       Вопросы · {cfg?.label || subject}
     </p>
-  </div>
 
-  {/* 3. Правая безопасная зона (75px) — сжимает счетчик, защищая от меню "..." */}
-  <div className="w-[75px] flex flex-col items-end gap-1 flex-shrink-0 pt-1">
-    <span className="text-[11px] font-mono font-bold" style={{ color: accentColor }}>
-      {studiedIds.size}/{questionsData.length}
-    </span>
-    <div className="w-[60px] h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
+    {/* Полоска прогресса (отцентрирована, ширина подогнана под текст) */}
+    <div className="w-full max-w-[160px] h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
       <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
     </div>
   </div>
+
+  {/* 3. Правая безопасная зона (75px) — теперь пустая, только для симметрии и защиты от меню "..." */}
+  <div className="w-[75px] flex-shrink-0" />
 </div>
         <div className="relative mt-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--c-muted)' }} />
