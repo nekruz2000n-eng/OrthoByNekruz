@@ -454,11 +454,14 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     return [...dynamicGlossary].sort((a, b) => b.term.length - a.term.length);
   }, [dynamicGlossary]);
 
-  const [tooltipTarget, setTooltipTarget] = useState<{
+ const [tooltipTarget, setTooltipTarget] = useState<{
     top: number; bottom: number; left: number; right: number; width: number;
   } | null>(null);
 
-  // ИСПРАВЛЕННЫЙ БЛОК: activeTermDef возвращен в зависимости
+  // ДОБАВЛЯЕМ ЭТОТ REF: он будет хранить последнее кликнутое слово из текста
+  const lastTargetRef = useRef<any>(null);
+
+  // ОБНОВЛЕННЫЙ БЛОК РАСЧЕТА ПОЗИЦИИ
   useLayoutEffect(() => {
     if (!activeTermDef || !tooltipTarget || !tooltipRef.current) return;
     const popup = tooltipRef.current.getBoundingClientRect();
@@ -468,17 +471,31 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     const vw  = window.innerWidth;
     const vh  = window.innerHeight;
 
-    let y = tooltipTarget.top - popup.height - GAP;
-    
-    if (y < PAD) {
-      y = tooltipTarget.bottom + GAP;
-      if (y + popup.height > vh - PAD) {
-        y = Math.max(PAD, vh - popup.height - PAD);
+    // Сценарий 1: Мы кликнули на НОВОЕ слово в тексте
+    if (tooltipTarget !== lastTargetRef.current) {
+      let y = tooltipTarget.top - popup.height - GAP;
+      
+      if (y < PAD) {
+        y = tooltipTarget.bottom + GAP;
+        if (y + popup.height > vh - PAD) {
+          y = Math.max(PAD, vh - popup.height - PAD);
+        }
       }
-    }
 
-    const x = Math.max(PAD, Math.min(tooltipTarget.left, vw - popup.width - PAD));
-    setTooltipPos({ x, y });
+      const x = Math.max(PAD, Math.min(tooltipTarget.left, vw - popup.width - PAD));
+      
+      setTooltipPos({ x, y });
+      lastTargetRef.current = tooltipTarget; // Запоминаем текущую цель
+    } 
+    // Сценарий 2: Мы навигируемся внутри (вложенный термин или кнопка "Назад")
+    else {
+      // Тултип остается на том месте, куда его перетащили. 
+      // Мы только корректируем координаты, если контент стал больше и вылез за край экрана.
+      setTooltipPos(prev => ({
+        x: Math.max(PAD, Math.min(prev.x, vw - popup.width - PAD)),
+        y: Math.max(PAD, Math.min(prev.y, vh - popup.height - PAD))
+      }));
+    }
   }, [activeTermDef, tooltipTarget]);
   
   useEffect(() => {
