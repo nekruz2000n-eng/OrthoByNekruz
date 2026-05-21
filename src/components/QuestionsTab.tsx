@@ -500,10 +500,10 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   
   useEffect(() => {
     if (termDefStack.length === 0) return;
-    const h = () => setTermDefStack([]);
+    const h = () => { if (zoomList.length > 0) return; setTermDefStack([]); };
     document.addEventListener('click', h);
     return () => document.removeEventListener('click', h);
-  }, [termDefStack]);
+  }, [termDefStack, zoomList]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
