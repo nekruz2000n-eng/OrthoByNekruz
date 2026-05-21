@@ -244,15 +244,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Если у старого юзера не было поля subjects — нужна миграция
       const needsSubjectsMigration = !user._migrated_subjects;
 
-      if (profileChanged || needsSubjectsMigration) {
-        await redis.set(`user_id:${tgIdStr}`, {
-          ...user,
-          username,
-          firstName,
-          lastName,
-          _migrated_subjects: true,
-        });
-      }
+      await redis.set(`user_id:${tgIdStr}`, {
+        ...user,
+        username,
+        firstName,
+        lastName,
+        _migrated_subjects: true,
+        lastLogin:  new Date().toISOString(),
+        loginCount: ((user as any).loginCount || 0) + 1,
+      });
       await resetRateLimit(ip, tgIdStr);
 
       const userSubjects = getUserAvailableSubjects(user);
