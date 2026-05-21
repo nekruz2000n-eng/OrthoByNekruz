@@ -13,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'POST') return res.status(405).end();
 
   const secret      = req.headers['x-admin-secret'] as string;
-  const filename    = req.headers['x-filename'] as string;
+  const filename    = decodeURIComponent(req.headers['x-filename'] as string ?? '');
   const contentType = req.headers['content-type'] || 'application/octet-stream';
 
   if (!secret || secret !== ADMIN_SECRET) return res.status(403).json({ error: 'Forbidden' });
