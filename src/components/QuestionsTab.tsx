@@ -679,14 +679,15 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
   return (
     <div className="flex flex-col h-full overflow-hidden max-w-full" style={{ background: 'var(--c-bg)' }}>
 
-      <div className="flex-shrink-0 px-4 py-2.5 sticky top-0 z-10"
-        style={{
-          background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          borderBottom: '1px solid var(--c-border)',
-          paddingTop: 'var(--header-pt)',
-        }}>
+      <div className="flex-shrink-0 px-4 pt-1 pb-3 sticky top-0 z-10"
+  style={{
+    background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    borderBottom: '1px solid var(--c-border)',
+    /* Срезаем 24 пикселя, но оставляем минимум 12px на всякий случай */
+    paddingTop: 'max(12px, calc(var(--header-pt) - 24px))', 
+  }}>
  <div className="flex items-start justify-between px-1">
   {/* 1. Левая безопасная зона (75px) — защищает от кнопки "Назад" */}
   <div className="w-[75px] flex-shrink-0" />
