@@ -41,9 +41,13 @@ async function isSubscribed(userId: number): Promise<boolean> {
     const url  = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=@${CHANNEL_USERNAME}&user_id=${userId}`;
     const res  = await fetch(url);
     const data = await res.json();
-    if (!data.ok) return false;
+    if (!data.ok) {
+      console.error(`[isSubscribed] getChatMember failed for ${userId}:`, JSON.stringify(data));
+      return false;
+    }
     return ['member', 'administrator', 'creator'].includes(data.result.status);
-  } catch {
+  } catch (e) {
+    console.error(`[isSubscribed] fetch error for ${userId}:`, e);
     return false;
   }
 }
@@ -142,7 +146,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Нет initData (неофициальный клиент) — пропускаем только тех, кто в белом списке
     const inWL = await redis.sismember('sub_whitelist', tgIdStr);
     if (!inWL) {
-      return res.status(403).json({ error: 'Доступ разрешен только через Telegram.' });
+      return res.status(403).json({ error: 'Открой приложение через бота в Telegram.', noInitData: true });
     }
     skipSubscriptionCheck = true;
   } else {
