@@ -16,25 +16,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { termRegexSource as _termRegexSource } from '@/lib/glossaryUtils';
 
-// Добавили variations
 interface GlossaryItem { term: string; variations?: string[]; definition: string; image?: string | string[]; }
 
-// ── AudioPlayer вынесен НА УРОВЕНЬ МОДУЛЯ ────────────────────────────────────
 const _AUDIO_CACHE = 'ortho-audio-v1';
 const _AUDIO_SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 let _activeAudio: HTMLAudioElement | null = null;
 
 const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string }) => {
-  const audioRef                          = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying]             = useState(false);
-  const [current, setCurrent]             = useState(0);
-  const [duration, setDuration]           = useState(0);
-  const [loading, setLoading]             = useState(true);
-  const [speed, setSpeed]                 = useState(1);
-  const [cached, setCached]               = useState(false);
-  const [caching, setCaching]             = useState(false);
+  const audioRef          = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying]       = useState(false);
+  const [current, setCurrent]       = useState(0);
+  const [duration, setDuration]     = useState(0);
+  const [loading, setLoading]       = useState(true);
+  const [speed, setSpeed]           = useState(1);
+  const [cached, setCached]         = useState(false);
+  const [caching, setCaching]       = useState(false);
   const [cacheProgress, setCacheProgress] = useState(0);
-  const [blobUrl, setBlobUrl]             = useState<string | null>(null);
+  const [blobUrl, setBlobUrl]       = useState<string | null>(null);
   const posKey = `audio-pos:${src}`;
 
   useEffect(() => {
@@ -291,7 +289,6 @@ const AudioPlayer = ({ src, accentColor }: { src: string; accentColor: string })
   );
 };
 
-// ── Картинки глоссария: карусель (одна на экране + точки, листание свайпом) ──
 const GlossaryImages: React.FC<{ images: string[]; onZoom: (list: string[], idx: number) => void }> = ({ images, onZoom }) => {
   const [idx, setIdx] = useState(0);
   const startX = React.useRef(0);
@@ -319,8 +316,8 @@ const GlossaryImages: React.FC<{ images: string[]; onZoom: (list: string[], idx:
           }
         }}
         onClick={e => {
-          e.stopPropagation();              // не закрывать тултип
-          if (!moved.current) onZoom(images, safeIdx);  // тап — открыть зум
+          e.stopPropagation();              
+          if (!moved.current) onZoom(images, safeIdx);  
         }}
       >
         <CachedImage src={cur} alt="" className="w-full h-auto object-contain max-h-32" loading="lazy" draggable={false} />
@@ -346,7 +343,6 @@ const GlossaryImages: React.FC<{ images: string[]; onZoom: (list: string[], idx:
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 
 export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
   const cfg         = getSubject(subject);
@@ -367,7 +363,6 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   const [isLoaded, setIsLoaded] = useState(false);
   const [readingQuestion, setReadingQuestion] = useState<any | null>(null);
 
-  // СТЕК ГЛОССАРИЯ ВМЕСТО ОДНОЙ ПЕРЕМЕННОЙ
   const [termDefStack, setTermDefStack] = useState<string[]>([]);
   const activeTermDef = termDefStack.length > 0 ? termDefStack[termDefStack.length - 1] : null;
 
@@ -463,12 +458,12 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     top: number; bottom: number; left: number; right: number; width: number;
   } | null>(null);
 
-
- useLayoutEffect(() => {
+  // ИСПРАВЛЕННЫЙ БЛОК: activeTermDef возвращен в зависимости
+  useLayoutEffect(() => {
     if (!activeTermDef || !tooltipTarget || !tooltipRef.current) return;
     const popup = tooltipRef.current.getBoundingClientRect();
     
-    const GAP = 24; 
+    const GAP = 12; 
     const PAD = 10;
     const vw  = window.innerWidth;
     const vh  = window.innerHeight;
@@ -482,12 +477,10 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
       }
     }
 
-    let x = (vw / 2) - (popup.width / 2);
-
+    const x = Math.max(PAD, Math.min(tooltipTarget.left, vw - popup.width - PAD));
     setTooltipPos({ x, y });
   }, [activeTermDef, tooltipTarget]);
-
-  // ЗАКРЫТИЕ СТЕКА ПО КЛИКУ
+  
   useEffect(() => {
     if (termDefStack.length === 0) return;
     const h = () => setTermDefStack([]);
@@ -541,12 +534,10 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
   }, [dragging]);
 
 
-  // ── РЕНДЕР С ПОДСВЕТКОЙ ГЛОССАРИЯ ─────────────────────────────────────────
-  // ДОБАВЛЕН ФЛАГ isNested
 const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boolean = false) => {
   if (!text) return null;
 
-  const localGlossary: GlossaryItem[] = isNested 
+  const localGlossary = isNested 
     ? glossaryTerms 
     : (relatedTerms && relatedTerms.length)
       ? glossaryTerms.filter(g => relatedTerms.some(rt => rt.toLowerCase() === g.term.toLowerCase()))
@@ -557,109 +548,75 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
       {text.split('\n').map((line, lineIdx) => {
         if (line.trim() === '') return <div key={lineIdx} className="h-1" />;
 
-        const listMatch = line.match(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/);
-        const isListItem = !!listMatch;
-        let listMarker = isListItem ? listMatch![1].trim() : '';
-        if (listMarker === '-' || listMarker === '*') listMarker = '•';
-        const cleanLine = isListItem ? line.replace(/^(\s*[•\-\*]\s+|\s*\d+\.\s+)/, '') : line;
-
         const chars: { ch: string; bold: boolean; italic: boolean }[] = [];
         let bold = false, italic = false;
-        for (const tk of cleanLine.split(/(\*\*|_)/g)) {
+        for (const tk of line.split(/(\*\*|_)/g)) {
           if (tk === '**') { bold = !bold; continue; }
           if (tk === '_')  { italic = !italic; continue; }
           for (const ch of tk) chars.push({ ch, bold, italic });
         }
         const plain = chars.map(c => c.ch).join('');
+        const plainNorm = plain.toLowerCase().replace(/ё/g, 'е');
 
-        type Hit = { start: number; end: number; def: string };
+        type Hit = { start: number; end: number; def: string; term: string };
         const hits: Hit[] = [];
-        if (localGlossary.length && plain) {
-          const plainNorm = plain.toLowerCase().replace(/ё/g, 'е');
-          
-          for (const g of localGlossary) {
-            const formsToSearch = [g.term, ...(g.variations || [])];
-            
-            for (const form of formsToSearch) {
-              const safeForm = form.toLowerCase().replace(/ё/g, 'е').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-              const src = `(?<=^|[^а-яА-ЯёЁa-zA-Z0-9])(${safeForm})(?=[^а-яА-ЯёЁa-zA-Z0-9]|$)`;
-              
-              let re: RegExp;
-              try { re = new RegExp(src, 'gi'); } catch { continue; }
-              
-              let m: RegExpExecArray | null;
-              while ((m = re.exec(plainNorm)) !== null) {
-                if (m[0].length === 0) { re.lastIndex++; continue; }
-                if (isNested && g.definition === text) continue;
-                hits.push({ start: m.index, end: m.index + m[0].length, def: g.definition });
-              }
+        
+        for (const g of localGlossary) {
+          const forms = [g.term, ...(g.variations || [])];
+          for (const form of forms) {
+            const f = form.toLowerCase().replace(/ё/g, 'е');
+            let idx = plainNorm.indexOf(f);
+            while (idx !== -1) {
+              hits.push({ start: idx, end: idx + f.length, def: g.definition, term: form });
+              idx = plainNorm.indexOf(f, idx + 1);
             }
           }
         }
-        
-        hits.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+
+        hits.sort((a, b) => b.term.length - a.term.length);
         const accepted: Hit[] = [];
-        let lastEnd = -1;
+        const used = new Array(plain.length).fill(false);
         for (const h of hits) {
-          if (h.start >= lastEnd) { accepted.push(h); lastEnd = h.end; }
-        }
-
-        const boundary = new Set<number>([0, plain.length]);
-        for (let i = 1; i < chars.length; i++) {
-          if (chars[i].bold !== chars[i - 1].bold || chars[i].italic !== chars[i - 1].italic) boundary.add(i);
-        }
-        for (const h of accepted) { boundary.add(h.start); boundary.add(h.end); }
-        const bounds = [...boundary].sort((a, b) => a - b);
-
-        const segs: React.ReactNode[] = [];
-        for (let bi = 0; bi < bounds.length - 1; bi++) {
-          const s = bounds[bi], e = bounds[bi + 1];
-          if (s >= e) continue;
-          const segText = plain.slice(s, e);
-          const fmt = chars[s] || { bold: false, italic: false };
-          const style: React.CSSProperties = {
-            fontWeight: fmt.bold ? 700 : 'inherit',
-            color: fmt.bold ? 'var(--c-text)' : 'inherit',
-            fontStyle: fmt.italic ? 'italic' : 'normal',
-          };
-          const hit = accepted.find(h => s >= h.start && e <= h.end);
-          
-          if (hit) {
-            segs.push(
-              <span
-                key={`g-${lineIdx}-${bi}`}
-                className="transition-opacity active:opacity-70"
-                style={{ ...style, borderBottom: '1px dashed currentColor', cursor: 'pointer', color: 'var(--c-primary)' }}
-                onClick={(ev) => {
-                  ev.stopPropagation();
-                  if (isNested) {
-                    setTermDefStack(prev => [...prev, hit.def]);
-                  } else {
-                    const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
-                    setTooltipTarget({ top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width });
-                    setTooltipPos({ x: -9999, y: -9999 });
-                    setTermDefStack([hit.def]);
-                  }
-                }}
-              >
-                {segText}
-              </span>
-            );
-          } else {
-            segs.push(<span key={`t-${lineIdx}-${bi}`} style={style}>{segText}</span>);
+          let canAdd = true;
+          for (let i = h.start; i < h.end; i++) if (used[i]) canAdd = false;
+          if (canAdd) {
+            accepted.push(h);
+            for (let i = h.start; i < h.end; i++) used[i] = true;
           }
         }
+        accepted.sort((a, b) => a.start - b.start);
 
-        if (isListItem) {
-          return (
-            <div key={lineIdx} className="flex gap-2 mb-1.5 pl-2 mt-1">
-              <span className="text-[14px] leading-snug font-bold" style={{ color: 'var(--c-amber)' }}>
-                {listMarker}
-              </span>
-              <p className="m-0 flex-1 leading-snug">{segs}</p>
-            </div>
+        const segs: React.ReactNode[] = [];
+        let last = 0;
+        accepted.forEach((h, i) => {
+          if (h.start > last) segs.push(<span key={last}>{plain.slice(last, h.start)}</span>);
+          segs.push(
+            <span
+              key={h.start}
+              className="border-b border-dashed border-current transition-opacity active:opacity-70"
+              style={{ cursor: 'pointer', color: 'var(--c-primary)' }}
+              onClick={(ev) => {
+                ev.stopPropagation();
+                if (isNested) {
+                  setTermDefStack(prev => [...prev, h.def]);
+                } else {
+                  const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+                  setTooltipTarget({ top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width });
+                  let safeX = Math.max(10, Math.min(r.left, window.innerWidth - 290));
+                  let safeY = r.bottom + 8;
+                  if (safeY + 200 > window.innerHeight) safeY = r.top - 210;
+                  setTooltipPos({ x: safeX, y: Math.max(10, safeY) });
+                  setTermDefStack([h.def]);
+                }
+              }}
+            >
+              {plain.slice(h.start, h.end)}
+            </span>
           );
-        }
+          last = h.end;
+        });
+        if (last < plain.length) segs.push(<span key={last}>{plain.slice(last)}</span>);
+
         return <p key={lineIdx} className="indent-4 mb-2 mt-1 last:mb-0">{segs}</p>;
       })}
     </div>
@@ -702,11 +659,9 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
 
   const getPreview = (t: string) => t.replace(/\*\*/g, '').trim();
 
-  // ════════════════════════════════════════════════════
   return (
     <div className="flex flex-col h-full overflow-hidden max-w-full" style={{ background: 'var(--c-bg)' }}>
 
-      {/* ── ШАПКА ─────────────────────────────────── */}
       <div className="flex-shrink-0 px-4 py-2.5 sticky top-0 z-10"
         style={{
           background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
@@ -737,7 +692,6 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
           </div>
         </div>
 
-        {/* Поиск */}
         <div className="relative mt-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--c-muted)' }} />
           <Input placeholder="Поиск по вопросу или №…" value={search} onChange={e => setSearch(e.target.value)}
@@ -746,7 +700,6 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--c-muted)' }}><X className="w-4 h-4" /></button>}
         </div>
 
-        {/* Фильтры-pills */}
         <div className="flex gap-1.5 mt-2.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           {([
             ['all',       'Все',        questionsData.length],
@@ -773,7 +726,6 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
         </div>
       </div>
 
-      {/* ── СПИСОК ────────────────────────────────── */}
       <ScrollArea className="flex-1 scroll-container">
         <div className="py-3 px-3 mx-auto max-w-2xl w-full" style={{ paddingBottom: 'var(--scroll-pb)' }}>
           {microLoading ? (
@@ -829,7 +781,6 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                     </AccordionTrigger>
 
                     <AccordionContent className="px-4 pb-4 pt-0 w-full overflow-hidden">
-                      {/* Превью ответа */}
                       <div className="rounded-xl p-3 mb-3 relative overflow-hidden"
                         style={{ background: 'color-mix(in srgb, var(--c-bg) 60%, var(--c-card))', border: '1px solid var(--c-border)' }}>
                         <div className="text-sm leading-relaxed max-h-20 overflow-hidden" style={{ color: 'color-mix(in srgb, var(--c-text) 70%, transparent)' }}>
@@ -838,7 +789,6 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                         <div className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none"
                           style={{ background: 'linear-gradient(to top, color-mix(in srgb, var(--c-bg) 60%, var(--c-card)), transparent)' }} />
                       </div>
-                      {/* Кнопки */}
                       <div className="flex gap-2">
                         <button onClick={() => { _activeAudio?.pause(); setReadingQuestion(q); }}
                           className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold transition-all active:scale-[0.97]"
@@ -867,14 +817,12 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
         </div>
       </ScrollArea>
 
-      {/* ══ РЕЖИМ ЧТЕНИЯ ════════════════════════════ */}
       <AnimatePresence>
         {readingQuestion && (
           <motion.div initial={{ opacity: 0, y: 80 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 80 }}
             transition={{ type: 'spring', damping: 28, stiffness: 320 }}
             className="fixed inset-0 z-[100] flex flex-col overflow-hidden" style={{ background: 'var(--c-bg)' }}>
 
-            {/* Top bar */}
             <div className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
               style={{
                 background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
@@ -900,7 +848,6 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
               </button>
             </div>
 
-            {/* Контент */}
             <div className="flex-1 overflow-y-auto px-5 pt-2 scroll-container"
               onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
               
@@ -945,7 +892,6 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
               </div>
             </div>
 
-            {/* Плавающая пилюля */}
             <div
               className="fixed left-0 right-0 px-5 z-[110] flex justify-center"
               style={{ bottom: 'calc(var(--nav-bottom, 12px) + 12px)' }}
@@ -1001,7 +947,6 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
         )}
       </AnimatePresence>
 
-      {/* ── ТУЛТИП ГЛОССАРИЯ ──────────────────────── */}
       {activeTermDef && (() => {
         const found = glossaryTerms.find(g => g.definition === activeTermDef);
         return (
@@ -1009,26 +954,27 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
             style={{ 
               left: tooltipPos.x, 
               top: tooltipPos.y, 
-          
               background: 'var(--c-card)', 
               border: '1px solid var(--c-primary-br)', 
               cursor: dragging ? 'grabbing' : 'grab' 
             }}
-            onMouseDown={handleTooltipMouseDown} onTouchStart={handleTooltipTouchStart} onClick={e => e.stopPropagation()}>
+            onMouseDown={handleTooltipMouseDown} 
+            onTouchStart={handleTooltipTouchStart} 
+            onClick={e => e.stopPropagation()}
+          >
             
-            {/* Кнопка "Назад" во вложенном тултипе */}
             {termDefStack.length > 1 && (
               <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: 'color-mix(in srgb, var(--c-text) 10%, transparent)' }}>
                 <button 
-                  onClick={(e) => { e.stopPropagation(); setTermDefStack(p => p.slice(0, -1)); }}
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    setTermDefStack(p => p.slice(0, -1)); 
+                  }}
                   className="flex items-center gap-1 text-[12px] font-bold active:scale-95 transition-transform"
                   style={{ color: 'var(--c-primary)' }}
                 >
                   <ArrowLeft className="w-3 h-3" /> Назад
                 </button>
-                <span className="text-[10px] uppercase tracking-wider opacity-50" style={{ color: 'var(--c-text)' }}>
-                  Вложенный термин
-                </span>
               </div>
             )}
 
@@ -1039,7 +985,6 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
               />
             )}
             
-            {/* Рендерим текст определения с поиском глоссария внутри него (isNested = true) */}
             <div className="text-sm font-normal" style={{ color: 'var(--c-text)' }}>
                {renderWithGlossary(found?.definition || '', undefined, true)}
             </div>
@@ -1049,7 +994,6 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
         );
       })()}
 
-      {/* ── ZOOM ИЗОБРАЖЕНИЯ ─────────────────────────────────────────────── */}
       {zoomList.length > 0 && (
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center"
@@ -1191,7 +1135,6 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
             style={{ bottom: 'calc(var(--nav-bottom, 12px) + 16px)' }}
             onClick={e => e.stopPropagation()}
           >
-            {/* Точки-индикатор + стрелки (если картинок несколько) */}
             {zoomList.length > 1 && (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
                 style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)' }}>
