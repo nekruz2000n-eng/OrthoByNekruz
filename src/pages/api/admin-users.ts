@@ -261,6 +261,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         usedDemo,
         activatedKey:  user.activatedKey  ?? null,
         registeredAt:  user.date          ?? null,
+        lastLogin:     user.lastLogin     ?? null,
+        loginCount:    Number(user.loginCount) || 0,
         opensToday:    opens,
         fpChanges,
         suspicious,
