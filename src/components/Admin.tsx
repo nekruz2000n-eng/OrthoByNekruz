@@ -1097,30 +1097,36 @@ export default function AdminPage() {
     finally   { setResMgrDeleting(null); }
   };
 
-  const toBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload  = () => resolve((r.result as string).split(',')[1]);
-      r.onerror = reject;
-      r.readAsDataURL(file);
-    });
+ 
 
   const uploadFile = async (file: File) => {
     setResUploading(true);
     try {
-      const fileBase64 = await toBase64(file);
-      const signRes = await fetch('/api/admin-upload', {
-        method:  'POST',
+            const signRes = await fetch('/api/admin-upload-sign', {
+
+       method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ secret, filename: file.name, contentType: file.type || 'application/octet-stream', fileBase64 }),
+        body:    JSON.stringify({ secret, filename: file.name, contentType: file.type || 'application/octet-stream' }),
       });
+
       if (!signRes.ok) {
         const err = await signRes.json().catch(() => ({}));
-        showToast('Ошибка: ' + (err.error || err.detail || signRes.status));
+        showToast('Ошибка: ' + (err.error || signRes.status));
         return;
       }
-      const { publicUrl } = await signRes.json();
+ const { signedUrl, publicUrl } = await signRes.json();
 
+      // Step 2: upload the file binary directly to Supabase — bypasses Vercel body limit
+      const uploadRes = await fetch(signedUrl, {
+        method:  'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body:    file,
+      });
+      if (!uploadRes.ok) {
+        const text = await uploadRes.text().catch(() => '');
+        showToast('Ошибка загрузки: ' + (text || uploadRes.status));
+        return;
+      }
       // 3. Auto-detect type from extension
       const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
       const extTypeMap: Record<string, ResType> = {
@@ -1247,26 +1253,53 @@ export default function AdminPage() {
   };
 
   const uploadGlImage = async (file: File) => {
-    setGlUploading(true);
-    try {
-      const fileBase64 = await toBase64(file);
-      const signRes = await fetch('/api/admin-upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secret, filename: file.name, contentType: file.type || 'image/jpeg', fileBase64 }),
-      });
-      if (!signRes.ok) {
-        const err = await signRes.json().catch(() => ({}));
-        showToast('Ошибка: ' + (err.error || err.detail || signRes.status));
-        return;
-      }
-      const { publicUrl } = await signRes.json();
-      setGlForm(f => ({ ...f, image: publicUrl }));
-      showToast('✓ Картинка загружена');
-    } catch { showToast('Ошибка сети'); }
-    finally { setGlUploading(false); }
-  };
+  setGlUploading(true);
+  try {
+    // Шаг 1: Запрашиваем signed URL у роута с суффиксом -sign
+    // Передаем только метаданные, БЕЗ fileBase64
+    const signRes = await fetch('/api/admin-upload-sign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        secret, 
+        filename: file.name, 
+        contentType: file.type || 'image/jpeg' 
+      }),
+    });
 
+    // Проверяем статус ответа сервера
+    if (!signRes.ok) {
+      const err = await signRes.json().catch(() => ({}));
+      showToast('Ошибка: ' + (err.error || err.detail || signRes.status));
+      return;
+    }
+
+    // Читаем ответ один раз — забираем и ссылку для загрузки (url), и будущую публичную ссылку (publicUrl)
+    const { url, publicUrl } = await signRes.json();
+
+    // Шаг 2: Отправляем чистый файл напрямую в Supabase (или S3), минуя Vercel
+    const uploadRes = await fetch(url, {
+      method: 'PUT', // Для signed URL обычно используется метод PUT
+      headers: { 'Content-Type': file.type || 'image/jpeg' },
+      body: file,    // Передаем сам файл целиком, никакой base64 больше не нужен
+    });
+
+    if (!uploadRes.ok) {
+      showToast('Ошибка при прямой загрузке файла в хранилище');
+      return;
+    }
+
+    // Шаг 3: Обновляем состояние формы полученным publicUrl
+    setGlForm(f => ({ ...f, image: publicUrl }));
+    showToast('✓ Картинка загружена');
+
+  } catch (error) { 
+    console.error(error);
+    showToast('Ошибка сети'); 
+  } finally { 
+    setGlUploading(false); 
+  }
+};
   // Копирование в буфер с тостом
   const copyToClipboard = useCallback(async (text: string, label: string) => {
     try {
