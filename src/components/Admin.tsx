@@ -1106,37 +1106,26 @@ export default function AdminPage() {
     finally   { setResMgrDeleting(null); }
   };
 
- const uploadFile = async (file: File) => {
+  const uploadFile = async (file: File) => {
   setResUploading(true);
   try {
-    // 1. Получаем разрешение
-    const signRes = await fetch('/api/admin-upload-sign', {
+    const uploadRes = await fetch('/api/admin-upload', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret, filename: file.name, contentType: file.type || 'application/octet-stream' }),
-    });
-
-    const signData = await signRes.json().catch(() => ({}));
-    if (!signRes.ok) {
-      showToast('Ошибка: ' + (signData.error || signRes.status));
-      return;
-    }
-
-    const { signedUrl, publicUrl } = signData;
-
-    // 2. Загружаем файл напрямую в Supabase
-    const uploadRes = await fetch(signedUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      headers: {
+        'Content-Type':   file.type || 'application/octet-stream',
+        'X-Admin-Secret': secret,
+        'X-Filename':     file.name,
+      },
       body: file,
     });
+
+    const data = await uploadRes.json().catch(() => ({}));
     if (!uploadRes.ok) {
-      const text = await uploadRes.text().catch(() => '');
-      showToast('Ошибка загрузки: ' + (text || uploadRes.status));
+      showToast('Ошибка: ' + (data.error || uploadRes.status));
       return;
     }
 
-    // 3. Обновляем форму
+    const { publicUrl } = data;
     const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
     const extTypeMap: Record<string, ResType> = {
       pdf: 'pdf', docx: 'docx', doc: 'docx', pptx: 'pptx', ppt: 'pptx',
@@ -1144,7 +1133,7 @@ export default function AdminPage() {
     };
     const detectedType = extTypeMap[ext] ?? 'link';
     const baseName = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
-    
+
     setResForm(f => ({ ...f, url: publicUrl, type: detectedType, title: f.title.trim() ? f.title : baseName }));
     showToast('✓ Файл загружен');
   } catch (err) {
@@ -1153,7 +1142,7 @@ export default function AdminPage() {
   } finally {
     setResUploading(false);
   }
-};
+ };
 
   const fetchRtItems = useCallback(async (subjId: string, typeVal: 'questions' | 'tests' | 'tasks') => {
     setRtLoading(true);
