@@ -791,7 +791,7 @@ export const TestsTab = ({
           background: 'color-mix(in srgb, var(--c-bg) 95%, transparent)',
           backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
           borderBottom: '1px solid var(--c-border)',
-          paddingTop: 'calc(var(--header-pt) + 24px)',
+          paddingTop: 'calc(var(--header-pt) + 8px)',
         }}>
         <button onClick={() => { resetTest(); setSelectedBlock(null); }}
           className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 active:scale-95"
