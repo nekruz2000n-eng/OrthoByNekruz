@@ -18,7 +18,7 @@ import ReactMarkdown from 'react-markdown';
 import { RichText, GlossaryItem } from '@/components/RichText';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type BlockId = number | 'mistakes';
+type BlockId = number | 'mistakes' | 'exam' | 'favorites';
 
 interface MistakeRecord {
   id: string;
@@ -80,6 +80,7 @@ export const TestsTab = ({
   const lsScores     = subject === 'ortho' ? 'test_block_scores'    : `${cfg?.lsPrefix || subject}_test_block_scores`;
   const lsNote       = subject === 'ortho' ? 'tests_personal_note'  : `${cfg?.lsPrefix || subject}_tests_personal_note`;
   const lsMistakes   = subject === 'ortho' ? 'test_mistakes'        : `${cfg?.lsPrefix || subject}_test_mistakes`;
+  const lsFavorites  = subject === 'ortho' ? 'test_favorites'       : `${cfg?.lsPrefix || subject}_test_favorites`;
   // ── Data ──────────────────────────────────────────────────────────────────
   const [loadedTestsData, setLoadedTestsData] = useState<any[]>([]);
   const [microLoading,    setMicroLoading]    = useState(false);
@@ -98,6 +99,8 @@ export const TestsTab = ({
   const [search,           setSearch]           = useState('');
   const [bestScores,       setBestScores]       = useState<Record<number, number>>({});
   const [mistakes,         setMistakes]         = useState<MistakeRecord[]>([]);
+  const [favorites,        setFavorites]        = useState<MistakeRecord[]>([]);
+  const [examQuestions,    setExamQuestions]    = useState<any[]>([]);
   const [testsNote,        setTestsNote]        = useState('');
   const [isEditingNote,    setIsNoteEditing]    = useState(false);
   const [localTestsNote,   setLocalTestsNote]   = useState('');
@@ -105,6 +108,7 @@ export const TestsTab = ({
   const [expandedThemes,   setExpandedThemes]   = useState<Set<string>>(new Set());
   const [showByTheme,      setShowByTheme]      = useState(false);
   const noteRef = useRef<HTMLTextAreaElement>(null);
+  const testScrollRef = useRef<HTMLDivElement>(null);
 
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => { setLocalTestsNote(testsNote); }, [testsNote]);
@@ -119,6 +123,7 @@ export const TestsTab = ({
   useEffect(() => {
     try { setBestScores(JSON.parse(localStorage.getItem(lsScores) || '{}')); } catch {}
     try { setMistakes(JSON.parse(localStorage.getItem(lsMistakes) || '[]')); }  catch {}
+    try { setFavorites(JSON.parse(localStorage.getItem(lsFavorites) || '[]')); } catch {}
     setTestsNote(localStorage.getItem(lsNote) || '');
   }, [subject]);
 
@@ -205,13 +210,15 @@ export const TestsTab = ({
   const blockTests = useMemo(() => {
     if (selectedBlock === null) return [];
     if (selectedBlock === 'mistakes') return mistakes.slice(0, 100);
+    if (selectedBlock === 'exam') return examQuestions;
+    if (selectedBlock === 'favorites') return favorites;
     if (typeof selectedBlock === 'number' && selectedBlock < 0) {
       // Тема-блок
       const all = themeGroups?.flatMap(g => g.blocks) || [];
       return all.find(b => b.id === selectedBlock)?.questions || [];
     }
     return blocks.find(b => b.id === selectedBlock)?.questions || [];
-  }, [selectedBlock, blocks, themeGroups, mistakes]);
+  }, [selectedBlock, blocks, themeGroups, mistakes, examQuestions, favorites]);
 
   const questionBlockMap = useMemo(() => {
     const map = new Map<string, { blockId: number; indexInBlock: number }>();
@@ -267,11 +274,35 @@ export const TestsTab = ({
     });
   };
 
+  const toggleFavorite = (test: any) => {
+    setFavorites(prev => {
+      const exists = prev.some(f => f.id === test.id);
+      const updated = exists
+        ? prev.filter(f => f.id !== test.id)
+        : [{ id: test.id, question: test.question, options: test.options, correct: test.correct, ts: Date.now() }, ...prev];
+      localStorage.setItem(lsFavorites, JSON.stringify(updated));
+      return updated;
+    });
+  };
+  const isFavorite = (test: any) => favorites.some(f => f.id === test?.id);
+
+  const startExam = () => {
+    const all = [...processed];
+    for (let i = all.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [all[i], all[j]] = [all[j], all[i]];
+    }
+    setExamQuestions(all.slice(0, 100));
+    resetTest();
+    setSelectedBlock('exam');
+  };
+
   const nextQuestion = () => {
     if (currentTestIndex < blockTests.length - 1) {
       setCurrentTestIndex(i => i + 1); setSelectedOption(null); setShowResult(false);
+      testScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     } else {
-      if (selectedBlock !== null && selectedBlock !== 'mistakes' && (selectedBlock as number) > 0) {
+      if (selectedBlock !== null && selectedBlock !== 'mistakes' && selectedBlock !== 'exam' && selectedBlock !== 'favorites' && (selectedBlock as number) > 0) {
         const nb = { ...bestScores };
         const cur = nb[selectedBlock as number] || 0;
         setPrevBest(cur);
@@ -462,6 +493,66 @@ export const TestsTab = ({
                   </button>
                 )}
 
+                {/* Экзамен */}
+                {processed.length >= 10 && (
+                  <button
+                    onClick={startExam}
+                    className="w-full mb-3 rounded-[18px] p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99] relative overflow-hidden"
+                    style={{
+                      background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-primary) 12%, transparent) 0%, color-mix(in srgb, var(--c-primary) 6%, transparent) 100%)',
+                      border: '1px solid color-mix(in srgb, var(--c-primary) 35%, transparent)',
+                    }}>
+                    <div className="absolute right-1 bottom-[-10px] pointer-events-none select-none" style={{ fontSize: 72, opacity: 0.07, lineHeight: 1 }}>🎓</div>
+                    <div className="w-11 h-11 rounded-[13px] flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'color-mix(in srgb, var(--c-primary) 18%, transparent)', color: 'var(--c-primary)' }}>
+                      <Award className="w-[22px] h-[22px]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-[14px] font-bold" style={{ color: 'var(--c-primary)' }}>Экзамен</span>
+                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md"
+                          style={{ background: 'color-mix(in srgb, var(--c-primary) 18%, transparent)', color: 'var(--c-primary)' }}>
+                          100 вопросов
+                        </span>
+                      </div>
+                      <p className="text-[11.5px] leading-snug" style={{ color: 'var(--c-muted)' }}>
+                        Случайные вопросы из всей базы
+                      </p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-primary)' }} />
+                  </button>
+                )}
+
+                {/* Избранные */}
+                {favorites.length > 0 && (
+                  <button
+                    onClick={() => { resetTest(); setSelectedBlock('favorites'); }}
+                    className="w-full mb-3 rounded-[18px] p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99] relative overflow-hidden"
+                    style={{
+                      background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-amber) 12%, transparent) 0%, color-mix(in srgb, var(--c-amber) 6%, transparent) 100%)',
+                      border: '1px solid color-mix(in srgb, var(--c-amber) 35%, transparent)',
+                    }}>
+                    <div className="absolute right-1 bottom-[-10px] pointer-events-none select-none" style={{ fontSize: 72, opacity: 0.07, lineHeight: 1 }}>⭐</div>
+                    <div className="w-11 h-11 rounded-[13px] flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'color-mix(in srgb, var(--c-amber) 18%, transparent)', color: 'var(--c-amber)' }}>
+                      <Zap className="w-[22px] h-[22px]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-[14px] font-bold" style={{ color: 'var(--c-amber)' }}>Избранное</span>
+                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md"
+                          style={{ background: 'color-mix(in srgb, var(--c-amber) 18%, transparent)', color: 'var(--c-amber)' }}>
+                          {favorites.length}
+                        </span>
+                      </div>
+                      <p className="text-[11.5px] leading-snug" style={{ color: 'var(--c-muted)' }}>
+                        Вопросы, которые вы отметили
+                      </p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-amber)' }} />
+                  </button>
+                )}
+
                 {/* Заметки */}
                 <Dialog>
                   <DialogTrigger asChild>
@@ -597,6 +688,8 @@ export const TestsTab = ({
   if (completed) {
     const total = blockTests.length;
     const isMistakeMode = selectedBlock === 'mistakes';
+    const isExamMode = selectedBlock === 'exam';
+    const isFavoritesMode = selectedBlock === 'favorites';
     const pct = total ? Math.round((score / total) * 100) : 0;
     const isPerfect = score === total && total > 0;
     const isOk = score >= Math.ceil(total * 0.85);
@@ -612,7 +705,7 @@ export const TestsTab = ({
       { lbl: 'Верно',  v: score, color: 'var(--c-primary)', Icon: CheckCircle2 },
       { lbl: 'Ошибок', v: wrong, color: 'var(--c-danger)',  Icon: XCircle },
     ];
-    if (!isMistakeMode) {
+    if (!isMistakeMode && !isExamMode && !isFavoritesMode) {
       cards.push({ lbl: 'Лучший', v: `${Math.max(prevBest, score)}/${total}`, color: 'var(--c-amber)', Icon: Medal });
     }
 
@@ -639,8 +732,8 @@ export const TestsTab = ({
           {/* Заголовок */}
           <h2 className="mt-5 text-[22px] font-bold leading-tight" style={{ color: 'var(--c-text)', letterSpacing: -0.5 }}>
             {isPerfect
-              ? (isMistakeMode ? 'Все ошибки исправлены!' : 'Идеально!')
-              : isOk ? 'Отличный результат' : 'Можно лучше'}
+              ? (isExamMode ? 'Экзамен сдан на отлично!' : isMistakeMode ? 'Все ошибки исправлены!' : 'Идеально!')
+              : isOk ? (isExamMode ? 'Хороший результат на экзамене' : 'Отличный результат') : 'Можно лучше'}
           </h2>
           <p className="mt-1.5 text-[13.5px] leading-snug" style={{ color: 'var(--c-muted)', maxWidth: 300 }}>
             {isPerfect ? 'Знания крепкие, как здоровая эмаль'
@@ -687,6 +780,8 @@ export const TestsTab = ({
   // ЭКРАН ТЕСТА
   // ══════════════════════════════════════════════════════════════════════════
   const isMistakeMode = selectedBlock === 'mistakes';
+  const isExamModeTest = selectedBlock === 'exam';
+  const isFavoritesModeTest = selectedBlock === 'favorites';
   const options = shuffleOptions ? shuffled : (currentTest?.options || []);
 
   return (
@@ -698,7 +793,7 @@ export const TestsTab = ({
           background: 'color-mix(in srgb, var(--c-bg) 95%, transparent)',
           backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
           borderBottom: '1px solid var(--c-border)',
-          paddingTop: 'var(--header-pt)',
+          paddingTop: 'calc(var(--header-pt) + 20px)',
         }}>
         <button onClick={() => { resetTest(); setSelectedBlock(null); }}
           className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 active:scale-95"
@@ -708,27 +803,37 @@ export const TestsTab = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11.5px] font-mono font-bold flex items-center gap-1.5"
-              style={{ color: isMistakeMode ? 'var(--c-danger)' : 'var(--c-text)' }}>
+              style={{ color: selectedBlock === 'mistakes' ? 'var(--c-danger)' : selectedBlock === 'exam' ? 'var(--c-primary)' : selectedBlock === 'favorites' ? 'var(--c-amber)' : 'var(--c-text)' }}>
               {isMistakeMode && <AlertTriangle className="w-3 h-3" />}
-              {isMistakeMode ? 'Ошибки' : `Блок ${selectedBlock}`}
+              {selectedBlock === 'mistakes' ? 'Ошибки' : selectedBlock === 'exam' ? 'Экзамен' : selectedBlock === 'favorites' ? 'Избранное' : `Блок ${selectedBlock}`}
               <span style={{ color: 'var(--c-muted)' }}>{currentTestIndex + 1}/{blockTests.length}</span>
             </span>
-            <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md inline-flex items-center gap-1"
-              style={{ background: 'var(--c-primary-dim)', color: 'var(--c-primary)' }}>
-              <Check className="w-2.5 h-2.5" /> {score}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md inline-flex items-center gap-1"
+                style={{ background: 'var(--c-primary-dim)', color: 'var(--c-primary)' }}>
+                <Check className="w-2.5 h-2.5" /> {score}
+              </span>
+              <button
+                onClick={() => currentTest && toggleFavorite(currentTest)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg transition-all active:scale-90"
+                style={{ background: isFavorite(currentTest) ? 'color-mix(in srgb, var(--c-amber) 18%, transparent)' : 'var(--c-card)', border: '1px solid var(--c-border)' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill={isFavorite(currentTest) ? 'var(--c-amber)' : 'none'} stroke={isFavorite(currentTest) ? 'var(--c-amber)' : 'var(--c-muted)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+              </button>
+            </div>
           </div>
           <div className="h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-bg-subtle)' }}>
             <div className="h-full rounded-full transition-all duration-500"
               style={{
                 width: `${((currentTestIndex + 1) / blockTests.length) * 100}%`,
-                background: isMistakeMode ? 'var(--c-danger)' : 'var(--c-primary)',
+                background: selectedBlock === 'mistakes' ? 'var(--c-danger)' : 'var(--c-primary)',
               }} />
           </div>
         </div>
       </div>
 
-      <ScrollArea className="flex-1 scroll-container">
+      <div ref={testScrollRef} className="flex-1 overflow-y-auto scroll-container">
         <div className="px-4 pt-4 pb-44 mx-auto max-w-2xl flex flex-col gap-3.5">
 
           {/* Вопрос */}
@@ -791,7 +896,7 @@ export const TestsTab = ({
             </button>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Нижняя панель: тогглы + выход */}
       <div className="flex-shrink-0 px-4 flex flex-col gap-2"
