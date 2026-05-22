@@ -576,13 +576,18 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
         type Hit = { start: number; end: number; def: string; term: string };
         const hits: Hit[] = [];
         
+        const isLetter = (s: string, i: number) =>
+          i >= 0 && i < s.length && /[а-яеa-z]/.test(s[i]);
+
         for (const g of localGlossary) {
           const forms = [g.term, ...(g.variations || [])];
           for (const form of forms) {
             const f = form.toLowerCase().replace(/ё/g, 'е');
             let idx = plainNorm.indexOf(f);
             while (idx !== -1) {
-              hits.push({ start: idx, end: idx + f.length, def: g.definition, term: form });
+              if (!isLetter(plainNorm, idx - 1) && !isLetter(plainNorm, idx + f.length)) {
+                hits.push({ start: idx, end: idx + f.length, def: g.definition, term: form });
+              }
               idx = plainNorm.indexOf(f, idx + 1);
             }
           }
