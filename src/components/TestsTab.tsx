@@ -108,6 +108,7 @@ export const TestsTab = ({
   const [expandedThemes,   setExpandedThemes]   = useState<Set<string>>(new Set());
   const [showByTheme,      setShowByTheme]      = useState(false);
   const noteRef = useRef<HTMLTextAreaElement>(null);
+  const testScrollRef = useRef<HTMLDivElement>(null);
 
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => { setLocalTestsNote(testsNote); }, [testsNote]);
@@ -299,6 +300,7 @@ export const TestsTab = ({
   const nextQuestion = () => {
     if (currentTestIndex < blockTests.length - 1) {
       setCurrentTestIndex(i => i + 1); setSelectedOption(null); setShowResult(false);
+      testScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     } else {
       if (selectedBlock !== null && selectedBlock !== 'mistakes' && selectedBlock !== 'exam' && selectedBlock !== 'favorites' && (selectedBlock as number) > 0) {
         const nb = { ...bestScores };
@@ -831,7 +833,7 @@ export const TestsTab = ({
         </div>
       </div>
 
-      <ScrollArea className="flex-1 scroll-container">
+      <div ref={testScrollRef} className="flex-1 overflow-y-auto scroll-container">
         <div className="px-4 pt-4 pb-44 mx-auto max-w-2xl flex flex-col gap-3.5">
 
           {/* Вопрос */}
@@ -894,7 +896,7 @@ export const TestsTab = ({
             </button>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Нижняя панель: тогглы + выход */}
       <div className="flex-shrink-0 px-4 flex flex-col gap-2"
