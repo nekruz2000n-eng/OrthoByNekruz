@@ -26,9 +26,9 @@ function _buildRegexSource(term: string): string {
   const parts = words.map(w => {
     const lw = w.toLowerCase().replace(/ё/g, 'е');
     if (lw.length <= 2) return _escapeRe(lw);
-    return _escapeRe(_ruStem(lw)) + '[а-яё]*';
+    return _escapeRe(_ruStem(lw)) + '[а-яе]{0,4}';
   });
-  return '(?<=^|[^а-яёa-z0-9])(?:' + parts.join('[^а-яёa-z0-9]{1,6}') + ')(?=$|[^а-яёa-z0-9])';
+  return '(?<![а-яеa-z0-9])(?:' + parts.join('[^а-яеa-z0-9]{1,6}') + ')(?![а-яеa-z0-9])';
 }
 
 // Module-level cache: term string → compiled regex source.
