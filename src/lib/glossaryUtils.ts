@@ -26,7 +26,7 @@ function _buildRegexSource(term: string): string {
   const parts = words.map(w => {
     const lw = w.toLowerCase().replace(/ё/g, 'е');
     if (lw.length <= 2) return _escapeRe(lw);
-    return _escapeRe(_ruStem(lw)) + '[а-яе]{0,4}';
+    return _escapeRe(_ruStem(lw)) + '[а-яе]{0,3}';
   });
   return '(?<![а-яеa-z0-9])(?:' + parts.join('[^а-яеa-z0-9]{1,6}') + ')(?![а-яеa-z0-9])';
 }
