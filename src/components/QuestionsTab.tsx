@@ -554,11 +554,9 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
 const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boolean = false) => {
   if (!text) return null;
 
-  const localGlossary = isNested 
-    ? glossaryTerms 
-    : (relatedTerms && relatedTerms.length)
-      ? glossaryTerms.filter(g => relatedTerms.some(rt => rt.toLowerCase() === g.term.toLowerCase()))
-      : [];
+  const localGlossary = (isNested || !relatedTerms?.length)
+    ? glossaryTerms
+    : glossaryTerms.filter(g => relatedTerms.some(rt => rt.toLowerCase() === g.term.toLowerCase()));
 
   return (
     <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
