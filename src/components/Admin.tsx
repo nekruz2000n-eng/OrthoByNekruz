@@ -1693,6 +1693,19 @@ export default function AdminPage() {
         >{loading ? '⏳' : '↻'}</button>
 
         <button
+          onClick={bustCache}
+          disabled={rtBusting}
+          title="Сбросить кэш у всех"
+          style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: T.surfaceAlt, border: `1px solid ${T.border}`,
+            color: rtBusting ? T.textFaint : T.textMuted,
+            fontSize: 17, cursor: rtBusting ? 'default' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >{rtBusting ? '⏳' : '🔄'}</button>
+
+        <button
           onClick={() => { setKeysOpen(true); fetchValidKeys(); }}
           title="Активационные ключи"
           style={{
