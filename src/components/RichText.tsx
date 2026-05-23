@@ -173,9 +173,10 @@ export const RichText: React.FC<Props> = ({
     return () => document.removeEventListener('click', h);
   }, [activeTerm]);
 
-  // ── Глоссарий: только термины из relatedTerms ────────────────────────────────
+  // ── Глоссарий: если relatedTerms есть — фильтруем, иначе весь глоссарий ──────
   const localGlossary = useMemo(() => {
-    if (!relatedTerms?.length) return [];
+    if (!relatedTerms?.length)
+      return [...glossaryTerms].sort((a, b) => b.term.length - a.term.length);
     return [...glossaryTerms
       .filter(g => relatedTerms.some(rt => rt.toLowerCase() === g.term.toLowerCase()))]
       .sort((a, b) => b.term.length - a.term.length);
