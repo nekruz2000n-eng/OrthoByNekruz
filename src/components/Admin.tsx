@@ -1536,10 +1536,16 @@ export default function AdminPage() {
     });
     // Новые регистрации — сверху. Без даты — в конец.
     return [...filtered].sort((a, b) => {
-       if (sortBy === 'loginCount') return b.loginCount - a.loginCount;
+      if (sortBy === 'loginCount') {
+        // Сначала по входам сегодня, потом по общему числу входов
+        const diff = b.opensToday - a.opensToday;
+        if (diff !== 0) return diff;
+        return b.loginCount - a.loginCount;
+      }
       if (sortBy === 'lastLogin') {
-        const ta = a.lastLogin ? Date.parse(a.lastLogin) : 0;
-        const tb = b.lastLogin ? Date.parse(b.lastLogin) : 0;
+        // Берём lastLogin, фолбэк на registeredAt если lastLogin нет
+        const ta = a.lastLogin ? Date.parse(a.lastLogin) : (a.registeredAt ? Date.parse(a.registeredAt) : 0);
+        const tb = b.lastLogin ? Date.parse(b.lastLogin) : (b.registeredAt ? Date.parse(b.registeredAt) : 0);
         return tb - ta;
       }
       const ta = a.registeredAt ? Date.parse(a.registeredAt) : 0;
@@ -2885,9 +2891,9 @@ export default function AdminPage() {
           scrollbarWidth: 'none', msOverflowStyle: 'none',
         } as React.CSSProperties}>
           {([
-            { id: 'registered', label: 'Новые сначала' },
-            { id: 'lastLogin',  label: 'Последний вход' },
-            { id: 'loginCount', label: 'Кол-во входов'  },
+            { id: 'registered', label: 'Новые сначала'   },
+            { id: 'lastLogin',  label: 'Последний вход'  },
+            { id: 'loginCount', label: 'Активность сегодня' },
           ] as const).map(opt => {
             const active = (sortBy as string) === opt.id;
             return (
