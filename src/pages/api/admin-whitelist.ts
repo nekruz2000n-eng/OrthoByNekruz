@@ -14,6 +14,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  if (action === 'list_keys') {
+    const keys = await redis.smembers('valid_keys');
+    return res.status(200).json({ ok: true, keys });
+  }
+
   if (action === 'list') {
     const members = await redis.smembers(WL_KEY);
     return res.status(200).json({ ok: true, ids: members });

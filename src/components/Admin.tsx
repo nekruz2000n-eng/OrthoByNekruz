@@ -903,6 +903,10 @@ export default function AdminPage() {
   const [rateBlocksExpanded, setRateBlocksExpanded] = useState(false);
   const [clearingTgId,       setClearingTgId]       = useState<string | null>(null);
 
+  const [keysOpen,    setKeysOpen]    = useState(false);
+  const [keysList,    setKeysList]    = useState<string[]>([]);
+  const [keysLoading, setKeysLoading] = useState(false);
+
   // ── Белый список (обход проверки подписки) ────────────────────────────────
   const [wlExpanded,   setWlExpanded]   = useState(false);
   const [wlItems,      setWlItems]      = useState<string[]>([]);
@@ -1007,6 +1011,24 @@ export default function AdminPage() {
       showToast('Ошибка загрузки белого списка');
     } finally {
       setWlLoading(false);
+    }
+  }, [secret]);
+
+  const fetchValidKeys = useCallback(async () => {
+    setKeysLoading(true);
+    try {
+      const r = await fetch('/api/admin-whitelist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'list_keys', secret }),
+      });
+      const data = await r.json();
+      if (data.ok) setKeysList((data.keys ?? []).sort());
+      else showToast('Ошибка загрузки ключей');
+    } catch {
+      showToast('Ошибка загрузки ключей');
+    } finally {
+      setKeysLoading(false);
     }
   }, [secret]);
 
@@ -1663,7 +1685,84 @@ export default function AdminPage() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >{loading ? '⏳' : '↻'}</button>
+
+        <button
+          onClick={() => { setKeysOpen(true); fetchValidKeys(); }}
+          title="Активационные ключи"
+          style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: T.surfaceAlt, border: `1px solid ${T.border}`,
+            color: T.textMuted, fontSize: 17, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >🔑</button>
       </div>
+
+      {keysOpen && (
+        <div
+          onClick={() => setKeysOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 500,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: T.surface, borderRadius: '18px 18px 0 0',
+              width: '100%', maxWidth: 520,
+              maxHeight: '70vh', display: 'flex', flexDirection: 'column',
+              padding: '0 0 32px',
+            }}
+          >
+            <div style={{
+              padding: '16px 18px 12px',
+              borderBottom: `1px solid ${T.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>
+                🔑 Активационные ключи {keysList.length > 0 && <span style={{ color: T.textMuted, fontWeight: 500 }}>({keysList.length})</span>}
+              </div>
+              <button
+                onClick={() => setKeysOpen(false)}
+                style={{
+                  width: 30, height: 30, borderRadius: 8,
+                  background: T.surfaceAlt, border: `1px solid ${T.border}`,
+                  color: T.textMuted, cursor: 'pointer', fontSize: 16,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >×</button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: '10px 14px', flex: 1 }}>
+              {keysLoading ? (
+                <div style={{ textAlign: 'center', color: T.textMuted, padding: 24, fontSize: 13 }}>Загрузка...</div>
+              ) : keysList.length === 0 ? (
+                <div style={{ textAlign: 'center', color: T.textMuted, padding: 24, fontSize: 13 }}>Нет активных ключей</div>
+              ) : keysList.map(k => (
+                <div
+                  key={k}
+                  onClick={() => {
+                    navigator.clipboard.writeText(k).then(() => showToast('✓ Скопировано'));
+                  }}
+                  style={{
+                    fontFamily: FONT_MONO, fontSize: 13,
+                    padding: '11px 14px', marginBottom: 7,
+                    background: T.surfaceAlt, border: `1px solid ${T.border}`,
+                    borderRadius: 10, cursor: 'pointer',
+                    color: T.text, letterSpacing: 0.5,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: 10,
+                  }}
+                >
+                  <span style={{ wordBreak: 'break-all' }}>{k}</span>
+                  <span style={{ color: T.textFaint, fontSize: 12, flexShrink: 0 }}>📋</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{
         padding: '14px 14px 80px', maxWidth: 680, margin: '0 auto',
