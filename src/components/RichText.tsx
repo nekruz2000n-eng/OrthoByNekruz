@@ -250,7 +250,7 @@ export const RichText: React.FC<Props> = ({
         segs.push(
           <span
             key={`g-${lineIdx}-${bi}`}
-            style={{ ...style, borderBottom: '1px dashed currentColor', cursor: 'pointer' }}
+            style={{ ...style, borderBottom: '1px dashed currentColor', cursor: 'pointer', color: 'var(--c-glossary, var(--c-text))' }}
             className="transition-opacity active:opacity-70"
             onClick={ev => {
               ev.stopPropagation();

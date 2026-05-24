@@ -135,6 +135,12 @@ export default function Home() {
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Цвет глоссария: восстанавливаем из localStorage ──────────────────────
+  useEffect(() => {
+    const saved = localStorage.getItem('glossary_color');
+    if (saved) document.documentElement.style.setProperty('--c-glossary', saved);
+  }, []);
+
   // ── TG: СТРОГО ОДИН РАЗ при монтировании ─────────────────────────────────
   useEffect(() => initTelegramApp(), []);
 

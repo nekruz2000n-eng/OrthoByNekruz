@@ -260,6 +260,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   const [resolvedTasksCount, setResolvedTasksCount] = useState(0);
   const [testsResolvedCount, setTestsResolvedCount] = useState(0);
   const [theme,              setTheme]              = useState<Theme>('dark');
+  const [glossaryColor,      setGlossaryColor]      = useState<string>('var(--c-text)');
   const [showSubjectSheet,   setShowSubjectSheet]   = useState(false);
   const [showResources,      setShowResources]      = useState(false);
   const [showExam,           setShowExam]           = useState(false);
@@ -304,6 +305,19 @@ export const StatsTab: React.FC<StatsTabProps> = ({
     else if (root.classList.contains('dark'))  setTheme('dark');
     else                                       setTheme('light');
   }, []);
+
+  // ── Цвет глоссария ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const saved = localStorage.getItem('glossary_color') || 'var(--c-text)';
+    setGlossaryColor(saved);
+    document.documentElement.style.setProperty('--c-glossary', saved);
+  }, []);
+
+  const applyGlossaryColor = (color: string) => {
+    setGlossaryColor(color);
+    document.documentElement.style.setProperty('--c-glossary', color);
+    localStorage.setItem('glossary_color', color);
+  };
 
   const applyTheme = (t: Theme) => {
     const root = document.documentElement;
@@ -653,6 +667,49 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                 })}
               </div>
             </div>
+
+            {/* ─── ЦВЕТ ГЛОССАРИЯ ─── */}
+            {(() => {
+              const GLOSSARY_COLORS = [
+                { id: 'var(--c-text)',    label: 'Текст',      dot: 'var(--c-text)'    },
+                { id: 'var(--c-primary)', label: 'Основной',   dot: 'var(--c-primary)' },
+                { id: 'var(--c-info)',    label: 'Синий',      dot: 'var(--c-info)'    },
+                { id: 'var(--c-amber)',   label: 'Янтарный',   dot: 'var(--c-amber)'   },
+                { id: 'hsl(280 60% 62%)', label: 'Фиолетовый', dot: 'hsl(280 60% 62%)' },
+              ];
+              return (
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'var(--c-muted)' }}>
+                    Глоссарий
+                  </span>
+                  <div
+                    className="flex-1 grid gap-1.5 p-1 rounded-[12px]"
+                    style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', gridTemplateColumns: `repeat(${GLOSSARY_COLORS.length}, 1fr)` }}
+                  >
+                    {GLOSSARY_COLORS.map(c => {
+                      const active = glossaryColor === c.id;
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => applyGlossaryColor(c.id)}
+                          className="h-[31px] rounded-[9px] inline-flex items-center justify-center gap-1 text-[11px] font-bold transition-all duration-150 active:scale-95"
+                          style={active
+                            ? { background: 'var(--c-primary)', color: '#fff' }
+                            : { background: 'transparent', color: 'var(--c-text)' }}
+                        >
+                          <span style={{
+                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                            background: c.dot,
+                            border: active ? '1.5px solid rgba(255,255,255,0.6)' : '1.5px solid var(--c-border)',
+                          }} />
+                          {c.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* ─── ПОЛЕЗНЫЕ МАТЕРИАЛЫ ─── */}
             {!materialsHidden && <button

@@ -614,7 +614,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
             <span
               key={h.start}
               className="border-b border-dashed border-current transition-opacity active:opacity-70"
-              style={{ cursor: 'pointer', color: 'var(--c-primary)' }}
+              style={{ cursor: 'pointer', color: 'var(--c-glossary, var(--c-primary))' }}
               onClick={(ev) => {
                 ev.stopPropagation();
                 if (isNested) {
