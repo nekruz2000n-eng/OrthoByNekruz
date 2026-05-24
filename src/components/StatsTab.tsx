@@ -683,8 +683,8 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                     Глоссарий
                   </span>
                   <div
-                    className="flex-1 grid gap-1.5 p-1 rounded-[12px]"
-                    style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', gridTemplateColumns: `repeat(${GLOSSARY_COLORS.length}, 1fr)` }}
+                    className="flex-1 flex gap-2 p-1 rounded-[12px] items-center justify-around"
+                    style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
                   >
                     {GLOSSARY_COLORS.map(c => {
                       const active = glossaryColor === c.id;
@@ -692,18 +692,15 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                         <button
                           key={c.id}
                           onClick={() => applyGlossaryColor(c.id)}
-                          className="h-[31px] rounded-[9px] inline-flex items-center justify-center gap-1 text-[11px] font-bold transition-all duration-150 active:scale-95"
-                          style={active
-                            ? { background: 'var(--c-primary)', color: '#fff' }
-                            : { background: 'transparent', color: 'var(--c-text)' }}
-                        >
-                          <span style={{
-                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                          className="transition-all duration-150 active:scale-90 rounded-full flex-shrink-0"
+                          style={{
+                            width: 28, height: 28,
                             background: c.dot,
-                            border: active ? '1.5px solid rgba(255,255,255,0.6)' : '1.5px solid var(--c-border)',
-                          }} />
-                          {c.label}
-                        </button>
+                            border: active ? '3px solid var(--c-text)' : '3px solid transparent',
+                            outline: active ? '2px solid var(--c-card)' : 'none',
+                            outlineOffset: -5,
+                          }}
+                        />
                       );
                     })}
                   </div>
