@@ -110,6 +110,7 @@ export const TestsTab = ({
   const [showByTheme,      setShowByTheme]      = useState(false);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const testScrollRef = useRef<HTMLDivElement>(null);
+  const showResultRef = useRef(false);
 
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => { setLocalTestsNote(testsNote); }, [testsNote]);
@@ -291,6 +292,7 @@ export const TestsTab = ({
 
   const nextQuestion = () => {
     if (currentTestIndex < blockTests.length - 1) {
+      showResultRef.current = false;
       setCurrentTestIndex(i => i + 1); setSelectedOption(null); setShowResult(false);
       testScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     } else {
@@ -309,7 +311,8 @@ export const TestsTab = ({
   };
 
   const handleSelect = (opt: string) => {
-    if (showResult) return;
+    if (showResultRef.current) return;
+    showResultRef.current = true;
     setSelectedOption(opt);
     setShowResult(true);
     const correct = opt === currentTest.correct;
@@ -323,6 +326,7 @@ export const TestsTab = ({
   };
 
   const resetTest = () => {
+    showResultRef.current = false;
     setCurrentTestIndex(0); setSelectedOption(null);
     setShowResult(false); setScore(0); setCompleted(false);
   };
