@@ -847,32 +847,34 @@ export const TestsTab = ({
           {/* Варианты */}
           <div className="flex flex-col gap-2">
             {options.map((opt: string, idx: number) => {
-              const correct  = opt === currentTest.correct;
-              const selected = selectedOption === opt;
-              const isWrong  = showResult && selected && !correct;
-              const asCorrect = showResult && correct;
-              const dimmed   = showResult && !correct && !selected;
+              const correct        = opt === currentTest.correct;
+              const selected       = selectedOption === opt;
+              const isWrong        = showResult && selected && !correct;
+              const selectedRight  = showResult && selected && correct;
+              const revealCorrect  = showResult && correct && !selected;
+              const dimmed         = showResult && !correct && !selected;
               return (
                 <button key={idx} onClick={() => handleSelect(opt)} disabled={showResult}
                   className="w-full rounded-[13px] p-3.5 flex items-center gap-3 text-left transition-all active:scale-[0.99]"
                   style={{
-                    background: asCorrect ? 'var(--c-primary-dim)' : isWrong ? 'var(--c-danger-soft)' : 'var(--c-card)',
-                    border: `1.5px solid ${asCorrect ? 'var(--c-primary-br)' : isWrong ? 'color-mix(in srgb, var(--c-danger) 45%, transparent)' : 'var(--c-border)'}`,
+                    background: selectedRight ? 'var(--c-primary-dim)' : isWrong ? 'var(--c-danger-soft)' : revealCorrect ? 'transparent' : 'var(--c-card)',
+                    border: `1.5px solid ${selectedRight ? 'var(--c-primary-br)' : isWrong ? 'color-mix(in srgb, var(--c-danger) 45%, transparent)' : revealCorrect ? 'var(--c-primary-br)' : 'var(--c-border)'}`,
                     opacity: dimmed ? 0.5 : 1,
                   }}>
                   <span className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-[12px] font-mono font-bold"
                     style={{
-                      background: asCorrect ? 'var(--c-primary)' : isWrong ? 'var(--c-danger)' : 'var(--c-chip)',
-                      color: (asCorrect || isWrong) ? 'var(--c-bg)' : 'var(--c-muted)',
+                      background: selectedRight ? 'var(--c-primary)' : isWrong ? 'var(--c-danger)' : 'var(--c-chip)',
+                      color: (selectedRight || isWrong) ? 'var(--c-bg)' : 'var(--c-muted)',
                     }}>
                     {LETTERS[idx] || idx + 1}
                   </span>
                   <span className="flex-1 text-[14px] leading-snug"
-                    style={{ color: asCorrect ? 'var(--c-primary)' : isWrong ? 'var(--c-danger)' : 'var(--c-text)', fontWeight: asCorrect ? 600 : 500 }}>
+                    style={{ color: selectedRight ? 'var(--c-primary)' : isWrong ? 'var(--c-danger)' : revealCorrect ? 'var(--c-primary)' : 'var(--c-text)', fontWeight: (selectedRight || revealCorrect) ? 600 : 500 }}>
                     {opt}
+                    {revealCorrect && <span className="ml-2 text-[11px] font-normal opacity-70">— правильный ответ</span>}
                   </span>
-                  {asCorrect && <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-primary)' }} />}
-                  {isWrong   && <XCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-danger)' }} />}
+                  {selectedRight  && <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-primary)' }} />}
+                  {isWrong        && <XCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-danger)' }} />}
                 </button>
               );
             })}
