@@ -17,8 +17,8 @@ const CACHE_PREFIX = 'subject-data-';
 // prod: 24 часа — раз в сутки проверяем сервер
 const TTL_MS = BUILD_ID === 'dev' ? 5 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
-// Как часто проверяем версию кэша у сервера (не чаще раза в 5 часов)
-const VERSION_CHECK_TTL = 5 * 60 * 60 * 1000;
+// Как часто проверяем версию кэша у сервера (не чаще раза в 24 часа)
+const VERSION_CHECK_TTL = 24 * 60 * 60 * 1000;
 
 // Проверяет, не сбросил ли админ кэш. Если версия изменилась — удаляет Cache API.
 async function checkAndBustCache(): Promise<void> {
