@@ -101,6 +101,7 @@ export const TestsTab = ({
   const [mistakes,         setMistakes]         = useState<MistakeRecord[]>([]);
   const [favorites,        setFavorites]        = useState<MistakeRecord[]>([]);
   const [examQuestions,    setExamQuestions]    = useState<any[]>([]);
+  const [testSnapshot,     setTestSnapshot]     = useState<any[]>([]);
   const [testsNote,        setTestsNote]        = useState('');
   const [isEditingNote,    setIsNoteEditing]    = useState(false);
   const [localTestsNote,   setLocalTestsNote]   = useState('');
@@ -207,18 +208,7 @@ export const TestsTab = ({
   const perfectCount = useMemo(() => blocks.filter(b => b.status === 'perfect').length, [blocks]);
   const startedCount = useMemo(() => blocks.filter(b => b.status === 'started').length, [blocks]);
 
-  const blockTests = useMemo(() => {
-    if (selectedBlock === null) return [];
-    if (selectedBlock === 'mistakes') return mistakes.slice(0, 100);
-    if (selectedBlock === 'exam') return examQuestions;
-    if (selectedBlock === 'favorites') return favorites;
-    if (typeof selectedBlock === 'number' && selectedBlock < 0) {
-      // Тема-блок
-      const all = themeGroups?.flatMap(g => g.blocks) || [];
-      return all.find(b => b.id === selectedBlock)?.questions || [];
-    }
-    return blocks.find(b => b.id === selectedBlock)?.questions || [];
-  }, [selectedBlock, blocks, themeGroups, mistakes, examQuestions, favorites]);
+  const blockTests = testSnapshot;
 
   const questionBlockMap = useMemo(() => {
     const map = new Map<string, { blockId: number; indexInBlock: number }>();
@@ -292,7 +282,9 @@ export const TestsTab = ({
       const j = Math.floor(Math.random() * (i + 1));
       [all[i], all[j]] = [all[j], all[i]];
     }
-    setExamQuestions(all.slice(0, 100));
+    const qs = all.slice(0, 100);
+    setExamQuestions(qs);
+    setTestSnapshot(qs);
     resetTest();
     setSelectedBlock('exam');
   };
@@ -338,6 +330,8 @@ export const TestsTab = ({
   const startFromQuestion = (id: string) => {
     const info = questionBlockMap.get(id);
     if (!info) return;
+    const b = blocks.find(bl => bl.id === info.blockId);
+    setTestSnapshot(b?.questions || []);
     setSelectedBlock(info.blockId);
     resetTest();
     setCurrentTestIndex(info.indexInBlock);
@@ -466,7 +460,7 @@ export const TestsTab = ({
                 {/* Работа над ошибками */}
                 {mistakes.length > 0 && (
                   <button
-                    onClick={() => { resetTest(); setSelectedBlock('mistakes'); }}
+                    onClick={() => { setTestSnapshot(mistakes.slice(0, 100)); resetTest(); setSelectedBlock('mistakes'); }}
                     className="w-full mb-3 rounded-[18px] p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99] relative overflow-hidden"
                     style={{
                       background: 'linear-gradient(135deg, var(--c-danger-soft) 0%, var(--c-amber-soft) 100%)',
@@ -526,7 +520,7 @@ export const TestsTab = ({
                 {/* Избранные */}
                 {favorites.length > 0 && (
                   <button
-                    onClick={() => { resetTest(); setSelectedBlock('favorites'); }}
+                    onClick={() => { setTestSnapshot([...favorites]); resetTest(); setSelectedBlock('favorites'); }}
                     className="w-full mb-3 rounded-[18px] p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99] relative overflow-hidden"
                     style={{
                       background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-amber) 12%, transparent) 0%, color-mix(in srgb, var(--c-amber) 6%, transparent) 100%)',
@@ -656,7 +650,7 @@ export const TestsTab = ({
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                           {g.blocks.map(b => (
                             <div key={b.id} style={{ width: 'calc((100vw - 56px) / 4)' }}>
-                              <BlockButton b={b} onSelect={() => { resetTest(); setSelectedBlock(b.id); }} />
+                              <BlockButton b={b} onSelect={() => { setTestSnapshot(b.questions || []); resetTest(); setSelectedBlock(b.id); }} />
                             </div>
                           ))}
                         </div>
@@ -669,7 +663,7 @@ export const TestsTab = ({
                       <BlockButton
                         key={b.id}
                         b={{ ...b, localId: i + 1, range: `${i * TESTS_PER_BLOCK + 1}–${Math.min((i + 1) * TESTS_PER_BLOCK, TOTAL_TESTS)}` }}
-                        onSelect={() => { resetTest(); setSelectedBlock(b.id); }}
+                        onSelect={() => { setTestSnapshot(b.questions || []); resetTest(); setSelectedBlock(b.id); }}
                       />
                     ))}
                   </div>
