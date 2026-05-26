@@ -875,7 +875,6 @@ export const TestsTab = ({
                   <span className="flex-1 text-[14px] leading-snug"
                     style={{ color: selectedRight ? 'var(--c-primary)' : isWrong ? 'var(--c-danger)' : revealCorrect ? 'var(--c-primary)' : 'var(--c-text)', fontWeight: (selectedRight || revealCorrect) ? 600 : 500 }}>
                     {opt}
-                    {revealCorrect && <span className="ml-2 text-[11px] font-normal opacity-70">— правильный ответ</span>}
                   </span>
                   {selectedRight  && <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-primary)' }} />}
                   {isWrong        && <XCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-danger)' }} />}
