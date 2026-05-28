@@ -527,7 +527,7 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
 
               <button onClick={onClose}
                 className="w-full h-12 rounded-2xl font-semibold text-[14px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
-                style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                style={{ background: dimColor, border: `1px solid ${borderColor}`, color: accentColor }}>
                 <X className="w-4 h-4" /> Выйти
               </button>
             </motion.div>
@@ -546,7 +546,7 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
               </p>
               <button onClick={onClose}
                 className="w-full max-w-xs h-12 rounded-2xl font-semibold text-[14px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
-                style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                style={{ background: dimColor, border: `1px solid ${borderColor}`, color: accentColor }}>
                 <X className="w-4 h-4" /> Выйти
               </button>
             </div>
@@ -580,7 +580,7 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
               </button>
               <button onClick={() => { if (mode === 'exam') setConfirmExit(true); else onClose(); }}
                 className="w-full h-11 rounded-2xl font-semibold text-[13px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
-                style={{ background: 'transparent', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                style={{ background: dimColor, border: `1px solid ${borderColor}`, color: accentColor }}>
                 <X className="w-4 h-4" /> Выйти из режима
               </button>
             </motion.div>
@@ -626,7 +626,7 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
               </div>
               <button onClick={() => { if (mode === 'exam') setConfirmExit(true); else onClose(); }}
                 className="w-full h-11 rounded-2xl font-semibold text-[13px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
-                style={{ background: 'transparent', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                style={{ background: dimColor, border: `1px solid ${borderColor}`, color: accentColor }}>
                 <X className="w-4 h-4" /> Выйти из режима
               </button>
             </motion.div>
@@ -729,7 +729,7 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                       </button>
                       <button onClick={onClose}
                         className="w-full h-11 rounded-2xl font-semibold text-[13px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
-                        style={{ background: 'transparent', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                        style={{ background: dimColor, border: `1px solid ${borderColor}`, color: accentColor }}>
                         <X className="w-4 h-4" /> Выйти
                       </button>
                     </div>
