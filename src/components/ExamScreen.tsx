@@ -355,65 +355,54 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
     >
       {/* ── ШАПКА ── */}
       <div
-        className="flex-shrink-0 flex items-center gap-2.5 px-4 pt-5 pb-3 sticky top-0 z-10"
+        className="flex-shrink-0 sticky top-0 z-10 px-4 pb-3"
         style={{
           background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
           backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-          borderBottom: '1px solid var(--c-border)', paddingTop: 'var(--header-pt)',
+          borderBottom: '1px solid var(--c-border)',
+          paddingTop: 'max(12px, calc(var(--header-pt) - 24px))',
         }}
       >
-        {inExam ? (
-          <>
-            {mode === 'exam' ? (
-              <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold text-sm tabular-nums"
-                style={{
-                  background: timerLow ? 'hsla(var(--destructive), 0.12)' : dimColor,
-                  color: timerColor,
-                  border: `1px solid ${timerLow ? 'hsla(var(--destructive), 0.4)' : borderColor}`,
-                }}>
-                <Clock className="w-4 h-4" />{fmtTime(secondsLeft)}
+        <div className="flex items-start justify-between px-1">
+          <div className="w-[75px] flex-shrink-0" />
+          <div className="flex flex-col items-center justify-center flex-1 min-w-0">
+            {inExam ? (
+              <div className="flex items-center gap-2 flex-wrap justify-center">
+                {mode === 'exam' ? (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-sm tabular-nums"
+                    style={{
+                      background: timerLow ? 'hsla(var(--destructive), 0.12)' : dimColor,
+                      color: timerColor,
+                      border: `1px solid ${timerLow ? 'hsla(var(--destructive), 0.4)' : borderColor}`,
+                    }}>
+                    <Clock className="w-4 h-4" />{fmtTime(secondsLeft)}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-[13px]"
+                    style={{ background: dimColor, color: accentColor, border: `1px solid ${borderColor}` }}>
+                    <BookOpen className="w-4 h-4" /> Тренировка
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-[13px]"
+                  style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)' }}>
+                  <BookOpen className="w-4 h-4" style={{ color: accentColor }} /> Билет {currentTicket}
+                </div>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold text-[13px]"
-                style={{ background: dimColor, color: accentColor, border: `1px solid ${borderColor}` }}>
-                <BookOpen className="w-4 h-4" /> Тренировка
-              </div>
+              <>
+                <div className="text-[15px] font-bold tracking-tight text-center" style={{ color: 'var(--c-text)' }}>
+                  {phase === 'intro'   && 'Проверка готовности'}
+                  {phase === 'result'  && 'Результат'}
+                  {phase === 'no-data' && 'Экзамен недоступен'}
+                </div>
+                <div className="text-[10px] font-bold uppercase tracking-widest mt-0.5 text-center" style={{ color: accentColor }}>
+                  {subjectLabel}{phase === 'intro' && ticketsData.length > 0 ? ` · ${ticketsData.length} билетов` : ''}
+                </div>
+              </>
             )}
-            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold text-[13px]"
-              style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)' }}>
-              <BookOpen className="w-4 h-4" style={{ color: accentColor }} /> Билет {currentTicket}
-            </div>
-            <div className="flex-1" />
-          </>
-        ) : (
-          <>
-            {phase === 'result' && (
-              <button onClick={() => setPhase('intro')}
-                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition active:scale-90"
-                style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}>
-                <ChevronLeft className="w-4 h-4" style={{ color: 'var(--c-muted)' }} />
-              </button>
-            )}
-            <div className="flex-1">
-              <div className="text-[15px] font-bold tracking-tight" style={{ color: 'var(--c-text)' }}>
-                {phase === 'intro'   && 'Проверка готовности'}
-                {phase === 'result'  && 'Результат'}
-                {phase === 'no-data' && 'Экзамен недоступен'}
-              </div>
-              <div className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: accentColor }}>
-                {subjectLabel}{phase === 'intro' && ticketsData.length > 0 ? ` · ${ticketsData.length} билетов` : ''}
-              </div>
-            </div>
-          </>
-        )}
-
-        <button
-          onClick={() => { if (inExam) setConfirmExit(true); else onClose(); }}
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition active:scale-90"
-          style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
-        >
-          <X className="w-4 h-4" style={{ color: 'var(--c-muted)' }} />
-        </button>
+          </div>
+          <div className="w-[75px] flex-shrink-0" />
+        </div>
       </div>
 
       {/* ПРОГРЕСС-ТОЧКИ */}
@@ -535,6 +524,12 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                   })}
                 </div>
               </div>
+
+              <button onClick={onClose}
+                className="w-full h-12 rounded-2xl font-semibold text-[14px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
+                style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                <X className="w-4 h-4" /> Выйти
+              </button>
             </motion.div>
           )}
 
@@ -549,6 +544,11 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
               <p className="text-[13px] max-w-xs" style={{ color: 'var(--c-muted)' }}>
                 Для этого предмета ещё не загружены экзаменационные билеты.
               </p>
+              <button onClick={onClose}
+                className="w-full max-w-xs h-12 rounded-2xl font-semibold text-[14px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
+                style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                <X className="w-4 h-4" /> Выйти
+              </button>
             </div>
           )}
 
@@ -577,6 +577,11 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                 className="w-full h-[54px] rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2 transition active:scale-[0.98]"
                 style={{ background: accentColor, color: 'var(--c-bg)', boxShadow: `0 8px 22px color-mix(in srgb, ${accentColor} 30%, transparent)` }}>
                 <Eye className="w-5 h-5" /> Показать ответ
+              </button>
+              <button onClick={() => { if (mode === 'exam') setConfirmExit(true); else onClose(); }}
+                className="w-full h-11 rounded-2xl font-semibold text-[13px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
+                style={{ background: 'transparent', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                <X className="w-4 h-4" /> Выйти из режима
               </button>
             </motion.div>
           )}
@@ -619,6 +624,11 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                   <Check className="w-5 h-5" /> Знал
                 </button>
               </div>
+              <button onClick={() => { if (mode === 'exam') setConfirmExit(true); else onClose(); }}
+                className="w-full h-11 rounded-2xl font-semibold text-[13px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
+                style={{ background: 'transparent', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                <X className="w-4 h-4" /> Выйти из режима
+              </button>
             </motion.div>
           )}
 
@@ -716,6 +726,11 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                         className="w-full h-[52px] rounded-2xl font-bold text-[14px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
                         style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
                         <ChevronLeft className="w-4 h-4" /> К списку билетов
+                      </button>
+                      <button onClick={onClose}
+                        className="w-full h-11 rounded-2xl font-semibold text-[13px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
+                        style={{ background: 'transparent', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                        <X className="w-4 h-4" /> Выйти
                       </button>
                     </div>
                   </>
