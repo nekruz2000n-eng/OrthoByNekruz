@@ -279,6 +279,26 @@ export const SUBJECTS: SubjectConfig[] = [
     freeWithKey:    false,
     availableInDemo: false,
   },
+// ═════════════════════ Английский для педиатров 1 курс ════════════════════════
+  {
+    id:             'eng',
+    label:          'Английский язык',
+    shortLabel:     'eng',
+    brandName:      'EngByNekruz',
+    sub:            'Вопросы · Тесты · Задачи',
+    badge:          '1 курс',
+    color:          'hsl(56, 72%, 56%)',
+    dimColor:       'hsl(50 90% 50% / 0.12)',
+    borderColor:    'hsl(50 90% 50% / 0.28)',
+    iconVariant:    'normal',
+    questionsFile:  'eng_questions.json',
+    tasksFile:      'eng_tasks.json',
+    testsFile:      'eng_tests.json',
+    glossaryFile:   'eng_glossary.json',
+    lsPrefix:       'eng',
+    freeWithKey:    false,
+    availableInDemo: false,
+  }
 ];
 
 // ─── Тип ID любой дисциплины ───────────────────────────────────────────────
