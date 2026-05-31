@@ -833,7 +833,8 @@ export default function AdminPage() {
   const [page,               setPage]               = useState(1);
   const [hasMore,            setHasMore]            = useState(false);
   const [filter,             setFilter]             = useState<Filter>('all');
-  const [sortBy,             setSortBy]             = useState<SortBy>('registered');
+  const [sortBy,             setSortBy]             = useState<SortBy>('lastLogin');
+  const [registeredAsc,      setRegisteredAsc]      = useState(false);
   const [search,             setSearch]             = useState('');
   const [debouncedSearch,    setDebouncedSearch]    = useState('');
   const [error,              setError]              = useState('');
@@ -843,9 +844,6 @@ export default function AdminPage() {
   const [suspiciousCount,    setSuspiciousCount]    = useState(0);
   const [microCount,         setMicroCount]         = useState(0);
   const [filteredTotal,      setFilteredTotal]      = useState(0);
-  const [quickTgId,          setQuickTgId]          = useState('');
-  const [quickSubject,       setQuickSubject]       = useState('ortho');
-  const [quickGranting,      setQuickGranting]      = useState(false);
   const [actioning,          setActioning]          = useState<string | null>(null);
   const [toast,              setToast]              = useState<string | null>(null);
   // expandedIds восстанавливаются из sessionStorage, чтобы после ↻ refresh карточки не схлопывались
@@ -1381,14 +1379,24 @@ export default function AdminPage() {
   // ── POST: список пользователей (пагинация, фильтры на сервере) ───────────
   const fetchUsers = useCallback(async (
     s: string,
-    opts?: { page?: number; append?: boolean; background?: boolean },
+    opts?: {
+      page?: number;
+      append?: boolean;
+      background?: boolean;
+      sortBy?: SortBy;
+      sortDir?: 'asc' | 'desc';
+    },
   ) => {
     const initData = getTelegramInitData();
     if (!initData) { setError('Вход только через Telegram Mini App'); return; }
 
-    const pageNum  = opts?.page ?? 1;
-    const append   = opts?.append === true;
-    const bg       = opts?.background === true;
+    const pageNum    = opts?.page ?? 1;
+    const append     = opts?.append === true;
+    const bg         = opts?.background === true;
+    const reqSort    = opts?.sortBy ?? sortBy;
+    const reqSortDir = opts?.sortDir ?? (
+      reqSort === 'registered' && registeredAsc ? 'asc' : 'desc'
+    );
 
     if (bg) setRefreshing(true);
     else if (!append) setLoading(true);
@@ -1405,7 +1413,8 @@ export default function AdminPage() {
           limit:    50,
           filter,
           q:        debouncedSearch,
-          sortBy,
+          sortBy:   reqSort,
+          sortDir:  reqSortDir,
         }),
       });
 
@@ -1447,14 +1456,53 @@ export default function AdminPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filter, debouncedSearch, sortBy]);
+  }, [filter, debouncedSearch, sortBy, registeredAsc]);
 
   useEffect(() => {
     if (!authed || !secret) return;
     setPage(1);
     fetchUsers(secret, { page: 1, append: false, background: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, debouncedSearch, sortBy]);
+  }, [filter, debouncedSearch]);
+
+  const handleSortClick = useCallback((id: SortBy) => {
+    if (id === 'registered') {
+      if (sortBy === 'registered') {
+        const nextAsc = !registeredAsc;
+        setRegisteredAsc(nextAsc);
+        setPage(1);
+        fetchUsers(secret, {
+          page: 1,
+          append: false,
+          background: true,
+          sortBy: 'registered',
+          sortDir: nextAsc ? 'asc' : 'desc',
+        });
+      } else {
+        setSortBy('registered');
+        setRegisteredAsc(false);
+        setPage(1);
+        fetchUsers(secret, {
+          page: 1,
+          append: false,
+          background: true,
+          sortBy: 'registered',
+          sortDir: 'desc',
+        });
+      }
+      return;
+    }
+    setSortBy(id);
+    setRegisteredAsc(false);
+    setPage(1);
+    fetchUsers(secret, {
+      page: 1,
+      append: false,
+      background: true,
+      sortBy: id,
+      sortDir: 'desc',
+    });
+  }, [sortBy, registeredAsc, secret, fetchUsers]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1586,22 +1634,6 @@ export default function AdminPage() {
       if (msg) showToast(msg);
     } finally {
       setActioning(null);
-    }
-  };
-
-  const handleQuickGrant = async () => {
-    const id = quickTgId.trim();
-    if (!/^\d{5,12}$/.test(id)) {
-      showToast('Введите корректный Telegram ID');
-      return;
-    }
-    setQuickGranting(true);
-    try {
-      await doAction(id, 'toggle_subject', quickSubject, true);
-      setQuickTgId('');
-      fetchUsers(secret, { page: 1, append: false, background: true });
-    } finally {
-      setQuickGranting(false);
     }
   };
 
@@ -2924,61 +2956,6 @@ export default function AdminPage() {
 
         {adminTab === 'students' && (<>
 
-        {/* быстрая выдача доступа */}
-        <div style={{
-          background: T.surface, border: `1px solid ${T.border}`,
-          borderRadius: 14, padding: '13px 14px', marginBottom: 14,
-        }}>
-          <div style={{
-            fontSize: 11, fontWeight: 700, color: T.textMuted,
-            textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10,
-          }}>Быстрая выдача доступа</div>
-          <input
-            value={quickTgId}
-            onChange={e => setQuickTgId(e.target.value.replace(/\D/g, ''))}
-            placeholder="Telegram ID студента"
-            style={{
-              width: '100%', boxSizing: 'border-box', marginBottom: 8,
-              padding: '10px 12px', borderRadius: 10,
-              border: `1px solid ${T.border}`, fontSize: 14,
-              fontFamily: FONT_MONO, background: T.surfaceAlt, color: T.text,
-              outline: 'none',
-            }}
-          />
-          <div style={{
-            display: 'flex', gap: 6, marginBottom: 10,
-            overflowX: 'auto', scrollbarWidth: 'none',
-          } as React.CSSProperties}>
-            {availableSubjects.map(s => {
-              const active = quickSubject === s.id;
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => setQuickSubject(s.id)}
-                  style={{
-                    padding: '6px 11px', borderRadius: 999, flexShrink: 0,
-                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                    border: `1px solid ${active ? T.accent : T.border}`,
-                    background: active ? T.accent : T.surfaceAlt,
-                    color: active ? '#fff' : T.textMuted,
-                    fontFamily: FONT_SANS,
-                  }}
-                >
-                  {s.shortLabel}
-                </button>
-              );
-            })}
-          </div>
-          <ActionBtn
-            variant="primary"
-            fullWidth
-            disabled={quickGranting || !quickTgId.trim()}
-            onClick={handleQuickGrant}
-          >
-            {quickGranting ? '...' : 'Выдать предмет'}
-          </ActionBtn>
-        </div>
-
         {/* stat-плитки */}
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 14,
@@ -3058,13 +3035,21 @@ export default function AdminPage() {
           scrollbarWidth: 'none', msOverflowStyle: 'none',
         } as React.CSSProperties}>
           {([
-            { id: 'registered', label: 'Новые сначала'   },
-            { id: 'lastLogin',  label: 'Последний вход'  },
-            { id: 'loginCount', label: 'Активность сегодня' },
-          ] as const).map(opt => {
-            const active = (sortBy as string) === opt.id;
+            {
+              id: 'registered' as const,
+              label: sortBy === 'registered'
+                ? (registeredAsc ? 'Старые сначала' : 'Новые сначала')
+                : 'Новые сначала',
+            },
+            { id: 'lastLogin' as const,  label: 'Последний вход' },
+            { id: 'loginCount' as const, label: 'Активность сегодня' },
+          ]).map(opt => {
+            const active = sortBy === opt.id;
+            const arrow  = active
+              ? (opt.id === 'registered' && registeredAsc ? '↑ ' : '↓ ')
+              : '';
             return (
-              <button key={opt.id} onClick={() => setSortBy(opt.id as SortBy)} style={{
+              <button key={opt.id} onClick={() => handleSortClick(opt.id)} style={{
                 padding: '6px 12px', borderRadius: 999,
                 fontSize: 12, fontWeight: 600, cursor: 'pointer',
                 whiteSpace: 'nowrap', flex: '0 0 auto',
@@ -3074,10 +3059,15 @@ export default function AdminPage() {
                 fontFamily: FONT_SANS,
                 WebkitTapHighlightColor: 'transparent',
               }}>
-                {active ? '↓ ' : ''}{opt.label}
+                {arrow}{opt.label}
               </button>
             );
           })}
+        </div>
+        <div style={{ fontSize: 11, color: T.textFaint, marginBottom: 10, lineHeight: 1.4 }}>
+          {debouncedSearch || filter !== 'all'
+            ? 'Поиск и фильтры по всей базе'
+            : 'Показаны 50 человек · «Новые» — нажмите ещё раз для старых'}
         </div>
 
         {/* поиск */}
@@ -3087,7 +3077,7 @@ export default function AdminPage() {
             color: T.textFaint, fontSize: 14, pointerEvents: 'none',
           }}>⌕</span>
           <input
-            placeholder="ID, имя или @username"
+            placeholder="Имя, @username или Telegram ID"
             value={search} onChange={e => setSearch(e.target.value)}
             style={{
               width: '100%', boxSizing: 'border-box',
@@ -3141,7 +3131,7 @@ export default function AdminPage() {
                   fontFamily: FONT_SANS,
                 }}
               >
-                {refreshing ? 'Загрузка…' : `Показать ещё (${users.length} из ${filteredTotal})`}
+                {refreshing ? 'Загрузка…' : `Ещё (${users.length} из ${filteredTotal})`}
               </button>
             )}
           </>

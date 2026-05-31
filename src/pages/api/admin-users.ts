@@ -106,11 +106,22 @@ function toDetailUser(
 }
 
 function matchesQuery(u: ReturnType<typeof toListUser>, q: string): boolean {
-  const hay = [u.tgId, u.username, u.firstName, u.lastName].filter(Boolean).join(' ').toLowerCase();
-  return hay.includes(q);
+  const needle = q.trim().toLowerCase().replace(/^@/, '');
+  if (!needle) return true;
+  const hay = [u.tgId, u.username, u.firstName, u.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  if (hay.includes(needle)) return true;
+  if (u.username && u.username.toLowerCase().includes(needle)) return true;
+  return false;
 }
 
-function sortUsers(list: ReturnType<typeof toListUser>[], sortBy: ListSort) {
+function sortUsers(
+  list: ReturnType<typeof toListUser>[],
+  sortBy: ListSort,
+  sortDir: 'asc' | 'desc',
+) {
   return [...list].sort((a, b) => {
     if (sortBy === 'loginCount') {
       const diff = b.opensToday - a.opensToday;
@@ -124,15 +135,7 @@ function sortUsers(list: ReturnType<typeof toListUser>[], sortBy: ListSort) {
     }
     const ta = a.registeredAt ? Date.parse(a.registeredAt) : 0;
     const tb = b.registeredAt ? Date.parse(b.registeredAt) : 0;
-    return tb - ta;
-  });
-}
-
-function prioritySort(list: ReturnType<typeof toListUser>[]) {
-  return [...list].sort((a, b) => {
-    const scoreA = (a.blocked ? 2 : 0) + (a.suspicious ? 1 : 0);
-    const scoreB = (b.blocked ? 2 : 0) + (b.suspicious ? 1 : 0);
-    return scoreB - scoreA;
+    return sortDir === 'asc' ? ta - tb : tb - ta;
   });
 }
 
@@ -173,7 +176,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const {
     initData, secret, action, tgId, subject, enable, reason, section,
-    page, limit, filter, q, sortBy,
+    page, limit, filter, q, sortBy, sortDir,
   } = req.body ?? {};
 
   if (!initData || !secret || !verifyAdmin(String(initData), String(secret))) {
@@ -361,7 +364,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       : 'all') as ListFilter;
     const listSort = (['registered', 'lastLogin', 'loginCount'].includes(sortBy)
       ? sortBy
-      : 'registered') as ListSort;
+      : 'lastLogin') as ListSort;
+    const listSortDir: 'asc' | 'desc' =
+      sortDir === 'asc' && listSort === 'registered' ? 'asc' : 'desc';
     const query = String(q ?? '').trim().toLowerCase();
 
     let filtered = allUsers.filter(u => {
@@ -372,14 +377,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return true;
     });
 
-    if (listFilter === 'all' && !query) {
-      filtered = prioritySort(filtered);
-    } else {
-      filtered = sortUsers(filtered, listSort);
-    }
+    filtered = sortUsers(filtered, listSort, listSortDir);
 
-    const pageNum  = Math.max(1, Number(page) || 1);
-    const pageSize = Math.min(100, Math.max(10, Number(limit) || PAGE_SIZE));
+    const pageSize = PAGE_SIZE;
+    const browsingTop50 = listFilter === 'all' && !query;
+    const pageNum  = browsingTop50 ? 1 : Math.max(1, Number(page) || 1);
     const start    = (pageNum - 1) * pageSize;
     const slice    = filtered.slice(start, start + pageSize);
 
@@ -394,7 +396,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       filteredTotal: filtered.length,
       page: pageNum,
       pageSize,
-      hasMore: start + pageSize < filtered.length,
+      hasMore: browsingTop50 ? false : start + pageSize < filtered.length,
+      sortBy: listSort,
+      sortDir: listSortDir,
       demoCount,
       blockedCount,
       suspiciousCount,
