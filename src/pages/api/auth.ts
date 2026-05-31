@@ -8,6 +8,7 @@ import {
   getDemoSubjectId,
 } from '@/lib/subjects';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
+import { registerUserId } from '@/lib/userIndex';
 
 const redis = Redis.fromEnv();
 
@@ -253,6 +254,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         lastLogin:  new Date().toISOString(),
         loginCount: ((user as any).loginCount || 0) + 1,
       });
+      await registerUserId(redis, tgIdStr);
       await resetRateLimit(ip, tgIdStr);
 
       const userSubjects = getUserAvailableSubjects(user);
@@ -278,6 +280,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           _migrated_subjects: true,
         };
         await redis.set(`user_id:${tgIdStr}`, newUser);
+        await registerUserId(redis, tgIdStr);
 
         const userSubjects = getUserAvailableSubjects(newUser);
         return res.status(200).json({
@@ -293,6 +296,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (now < trialEnd) {
           if (username !== user.username) {
             await redis.set(`user_id:${tgIdStr}`, { ...user, username, firstName, lastName });
+            await registerUserId(redis, tgIdStr);
           }
           const userSubjects = getUserAvailableSubjects(user);
           return res.status(200).json({
@@ -336,6 +340,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     await redis.set(`user_id:${tgIdStr}`, activatedUser);
+    await registerUserId(redis, tgIdStr);
     await redis.srem('valid_keys', key.trim());
     await resetRateLimit(ip, tgIdStr);
 

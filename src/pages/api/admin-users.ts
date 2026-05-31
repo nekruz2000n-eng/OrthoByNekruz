@@ -2,13 +2,17 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
 import { SUBJECTS, getSubject, getUserAvailableSubjects } from '@/lib/subjects';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
+import { getAllUserIds, registerUserId, removeUserId } from '@/lib/userIndex';
 
 const redis        = Redis.fromEnv();
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
-const ADMIN_TG_ID  = '978243325';
+const ADMIN_TG_ID  = process.env.ADMIN_TG_ID || '978243325';
 const BOT_TOKEN    = process.env.BOT_TOKEN    || '';
+const PAGE_SIZE    = 50;
 
-// ── Security middleware: initData валидна + ID совпадает + secret верный ─────
+type ListFilter = 'all' | 'blocked' | 'suspicious' | 'demo';
+type ListSort   = 'registered' | 'lastLogin' | 'loginCount';
+
 function verifyAdmin(initData: string, secret: string): boolean {
   if (!ADMIN_SECRET || secret !== ADMIN_SECRET) return false;
   if (!BOT_TOKEN) return false;
@@ -17,7 +21,6 @@ function verifyAdmin(initData: string, secret: string): boolean {
   return true;
 }
 
-// ── Конвертация старого формата пользователя в новый ────────────────────────
 function ensureSubjects(user: any): any {
   if (!user) return user;
   if (user.subjects && typeof user.subjects === 'object') return user;
@@ -30,18 +33,168 @@ function ensureSubjects(user: any): any {
   return { ...user, subjects };
 }
 
+function subjectPayload() {
+  return SUBJECTS.map(s => ({
+    id:         s.id,
+    label:      s.label,
+    shortLabel: s.shortLabel,
+    color:      s.color,
+  }));
+}
+
+function isSuspicious(opensToday: number): boolean {
+  return opensToday >= 5;
+}
+
+function toListUser(
+  id: string,
+  user: any,
+  opensToday: number,
+  usedDemo: boolean,
+) {
+  user = ensureSubjects(user);
+  const userSubjects = getUserAvailableSubjects(user);
+  return {
+    tgId:          id,
+    username:      user.username      ?? null,
+    firstName:     user.firstName     ?? null,
+    lastName:      user.lastName      ?? null,
+    blocked:       user.blocked === true,
+    blockedReason: user.blockedReason ?? null,
+    blockedAt:     user.blockedAt     ?? null,
+    subjects:      userSubjects,
+    hasMicro:      userSubjects.includes('micro'),
+    usedDemo,
+    activatedKey:  user.activatedKey  ?? null,
+    registeredAt:  user.date          ?? null,
+    lastLogin:     user.lastLogin     ?? null,
+    loginCount:    Number(user.loginCount) || 0,
+    opensToday,
+    suspicious:    isSuspicious(opensToday),
+    paid:          user.paid === true,
+  };
+}
+
+function toDetailUser(
+  id: string,
+  user: any,
+  opensToday: number,
+  usedDemo: boolean,
+) {
+  user = ensureSubjects(user);
+  const userSubjects = getUserAvailableSubjects(user);
+  return {
+    tgId:          id,
+    username:      user.username      ?? null,
+    firstName:     user.firstName     ?? null,
+    lastName:      user.lastName      ?? null,
+    blocked:       user.blocked === true,
+    blockedReason: user.blockedReason ?? null,
+    blockedAt:     user.blockedAt     ?? null,
+    subjects:      userSubjects,
+    hasMicro:      userSubjects.includes('micro'),
+    usedDemo,
+    activatedKey:  user.activatedKey  ?? null,
+    registeredAt:  user.date          ?? null,
+    lastLogin:     user.lastLogin     ?? null,
+    loginCount:    Number(user.loginCount) || 0,
+    opensToday,
+    suspicious:    isSuspicious(opensToday),
+    navHidden:     (user.navHidden && typeof user.navHidden === 'object') ? user.navHidden : {},
+    paid:          user.paid === true,
+  };
+}
+
+function matchesQuery(u: ReturnType<typeof toListUser>, q: string): boolean {
+  const hay = [u.tgId, u.username, u.firstName, u.lastName].filter(Boolean).join(' ').toLowerCase();
+  return hay.includes(q);
+}
+
+function sortUsers(list: ReturnType<typeof toListUser>[], sortBy: ListSort) {
+  return [...list].sort((a, b) => {
+    if (sortBy === 'loginCount') {
+      const diff = b.opensToday - a.opensToday;
+      if (diff !== 0) return diff;
+      return b.loginCount - a.loginCount;
+    }
+    if (sortBy === 'lastLogin') {
+      const ta = a.lastLogin ? Date.parse(a.lastLogin) : (a.registeredAt ? Date.parse(a.registeredAt) : 0);
+      const tb = b.lastLogin ? Date.parse(b.lastLogin) : (b.registeredAt ? Date.parse(b.registeredAt) : 0);
+      return tb - ta;
+    }
+    const ta = a.registeredAt ? Date.parse(a.registeredAt) : 0;
+    const tb = b.registeredAt ? Date.parse(b.registeredAt) : 0;
+    return tb - ta;
+  });
+}
+
+function prioritySort(list: ReturnType<typeof toListUser>[]) {
+  return [...list].sort((a, b) => {
+    const scoreA = (a.blocked ? 2 : 0) + (a.suspicious ? 1 : 0);
+    const scoreB = (b.blocked ? 2 : 0) + (b.suspicious ? 1 : 0);
+    return scoreB - scoreA;
+  });
+}
+
+async function saveUser(tgId: string, data: any) {
+  await redis.set(`user_id:${tgId}`, data);
+  await registerUserId(redis, tgId);
+}
+
+async function buildUserList(ids: string[]) {
+  if (!ids.length) return [];
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const pipeline1 = redis.pipeline();
+  for (const id of ids) pipeline1.get(`user_id:${id}`);
+  const rawUsers = await pipeline1.exec();
+
+  const pipeline2 = redis.pipeline();
+  for (const id of ids) {
+    pipeline2.get(`opens:${id}:${today}`);
+  }
+  const opensData = await pipeline2.exec();
+
+  const pipeline3 = redis.pipeline();
+  for (const id of ids) pipeline3.sismember('used_demo_ids', id);
+  const demoData = await pipeline3.exec();
+
+  return ids.map((id, i) => {
+    const user      = (rawUsers[i] as any) ?? {};
+    const opens     = Number(opensData[i]) || 0;
+    const usedDemo  = Boolean(demoData[i]);
+    return toListUser(id, user, opens, usedDemo);
+  });
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { initData, secret, action, tgId, subject, enable, reason, section } = req.body ?? {};
+  const {
+    initData, secret, action, tgId, subject, enable, reason, section,
+    page, limit, filter, q, sortBy,
+  } = req.body ?? {};
 
-  // ── Двойная защита: initData + ADMIN_TG_ID + ADMIN_SECRET ───────────────
   if (!initData || !secret || !verifyAdmin(String(initData), String(secret))) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
   try {
-    // ── Действия с конкретным пользователем ─────────────────────────────────
+    if (action === 'get_user' && tgId) {
+      const id = String(tgId);
+      const user: any = await redis.get(`user_id:${id}`);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const today = new Date().toISOString().slice(0, 10);
+      const opensToday = Number(await redis.get(`opens:${id}:${today}`)) || 0;
+      const usedDemo   = Boolean(await redis.sismember('used_demo_ids', id));
+
+      return res.status(200).json({
+        user: toDetailUser(id, user, opensToday, usedDemo),
+      });
+    }
+
     if (action && tgId) {
       let user: any = await redis.get(`user_id:${tgId}`);
       if (!user && action !== 'reset_demo') {
@@ -50,9 +203,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       user = ensureSubjects(user);
 
       if (action === 'block') {
-        // Причина — свободный текст до 200 символов; пусто → дефолт 'manual'
         const cleanReason = String(reason ?? '').trim().slice(0, 200) || 'manual';
-        await redis.set(`user_id:${tgId}`, {
+        await saveUser(String(tgId), {
           ...user,
           blocked:       true,
           blockedReason: cleanReason,
@@ -66,7 +218,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         delete updated.blocked;
         delete updated.blockedReason;
         delete updated.blockedAt;
-        await redis.set(`user_id:${tgId}`, updated);
+        await saveUser(String(tgId), updated);
         const today = new Date().toISOString().slice(0, 10);
         await redis.del(`opens:${tgId}:${today}`);
         await redis.del(`opens_notified:${tgId}:${today}`);
@@ -92,10 +244,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         const navHidden: Record<string, string[]> = { ...(user.navHidden || {}) };
         if (enabled) {
-          // Все разделы скрыты по умолчанию — админ открывает нужные вручную
           navHidden[subjectId] = ALL_SECTIONS;
         } else {
-          // При отзыве доступа убираем запись navHidden для этого предмета
           delete navHidden[subjectId];
         }
 
@@ -119,19 +269,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
 
-        await redis.set(`user_id:${tgId}`, updated);
+        await saveUser(String(tgId), updated);
         return res.status(200).json({
           ok: true,
           subjects: getUserAvailableSubjects(updated),
+          navHidden,
         });
       }
 
-      // Legacy: give_micro / revoke_micro
       if (action === 'give_micro') {
         const subjects = { ...(user.subjects || {}) };
         for (const s of SUBJECTS) if (!(s.id in subjects)) subjects[s.id] = false;
         subjects.micro = true;
-        await redis.set(`user_id:${tgId}`, {
+        await saveUser(String(tgId), {
           ...user,
           subjects,
           micro:              true,
@@ -150,7 +300,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         delete u.microGrantedAt;
         delete u.microKey;
         delete u.microDate;
-        await redis.set(`user_id:${tgId}`, u);
+        await saveUser(String(tgId), u);
         return res.status(200).json({ ok: true });
       }
 
@@ -161,25 +311,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (action === 'toggle_paid') {
         const newPaid = !user.paid;
-        await redis.set(`user_id:${tgId}`, { ...user, paid: newPaid });
+        await saveUser(String(tgId), { ...user, paid: newPaid });
         return res.status(200).json({ ok: true, paid: newPaid });
       }
 
-      // Полное удаление пользователя — стираем все связанные ключи
       if (action === 'delete_user') {
         const id = String(tgId);
         await redis.del(`user_id:${id}`);
-        await redis.del(`fingerprint_changes:${id}`);
+        await removeUserId(redis, id);
         await redis.srem('used_demo_ids', id);
-        // opens:<id>:<date> и opens_notified:<id>:<date> — за все даты
         try {
-          const stale = await redis.keys(`opens*:${id}:*`);
-          if (stale.length) await redis.del(...stale);
-        } catch { /* keys может быть недоступен — не критично */ }
+          let cur = 0;
+          do {
+            const [nextCur, keys] = await redis.scan(cur, { match: `opens*:${id}:*`, count: 100 });
+            cur = Number(nextCur);
+            if ((keys as string[]).length) {
+              await redis.del(...(keys as [string, ...string[]]));
+            }
+          } while (cur !== 0);
+        } catch { /* не критично */ }
         return res.status(200).json({ ok: true });
       }
 
-      // Включить/выключить раздел навигации (questions/tests/tasks/stats) у конкретного юзера в конкретном предмете
       if (action === 'toggle_section') {
         const subjectId = String(subject || '').trim();
         const sectionId = String(section || '').trim();
@@ -192,103 +345,61 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const set = new Set<string>(navHidden[subjectId] || []);
         if (enabled) set.delete(sectionId); else set.add(sectionId);
         if (set.size === 0) delete navHidden[subjectId]; else navHidden[subjectId] = [...set];
-        await redis.set(`user_id:${tgId}`, { ...user, navHidden });
+        await saveUser(String(tgId), { ...user, navHidden });
         return res.status(200).json({ ok: true, navHidden });
       }
 
       return res.status(400).json({ error: 'Unknown action' });
     }
 
-    // ── Получить список всех пользователей ──────────────────────────────────
-    const keys = await redis.keys('user_id:*');
-    if (!keys.length) {
-      return res.status(200).json({
-        users: [],
-        total: 0,
-        demoCount: 0,
-        availableSubjects: SUBJECTS.map(s => ({
-          id:         s.id,
-          label:      s.label,
-          shortLabel: s.shortLabel,
-          color:      s.color,
-        })),
-      });
-    }
+    // ── Список пользователей (пагинация + фильтры на сервере) ───────────────
+    const ids = await getAllUserIds(redis);
+    const allUsers = await buildUserList(ids);
 
-    const today = new Date().toISOString().slice(0, 10);
+    const listFilter = (['all', 'blocked', 'suspicious', 'demo'].includes(filter)
+      ? filter
+      : 'all') as ListFilter;
+    const listSort = (['registered', 'lastLogin', 'loginCount'].includes(sortBy)
+      ? sortBy
+      : 'registered') as ListSort;
+    const query = String(q ?? '').trim().toLowerCase();
 
-    const pipeline1 = redis.pipeline();
-    for (const key of keys) pipeline1.get(key);
-    const rawUsers = await pipeline1.exec();
-
-    const pipeline2 = redis.pipeline();
-    for (const key of keys) {
-      const id = key.replace('user_id:', '');
-      pipeline2.get(`opens:${id}:${today}`);
-      pipeline2.get(`fingerprint_changes:${id}`);
-    }
-    const extraData = await pipeline2.exec();
-
-    const pipeline3 = redis.pipeline();
-    for (const key of keys) {
-      const id = key.replace('user_id:', '');
-      pipeline3.sismember('used_demo_ids', id);
-    }
-    const demoData = await pipeline3.exec();
-
-    const users = keys.map((key, i) => {
-      const id        = key.replace('user_id:', '');
-      let   user      = (rawUsers[i] as any) ?? {};
-      const opens     = Number(extraData[i * 2])     || 0;
-      const fpChanges = Number(extraData[i * 2 + 1]) || 0;
-      const usedDemo  = Boolean(demoData[i]);
-
-      user = ensureSubjects(user);
-      const userSubjects = getUserAvailableSubjects(user);
-
-      const suspicious = opens >= 5 || fpChanges >= 2;
-
-      return {
-        tgId:          id,
-        username:      user.username      ?? null,
-        firstName:     user.firstName     ?? null,
-        lastName:      user.lastName      ?? null,
-        blocked:       user.blocked === true,
-        blockedReason: user.blockedReason ?? null,
-        blockedAt:     user.blockedAt     ?? null,
-        subjects:      userSubjects,
-        hasMicro:      userSubjects.includes('micro'),
-        usedDemo,
-        activatedKey:  user.activatedKey  ?? null,
-        registeredAt:  user.date          ?? null,
-        lastLogin:     user.lastLogin     ?? null,
-        loginCount:    Number(user.loginCount) || 0,
-        opensToday:    opens,
-        fpChanges,
-        suspicious,
-        navHidden:     (user.navHidden && typeof user.navHidden === 'object') ? user.navHidden : {},
-        paid:          user.paid === true,
-      };
+    let filtered = allUsers.filter(u => {
+      if (listFilter === 'blocked'    && !u.blocked) return false;
+      if (listFilter === 'suspicious' && !u.suspicious && !u.blocked) return false;
+      if (listFilter === 'demo'       && !u.usedDemo) return false;
+      if (query && !matchesQuery(u, query)) return false;
+      return true;
     });
 
-    users.sort((a, b) => {
-      const scoreA = (a.blocked ? 2 : 0) + (a.suspicious ? 1 : 0);
-      const scoreB = (b.blocked ? 2 : 0) + (b.suspicious ? 1 : 0);
-      return scoreB - scoreA;
-    });
+    if (listFilter === 'all' && !query) {
+      filtered = prioritySort(filtered);
+    } else {
+      filtered = sortUsers(filtered, listSort);
+    }
 
-    const demoCount = users.filter(u => u.usedDemo).length;
+    const pageNum  = Math.max(1, Number(page) || 1);
+    const pageSize = Math.min(100, Math.max(10, Number(limit) || PAGE_SIZE));
+    const start    = (pageNum - 1) * pageSize;
+    const slice    = filtered.slice(start, start + pageSize);
+
+    const blockedCount    = allUsers.filter(u => u.blocked).length;
+    const suspiciousCount = allUsers.filter(u => u.suspicious && !u.blocked).length;
+    const demoCount       = allUsers.filter(u => u.usedDemo).length;
+    const microCount      = allUsers.filter(u => u.subjects.some(s => s !== 'ortho')).length;
 
     return res.status(200).json({
-      users,
-      total: users.length,
+      users: slice,
+      total: allUsers.length,
+      filteredTotal: filtered.length,
+      page: pageNum,
+      pageSize,
+      hasMore: start + pageSize < filtered.length,
       demoCount,
-      availableSubjects: SUBJECTS.map(s => ({
-        id:         s.id,
-        label:      s.label,
-        shortLabel: s.shortLabel,
-        color:      s.color,
-      })),
+      blockedCount,
+      suspiciousCount,
+      microCount,
+      availableSubjects: subjectPayload(),
     });
 
   } catch (err) {

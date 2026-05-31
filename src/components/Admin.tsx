@@ -19,11 +19,12 @@ interface User {
   lastLogin:     string | null;
   loginCount:    number;
   opensToday:    number;
-  fpChanges:     number;
   suspicious:    boolean;
-  navHidden:     Record<string, string[]>;
+  navHidden?:    Record<string, string[]>;
   paid:          boolean;
 }
+
+type AdminTab = 'students' | 'settings';
 
 interface SubjectInfo {
   id:         string;
@@ -455,8 +456,6 @@ function UserCard({
             )}
             <Meta label="Открытий сегодня" value={String(user.opensToday)}
               color={user.opensToday >= 5 ? T.danger : user.opensToday >= 3 ? T.warn : undefined} />
-            <Meta label="Смен fingerprint" value={String(user.fpChanges)}
-              color={user.fpChanges >= 3 ? T.danger : user.fpChanges >= 1 ? T.warn : undefined} />
             {user.blocked && (
               <Meta label="Заблокирован" value={fmtDate(user.blockedAt)} color={T.danger} />
             )}
@@ -518,7 +517,7 @@ function UserCard({
                 {availableSubjects
                   .filter(s => user.subjects.includes(s.id))
                   .map(subj => {
-                    const hidden = new Set<string>(user.navHidden?.[subj.id] || []);
+                    const hidden = new Set<string>((user.navHidden ?? {})[subj.id] || []);
                     return (
                       <div key={subj.id} style={{
                         background: T.surface, border: `1px solid ${T.border}`,
@@ -826,9 +825,13 @@ export default function AdminPage() {
 
   const [secret,             setSecret]             = useState('');
   const [authed,             setAuthed]             = useState(false);
+  const [adminTab,           setAdminTab]           = useState<AdminTab>('students');
   const [users,              setUsers]              = useState<User[]>([]);
   const [availableSubjects,  setAvailableSubjects]  = useState<SubjectInfo[]>([]);
   const [loading,            setLoading]            = useState(false);
+  const [refreshing,         setRefreshing]         = useState(false);
+  const [page,               setPage]               = useState(1);
+  const [hasMore,            setHasMore]            = useState(false);
   const [filter,             setFilter]             = useState<Filter>('all');
   const [sortBy,             setSortBy]             = useState<SortBy>('registered');
   const [search,             setSearch]             = useState('');
@@ -836,6 +839,13 @@ export default function AdminPage() {
   const [error,              setError]              = useState('');
   const [total,              setTotal]              = useState(0);
   const [demoCount,          setDemoCount]          = useState(0);
+  const [blockedCount,       setBlockedCount]       = useState(0);
+  const [suspiciousCount,    setSuspiciousCount]    = useState(0);
+  const [microCount,         setMicroCount]         = useState(0);
+  const [filteredTotal,      setFilteredTotal]      = useState(0);
+  const [quickTgId,          setQuickTgId]          = useState('');
+  const [quickSubject,       setQuickSubject]       = useState('ortho');
+  const [quickGranting,      setQuickGranting]      = useState(false);
   const [actioning,          setActioning]          = useState<string | null>(null);
   const [toast,              setToast]              = useState<string | null>(null);
   // expandedIds восстанавливаются из sessionStorage, чтобы после ↻ refresh карточки не схлопывались
@@ -849,7 +859,7 @@ export default function AdminPage() {
     }
   });
 
-  // Debounce строки поиска (200ms) — не перефильтровывать список на каждый символ
+  // Debounce строки поиска (200ms)
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 200);
     return () => clearTimeout(t);
@@ -1338,26 +1348,65 @@ export default function AdminPage() {
     setTimeout(() => setToast(null), 2500);
   };
 
-  const toggleExpand = useCallback((tgId: string) => {
-    setExpandedIds(prev => {
-      const next = new Set(prev);
-      next.has(tgId) ? next.delete(tgId) : next.add(tgId);
-      return next;
-    });
-  }, []);
-
-  // ── POST: получить список пользователей ───────────────────────────────────
-  const fetchUsers = useCallback(async (s: string) => {
+  const fetchUserDetail = useCallback(async (s: string, tgId: string) => {
     const initData = getTelegramInitData();
-    if (!initData) { setError('Вход только через Telegram Mini App'); return; }
-
-    setLoading(true);
-    setError('');
+    if (!initData) return;
     try {
       const r = await fetch('/api/admin-users', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ secret: s, initData }),
+        body:    JSON.stringify({ secret: s, initData, action: 'get_user', tgId }),
+      });
+      if (!r.ok) return;
+      const data = await r.json();
+      if (!data.user) return;
+      setUsers(prev => prev.map(u => u.tgId === tgId ? { ...u, ...data.user } : u));
+    } catch { /* не критично */ }
+  }, []);
+
+  const toggleExpand = useCallback((tgId: string) => {
+    setExpandedIds(prev => {
+      const opening = !prev.has(tgId);
+      if (opening) {
+        const u = users.find(x => x.tgId === tgId);
+        if (u && u.navHidden === undefined) {
+          void fetchUserDetail(secret, tgId);
+        }
+        return new Set([tgId]);
+      }
+      return new Set();
+    });
+  }, [users, secret, fetchUserDetail]);
+
+  // ── POST: список пользователей (пагинация, фильтры на сервере) ───────────
+  const fetchUsers = useCallback(async (
+    s: string,
+    opts?: { page?: number; append?: boolean; background?: boolean },
+  ) => {
+    const initData = getTelegramInitData();
+    if (!initData) { setError('Вход только через Telegram Mini App'); return; }
+
+    const pageNum  = opts?.page ?? 1;
+    const append   = opts?.append === true;
+    const bg       = opts?.background === true;
+
+    if (bg) setRefreshing(true);
+    else if (!append) setLoading(true);
+    setError('');
+
+    try {
+      const r = await fetch('/api/admin-users', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          secret: s,
+          initData,
+          page:     pageNum,
+          limit:    50,
+          filter,
+          q:        debouncedSearch,
+          sortBy,
+        }),
       });
 
       if (r.status === 403 || r.status === 401) {
@@ -1368,29 +1417,44 @@ export default function AdminPage() {
       if (!r.ok) { setError('Ошибка сервера'); return; }
 
       const data = await r.json();
-      setUsers(data.users ?? []);
+      setUsers(prev => append ? [...prev, ...(data.users ?? [])] : (data.users ?? []));
+      setPage(data.page ?? pageNum);
+      setHasMore(data.hasMore === true);
       setTotal(data.total ?? 0);
+      setFilteredTotal(data.filteredTotal ?? data.total ?? 0);
       setDemoCount(data.demoCount ?? 0);
+      setBlockedCount(data.blockedCount ?? 0);
+      setSuspiciousCount(data.suspiciousCount ?? 0);
+      setMicroCount(data.microCount ?? 0);
       setAvailableSubjects(data.availableSubjects ?? []);
 
       sessionStorage.setItem('admin_secret', s);
       setAuthed(true);
 
-      // Параллельно грузим блокировки входа
-      fetch('/api/admin-rate-blocks', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ action: 'list', secret: s }),
-      })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => { if (data) setRateBlocks(data.blocks ?? []); })
-        .catch(() => {});
+      if (!bg) {
+        fetch('/api/admin-rate-blocks', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ action: 'list', secret: s }),
+        })
+          .then(res => res.ok ? res.json() : null)
+          .then(d => { if (d) setRateBlocks(d.blocks ?? []); })
+          .catch(() => {});
+      }
     } catch {
       setError('Ошибка соединения');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, []);
+  }, [filter, debouncedSearch, sortBy]);
+
+  useEffect(() => {
+    if (!authed || !secret) return;
+    setPage(1);
+    fetchUsers(secret, { page: 1, append: false, background: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, debouncedSearch, sortBy]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1439,6 +1503,7 @@ export default function AdminPage() {
       });
 
       if (!r.ok) { showToast('Ошибка действия'); return; }
+      const data = await r.json().catch(() => ({}));
 
       // Удаление — убираем пользователя из списка целиком
       if (action === 'delete_user') {
@@ -1454,7 +1519,7 @@ export default function AdminPage() {
           case 'block':
             return { ...u, blocked: true, blockedReason: reason || 'manual', blockedAt: new Date().toISOString() };
           case 'unblock':
-            return { ...u, blocked: false, blockedReason: null, blockedAt: null, opensToday: 0, suspicious: u.fpChanges >= 2 };
+            return { ...u, blocked: false, blockedReason: null, blockedAt: null, opensToday: 0, suspicious: false };
           case 'reset_demo':
             return { ...u, usedDemo: false };
           case 'toggle_paid':
@@ -1464,21 +1529,27 @@ export default function AdminPage() {
             const newSubjects = enabled
               ? Array.from(new Set([...u.subjects, subjectId]))
               : u.subjects.filter(s => s !== subjectId);
-            const newNavHidden = { ...(u.navHidden || {}) };
+            const fallbackNav: Record<string, string[]> = { ...(u.navHidden || {}) };
             if (enabled) {
-              newNavHidden[subjectId] = NAV_SECTIONS.map(s => s.id);
+              fallbackNav[subjectId] = NAV_SECTIONS.map(s => s.id);
             } else {
-              delete newNavHidden[subjectId];
+              delete fallbackNav[subjectId];
             }
-            return { ...u, subjects: newSubjects, hasMicro: newSubjects.includes('micro'), navHidden: newNavHidden };
+            const navHidden = (data.navHidden && typeof data.navHidden === 'object')
+              ? data.navHidden as Record<string, string[]>
+              : fallbackNav;
+            return { ...u, subjects: newSubjects, hasMicro: newSubjects.includes('micro'), navHidden };
           }
           case 'toggle_section': {
             if (!subjectId || !section) return u;
-            const navHidden = { ...(u.navHidden || {}) };
-            const set = new Set<string>(navHidden[subjectId] || []);
+            const fallbackNav = { ...(u.navHidden || {}) };
+            const set = new Set<string>(fallbackNav[subjectId] || []);
             if (enabled) set.delete(section); else set.add(section);
-            if (set.size === 0) delete navHidden[subjectId];
-            else navHidden[subjectId] = [...set];
+            if (set.size === 0) delete fallbackNav[subjectId];
+            else fallbackNav[subjectId] = [...set];
+            const navHidden = (data.navHidden && typeof data.navHidden === 'object')
+              ? data.navHidden as Record<string, string[]>
+              : fallbackNav;
             return { ...u, navHidden };
           }
           default:
@@ -1518,41 +1589,26 @@ export default function AdminPage() {
     }
   };
 
-  const blockedCount    = useMemo(() => users.filter(u => u.blocked).length, [users]);
-  const suspiciousCount = useMemo(() => users.filter(u => u.suspicious && !u.blocked).length, [users]);
-  const microCount      = useMemo(() => users.filter(u => u.subjects.some(s => s !== 'ortho')).length, [users]);
+  const handleQuickGrant = async () => {
+    const id = quickTgId.trim();
+    if (!/^\d{5,12}$/.test(id)) {
+      showToast('Введите корректный Telegram ID');
+      return;
+    }
+    setQuickGranting(true);
+    try {
+      await doAction(id, 'toggle_subject', quickSubject, true);
+      setQuickTgId('');
+      fetchUsers(secret, { page: 1, append: false, background: true });
+    } finally {
+      setQuickGranting(false);
+    }
+  };
 
-  const visible = useMemo(() => {
-    const filtered = users.filter(u => {
-      if (filter === 'blocked'    && !u.blocked)                return false;
-      if (filter === 'suspicious' && !u.suspicious && !u.blocked) return false;
-      if (filter === 'demo'       && !u.usedDemo)                 return false;
-      const q = debouncedSearch.trim().toLowerCase();
-      if (q) {
-        const hay = [u.tgId, u.username, u.firstName, u.lastName].filter(Boolean).join(' ').toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-    // Новые регистрации — сверху. Без даты — в конец.
-    return [...filtered].sort((a, b) => {
-      if (sortBy === 'loginCount') {
-        // Сначала по входам сегодня, потом по общему числу входов
-        const diff = b.opensToday - a.opensToday;
-        if (diff !== 0) return diff;
-        return b.loginCount - a.loginCount;
-      }
-      if (sortBy === 'lastLogin') {
-        // Берём lastLogin, фолбэк на registeredAt если lastLogin нет
-        const ta = a.lastLogin ? Date.parse(a.lastLogin) : (a.registeredAt ? Date.parse(a.registeredAt) : 0);
-        const tb = b.lastLogin ? Date.parse(b.lastLogin) : (b.registeredAt ? Date.parse(b.registeredAt) : 0);
-        return tb - ta;
-      }
-      const ta = a.registeredAt ? Date.parse(a.registeredAt) : 0;
-      const tb = b.registeredAt ? Date.parse(b.registeredAt) : 0;
-      return tb - ta;
-    });
-  }, [users, filter, debouncedSearch, sortBy]);
+  const loadMoreUsers = () => {
+    if (!hasMore || loading || refreshing) return;
+    fetchUsers(secret, { page: page + 1, append: true, background: true });
+  };
   // ─── ЭКРАН ВХОДА ───────────────────────────────────────────────────────────
   const loginScreen = (
     <div style={{
@@ -1675,22 +1731,28 @@ export default function AdminPage() {
         }}>O</div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14.5, fontWeight: 700, color: T.text, letterSpacing: -0.2 }}>
-            Пользователи
+            OrthoByNekruz Admin
           </div>
           <div style={{ fontSize: 11, color: T.textMuted, fontWeight: 500 }}>
-            <span style={{ color: T.text, fontWeight: 600 }}>{visible.length}</span> из {total}
+            {refreshing ? 'Обновление…' : (
+              <>
+                <span style={{ color: T.text, fontWeight: 600 }}>{users.length}</span>
+                {hasMore ? '+' : ''} · всего {total}
+              </>
+            )}
           </div>
         </div>
         <button
-          onClick={() => fetchUsers(secret)} disabled={loading}
+          onClick={() => fetchUsers(secret, { page: 1, append: false, background: true })}
+          disabled={loading || refreshing}
           style={{
             width: 36, height: 36, borderRadius: 10,
             background: T.surfaceAlt, border: `1px solid ${T.border}`,
-            color: loading ? T.textFaint : T.textMuted,
-            fontSize: 16, cursor: loading ? 'default' : 'pointer',
+            color: loading || refreshing ? T.textFaint : T.textMuted,
+            fontSize: 16, cursor: loading || refreshing ? 'default' : 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
-        >{loading ? '⏳' : '↻'}</button>
+        >{loading || refreshing ? '⏳' : '↻'}</button>
 
         <button
           onClick={bustCache}
@@ -1715,6 +1777,37 @@ export default function AdminPage() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >🔑</button>
+      </div>
+
+      {/* вкладки: студенты / настройки */}
+      <div style={{
+        display: 'flex', gap: 8, padding: '10px 14px 0',
+        background: T.surface, borderBottom: `1px solid ${T.border}`,
+        flexShrink: 0,
+      }}>
+        {([
+          { id: 'students' as AdminTab, label: '👥 Студенты' },
+          { id: 'settings' as AdminTab, label: '⚙️ Настройки' },
+        ]).map(tab => {
+          const active = adminTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setAdminTab(tab.id)}
+              style={{
+                flex: 1, padding: '10px 12px', borderRadius: 10,
+                border: `1px solid ${active ? T.accent : T.border}`,
+                background: active ? T.accentSoft : T.surfaceAlt,
+                color: active ? T.accent : T.textMuted,
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontFamily: FONT_SANS,
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {keysOpen && (
@@ -1788,6 +1881,8 @@ export default function AdminPage() {
         width: '100%', boxSizing: 'border-box',
         flex: 1, overflowY: 'auto',
       }}>
+
+        {adminTab === 'settings' && (<>
 
         {/* демо-вход */}
         <div style={{
@@ -2825,6 +2920,65 @@ export default function AdminPage() {
           )}
         </div>
 
+        </>)}
+
+        {adminTab === 'students' && (<>
+
+        {/* быстрая выдача доступа */}
+        <div style={{
+          background: T.surface, border: `1px solid ${T.border}`,
+          borderRadius: 14, padding: '13px 14px', marginBottom: 14,
+        }}>
+          <div style={{
+            fontSize: 11, fontWeight: 700, color: T.textMuted,
+            textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10,
+          }}>Быстрая выдача доступа</div>
+          <input
+            value={quickTgId}
+            onChange={e => setQuickTgId(e.target.value.replace(/\D/g, ''))}
+            placeholder="Telegram ID студента"
+            style={{
+              width: '100%', boxSizing: 'border-box', marginBottom: 8,
+              padding: '10px 12px', borderRadius: 10,
+              border: `1px solid ${T.border}`, fontSize: 14,
+              fontFamily: FONT_MONO, background: T.surfaceAlt, color: T.text,
+              outline: 'none',
+            }}
+          />
+          <div style={{
+            display: 'flex', gap: 6, marginBottom: 10,
+            overflowX: 'auto', scrollbarWidth: 'none',
+          } as React.CSSProperties}>
+            {availableSubjects.map(s => {
+              const active = quickSubject === s.id;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setQuickSubject(s.id)}
+                  style={{
+                    padding: '6px 11px', borderRadius: 999, flexShrink: 0,
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    border: `1px solid ${active ? T.accent : T.border}`,
+                    background: active ? T.accent : T.surfaceAlt,
+                    color: active ? '#fff' : T.textMuted,
+                    fontFamily: FONT_SANS,
+                  }}
+                >
+                  {s.shortLabel}
+                </button>
+              );
+            })}
+          </div>
+          <ActionBtn
+            variant="primary"
+            fullWidth
+            disabled={quickGranting || !quickTgId.trim()}
+            onClick={handleQuickGrant}
+          >
+            {quickGranting ? '...' : 'Выдать предмет'}
+          </ActionBtn>
+        </div>
+
         {/* stat-плитки */}
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 14,
@@ -2952,9 +3106,9 @@ export default function AdminPage() {
           )}
         </div>
 
-        {loading ? (
+        {loading && users.length === 0 ? (
           <div style={{ textAlign: 'center', color: T.textFaint, padding: '60px 0' }}>Загрузка...</div>
-        ) : visible.length === 0 ? (
+        ) : users.length === 0 ? (
           <div style={{
             textAlign: 'center', color: T.textMuted, padding: '50px 0',
             background: T.surface, borderRadius: 12, border: `1px solid ${T.border}`,
@@ -2962,19 +3116,39 @@ export default function AdminPage() {
             {search ? 'Ничего не найдено' : 'Нет пользователей'}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {visible.map(u => (
-              <UserCard
-                key={u.tgId} user={u} actioning={actioning}
-                onAction={doAction}
-                expanded={expandedIds.has(u.tgId)}
-                onToggle={() => toggleExpand(u.tgId)}
-                availableSubjects={availableSubjects}
-                onCopy={copyToClipboard}
-              />
-            ))}
-          </div>
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {users.map(u => (
+                <UserCard
+                  key={u.tgId} user={u} actioning={actioning}
+                  onAction={doAction}
+                  expanded={expandedIds.has(u.tgId)}
+                  onToggle={() => toggleExpand(u.tgId)}
+                  availableSubjects={availableSubjects}
+                  onCopy={copyToClipboard}
+                />
+              ))}
+            </div>
+            {hasMore && (
+              <button
+                onClick={loadMoreUsers}
+                disabled={refreshing}
+                style={{
+                  width: '100%', marginTop: 12, padding: '12px',
+                  borderRadius: 12, border: `1px solid ${T.border}`,
+                  background: T.surface, color: T.textMuted,
+                  fontSize: 13, fontWeight: 600, cursor: refreshing ? 'default' : 'pointer',
+                  fontFamily: FONT_SANS,
+                }}
+              >
+                {refreshing ? 'Загрузка…' : `Показать ещё (${users.length} из ${filteredTotal})`}
+              </button>
+            )}
+          </>
         )}
+
+        </>)}
+
       </div>
     </div>
   );
