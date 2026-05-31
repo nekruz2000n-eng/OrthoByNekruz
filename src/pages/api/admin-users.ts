@@ -10,7 +10,7 @@ const ADMIN_TG_ID  = process.env.ADMIN_TG_ID || '978243325';
 const BOT_TOKEN    = process.env.BOT_TOKEN    || '';
 const PAGE_SIZE    = 50;
 
-type ListFilter = 'all' | 'blocked' | 'suspicious' | 'demo';
+type ListFilter = 'all' | 'blocked' | 'suspicious' | 'demo' | 'unpaid';
 type ListSort   = 'registered' | 'lastLogin' | 'loginCount';
 
 function verifyAdmin(initData: string, secret: string): boolean {
@@ -103,6 +103,13 @@ function toDetailUser(
     navHidden:     (user.navHidden && typeof user.navHidden === 'object') ? user.navHidden : {},
     paid:          user.paid === true,
   };
+}
+
+/** Ключ активирован (не trial), отметка «оплачено» не стоит */
+function isUnpaid(u: ReturnType<typeof toListUser>): boolean {
+  const key = u.activatedKey;
+  if (!key || key === 'trial') return false;
+  return u.paid !== true;
 }
 
 function matchesQuery(u: ReturnType<typeof toListUser>, q: string): boolean {
@@ -359,7 +366,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const ids = await getAllUserIds(redis);
     const allUsers = await buildUserList(ids);
 
-    const listFilter = (['all', 'blocked', 'suspicious', 'demo'].includes(filter)
+    const listFilter = (['all', 'blocked', 'suspicious', 'demo', 'unpaid'].includes(filter)
       ? filter
       : 'all') as ListFilter;
     const listSort = (['registered', 'lastLogin', 'loginCount'].includes(sortBy)
@@ -373,6 +380,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (listFilter === 'blocked'    && !u.blocked) return false;
       if (listFilter === 'suspicious' && !u.suspicious && !u.blocked) return false;
       if (listFilter === 'demo'       && !u.usedDemo) return false;
+      if (listFilter === 'unpaid'     && !isUnpaid(u)) return false;
       if (query && !matchesQuery(u, query)) return false;
       return true;
     });
@@ -388,6 +396,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const blockedCount    = allUsers.filter(u => u.blocked).length;
     const suspiciousCount = allUsers.filter(u => u.suspicious && !u.blocked).length;
     const demoCount       = allUsers.filter(u => u.usedDemo).length;
+    const unpaidCount     = allUsers.filter(isUnpaid).length;
     const microCount      = allUsers.filter(u => u.subjects.some(s => s !== 'ortho')).length;
 
     return res.status(200).json({
@@ -400,6 +409,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       sortBy: listSort,
       sortDir: listSortDir,
       demoCount,
+      unpaidCount,
       blockedCount,
       suspiciousCount,
       microCount,

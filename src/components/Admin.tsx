@@ -51,7 +51,7 @@ const RES_TYPE_OPTS: { id: ResType; label: string; emoji: string }[] = [
   { id: 'link',  label: 'Ссылка',      emoji: '🔗' },
 ];
 
-type Filter = 'all' | 'blocked' | 'suspicious' | 'demo';
+type Filter = 'all' | 'blocked' | 'suspicious' | 'demo' | 'unpaid';
 type SortBy = 'registered' | 'lastLogin' | 'loginCount';
 type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid';
 
@@ -841,6 +841,7 @@ export default function AdminPage() {
   const [total,              setTotal]              = useState(0);
   const [demoCount,          setDemoCount]          = useState(0);
   const [blockedCount,       setBlockedCount]       = useState(0);
+  const [unpaidCount,        setUnpaidCount]        = useState(0);
   const [suspiciousCount,    setSuspiciousCount]    = useState(0);
   const [microCount,         setMicroCount]         = useState(0);
   const [filteredTotal,      setFilteredTotal]      = useState(0);
@@ -1433,6 +1434,7 @@ export default function AdminPage() {
       setFilteredTotal(data.filteredTotal ?? data.total ?? 0);
       setDemoCount(data.demoCount ?? 0);
       setBlockedCount(data.blockedCount ?? 0);
+      setUnpaidCount(data.unpaidCount ?? 0);
       setSuspiciousCount(data.suspiciousCount ?? 0);
       setMicroCount(data.microCount ?? 0);
       setAvailableSubjects(data.availableSubjects ?? []);
@@ -1561,7 +1563,8 @@ export default function AdminPage() {
         return;
       }
 
-      setUsers(prev => prev.map(u => {
+      setUsers(prev => {
+        const next = prev.map(u => {
         if (u.tgId !== tgId) return u;
         switch (action) {
           case 'block':
@@ -1603,9 +1606,18 @@ export default function AdminPage() {
           default:
             return u;
         }
-      }));
+        });
+        if (action === 'toggle_paid' && filter === 'unpaid') {
+          return next.filter(u => !(u.tgId === tgId && u.paid));
+        }
+        return next;
+      });
 
       if (action === 'reset_demo') setDemoCount(c => Math.max(0, c - 1));
+      if (action === 'toggle_paid') {
+        const nowPaid = !users.find(u => u.tgId === tgId)?.paid;
+        setUnpaidCount(c => Math.max(0, nowPaid ? c - 1 : c + 1));
+      }
 
       let msg = '';
       switch (action) {
@@ -1711,20 +1723,6 @@ export default function AdminPage() {
             {loading ? '...' : 'Войти в панель'}
           </button>
 
-          <div style={{
-            marginTop: 4, padding: '11px 13px',
-            background: T.infoSoft, borderRadius: 10,
-            display: 'flex', gap: 9, alignItems: 'flex-start',
-          }}>
-            <span style={{
-              width: 18, height: 18, borderRadius: '50%', background: T.info, color: '#fff',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 12, fontWeight: 700, flexShrink: 0, lineHeight: 1,
-            }}>i</span>
-            <div style={{ fontSize: 12, color: T.info, lineHeight: 1.45 }}>
-              Вход только из Telegram Mini App. Браузер заблокирован.
-            </div>
-          </div>
         </form>
       </div>
     </div>
@@ -2999,6 +2997,7 @@ export default function AdminPage() {
             { id: 'all' as Filter,        label: 'Все',        count: total,            accent: T.accent  },
             { id: 'blocked' as Filter,    label: 'Блок',       count: blockedCount,     accent: T.danger  },
             { id: 'suspicious' as Filter, label: 'Подозрит.',  count: suspiciousCount,  accent: T.warn    },
+            { id: 'unpaid' as Filter,     label: 'Без 💲',     count: unpaidCount,      accent: T.warn    },
             { id: 'demo' as Filter,       label: 'Демо',       count: demoCount,        accent: T.purple  },
           ].map(tab => {
             const active = filter === tab.id;
@@ -3063,11 +3062,6 @@ export default function AdminPage() {
               </button>
             );
           })}
-        </div>
-        <div style={{ fontSize: 11, color: T.textFaint, marginBottom: 10, lineHeight: 1.4 }}>
-          {debouncedSearch || filter !== 'all'
-            ? 'Поиск и фильтры по всей базе'
-            : 'Показаны 50 человек · «Новые» — нажмите ещё раз для старых'}
         </div>
 
         {/* поиск */}
