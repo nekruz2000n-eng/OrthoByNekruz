@@ -12,7 +12,9 @@ import {
   CheckCircle2, XCircle, RotateCcw, Zap, ChevronLeft, Search, Check,
   Medal, Pencil, Trash2, FileText, Shuffle, AlertTriangle, Flame,
   Award, ArrowRight, ArrowLeft, ChevronDown,
+  X,
 } from 'lucide-react';
+
 import { ToothIcon } from './ToothIcon';
 import ReactMarkdown from 'react-markdown';
 import { RichText, GlossaryItem } from '@/components/RichText';
@@ -416,6 +418,17 @@ export const TestsTab = ({
                 className="pl-10 h-11 border focus-visible:ring-0 focus-visible:ring-offset-0 text-sm rounded-xl"
                 style={{ background: 'var(--c-card)', borderColor: 'var(--c-border)', color: 'var(--c-text)', caretColor: 'var(--c-primary)' }}
               />
+              {search && (
+                      <button
+                        onClick={() => setSearch('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2"
+                        style={{ color: 'var(--c-muted)' }}
+                        type="button"
+                        aria-label="Очистить поиск"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
             </div>
 
             {microLoading && testsData.length === 0 ? (
