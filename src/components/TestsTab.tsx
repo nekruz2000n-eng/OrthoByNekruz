@@ -107,67 +107,79 @@ const BlockButton = ({
   );
 };
 
-// ─── Подсказка: как открыть блок ─────────────────────────────────────────────
-const BlockOpenHint = ({ variant = 'card' }: { variant?: 'card' | 'dialog' }) => {
+// ─── Подсказка: эффективное обучение ─────────────────────────────────────────
+const STUDY_HINT_TITLE = 'Подсказка: как учить тест эффективнее';
+
+const BlockOpenHint = ({
+  expanded = true,
+  onToggle,
+  variant = 'card',
+}: {
+  expanded?: boolean;
+  onToggle?: () => void;
+  variant?: 'card' | 'dialog';
+}) => {
   const rows = [
-    {
-      Icon: Check,
-      title: 'Короткое нажатие',
-      subtitle: 'Режим проверки',
-      desc: 'Отвечаете сами. При первом проходе блока ответы подсвечиваются — при повторе только строгая проверка.',
-      color: 'var(--c-primary)',
-      bg: 'var(--c-primary-dim)',
-    },
     {
       Icon: BookOpen,
       title: 'Удерживайте блок ~½ сек',
-      subtitle: 'Режим обучения',
-      desc: 'Сразу все 25 вопросов с видимыми правильными ответами. Удобно, чтобы сначала пройти и запомнить.',
+      subtitle: 'Сначала — обучение',
+      desc: 'Правильные ответы видны сразу. Пройдите блок один раз, чтобы запомнить, потом проверяйте себя.',
       color: 'var(--c-amber)',
       bg: 'color-mix(in srgb, var(--c-amber) 18%, transparent)',
     },
+    {
+      Icon: Check,
+      title: 'Короткое нажатие',
+      subtitle: 'Потом — проверка',
+      desc: 'Отвечаете сами. Первый раз — с подсветкой, повтор — строго. Включите «Подсказку» внизу, если застряли.',
+      color: 'var(--c-primary)',
+      bg: 'var(--c-primary-dim)',
+    },
   ] as const;
 
-  if (variant === 'dialog') {
-    return (
-      <div className="space-y-3">
-        {rows.map(r => (
-          <div key={r.title} className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: r.bg, color: r.color }}>
-              <r.Icon className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-[13px] font-bold leading-tight" style={{ color: 'var(--c-text)' }}>{r.title}</div>
-              <div className="text-[11.5px] font-semibold mt-0.5" style={{ color: r.color }}>{r.subtitle}</div>
-              <p className="text-[12px] leading-snug mt-1" style={{ color: 'var(--c-muted)' }}>{r.desc}</p>
-            </div>
+  const rowList = (large: boolean) => (
+    <div className={large ? 'space-y-3' : 'flex flex-col gap-2.5'}>
+      {rows.map(r => (
+        <div key={r.title} className={`flex items-start ${large ? 'gap-3' : 'gap-2.5'}`}>
+          <div
+            className={`${large ? 'w-9 h-9 rounded-xl' : 'w-8 h-8 rounded-[10px]'} flex items-center justify-center flex-shrink-0`}
+            style={{ background: r.bg, color: r.color }}
+          >
+            <r.Icon className={large ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
           </div>
-        ))}
-      </div>
-    );
-  }
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+              <span className={`${large ? 'text-[13px]' : 'text-[12.5px]'} font-bold`} style={{ color: 'var(--c-text)' }}>{r.title}</span>
+              <span className={`${large ? 'text-[11.5px]' : 'text-[11px]'} font-bold`} style={{ color: r.color }}>→ {r.subtitle}</span>
+            </div>
+            <p className={`${large ? 'text-[12px]' : 'text-[11px]'} leading-snug mt-1`} style={{ color: 'var(--c-muted)' }}>{r.desc}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (variant === 'dialog') return rowList(true);
 
   return (
-    <div className="rounded-[13px] p-3 mb-3" style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}>
-      <div className="text-[10px] font-bold uppercase tracking-widest mb-2.5" style={{ color: 'var(--c-muted)' }}>
-        Как открыть блок
-      </div>
-      <div className="flex flex-col gap-2.5">
-        {rows.map(r => (
-          <div key={r.title} className="flex items-start gap-2.5">
-            <div className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ background: r.bg, color: r.color }}>
-              <r.Icon className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-                <span className="text-[12.5px] font-bold" style={{ color: 'var(--c-text)' }}>{r.title}</span>
-                <span className="text-[11px] font-bold" style={{ color: r.color }}>→ {r.subtitle}</span>
-              </div>
-              <p className="text-[11px] leading-snug mt-1" style={{ color: 'var(--c-muted)' }}>{r.desc}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="rounded-[13px] mb-3 overflow-hidden"
+      style={{ background: 'var(--c-amber-soft)', border: '1px solid color-mix(in srgb, var(--c-amber) 28%, transparent)' }}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full px-3 py-2.5 flex items-center gap-2 text-left transition-all active:opacity-80"
+      >
+        <Lightbulb className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--c-amber)' }} />
+        <span className="flex-1 text-[11px] font-bold leading-snug" style={{ color: 'var(--c-text)' }}>
+          <span style={{ color: 'var(--c-amber)' }}>Подсказка:</span> как учить тест эффективнее
+        </span>
+        <ChevronDown
+          className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
+          style={{ color: 'var(--c-muted)', transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+        />
+      </button>
+      {expanded && <div className="px-3 pb-3">{rowList(false)}</div>}
     </div>
   );
 };
@@ -226,6 +238,7 @@ export const TestsTab = ({
   const [prevBest,         setPrevBest]         = useState(0);
   const [expandedThemes,   setExpandedThemes]   = useState<Set<string>>(new Set());
   const [showByTheme,      setShowByTheme]      = useState(false);
+  const [studyHintOpen,    setStudyHintOpen]    = useState(true);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const testScrollRef = useRef<HTMLDivElement>(null);
   const showResultRef = useRef(false);
@@ -617,10 +630,20 @@ export const TestsTab = ({
   // ЭКРАН ВЫБОРА БЛОКА
   // ══════════════════════════════════════════════════════════════════════════
   if (selectedBlock === null) {
+    const openMistakes = () => {
+      setTestSnapshot(mistakes.slice(0, 100));
+      resetTest();
+      setStudyMode(false);
+      setHintsEnabled(false);
+      setForcedStudySession(false);
+      setSelectedBlock('mistakes');
+      maybeShowOnboarding();
+    };
+
     const statTiles = [
       { label: 'Пройдено', value: perfectCount + startedCount, total: blocks.length, color: 'var(--c-primary)', Icon: Check },
       { label: 'Идеально', value: perfectCount,                 total: blocks.length, color: 'var(--c-amber)',   Icon: Medal },
-      { label: 'Ошибок',   value: mistakes.length,              total: null,          color: 'var(--c-danger)',  Icon: Flame },
+      { label: 'Ошибок',   value: mistakes.length,              total: null,          color: 'var(--c-danger)',  Icon: Flame, onClick: mistakes.length > 0 ? openMistakes : undefined },
     ];
 
     return (
@@ -677,29 +700,56 @@ export const TestsTab = ({
               </div>
             ) : (
               <>
-                {/* 3 плитки статистики */}
+                {/* 3 плитки статистики — компактные */}
                 <div className="grid grid-cols-3 gap-2 mb-3">
-                  {statTiles.map(s => (
-                    <div key={s.label} className="rounded-[14px] p-2.5 flex flex-col gap-2"
-                      style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}>
-                      <div className="w-[26px] h-[26px] rounded-lg flex items-center justify-center"
-                        style={{ background: `color-mix(in srgb, ${s.color} 16%, transparent)`, color: s.color }}>
-                        <s.Icon className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <div className="text-[18px] font-bold leading-none" style={{ color: 'var(--c-text)', letterSpacing: -0.5 }}>
-                          {s.value}{s.total !== null && <span className="text-[11px] font-normal" style={{ color: 'var(--c-text-faint)' }}>/{s.total}</span>}
+                  {statTiles.map(s => {
+                    const isClickable = !!s.onClick;
+                    const isMistakesTile = s.label === 'Ошибок' && mistakes.length > 0;
+                    const tileStyle = {
+                      background: isMistakesTile ? 'var(--c-danger-soft)' : 'var(--c-card)',
+                      border: `1px solid ${isMistakesTile ? 'color-mix(in srgb, var(--c-danger) 35%, transparent)' : 'var(--c-border)'}`,
+                    };
+                    const inner = (
+                      <>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-shrink-0"
+                            style={{ background: `color-mix(in srgb, ${s.color} 16%, transparent)`, color: s.color }}>
+                            <s.Icon className="w-3 h-3" />
+                          </div>
+                          <div className="text-[15px] font-bold leading-none font-mono" style={{ color: 'var(--c-text)', letterSpacing: -0.3 }}>
+                            {s.value}{s.total !== null && <span className="text-[10px] font-normal" style={{ color: 'var(--c-text-faint)' }}>/{s.total}</span>}
+                          </div>
                         </div>
-                        <div className="text-[10px] font-semibold uppercase tracking-wide mt-1" style={{ color: 'var(--c-muted)' }}>{s.label}</div>
+                        <div className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: isMistakesTile ? 'var(--c-danger)' : 'var(--c-muted)' }}>
+                          {s.label}{isClickable ? ' ↗' : ''}
+                        </div>
+                      </>
+                    );
+                    if (isClickable) {
+                      return (
+                        <button
+                          key={s.label}
+                          type="button"
+                          onClick={s.onClick}
+                          className="rounded-[12px] px-2.5 py-2 flex flex-col items-center gap-1 transition-all active:scale-95"
+                          style={tileStyle}
+                        >
+                          {inner}
+                        </button>
+                      );
+                    }
+                    return (
+                      <div key={s.label} className="rounded-[12px] px-2.5 py-2 flex flex-col items-center gap-1" style={tileStyle}>
+                        {inner}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Работа над ошибками */}
                 {mistakes.length > 0 && (
                   <button
-                    onClick={() => { setTestSnapshot(mistakes.slice(0, 100)); resetTest(); setStudyMode(false); setHintsEnabled(false); setForcedStudySession(false); setSelectedBlock('mistakes'); maybeShowOnboarding(); }}
+                    onClick={openMistakes}
                     className="w-full mb-3 rounded-[18px] p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99] relative overflow-hidden"
                     style={{
                       background: 'linear-gradient(135deg, var(--c-danger-soft) 0%, var(--c-amber-soft) 100%)',
@@ -786,56 +836,10 @@ export const TestsTab = ({
                   </button>
                 )}
 
-                {/* Заметки */}
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <button className="w-full mb-4 rounded-[12px] p-2.5 px-3.5 flex items-center gap-2.5 text-left transition-all active:scale-[0.99]"
-                      style={{ background: 'var(--c-amber-soft)', border: '1px solid color-mix(in srgb, var(--c-amber) 33%, transparent)' }}>
-                      <div className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center flex-shrink-0"
-                        style={{ background: 'color-mix(in srgb, var(--c-amber) 22%, transparent)', color: 'var(--c-amber)' }}>
-                        <FileText className="w-[15px] h-[15px]" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-[13px] font-bold" style={{ color: 'var(--c-amber)' }}>Мои заметки</div>
-                        <div className="text-[11px] mt-0.5" style={{ color: 'var(--c-muted)' }}>Откройте, чтобы посмотреть</div>
-                      </div>
-                      <ArrowRight className="w-3.5 h-3.5" style={{ color: 'var(--c-amber)' }} />
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-lg w-[95vw] rounded-3xl p-6" style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}>
-                    <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2 text-sm uppercase tracking-wider" style={{ color: 'var(--c-amber)' }}>
-                        <Pencil className="w-4 h-4" /> Мои заметки
-                      </DialogTitle>
-                    </DialogHeader>
-                    <div className="mt-4 p-4 rounded-2xl" style={{ background: 'var(--c-amber-dim)', border: '1px solid var(--c-amber-br)' }}>
-                      <div className="flex justify-between mb-3">
-                        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-amber)' }}>Текст</span>
-                        <div className="flex gap-3">
-                          {testsNote && (
-                            <button onClick={() => { setTestsNote(''); setLocalTestsNote(''); localStorage.removeItem(lsNote); }}
-                              style={{ color: 'var(--c-danger)' }}>
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          <button onClick={() => { if (isEditingNote) saveNote(localTestsNote); setIsNoteEditing(v => !v); }}
-                            className="text-xs font-semibold" style={{ color: 'var(--c-amber)' }}>
-                            {isEditingNote ? 'Готово' : 'Править'}
-                          </button>
-                        </div>
-                      </div>
-                      {isEditingNote
-                        ? <textarea ref={noteRef} value={localTestsNote} onChange={e => setLocalTestsNote(e.target.value)} onBlur={() => saveNote(localTestsNote)}
-                            className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm resize-none min-h-[150px]"
-                            style={{ color: 'var(--c-text)', caretColor: 'var(--c-amber)' }} autoFocus />
-                        : <div className="text-sm prose prose-invert max-w-none break-words whitespace-pre-wrap min-h-[100px]" onClick={() => setIsNoteEditing(true)}>
-                            {testsNote
-                              ? <ReactMarkdown>{testsNote}</ReactMarkdown>
-                              : <p className="italic" style={{ color: 'color-mix(in srgb, var(--c-amber) 35%, transparent)' }}>Нажмите «Править»…</p>}
-                          </div>}
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                <BlockOpenHint
+                  expanded={studyHintOpen}
+                  onToggle={() => setStudyHintOpen(v => !v)}
+                />
 
                 {/* Заголовок «Блоки» + переключатель по темам */}
                 <div className="flex items-center justify-between mb-2 px-1">
@@ -857,7 +861,6 @@ export const TestsTab = ({
                     </span>
                   </div>
                 </div>
-                <BlockOpenHint />
 
                 {/* Сетка блоков — с группировкой по темам или без */}
                 {hasThemes && showByTheme && themeGroups ? themeGroups.map(g => {
@@ -909,6 +912,59 @@ export const TestsTab = ({
                     ))}
                   </div>
                 )}
+
+                {/* Заметки — внизу, не перекрывают блоки */}
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="w-full mt-4 rounded-[12px] px-3.5 py-2.5 flex items-center gap-2.5 text-left transition-all active:scale-[0.99]"
+                      style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}>
+                      <div className="w-[28px] h-[28px] rounded-[8px] flex items-center justify-center flex-shrink-0"
+                        style={{ background: 'var(--c-amber-soft)', color: 'var(--c-amber)' }}>
+                        <FileText className="w-[14px] h-[14px]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[12.5px] font-bold" style={{ color: 'var(--c-text)' }}>Мои заметки</div>
+                        <div className="text-[10.5px] mt-0.5 truncate" style={{ color: 'var(--c-muted)' }}>
+                          {testsNote ? testsNote.replace(/\s+/g, ' ').slice(0, 48) + (testsNote.length > 48 ? '…' : '') : 'Личные записи по тестам'}
+                        </div>
+                      </div>
+                      <ArrowRight className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--c-text-faint)' }} />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-lg w-[95vw] rounded-3xl p-6" style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}>
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2 text-sm uppercase tracking-wider" style={{ color: 'var(--c-amber)' }}>
+                        <Pencil className="w-4 h-4" /> Мои заметки
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-4 p-4 rounded-2xl" style={{ background: 'var(--c-amber-dim)', border: '1px solid var(--c-amber-br)' }}>
+                      <div className="flex justify-between mb-3">
+                        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-amber)' }}>Текст</span>
+                        <div className="flex gap-3">
+                          {testsNote && (
+                            <button onClick={() => { setTestsNote(''); setLocalTestsNote(''); localStorage.removeItem(lsNote); }}
+                              style={{ color: 'var(--c-danger)' }}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button onClick={() => { if (isEditingNote) saveNote(localTestsNote); setIsNoteEditing(v => !v); }}
+                            className="text-xs font-semibold" style={{ color: 'var(--c-amber)' }}>
+                            {isEditingNote ? 'Готово' : 'Править'}
+                          </button>
+                        </div>
+                      </div>
+                      {isEditingNote
+                        ? <textarea ref={noteRef} value={localTestsNote} onChange={e => setLocalTestsNote(e.target.value)} onBlur={() => saveNote(localTestsNote)}
+                            className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm resize-none min-h-[150px]"
+                            style={{ color: 'var(--c-text)', caretColor: 'var(--c-amber)' }} autoFocus />
+                        : <div className="text-sm prose prose-invert max-w-none break-words whitespace-pre-wrap min-h-[100px]" onClick={() => setIsNoteEditing(true)}>
+                            {testsNote
+                              ? <ReactMarkdown>{testsNote}</ReactMarkdown>
+                              : <p className="italic" style={{ color: 'color-mix(in srgb, var(--c-amber) 35%, transparent)' }}>Нажмите «Править»…</p>}
+                          </div>}
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </>
             )}
           </div>
@@ -1040,8 +1096,9 @@ export const TestsTab = ({
       <Dialog open={showOnboarding} onOpenChange={open => { if (!open) dismissOnboarding(); }}>
         <DialogContent className="max-w-md w-[92vw] rounded-3xl p-6" style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}>
           <DialogHeader>
-            <DialogTitle className="text-[15px] font-bold leading-snug" style={{ color: 'var(--c-text)' }}>
-              Как проходить тесты
+            <DialogTitle className="text-[15px] font-bold leading-snug flex items-start gap-1.5" style={{ color: 'var(--c-text)' }}>
+              <Lightbulb className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-amber)' }} />
+              <span>{STUDY_HINT_TITLE}</span>
             </DialogTitle>
           </DialogHeader>
           <div className="mt-3 space-y-4">
