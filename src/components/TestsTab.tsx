@@ -123,7 +123,7 @@ const BlockOpenHint = ({
     {
       Icon: BookOpen,
       title: 'Удерживайте блок ~½ сек',
-      subtitle: 'Сначала — обучение',
+      subtitle: 'Режим обучения',
       desc: 'Правильные ответы видны сразу. Пройдите блок один раз, чтобы запомнить, потом проверяйте себя.',
       color: 'var(--c-amber)',
       bg: 'color-mix(in srgb, var(--c-amber) 18%, transparent)',
@@ -131,7 +131,7 @@ const BlockOpenHint = ({
     {
       Icon: Check,
       title: 'Короткое нажатие',
-      subtitle: 'Потом — проверка',
+      subtitle: 'Режим проверки',
       desc: 'Отвечаете сами. Первый раз — с подсветкой, повтор — строго. Включите «Подсказку» внизу, если застряли.',
       color: 'var(--c-primary)',
       bg: 'var(--c-primary-dim)',
@@ -183,6 +183,43 @@ const BlockOpenHint = ({
     </div>
   );
 };
+
+// ─── Компактная кнопка режима (экзамен / ошибки / избранное) ───────────────────
+const QuickModeButton = ({
+  onClick, Icon, title, subtitle, badge, color,
+}: {
+  onClick: () => void;
+  Icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  subtitle: string;
+  badge?: string;
+  color: string;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="w-full rounded-[12px] px-3 py-2.5 flex items-center gap-2.5 text-left transition-all active:scale-[0.99]"
+    style={{ background: 'var(--c-card)', border: `1px solid color-mix(in srgb, ${color} 22%, var(--c-border))` }}
+  >
+    <div className="w-[28px] h-[28px] rounded-[8px] flex items-center justify-center flex-shrink-0"
+      style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color }}>
+      <Icon className="w-[14px] h-[14px]" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span className="text-[12.5px] font-bold truncate" style={{ color: 'var(--c-text)' }}>{title}</span>
+        {badge && (
+          <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
+            style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color }}>
+            {badge}
+          </span>
+        )}
+      </div>
+      <div className="text-[10.5px] truncate mt-0.5" style={{ color: 'var(--c-muted)' }}>{subtitle}</div>
+    </div>
+    <ArrowRight className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--c-text-faint)' }} />
+  </button>
+);
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const TestsTab = ({
@@ -640,6 +677,18 @@ export const TestsTab = ({
       maybeShowOnboarding();
     };
 
+    const openFavorites = () => {
+      setTestSnapshot([...favorites]);
+      resetTest();
+      setStudyMode(false);
+      setHintsEnabled(false);
+      setForcedStudySession(false);
+      setSelectedBlock('favorites');
+      maybeShowOnboarding();
+    };
+
+    const hasQuickModes = mistakes.length > 0 || processed.length >= 10 || favorites.length > 0;
+
     const statTiles = [
       { label: 'Пройдено', value: perfectCount + startedCount, total: blocks.length, color: 'var(--c-primary)', Icon: Check },
       { label: 'Идеально', value: perfectCount,                 total: blocks.length, color: 'var(--c-amber)',   Icon: Medal },
@@ -746,96 +795,6 @@ export const TestsTab = ({
                   })}
                 </div>
 
-                {/* Работа над ошибками */}
-                {mistakes.length > 0 && (
-                  <button
-                    onClick={openMistakes}
-                    className="w-full mb-3 rounded-[18px] p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99] relative overflow-hidden"
-                    style={{
-                      background: 'linear-gradient(135deg, var(--c-danger-soft) 0%, var(--c-amber-soft) 100%)',
-                      border: '1px solid color-mix(in srgb, var(--c-danger) 40%, transparent)',
-                    }}>
-                    <div className="absolute right-1 bottom-[-10px] pointer-events-none select-none" style={{ fontSize: 72, opacity: 0.07, lineHeight: 1 }}>🔥</div>
-                    <div className="w-11 h-11 rounded-[13px] flex items-center justify-center flex-shrink-0"
-                      style={{ background: 'color-mix(in srgb, var(--c-danger) 18%, transparent)', color: 'var(--c-danger)' }}>
-                      <Flame className="w-[22px] h-[22px]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[14px] font-bold" style={{ color: 'var(--c-danger)' }}>Работа над ошибками</span>
-                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md"
-                          style={{ background: 'color-mix(in srgb, var(--c-danger) 18%, transparent)', color: 'var(--c-danger)' }}>
-                          {Math.min(mistakes.length, 100)}/100
-                        </span>
-                      </div>
-                      <p className="text-[11.5px] leading-snug" style={{ color: 'var(--c-muted)' }}>
-                        Повторите вопросы, на которых ошиблись
-                      </p>
-                    </div>
-                    <ArrowRight className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-danger)' }} />
-                  </button>
-                )}
-
-                {/* Экзамен */}
-                {processed.length >= 10 && (
-                  <button
-                    onClick={startExam}
-                    className="w-full mb-3 rounded-[18px] p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99] relative overflow-hidden"
-                    style={{
-                      background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-primary) 12%, transparent) 0%, color-mix(in srgb, var(--c-primary) 6%, transparent) 100%)',
-                      border: '1px solid color-mix(in srgb, var(--c-primary) 35%, transparent)',
-                    }}>
-                    <div className="absolute right-1 bottom-[-10px] pointer-events-none select-none" style={{ fontSize: 72, opacity: 0.07, lineHeight: 1 }}>🎓</div>
-                    <div className="w-11 h-11 rounded-[13px] flex items-center justify-center flex-shrink-0"
-                      style={{ background: 'color-mix(in srgb, var(--c-primary) 18%, transparent)', color: 'var(--c-primary)' }}>
-                      <Award className="w-[22px] h-[22px]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[14px] font-bold" style={{ color: 'var(--c-primary)' }}>Экзамен</span>
-                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md"
-                          style={{ background: 'color-mix(in srgb, var(--c-primary) 18%, transparent)', color: 'var(--c-primary)' }}>
-                          100 вопросов
-                        </span>
-                      </div>
-                      <p className="text-[11.5px] leading-snug" style={{ color: 'var(--c-muted)' }}>
-                        Случайные вопросы из всей базы
-                      </p>
-                    </div>
-                    <ArrowRight className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-primary)' }} />
-                  </button>
-                )}
-
-                {/* Избранные */}
-                {favorites.length > 0 && (
-                  <button
-                    onClick={() => { setTestSnapshot([...favorites]); resetTest(); setStudyMode(false); setHintsEnabled(false); setForcedStudySession(false); setSelectedBlock('favorites'); maybeShowOnboarding(); }}
-                    className="w-full mb-3 rounded-[18px] p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99] relative overflow-hidden"
-                    style={{
-                      background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-amber) 12%, transparent) 0%, color-mix(in srgb, var(--c-amber) 6%, transparent) 100%)',
-                      border: '1px solid color-mix(in srgb, var(--c-amber) 35%, transparent)',
-                    }}>
-                    <div className="absolute right-1 bottom-[-10px] pointer-events-none select-none" style={{ fontSize: 72, opacity: 0.07, lineHeight: 1 }}>⭐</div>
-                    <div className="w-11 h-11 rounded-[13px] flex items-center justify-center flex-shrink-0"
-                      style={{ background: 'color-mix(in srgb, var(--c-amber) 18%, transparent)', color: 'var(--c-amber)' }}>
-                      <Zap className="w-[22px] h-[22px]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[14px] font-bold" style={{ color: 'var(--c-amber)' }}>Избранное</span>
-                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md"
-                          style={{ background: 'color-mix(in srgb, var(--c-amber) 18%, transparent)', color: 'var(--c-amber)' }}>
-                          {favorites.length}
-                        </span>
-                      </div>
-                      <p className="text-[11.5px] leading-snug" style={{ color: 'var(--c-muted)' }}>
-                        Вопросы, которые вы отметили
-                      </p>
-                    </div>
-                    <ArrowRight className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-amber)' }} />
-                  </button>
-                )}
-
                 <BlockOpenHint
                   expanded={studyHintOpen}
                   onToggle={() => setStudyHintOpen(v => !v)}
@@ -910,6 +869,45 @@ export const TestsTab = ({
                         onStudySelect={() => openBlock(b, 'study')}
                       />
                     ))}
+                  </div>
+                )}
+
+                {/* Компактные режимы — под блоками */}
+                {hasQuickModes && (
+                  <div className="mt-4 flex flex-col gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-widest px-1" style={{ color: 'var(--c-muted)' }}>
+                      Дополнительно
+                    </span>
+                    {mistakes.length > 0 && (
+                      <QuickModeButton
+                        onClick={openMistakes}
+                        Icon={Flame}
+                        title="Работа над ошибками"
+                        subtitle="Повторите вопросы, на которых ошиблись"
+                        badge={`${Math.min(mistakes.length, 100)}/100`}
+                        color="var(--c-danger)"
+                      />
+                    )}
+                    {processed.length >= 10 && (
+                      <QuickModeButton
+                        onClick={startExam}
+                        Icon={Award}
+                        title="Экзамен"
+                        subtitle="100 случайных вопросов из всей базы"
+                        badge="100"
+                        color="var(--c-primary)"
+                      />
+                    )}
+                    {favorites.length > 0 && (
+                      <QuickModeButton
+                        onClick={openFavorites}
+                        Icon={Zap}
+                        title="Избранное"
+                        subtitle="Вопросы, которые вы отметили"
+                        badge={String(favorites.length)}
+                        color="var(--c-amber)"
+                      />
+                    )}
                   </div>
                 )}
 
