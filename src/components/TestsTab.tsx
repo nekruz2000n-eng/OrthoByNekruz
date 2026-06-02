@@ -107,6 +107,71 @@ const BlockButton = ({
   );
 };
 
+// ─── Подсказка: как открыть блок ─────────────────────────────────────────────
+const BlockOpenHint = ({ variant = 'card' }: { variant?: 'card' | 'dialog' }) => {
+  const rows = [
+    {
+      Icon: Check,
+      title: 'Короткое нажатие',
+      subtitle: 'Режим проверки',
+      desc: 'Отвечаете сами. При первом проходе блока ответы подсвечиваются — при повторе только строгая проверка.',
+      color: 'var(--c-primary)',
+      bg: 'var(--c-primary-dim)',
+    },
+    {
+      Icon: BookOpen,
+      title: 'Удерживайте блок ~½ сек',
+      subtitle: 'Режим обучения',
+      desc: 'Сразу все 25 вопросов с видимыми правильными ответами. Удобно, чтобы сначала пройти и запомнить.',
+      color: 'var(--c-amber)',
+      bg: 'color-mix(in srgb, var(--c-amber) 18%, transparent)',
+    },
+  ] as const;
+
+  if (variant === 'dialog') {
+    return (
+      <div className="space-y-3">
+        {rows.map(r => (
+          <div key={r.title} className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: r.bg, color: r.color }}>
+              <r.Icon className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[13px] font-bold leading-tight" style={{ color: 'var(--c-text)' }}>{r.title}</div>
+              <div className="text-[11.5px] font-semibold mt-0.5" style={{ color: r.color }}>{r.subtitle}</div>
+              <p className="text-[12px] leading-snug mt-1" style={{ color: 'var(--c-muted)' }}>{r.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-[13px] p-3 mb-3" style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}>
+      <div className="text-[10px] font-bold uppercase tracking-widest mb-2.5" style={{ color: 'var(--c-muted)' }}>
+        Как открыть блок
+      </div>
+      <div className="flex flex-col gap-2.5">
+        {rows.map(r => (
+          <div key={r.title} className="flex items-start gap-2.5">
+            <div className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ background: r.bg, color: r.color }}>
+              <r.Icon className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                <span className="text-[12.5px] font-bold" style={{ color: 'var(--c-text)' }}>{r.title}</span>
+                <span className="text-[11px] font-bold" style={{ color: r.color }}>→ {r.subtitle}</span>
+              </div>
+              <p className="text-[11px] leading-snug mt-1" style={{ color: 'var(--c-muted)' }}>{r.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export const TestsTab = ({
   onSecretTap,
@@ -142,6 +207,8 @@ export const TestsTab = ({
   const [autoNext,         setAutoNext]         = useState(false);
   const [shuffleOptions,   setShuffleOptions]   = useState(false);
   const [studyMode,        setStudyMode]        = useState(false);
+  const [hintsEnabled,     setHintsEnabled]     = useState(false);
+  const [forcedStudySession, setForcedStudySession] = useState(false);
   const [hintLevel,        setHintLevel]        = useState(0);
   const [hidden5050,       setHidden5050]       = useState<string[]>([]);
   const [blockAttempts,    setBlockAttempts]    = useState<Record<number, number>>({});
@@ -307,6 +374,7 @@ export const TestsTab = ({
     setScore(0);
     setCompleted(false);
     resetQuestionHints();
+    setForcedStudySession(false);
   };
 
   const maybeShowOnboarding = () => {
@@ -332,17 +400,23 @@ export const TestsTab = ({
   ) => {
     setTestSnapshot(b.questions || []);
     resetTest();
+    setHintsEnabled(false);
     if (entry === 'study') {
       setStudyMode(true);
+      setForcedStudySession(true);
+      setAutoNext(true);
     } else {
-      setStudyMode((blockAttempts[b.id] || 0) === 0);
+      const firstPass = (blockAttempts[b.id] || 0) === 0;
+      setStudyMode(firstPass);
+      setForcedStudySession(false);
+      setAutoNext(firstPass);
     }
     setSelectedBlock(b.id);
     maybeShowOnboarding();
   };
 
   const use5050Hint = () => {
-    if (!currentTest || showResultRef.current || studyMode || hintLevel >= 1) return;
+    if (!currentTest || showResultRef.current || studyMode || !hintsEnabled || hintLevel >= 1) return;
     const wrong = currentTest.options.filter((o: string) => o !== currentTest.correct);
     const toHide = [...wrong].sort(() => Math.random() - 0.5).slice(0, Math.min(2, wrong.length));
     setHidden5050(toHide);
@@ -350,8 +424,30 @@ export const TestsTab = ({
   };
 
   const useAnswerHint = () => {
-    if (!currentTest || showResultRef.current || studyMode || hintLevel >= 2) return;
+    if (!currentTest || showResultRef.current || studyMode || !hintsEnabled || hintLevel >= 2) return;
     setHintLevel(2);
+  };
+
+  const toggleStudyMode = () => {
+    if (showResultRef.current) return;
+    setStudyMode(v => {
+      const next = !v;
+      if (next) {
+        setHintsEnabled(false);
+        resetQuestionHints();
+        setAutoNext(true);
+      }
+      return next;
+    });
+  };
+
+  const toggleHintsEnabled = () => {
+    if (showResultRef.current || studyMode) return;
+    setHintsEnabled(v => {
+      const next = !v;
+      if (!next) resetQuestionHints();
+      return next;
+    });
   };
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -403,6 +499,8 @@ export const TestsTab = ({
     setTestSnapshot(qs);
     resetTest();
     setStudyMode(false);
+    setHintsEnabled(false);
+    setForcedStudySession(false);
     setSelectedBlock('exam');
     maybeShowOnboarding();
   };
@@ -457,7 +555,11 @@ export const TestsTab = ({
     if (!b) return;
     setTestSnapshot(b.questions || []);
     resetTest();
-    setStudyMode((blockAttempts[b.id] || 0) === 0);
+    const firstPass = (blockAttempts[b.id] || 0) === 0;
+    setStudyMode(firstPass);
+    setHintsEnabled(false);
+    setForcedStudySession(false);
+    setAutoNext(firstPass);
     setSelectedBlock(info.blockId);
     setCurrentTestIndex(info.indexInBlock);
     maybeShowOnboarding();
@@ -597,7 +699,7 @@ export const TestsTab = ({
                 {/* Работа над ошибками */}
                 {mistakes.length > 0 && (
                   <button
-                    onClick={() => { setTestSnapshot(mistakes.slice(0, 100)); resetTest(); setStudyMode(false); setSelectedBlock('mistakes'); maybeShowOnboarding(); }}
+                    onClick={() => { setTestSnapshot(mistakes.slice(0, 100)); resetTest(); setStudyMode(false); setHintsEnabled(false); setForcedStudySession(false); setSelectedBlock('mistakes'); maybeShowOnboarding(); }}
                     className="w-full mb-3 rounded-[18px] p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99] relative overflow-hidden"
                     style={{
                       background: 'linear-gradient(135deg, var(--c-danger-soft) 0%, var(--c-amber-soft) 100%)',
@@ -657,7 +759,7 @@ export const TestsTab = ({
                 {/* Избранные */}
                 {favorites.length > 0 && (
                   <button
-                    onClick={() => { setTestSnapshot([...favorites]); resetTest(); setStudyMode(false); setSelectedBlock('favorites'); maybeShowOnboarding(); }}
+                    onClick={() => { setTestSnapshot([...favorites]); resetTest(); setStudyMode(false); setHintsEnabled(false); setForcedStudySession(false); setSelectedBlock('favorites'); maybeShowOnboarding(); }}
                     className="w-full mb-3 rounded-[18px] p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99] relative overflow-hidden"
                     style={{
                       background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-amber) 12%, transparent) 0%, color-mix(in srgb, var(--c-amber) 6%, transparent) 100%)',
@@ -755,9 +857,7 @@ export const TestsTab = ({
                     </span>
                   </div>
                 </div>
-                <p className="text-[10.5px] leading-snug mb-2.5 px-1" style={{ color: 'var(--c-text-faint)' }}>
-                  Нажмите — проверка · удерживайте — обучение с ответами
-                </p>
+                <BlockOpenHint />
 
                 {/* Сетка блоков — с группировкой по темам или без */}
                 {hasThemes && showByTheme && themeGroups ? themeGroups.map(g => {
@@ -899,7 +999,12 @@ export const TestsTab = ({
           <div className="flex flex-col gap-2.5 w-full max-w-sm mt-6">
             <button onClick={() => {
               resetTest();
-              if (isRegularBlock(selectedBlock)) setStudyMode((blockAttempts[selectedBlock] || 0) === 0);
+              setForcedStudySession(false);
+              if (isRegularBlock(selectedBlock)) {
+                const firstPass = (blockAttempts[selectedBlock] || 0) === 0;
+                setStudyMode(firstPass);
+                setAutoNext(firstPass);
+              }
             }}
               className="h-[52px] rounded-[13px] font-bold text-[14px] inline-flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
               style={{ background: 'var(--c-primary)', color: 'var(--c-bg)', boxShadow: '0 6px 18px var(--c-primary-dim)' }}>
@@ -926,7 +1031,7 @@ export const TestsTab = ({
   const options = shuffleOptions ? shuffled : (currentTest?.options || []);
   const visibleOptions = options.filter((opt: string) => !hidden5050.includes(opt));
   const answerRevealed = studyMode || hintLevel >= 2;
-  const hintsAvailable = isBlockMode && !studyMode && !showResult;
+  const hintsAvailable = isBlockMode && hintsEnabled && !studyMode && !showResult;
 
   return (
     <div className="flex flex-col h-full overflow-hidden max-w-full" style={{ background: 'var(--c-bg)' }}>
@@ -939,10 +1044,11 @@ export const TestsTab = ({
               Как проходить тесты
             </DialogTitle>
           </DialogHeader>
-          <div className="mt-3 space-y-3 text-[13px] leading-relaxed" style={{ color: 'var(--c-muted)' }}>
-            <p><strong style={{ color: 'var(--c-text)' }}>Нажмите на блок</strong> — режим проверки. При первом проходе включится «Обучение» с подсветкой ответов; при повторе — строгий режим.</p>
-            <p><strong style={{ color: 'var(--c-text)' }}>Удерживайте блок</strong> — сразу открыть все 25 вопросов с видимыми правильными ответами.</p>
-            <p><strong style={{ color: 'var(--c-text)' }}>Подсказки 50/50 и «Ответ»</strong> — доступны в режиме проверки, если «Обучение» выключено.</p>
+          <div className="mt-3 space-y-4">
+            <BlockOpenHint variant="dialog" />
+            <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--c-muted)' }}>
+              <strong style={{ color: 'var(--c-text)' }}>«Обучение» и «Подсказка»</strong> — в нижней панели во время теста. Кнопки 50/50 и «Ответ» появляются только если «Подсказка» включена, а «Обучение» выключено.
+            </p>
           </div>
           <label className="flex items-center gap-2.5 mt-4 cursor-pointer">
             <Checkbox
@@ -1120,12 +1226,34 @@ export const TestsTab = ({
           paddingTop: 10, paddingBottom: 'calc(var(--nav-bottom, 12px) + 16px)',
         }}>
         <div className="flex flex-col gap-2">
+          {isBlockMode && !forcedStudySession && (
+            <div className="flex gap-2">
+              {([
+                { on: studyMode,    label: 'Обучение',  Icon: BookOpen,  toggle: toggleStudyMode,    disabled: showResult },
+                { on: hintsEnabled, label: 'Подсказка', Icon: Lightbulb, toggle: toggleHintsEnabled, disabled: showResult || studyMode },
+              ]).map(t => (
+                <button key={t.label} onClick={t.toggle} disabled={t.disabled}
+                  className="flex-1 h-10 rounded-[10px] inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold transition-all active:scale-95 disabled:opacity-40"
+                  style={t.on
+                    ? { background: 'var(--c-primary-dim)', border: '1px solid var(--c-primary-br)', color: 'var(--c-primary)' }
+                    : { background: 'var(--c-bg-subtle)',   border: '1px solid var(--c-border)',     color: 'var(--c-muted)' }}>
+                  <t.Icon className="w-3 h-3" />
+                  {t.label}
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ml-0.5"
+                    style={t.on
+                      ? { background: 'color-mix(in srgb, var(--c-primary) 25%, transparent)', color: 'var(--c-primary)' }
+                      : { background: 'var(--c-chip)', color: 'var(--c-text-faint)' }}>
+                    {t.on ? 'ВКЛ' : 'ВЫК'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2">
             {([
-              { on: autoNext,       label: 'Авто-переход', Icon: Zap,     toggle: () => setAutoNext(v => !v),                            disabled: false, show: true },
-              { on: shuffleOptions, label: 'Перемешать',   Icon: Shuffle, toggle: () => { if (!showResult) setShuffleOptions(v => !v); }, disabled: showResult, show: true },
-              { on: studyMode,      label: 'Обучение',     Icon: BookOpen, toggle: () => { if (!showResult) setStudyMode(v => !v); },     disabled: showResult, show: isBlockMode },
-            ] as const).filter(t => t.show).map(t => (
+              { on: autoNext,       label: 'Авто-переход', Icon: Zap,     toggle: () => setAutoNext(v => !v),                            disabled: false },
+              { on: shuffleOptions, label: 'Перемешать',   Icon: Shuffle, toggle: () => { if (!showResult) setShuffleOptions(v => !v); }, disabled: showResult },
+            ]).map(t => (
             <button key={t.label} onClick={t.toggle} disabled={t.disabled}
               className="flex-1 h-10 rounded-[10px] inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold transition-all active:scale-95 disabled:opacity-40"
               style={t.on
