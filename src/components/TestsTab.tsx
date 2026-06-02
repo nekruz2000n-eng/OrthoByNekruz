@@ -8,10 +8,11 @@ import { loadSubjectData } from '@/lib/subjectData';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   CheckCircle2, XCircle, RotateCcw, Zap, ChevronLeft, Search, Check,
   Medal, Pencil, Trash2, FileText, Shuffle, AlertTriangle, Flame,
-  Award, ArrowRight, ArrowLeft, ChevronDown,
+  Award, ArrowRight, ArrowLeft, ChevronDown, BookOpen, Lightbulb,
   X,
 } from 'lucide-react';
 
@@ -32,19 +33,59 @@ interface MistakeRecord {
 
 const LETTERS = ['А', 'Б', 'В', 'Г', 'Д', 'Е'];
 
+const LONG_PRESS_MS = 500;
+
 // ─── Block button (shared between flat and themed grids) ──────────────────────
 const BlockButton = ({
-  b, onSelect,
+  b, onSelect, onStudySelect,
 }: {
   b: { id: number; localId: number; range: string; size: number; best: number; status: 'perfect' | 'started' | 'new' };
   onSelect: () => void;
+  onStudySelect: () => void;
 }) => {
   const isPerfect = b.status === 'perfect';
   const isStarted = b.status === 'started';
   const accent = isPerfect ? 'var(--c-primary)' : isStarted ? 'var(--c-amber)' : 'var(--c-text-faint)';
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
+
+  const clearLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    longPressTriggered.current = false;
+    clearLongPress();
+    longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true;
+      onStudySelect();
+    }, LONG_PRESS_MS);
+  };
+
+  const handlePointerUp = () => clearLongPress();
+  const handlePointerLeave = () => clearLongPress();
+
+  const handleClick = () => {
+    if (longPressTriggered.current) {
+      longPressTriggered.current = false;
+      return;
+    }
+    onSelect();
+  };
+
   return (
-    <button onClick={onSelect}
-      className="rounded-[13px] flex flex-col items-center justify-between transition-all active:scale-95 relative overflow-hidden"
+    <button
+      onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerLeave}
+      onPointerCancel={handlePointerLeave}
+      onContextMenu={e => e.preventDefault()}
+      className="rounded-[13px] flex flex-col items-center justify-between transition-all active:scale-95 relative overflow-hidden select-none touch-manipulation"
       style={{
         width: '100%', aspectRatio: '1 / 1.12', padding: '7px 5px 6px',
         background: isPerfect ? 'var(--c-primary-soft)' : isStarted ? 'var(--c-amber-soft)' : 'var(--c-card)',
@@ -83,6 +124,8 @@ export const TestsTab = ({
   const lsNote       = subject === 'ortho' ? 'tests_personal_note'  : `${cfg?.lsPrefix || subject}_tests_personal_note`;
   const lsMistakes   = subject === 'ortho' ? 'test_mistakes'        : `${cfg?.lsPrefix || subject}_test_mistakes`;
   const lsFavorites  = subject === 'ortho' ? 'test_favorites'       : `${cfg?.lsPrefix || subject}_test_favorites`;
+  const lsAttempts   = subject === 'ortho' ? 'test_block_attempts'  : `${cfg?.lsPrefix || subject}_test_block_attempts`;
+  const lsOnboarding = 'tests_mode_onboarding_dismissed';
   // ── Data ──────────────────────────────────────────────────────────────────
   const [loadedTestsData, setLoadedTestsData] = useState<any[]>([]);
   const [microLoading,    setMicroLoading]    = useState(false);
@@ -98,6 +141,12 @@ export const TestsTab = ({
   const [completed,        setCompleted]        = useState(false);
   const [autoNext,         setAutoNext]         = useState(false);
   const [shuffleOptions,   setShuffleOptions]   = useState(false);
+  const [studyMode,        setStudyMode]        = useState(false);
+  const [hintLevel,        setHintLevel]        = useState(0);
+  const [hidden5050,       setHidden5050]       = useState<string[]>([]);
+  const [blockAttempts,    setBlockAttempts]    = useState<Record<number, number>>({});
+  const [showOnboarding,   setShowOnboarding]    = useState(false);
+  const [onboardingDismiss,setOnboardingDismiss]= useState(false);
   const [search,           setSearch]           = useState('');
   const [bestScores,       setBestScores]       = useState<Record<number, number>>({});
   const [mistakes,         setMistakes]         = useState<MistakeRecord[]>([]);
@@ -128,8 +177,9 @@ export const TestsTab = ({
     try { setBestScores(JSON.parse(localStorage.getItem(lsScores) || '{}')); } catch {}
     try { setMistakes(JSON.parse(localStorage.getItem(lsMistakes) || '[]')); }  catch {}
     try { setFavorites(JSON.parse(localStorage.getItem(lsFavorites) || '[]')); } catch {}
+    try { setBlockAttempts(JSON.parse(localStorage.getItem(lsAttempts) || '{}')); } catch {}
     setTestsNote(localStorage.getItem(lsNote) || '');
-  }, [subject]);
+  }, [subject, lsScores, lsMistakes, lsFavorites, lsAttempts, lsNote]);
 
   useEffect(() => {
     let cancelled = false;
@@ -241,6 +291,69 @@ export const TestsTab = ({
     return s;
   }, [currentTest?.options, shuffleOptions, currentTestIndex]);
 
+  const isRegularBlock = (id: BlockId | null): id is number =>
+    id !== null && id !== 'mistakes' && id !== 'exam' && id !== 'favorites';
+
+  const resetQuestionHints = () => {
+    setHintLevel(0);
+    setHidden5050([]);
+  };
+
+  const resetTest = () => {
+    showResultRef.current = false;
+    setCurrentTestIndex(0);
+    setSelectedOption(null);
+    setShowResult(false);
+    setScore(0);
+    setCompleted(false);
+    resetQuestionHints();
+  };
+
+  const maybeShowOnboarding = () => {
+    if (!localStorage.getItem(lsOnboarding)) setShowOnboarding(true);
+  };
+
+  const dismissOnboarding = () => {
+    if (onboardingDismiss) localStorage.setItem(lsOnboarding, '1');
+    setShowOnboarding(false);
+  };
+
+  const recordBlockAttempt = (blockId: number) => {
+    setBlockAttempts(prev => {
+      const updated = { ...prev, [blockId]: (prev[blockId] || 0) + 1 };
+      localStorage.setItem(lsAttempts, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const openBlock = (
+    b: { id: number; questions: any[] },
+    entry: 'tap' | 'study',
+  ) => {
+    setTestSnapshot(b.questions || []);
+    resetTest();
+    if (entry === 'study') {
+      setStudyMode(true);
+    } else {
+      setStudyMode((blockAttempts[b.id] || 0) === 0);
+    }
+    setSelectedBlock(b.id);
+    maybeShowOnboarding();
+  };
+
+  const use5050Hint = () => {
+    if (!currentTest || showResultRef.current || studyMode || hintLevel >= 1) return;
+    const wrong = currentTest.options.filter((o: string) => o !== currentTest.correct);
+    const toHide = [...wrong].sort(() => Math.random() - 0.5).slice(0, Math.min(2, wrong.length));
+    setHidden5050(toHide);
+    setHintLevel(1);
+  };
+
+  const useAnswerHint = () => {
+    if (!currentTest || showResultRef.current || studyMode || hintLevel >= 2) return;
+    setHintLevel(2);
+  };
+
   // ── Helpers ───────────────────────────────────────────────────────────────
   const saveNote = (t: string) => {
     const s = t.replace(/<[^>]*>?/gm, '');
@@ -289,23 +402,33 @@ export const TestsTab = ({
     setExamQuestions(qs);
     setTestSnapshot(qs);
     resetTest();
+    setStudyMode(false);
     setSelectedBlock('exam');
+    maybeShowOnboarding();
   };
 
   const nextQuestion = () => {
     if (currentTestIndex < blockTests.length - 1) {
       showResultRef.current = false;
-      setCurrentTestIndex(i => i + 1); setSelectedOption(null); setShowResult(false);
+      setCurrentTestIndex(i => i + 1);
+      setSelectedOption(null);
+      setShowResult(false);
+      resetQuestionHints();
       testScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     } else {
-      if (selectedBlock !== null && selectedBlock !== 'mistakes' && selectedBlock !== 'exam' && selectedBlock !== 'favorites' && (selectedBlock as number) > 0) {
-        const nb = { ...bestScores };
-        const cur = nb[selectedBlock as number] || 0;
-        setPrevBest(cur);
-        if (score > cur) {
-          nb[selectedBlock as number] = score;
-          setBestScores(nb);
-          localStorage.setItem(lsScores, JSON.stringify(nb));
+      if (isRegularBlock(selectedBlock)) {
+        recordBlockAttempt(selectedBlock);
+        if (!studyMode && selectedBlock > 0) {
+          const nb = { ...bestScores };
+          const cur = nb[selectedBlock] || 0;
+          setPrevBest(cur);
+          if (score > cur) {
+            nb[selectedBlock] = score;
+            setBestScores(nb);
+            localStorage.setItem(lsScores, JSON.stringify(nb));
+          }
+        } else if (selectedBlock > 0) {
+          setPrevBest(bestScores[selectedBlock] || 0);
         }
       }
       setCompleted(true);
@@ -327,20 +450,17 @@ export const TestsTab = ({
     }
   };
 
-  const resetTest = () => {
-    showResultRef.current = false;
-    setCurrentTestIndex(0); setSelectedOption(null);
-    setShowResult(false); setScore(0); setCompleted(false);
-  };
-
   const startFromQuestion = (id: string) => {
     const info = questionBlockMap.get(id);
     if (!info) return;
     const b = blocks.find(bl => bl.id === info.blockId);
-    setTestSnapshot(b?.questions || []);
-    setSelectedBlock(info.blockId);
+    if (!b) return;
+    setTestSnapshot(b.questions || []);
     resetTest();
+    setStudyMode((blockAttempts[b.id] || 0) === 0);
+    setSelectedBlock(info.blockId);
     setCurrentTestIndex(info.indexInBlock);
+    maybeShowOnboarding();
   };
 
   // ── Шапка (общая для экрана блоков) ──────────────────────────────────────
@@ -477,7 +597,7 @@ export const TestsTab = ({
                 {/* Работа над ошибками */}
                 {mistakes.length > 0 && (
                   <button
-                    onClick={() => { setTestSnapshot(mistakes.slice(0, 100)); resetTest(); setSelectedBlock('mistakes'); }}
+                    onClick={() => { setTestSnapshot(mistakes.slice(0, 100)); resetTest(); setStudyMode(false); setSelectedBlock('mistakes'); maybeShowOnboarding(); }}
                     className="w-full mb-3 rounded-[18px] p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99] relative overflow-hidden"
                     style={{
                       background: 'linear-gradient(135deg, var(--c-danger-soft) 0%, var(--c-amber-soft) 100%)',
@@ -537,7 +657,7 @@ export const TestsTab = ({
                 {/* Избранные */}
                 {favorites.length > 0 && (
                   <button
-                    onClick={() => { setTestSnapshot([...favorites]); resetTest(); setSelectedBlock('favorites'); }}
+                    onClick={() => { setTestSnapshot([...favorites]); resetTest(); setStudyMode(false); setSelectedBlock('favorites'); maybeShowOnboarding(); }}
                     className="w-full mb-3 rounded-[18px] p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99] relative overflow-hidden"
                     style={{
                       background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-amber) 12%, transparent) 0%, color-mix(in srgb, var(--c-amber) 6%, transparent) 100%)',
@@ -635,6 +755,9 @@ export const TestsTab = ({
                     </span>
                   </div>
                 </div>
+                <p className="text-[10.5px] leading-snug mb-2.5 px-1" style={{ color: 'var(--c-text-faint)' }}>
+                  Нажмите — проверка · удерживайте — обучение с ответами
+                </p>
 
                 {/* Сетка блоков — с группировкой по темам или без */}
                 {hasThemes && showByTheme && themeGroups ? themeGroups.map(g => {
@@ -667,7 +790,7 @@ export const TestsTab = ({
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                           {g.blocks.map(b => (
                             <div key={b.id} style={{ width: 'calc((100vw - 56px) / 4)' }}>
-                              <BlockButton b={b} onSelect={() => { setTestSnapshot(b.questions || []); resetTest(); setSelectedBlock(b.id); }} />
+                              <BlockButton b={b} onSelect={() => openBlock(b, 'tap')} onStudySelect={() => openBlock(b, 'study')} />
                             </div>
                           ))}
                         </div>
@@ -680,7 +803,8 @@ export const TestsTab = ({
                       <BlockButton
                         key={b.id}
                         b={{ ...b, localId: i + 1, range: `${i * TESTS_PER_BLOCK + 1}–${Math.min((i + 1) * TESTS_PER_BLOCK, TOTAL_TESTS)}` }}
-                        onSelect={() => { setTestSnapshot(b.questions || []); resetTest(); setSelectedBlock(b.id); }}
+                        onSelect={() => openBlock(b, 'tap')}
+                        onStudySelect={() => openBlock(b, 'study')}
                       />
                     ))}
                   </div>
@@ -716,7 +840,7 @@ export const TestsTab = ({
       { lbl: 'Верно',  v: score, color: 'var(--c-primary)', Icon: CheckCircle2 },
       { lbl: 'Ошибок', v: wrong, color: 'var(--c-danger)',  Icon: XCircle },
     ];
-    if (!isMistakeMode && !isExamMode && !isFavoritesMode) {
+    if (!isMistakeMode && !isExamMode && !isFavoritesMode && !studyMode) {
       cards.push({ lbl: 'Лучший', v: `${Math.max(prevBest, score)}/${total}`, color: 'var(--c-amber)', Icon: Medal });
     }
 
@@ -747,7 +871,9 @@ export const TestsTab = ({
               : isOk ? (isExamMode ? 'Хороший результат на экзамене' : 'Отличный результат') : 'Можно лучше'}
           </h2>
           <p className="mt-1.5 text-[13.5px] leading-snug" style={{ color: 'var(--c-muted)', maxWidth: 300 }}>
-            {isPerfect ? 'Знания крепкие, как здоровая эмаль'
+            {studyMode && isRegularBlock(selectedBlock)
+              ? 'Учебный проход — лучший счёт не обновляется'
+              : isPerfect ? 'Знания крепкие, как здоровая эмаль'
               : isOk ? 'Несколько ошибок — посмотри их в «Работе над ошибками»'
               : 'Стоит повторить теорию по этому блоку'}
           </p>
@@ -771,7 +897,10 @@ export const TestsTab = ({
 
           {/* CTA */}
           <div className="flex flex-col gap-2.5 w-full max-w-sm mt-6">
-            <button onClick={resetTest}
+            <button onClick={() => {
+              resetTest();
+              if (isRegularBlock(selectedBlock)) setStudyMode((blockAttempts[selectedBlock] || 0) === 0);
+            }}
               className="h-[52px] rounded-[13px] font-bold text-[14px] inline-flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
               style={{ background: 'var(--c-primary)', color: 'var(--c-bg)', boxShadow: '0 6px 18px var(--c-primary-dim)' }}>
               <RotateCcw className="w-[15px] h-[15px]" /> Пройти ещё раз
@@ -793,10 +922,45 @@ export const TestsTab = ({
   const isMistakeMode = selectedBlock === 'mistakes';
   const isExamModeTest = selectedBlock === 'exam';
   const isFavoritesModeTest = selectedBlock === 'favorites';
+  const isBlockMode = isRegularBlock(selectedBlock);
   const options = shuffleOptions ? shuffled : (currentTest?.options || []);
+  const visibleOptions = options.filter((opt: string) => !hidden5050.includes(opt));
+  const answerRevealed = studyMode || hintLevel >= 2;
+  const hintsAvailable = isBlockMode && !studyMode && !showResult;
 
   return (
     <div className="flex flex-col h-full overflow-hidden max-w-full" style={{ background: 'var(--c-bg)' }}>
+
+      {/* Онбординг при первом входе в режим теста */}
+      <Dialog open={showOnboarding} onOpenChange={open => { if (!open) dismissOnboarding(); }}>
+        <DialogContent className="max-w-md w-[92vw] rounded-3xl p-6" style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}>
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-bold leading-snug" style={{ color: 'var(--c-text)' }}>
+              Как проходить тесты
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-3 space-y-3 text-[13px] leading-relaxed" style={{ color: 'var(--c-muted)' }}>
+            <p><strong style={{ color: 'var(--c-text)' }}>Нажмите на блок</strong> — режим проверки. При первом проходе включится «Обучение» с подсветкой ответов; при повторе — строгий режим.</p>
+            <p><strong style={{ color: 'var(--c-text)' }}>Удерживайте блок</strong> — сразу открыть все 25 вопросов с видимыми правильными ответами.</p>
+            <p><strong style={{ color: 'var(--c-text)' }}>Подсказки 50/50 и «Ответ»</strong> — доступны в режиме проверки, если «Обучение» выключено.</p>
+          </div>
+          <label className="flex items-center gap-2.5 mt-4 cursor-pointer">
+            <Checkbox
+              checked={onboardingDismiss}
+              onCheckedChange={v => setOnboardingDismiss(v === true)}
+              className="border-[var(--c-border)] data-[state=checked]:bg-[var(--c-primary)]"
+            />
+            <span className="text-[12.5px]" style={{ color: 'var(--c-muted)' }}>Больше не показывать</span>
+          </label>
+          <button
+            onClick={dismissOnboarding}
+            className="w-full h-11 rounded-[12px] font-bold text-[13.5px] mt-4 transition-all active:scale-[0.98]"
+            style={{ background: 'var(--c-primary)', color: 'var(--c-bg)' }}
+          >
+            Понятно
+          </button>
+        </DialogContent>
+      </Dialog>
 
       {/* Compact top */}
       <div className="px-3.5 py-2.5 sticky top-0 z-20 flex items-center gap-2.5"
@@ -818,6 +982,12 @@ export const TestsTab = ({
               {isMistakeMode && <AlertTriangle className="w-3 h-3" />}
               {selectedBlock === 'mistakes' ? 'Ошибки' : selectedBlock === 'exam' ? 'Экзамен' : selectedBlock === 'favorites' ? 'Избранное' : `Блок ${selectedBlock}`}
               <span style={{ color: 'var(--c-muted)' }}>{currentTestIndex + 1}/{blockTests.length}</span>
+              {studyMode && isBlockMode && (
+                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-md"
+                  style={{ background: 'color-mix(in srgb, var(--c-amber) 18%, transparent)', color: 'var(--c-amber)' }}>
+                  Обучение
+                </span>
+              )}
             </span>
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md inline-flex items-center gap-1"
@@ -861,17 +1031,49 @@ export const TestsTab = ({
             />
           </div>
 
+          {/* Подсказки 50/50 и полный ответ */}
+          {hintsAvailable && (
+            <div className="flex gap-2">
+              <button
+                onClick={use5050Hint}
+                disabled={hintLevel >= 1}
+                className="flex-1 h-10 rounded-[11px] inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold transition-all active:scale-95 disabled:opacity-40"
+                style={{
+                  background: hintLevel >= 1 ? 'var(--c-primary-dim)' : 'var(--c-card)',
+                  border: `1px solid ${hintLevel >= 1 ? 'var(--c-primary-br)' : 'var(--c-border)'}`,
+                  color: hintLevel >= 1 ? 'var(--c-primary)' : 'var(--c-muted)',
+                }}
+              >
+                <Lightbulb className="w-3.5 h-3.5" />
+                50/50
+              </button>
+              <button
+                onClick={useAnswerHint}
+                disabled={hintLevel >= 2}
+                className="flex-1 h-10 rounded-[11px] inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold transition-all active:scale-95 disabled:opacity-40"
+                style={{
+                  background: hintLevel >= 2 ? 'var(--c-primary-dim)' : 'var(--c-card)',
+                  border: `1px solid ${hintLevel >= 2 ? 'var(--c-primary-br)' : 'var(--c-border)'}`,
+                  color: hintLevel >= 2 ? 'var(--c-primary)' : 'var(--c-muted)',
+                }}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Ответ
+              </button>
+            </div>
+          )}
+
           {/* Варианты */}
           <div className="flex flex-col gap-2">
-            {options.map((opt: string, idx: number) => {
+            {visibleOptions.map((opt: string, idx: number) => {
               const correct        = opt === currentTest.correct;
               const selected       = selectedOption === opt;
               const isWrong        = showResult && selected && !correct;
               const selectedRight  = showResult && selected && correct;
-              const revealCorrect  = showResult && correct && !selected;
+              const revealCorrect  = (showResult && correct && !selected) || (answerRevealed && correct && !showResult);
               const dimmed         = showResult && !correct && !selected;
               return (
-                <button key={idx} onClick={() => handleSelect(opt)} disabled={showResult}
+                <button key={opt} onClick={() => handleSelect(opt)} disabled={showResult}
                   className="w-full rounded-[13px] p-3.5 flex items-center gap-3 text-left transition-all active:scale-[0.99]"
                   style={{
                     background: selectedRight ? 'var(--c-primary-dim)' : isWrong ? 'var(--c-danger-soft)' : revealCorrect ? 'transparent' : 'var(--c-card)',
@@ -890,6 +1092,7 @@ export const TestsTab = ({
                     {opt}
                   </span>
                   {selectedRight  && <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-primary)' }} />}
+                  {revealCorrect && !showResult && <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-primary)' }} />}
                   {isWrong        && <XCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-danger)' }} />}
                 </button>
               );
@@ -916,11 +1119,13 @@ export const TestsTab = ({
           background: 'var(--c-card)', borderTop: '1px solid var(--c-border)',
           paddingTop: 10, paddingBottom: 'calc(var(--nav-bottom, 12px) + 16px)',
         }}>
-        <div className="flex gap-2">
-          {([
-            { on: autoNext,       label: 'Авто-переход', Icon: Zap,     toggle: () => setAutoNext(v => !v),                            disabled: false },
-            { on: shuffleOptions, label: 'Перемешать',   Icon: Shuffle, toggle: () => { if (!showResult) setShuffleOptions(v => !v); }, disabled: showResult },
-          ]).map(t => (
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            {([
+              { on: autoNext,       label: 'Авто-переход', Icon: Zap,     toggle: () => setAutoNext(v => !v),                            disabled: false, show: true },
+              { on: shuffleOptions, label: 'Перемешать',   Icon: Shuffle, toggle: () => { if (!showResult) setShuffleOptions(v => !v); }, disabled: showResult, show: true },
+              { on: studyMode,      label: 'Обучение',     Icon: BookOpen, toggle: () => { if (!showResult) setStudyMode(v => !v); },     disabled: showResult, show: isBlockMode },
+            ] as const).filter(t => t.show).map(t => (
             <button key={t.label} onClick={t.toggle} disabled={t.disabled}
               className="flex-1 h-10 rounded-[10px] inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold transition-all active:scale-95 disabled:opacity-40"
               style={t.on
@@ -936,6 +1141,7 @@ export const TestsTab = ({
               </span>
             </button>
           ))}
+          </div>
         </div>
         <button
           onClick={() => { resetTest(); setSelectedBlock(null); }}
