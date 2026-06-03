@@ -13,6 +13,7 @@ import {
   CheckCircle2, XCircle, RotateCcw, Zap, ChevronLeft, Search, Check,
   Medal, Pencil, Trash2, FileText, Shuffle, AlertTriangle, Flame,
   Award, ArrowRight, ArrowLeft, ChevronDown, BookOpen, Lightbulb,
+  Settings2, LogOut,
   X,
 } from 'lucide-react';
 
@@ -358,6 +359,7 @@ export const TestsTab = ({
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const testScrollRef = useRef<HTMLDivElement>(null);
   const showResultRef = useRef(false);
+  const [testSettingsOpen, setTestSettingsOpen] = useState(false);
 
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => { setLocalTestsNote(testsNote); }, [testsNote]);
@@ -537,6 +539,7 @@ export const TestsTab = ({
   };
 
   const resetTest = () => {
+    setTestSettingsOpen(false);
     showResultRef.current = false;
     setCurrentTestIndex(0);
     setSelectedOption(null);
@@ -1270,7 +1273,7 @@ export const TestsTab = ({
           borderBottom: '1px solid var(--c-border)',
           paddingTop: 'calc(var(--header-pt) + 20px)',
         }}>
-        <button onClick={() => { resetTest(); setSelectedBlock(null); }}
+        <button onClick={() => { setTestSettingsOpen(false); resetTest(); setSelectedBlock(null); }}
           className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 active:scale-95"
           style={{ background: 'transparent', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
           <ChevronLeft className="w-4 h-4" />
@@ -1315,13 +1318,10 @@ export const TestsTab = ({
       </div>
 
       <div ref={testScrollRef} className="flex-1 overflow-y-auto scroll-container">
-        <div className="px-4 pt-4 pb-44 mx-auto max-w-2xl flex flex-col gap-3.5">
+        <div className="px-4 pt-3 pb-28 mx-auto max-w-2xl flex flex-col gap-3.5">
 
-          {/* Вопрос */}
+          {/* Вопрос (номер — в шапке) */}
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--c-muted)' }}>
-              Вопрос {currentTestIndex + 1}
-            </div>
             <RichText
               text={currentTest?.question || ''}
               relatedTerms={(currentTest as any)?.relatedTerms}
@@ -1426,65 +1426,93 @@ export const TestsTab = ({
         </div>
       </div>
 
-      {/* Нижняя панель: тогглы + выход */}
-      <div className="flex-shrink-0 px-4 flex flex-col gap-2"
+      {/* Настройки теста (оверлей) */}
+      {testSettingsOpen && (
+        <button
+          type="button"
+          aria-label="Закрыть настройки"
+          className="fixed inset-0 z-30 border-0 p-0 cursor-default"
+          style={{ background: 'color-mix(in srgb, var(--c-bg) 55%, transparent)' }}
+          onClick={() => setTestSettingsOpen(false)}
+        />
+      )}
+
+      {/* Нижняя панель: настройки / выход */}
+      <div className="flex-shrink-0 z-40 relative px-4"
         style={{
           background: 'var(--c-card)', borderTop: '1px solid var(--c-border)',
-          paddingTop: 10, paddingBottom: 'calc(var(--nav-bottom, 12px) + 16px)',
+          paddingTop: testSettingsOpen ? 12 : 10,
+          paddingBottom: 'calc(var(--nav-bottom, 12px) + 12px)',
         }}>
-        <div className="flex flex-col gap-2">
-          {isBlockMode && !forcedStudySession && (
-            <div className="flex gap-2">
-              {([
-                { on: studyMode,    label: 'Обучение',  Icon: BookOpen,  toggle: toggleStudyMode,    disabled: showResult },
-                { on: hintsEnabled, label: 'Подсказка', Icon: Lightbulb, toggle: toggleHintsEnabled, disabled: showResult || studyMode },
-              ]).map(t => (
-                <button key={t.label} onClick={t.toggle} disabled={t.disabled}
-                  className="flex-1 h-10 rounded-[10px] inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold transition-all active:scale-95 disabled:opacity-40"
-                  style={t.on
-                    ? { background: 'var(--c-primary-dim)', border: '1px solid var(--c-primary-br)', color: 'var(--c-primary)' }
-                    : { background: 'var(--c-bg-subtle)',   border: '1px solid var(--c-border)',     color: 'var(--c-muted)' }}>
-                  <t.Icon className="w-3 h-3" />
-                  {t.label}
-                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ml-0.5"
-                    style={t.on
-                      ? { background: 'color-mix(in srgb, var(--c-primary) 25%, transparent)', color: 'var(--c-primary)' }
-                      : { background: 'var(--c-chip)', color: 'var(--c-text-faint)' }}>
-                    {t.on ? 'ВКЛ' : 'ВЫК'}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="flex gap-2">
+        {testSettingsOpen && (
+          <div className="mb-2.5 grid gap-2" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
             {([
-              { on: autoNext,       label: 'Авто-переход', Icon: Zap,     toggle: () => setAutoNext(v => !v),                            disabled: false },
-              { on: shuffleOptions, label: 'Перемешать',   Icon: Shuffle, toggle: () => { if (!showResult) setShuffleOptions(v => !v); }, disabled: showResult },
-            ]).map(t => (
-            <button key={t.label} onClick={t.toggle} disabled={t.disabled}
-              className="flex-1 h-10 rounded-[10px] inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold transition-all active:scale-95 disabled:opacity-40"
-              style={t.on
-                ? { background: 'var(--c-primary-dim)', border: '1px solid var(--c-primary-br)', color: 'var(--c-primary)' }
-                : { background: 'var(--c-bg-subtle)',   border: '1px solid var(--c-border)',     color: 'var(--c-muted)' }}>
-              <t.Icon className="w-3 h-3" />
-              {t.label}
-              <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ml-0.5"
+              ...(isBlockMode && !forcedStudySession
+                ? [
+                    { on: studyMode,    label: 'Обучение',  Icon: BookOpen,  toggle: toggleStudyMode,    disabled: showResult },
+                    { on: hintsEnabled, label: 'Подсказка', Icon: Lightbulb, toggle: toggleHintsEnabled, disabled: showResult || studyMode },
+                  ]
+                : []),
+              { on: autoNext,       label: 'Авто',       Icon: Zap,     toggle: () => setAutoNext(v => !v),                            disabled: false },
+              { on: shuffleOptions, label: 'Перемешать', Icon: Shuffle, toggle: () => { if (!showResult) setShuffleOptions(v => !v); }, disabled: showResult },
+            ] as const).map(t => (
+              <button key={t.label} type="button" onClick={t.toggle} disabled={t.disabled}
+                className="h-10 rounded-[11px] inline-flex items-center justify-center gap-1.5 text-[11px] font-bold transition-all active:scale-95 disabled:opacity-40"
                 style={t.on
-                  ? { background: 'color-mix(in srgb, var(--c-primary) 25%, transparent)', color: 'var(--c-primary)' }
-                  : { background: 'var(--c-chip)', color: 'var(--c-text-faint)' }}>
-                {t.on ? 'ВКЛ' : 'ВЫК'}
-              </span>
-            </button>
-          ))}
+                  ? { background: 'var(--c-primary-dim)', border: '1px solid var(--c-primary-br)', color: 'var(--c-primary)' }
+                  : { background: 'var(--c-bg-subtle)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
+                <t.Icon className="w-3.5 h-3.5" />
+                {t.label}
+                <span className="text-[8.5px] font-mono font-bold px-1 py-0.5 rounded"
+                  style={t.on
+                    ? { background: 'color-mix(in srgb, var(--c-primary) 25%, transparent)', color: 'var(--c-primary)' }
+                    : { background: 'var(--c-chip)', color: 'var(--c-text-faint)' }}>
+                  {t.on ? 'ВКЛ' : 'ВЫК'}
+                </span>
+              </button>
+            ))}
           </div>
-        </div>
-        <button
-          onClick={() => { resetTest(); setSelectedBlock(null); }}
-          className="h-10 rounded-[10px] inline-flex items-center justify-center gap-2 text-[12.5px] font-bold transition-all active:scale-95"
-          style={{ background: 'var(--c-danger-soft)', border: '1px solid color-mix(in srgb, var(--c-danger) 33%, transparent)', color: 'var(--c-danger)' }}
-        >
-          <ChevronLeft className="w-3.5 h-3.5" /> Выйти из теста
-        </button>
+        )}
+
+        {(() => {
+          const anySettingOn = autoNext || shuffleOptions || (isBlockMode && !forcedStudySession && (studyMode || hintsEnabled));
+          return (
+            <div
+              className="flex p-1 gap-1 rounded-full"
+              style={{ background: 'var(--c-bg-subtle)', border: '1px solid var(--c-border)' }}
+            >
+              <button
+                type="button"
+                onClick={() => setTestSettingsOpen(v => !v)}
+                className="flex-1 h-11 rounded-full inline-flex items-center justify-center gap-1.5 text-[12.5px] font-bold transition-all active:scale-[0.98] relative"
+                style={{
+                  background: testSettingsOpen ? 'var(--c-primary-dim)' : 'var(--c-card)',
+                  color: testSettingsOpen ? 'var(--c-primary)' : 'var(--c-muted)',
+                  border: testSettingsOpen ? '1px solid var(--c-primary-br)' : '1px solid var(--c-border)',
+                }}
+              >
+                <Settings2 className="w-4 h-4" />
+                Настройки
+                {anySettingOn && !testSettingsOpen && (
+                  <span className="absolute top-2 right-3 w-2 h-2 rounded-full" style={{ background: 'var(--c-primary)' }} />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setTestSettingsOpen(false); resetTest(); setSelectedBlock(null); }}
+                className="flex-1 h-11 rounded-full inline-flex items-center justify-center gap-1.5 text-[12.5px] font-bold transition-all active:scale-[0.98]"
+                style={{
+                  background: 'color-mix(in srgb, var(--c-danger) 12%, var(--c-card))',
+                  color: 'var(--c-danger)',
+                  border: '1px solid color-mix(in srgb, var(--c-danger) 28%, transparent)',
+                }}
+              >
+                <LogOut className="w-4 h-4" />
+                Выйти
+              </button>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
