@@ -114,12 +114,12 @@ const BlockOpenHint = ({
   expanded = false,
   onToggle,
   variant = 'card',
-  showBorderPulse = false,
+  showHintAttention = false,
 }: {
   expanded?: boolean;
   onToggle?: () => void;
   variant?: 'card' | 'dialog';
-  showBorderPulse?: boolean;
+  showHintAttention?: boolean;
 }) => {
   const rows = [
     {
@@ -167,50 +167,93 @@ const BlockOpenHint = ({
     </div>
   );
 
+  const drawAttention = showHintAttention;
+
   if (variant === 'dialog') return rowList(true);
 
   return (
     <>
-      {showBorderPulse && (
+      {drawAttention && (
         <style>{`
-          @keyframes testsHintBorderRun {
-            to { transform: rotate(360deg); }
+          @keyframes testsHintGlow {
+            0%, 100% {
+              box-shadow: 0 0 0 0 color-mix(in srgb, var(--c-amber) 0%, transparent);
+            }
+            50% {
+              box-shadow:
+                0 0 0 2px color-mix(in srgb, var(--c-amber) 28%, transparent),
+                0 6px 18px color-mix(in srgb, var(--c-amber) 16%, transparent);
+            }
+          }
+          @keyframes testsHintShimmer {
+            0% { transform: translateX(-130%); opacity: 0; }
+            12% { opacity: 0.85; }
+            45% { opacity: 0.85; }
+            58% { opacity: 0; }
+            100% { transform: translateX(230%); opacity: 0; }
+          }
+          @keyframes testsHintBulb {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.12); }
+          }
+          @keyframes testsHintBadge {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.72; transform: scale(0.96); }
           }
         `}</style>
       )}
-      <div className={`relative mb-3 rounded-[13px] ${showBorderPulse ? 'p-[2px]' : ''}`}>
-        {showBorderPulse && (
-          <div
-            className="absolute inset-0 rounded-[13px] pointer-events-none"
+      <div
+        className="relative mb-3 rounded-[13px] overflow-hidden"
+        style={{
+          background: 'var(--c-amber-soft)',
+          border: '1px solid color-mix(in srgb, var(--c-amber) 32%, transparent)',
+          animation: drawAttention ? 'testsHintGlow 2.8s ease-in-out infinite' : undefined,
+        }}
+      >
+        {drawAttention && (
+          <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[13px]">
+            <div
+              className="absolute inset-y-0 w-[42%]"
+              style={{
+                background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--c-amber) 42%, transparent), transparent)',
+                animation: 'testsHintShimmer 4.2s ease-in-out infinite',
+              }}
+            />
+          </div>
+        )}
+        {drawAttention && (
+          <span
+            className="absolute top-2 right-9 z-10 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md pointer-events-none"
             style={{
-              background: 'conic-gradient(from 0deg, var(--c-amber), color-mix(in srgb, var(--c-amber) 35%, transparent) 18%, transparent 42%, transparent 58%, color-mix(in srgb, var(--c-amber) 35%, transparent) 82%, var(--c-amber))',
-              animation: 'testsHintBorderRun 2.4s linear infinite',
+              background: 'var(--c-amber)',
+              color: 'var(--c-bg)',
+              animation: 'testsHintBadge 2.8s ease-in-out infinite',
+            }}
+          >
+            Совет
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={onToggle}
+          className="relative z-[1] w-full px-3 py-2.5 flex items-center gap-2 text-left transition-all active:opacity-80"
+        >
+          <Lightbulb
+            className="w-3.5 h-3.5 flex-shrink-0"
+            style={{
+              color: 'var(--c-amber)',
+              animation: drawAttention ? 'testsHintBulb 2.8s ease-in-out infinite' : undefined,
             }}
           />
-        )}
-        <div
-          className="relative rounded-[13px] overflow-hidden"
-          style={{
-            background: 'var(--c-amber-soft)',
-            border: showBorderPulse ? 'none' : '1px solid color-mix(in srgb, var(--c-amber) 28%, transparent)',
-          }}
-        >
-          <button
-            type="button"
-            onClick={onToggle}
-            className="w-full px-3 py-2.5 flex items-center gap-2 text-left transition-all active:opacity-80"
-          >
-            <Lightbulb className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--c-amber)' }} />
-            <span className="flex-1 text-[11px] font-bold leading-snug" style={{ color: 'var(--c-text)' }}>
-              <span style={{ color: 'var(--c-amber)' }}>Подсказка:</span> как учить тест эффективнее
-            </span>
-            <ChevronDown
-              className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
-              style={{ color: 'var(--c-muted)', transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
-            />
-          </button>
-          {expanded && <div className="px-3 pb-3">{rowList(false)}</div>}
-        </div>
+          <span className="flex-1 text-[11px] font-bold leading-snug pr-10" style={{ color: 'var(--c-text)' }}>
+            <span style={{ color: 'var(--c-amber)' }}>Подсказка:</span> как учить тест эффективнее
+          </span>
+          <ChevronDown
+            className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
+            style={{ color: 'var(--c-muted)', transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+          />
+        </button>
+        {expanded && <div className="relative z-[1] px-3 pb-3">{rowList(false)}</div>}
       </div>
     </>
   );
@@ -839,7 +882,7 @@ export const TestsTab = ({
                 <BlockOpenHint
                   expanded={studyHintOpen}
                   onToggle={toggleStudyHint}
-                  showBorderPulse={!studyHintEverOpened && !studyHintOpen}
+                  showHintAttention={!studyHintEverOpened && !studyHintOpen}
                 />
 
                 {/* Заголовок «Блоки» + переключатель по темам */}
