@@ -111,20 +111,22 @@ const BlockButton = ({
 const STUDY_HINT_TITLE = 'Подсказка: как учить тест эффективнее';
 
 const BlockOpenHint = ({
-  expanded = true,
+  expanded = false,
   onToggle,
   variant = 'card',
+  showBorderPulse = false,
 }: {
   expanded?: boolean;
   onToggle?: () => void;
   variant?: 'card' | 'dialog';
+  showBorderPulse?: boolean;
 }) => {
   const rows = [
     {
       Icon: BookOpen,
-      title: 'Удерживайте блок ~½ сек',
+      title: 'Удержи блок ~½ сек',
       subtitle: 'Режим обучения',
-      desc: 'Правильные ответы видны сразу. Пройдите блок один раз, чтобы запомнить, потом проверяйте себя.',
+      desc: 'Правильные ответы видны сразу. Пройди блок один раз, чтобы запомнить, потом проверяй себя.',
       color: 'var(--c-amber)',
       bg: 'color-mix(in srgb, var(--c-amber) 18%, transparent)',
     },
@@ -132,14 +134,18 @@ const BlockOpenHint = ({
       Icon: Check,
       title: 'Короткое нажатие',
       subtitle: 'Режим проверки',
-      desc: 'Отвечаете сами. Первый раз — с подсветкой, повтор — строго. Включите «Подсказку» внизу, если застряли.',
+      desc: 'Отвечай сам. Первый раз — с подсветкой, повтор — строго. Включи «Подсказку» внизу, если застрял — уберёт два неверных варианта.',
       color: 'var(--c-primary)',
       bg: 'var(--c-primary-dim)',
     },
   ] as const;
 
   const rowList = (large: boolean) => (
-    <div className={large ? 'space-y-3' : 'flex flex-col gap-2.5'}>
+    <div>
+      <p className={`${large ? 'text-[12px]' : 'text-[11px]'} leading-snug mb-2.5`} style={{ color: 'var(--c-muted)' }}>
+        Есть 2 режима:
+      </p>
+      <div className={large ? 'space-y-3' : 'flex flex-col gap-2.5'}>
       {rows.map(r => (
         <div key={r.title} className={`flex items-start ${large ? 'gap-3' : 'gap-2.5'}`}>
           <div
@@ -157,30 +163,56 @@ const BlockOpenHint = ({
           </div>
         </div>
       ))}
+      </div>
     </div>
   );
 
   if (variant === 'dialog') return rowList(true);
 
   return (
-    <div className="rounded-[13px] mb-3 overflow-hidden"
-      style={{ background: 'var(--c-amber-soft)', border: '1px solid color-mix(in srgb, var(--c-amber) 28%, transparent)' }}>
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full px-3 py-2.5 flex items-center gap-2 text-left transition-all active:opacity-80"
-      >
-        <Lightbulb className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--c-amber)' }} />
-        <span className="flex-1 text-[11px] font-bold leading-snug" style={{ color: 'var(--c-text)' }}>
-          <span style={{ color: 'var(--c-amber)' }}>Подсказка:</span> как учить тест эффективнее
-        </span>
-        <ChevronDown
-          className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
-          style={{ color: 'var(--c-muted)', transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
-        />
-      </button>
-      {expanded && <div className="px-3 pb-3">{rowList(false)}</div>}
-    </div>
+    <>
+      {showBorderPulse && (
+        <style>{`
+          @keyframes testsHintBorderRun {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      )}
+      <div className={`relative mb-3 rounded-[13px] ${showBorderPulse ? 'p-[2px]' : ''}`}>
+        {showBorderPulse && (
+          <div
+            className="absolute inset-0 rounded-[13px] pointer-events-none"
+            style={{
+              background: 'conic-gradient(from 0deg, var(--c-amber), color-mix(in srgb, var(--c-amber) 35%, transparent) 18%, transparent 42%, transparent 58%, color-mix(in srgb, var(--c-amber) 35%, transparent) 82%, var(--c-amber))',
+              animation: 'testsHintBorderRun 2.4s linear infinite',
+            }}
+          />
+        )}
+        <div
+          className="relative rounded-[13px] overflow-hidden"
+          style={{
+            background: 'var(--c-amber-soft)',
+            border: showBorderPulse ? 'none' : '1px solid color-mix(in srgb, var(--c-amber) 28%, transparent)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={onToggle}
+            className="w-full px-3 py-2.5 flex items-center gap-2 text-left transition-all active:opacity-80"
+          >
+            <Lightbulb className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--c-amber)' }} />
+            <span className="flex-1 text-[11px] font-bold leading-snug" style={{ color: 'var(--c-text)' }}>
+              <span style={{ color: 'var(--c-amber)' }}>Подсказка:</span> как учить тест эффективнее
+            </span>
+            <ChevronDown
+              className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
+              style={{ color: 'var(--c-muted)', transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+            />
+          </button>
+          {expanded && <div className="px-3 pb-3">{rowList(false)}</div>}
+        </div>
+      </div>
+    </>
   );
 };
 
@@ -240,6 +272,7 @@ export const TestsTab = ({
   const lsFavorites  = subject === 'ortho' ? 'test_favorites'       : `${cfg?.lsPrefix || subject}_test_favorites`;
   const lsAttempts   = subject === 'ortho' ? 'test_block_attempts'  : `${cfg?.lsPrefix || subject}_test_block_attempts`;
   const lsOnboarding = 'tests_mode_onboarding_dismissed';
+  const lsStudyHintOpened = 'tests_study_hint_opened';
   // ── Data ──────────────────────────────────────────────────────────────────
   const [loadedTestsData, setLoadedTestsData] = useState<any[]>([]);
   const [microLoading,    setMicroLoading]    = useState(false);
@@ -275,7 +308,8 @@ export const TestsTab = ({
   const [prevBest,         setPrevBest]         = useState(0);
   const [expandedThemes,   setExpandedThemes]   = useState<Set<string>>(new Set());
   const [showByTheme,      setShowByTheme]      = useState(false);
-  const [studyHintOpen,    setStudyHintOpen]    = useState(true);
+  const [studyHintOpen,    setStudyHintOpen]    = useState(false);
+  const [studyHintEverOpened, setStudyHintEverOpened] = useState(false);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const testScrollRef = useRef<HTMLDivElement>(null);
   const showResultRef = useRef(false);
@@ -295,8 +329,9 @@ export const TestsTab = ({
     try { setMistakes(JSON.parse(localStorage.getItem(lsMistakes) || '[]')); }  catch {}
     try { setFavorites(JSON.parse(localStorage.getItem(lsFavorites) || '[]')); } catch {}
     try { setBlockAttempts(JSON.parse(localStorage.getItem(lsAttempts) || '{}')); } catch {}
+    setStudyHintEverOpened(!!localStorage.getItem(lsStudyHintOpened));
     setTestsNote(localStorage.getItem(lsNote) || '');
-  }, [subject, lsScores, lsMistakes, lsFavorites, lsAttempts, lsNote]);
+  }, [subject, lsScores, lsMistakes, lsFavorites, lsAttempts, lsNote, lsStudyHintOpened]);
 
   useEffect(() => {
     let cancelled = false;
@@ -473,9 +508,15 @@ export const TestsTab = ({
     setHintLevel(1);
   };
 
-  const useAnswerHint = () => {
-    if (!currentTest || showResultRef.current || studyMode || !hintsEnabled || hintLevel >= 2) return;
-    setHintLevel(2);
+  const toggleStudyHint = () => {
+    setStudyHintOpen(v => {
+      const next = !v;
+      if (next && !studyHintEverOpened) {
+        setStudyHintEverOpened(true);
+        localStorage.setItem(lsStudyHintOpened, '1');
+      }
+      return next;
+    });
   };
 
   const toggleStudyMode = () => {
@@ -797,7 +838,8 @@ export const TestsTab = ({
 
                 <BlockOpenHint
                   expanded={studyHintOpen}
-                  onToggle={() => setStudyHintOpen(v => !v)}
+                  onToggle={toggleStudyHint}
+                  showBorderPulse={!studyHintEverOpened && !studyHintOpen}
                 />
 
                 {/* Заголовок «Блоки» + переключатель по темам */}
@@ -1084,7 +1126,7 @@ export const TestsTab = ({
   const isBlockMode = isRegularBlock(selectedBlock);
   const options = shuffleOptions ? shuffled : (currentTest?.options || []);
   const visibleOptions = options.filter((opt: string) => !hidden5050.includes(opt));
-  const answerRevealed = studyMode || hintLevel >= 2;
+  const answerRevealed = studyMode;
   const hintsAvailable = isBlockMode && hintsEnabled && !studyMode && !showResult;
 
   return (
@@ -1102,7 +1144,7 @@ export const TestsTab = ({
           <div className="mt-3 space-y-4">
             <BlockOpenHint variant="dialog" />
             <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--c-muted)' }}>
-              <strong style={{ color: 'var(--c-text)' }}>«Обучение» и «Подсказка»</strong> — в нижней панели во время теста. Кнопки 50/50 и «Ответ» появляются только если «Подсказка» включена, а «Обучение» выключено.
+              <strong style={{ color: 'var(--c-text)' }}>«Обучение» и «Подсказка»</strong> — в нижней панели во время теста. Кнопка 50/50 появляется, если «Подсказка» включена, а «Обучение» выключено.
             </p>
           </div>
           <label className="flex items-center gap-2.5 mt-4 cursor-pointer">
@@ -1192,36 +1234,21 @@ export const TestsTab = ({
             />
           </div>
 
-          {/* Подсказки 50/50 и полный ответ */}
+          {/* Подсказка 50/50 */}
           {hintsAvailable && (
-            <div className="flex gap-2">
-              <button
-                onClick={use5050Hint}
-                disabled={hintLevel >= 1}
-                className="flex-1 h-10 rounded-[11px] inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold transition-all active:scale-95 disabled:opacity-40"
-                style={{
-                  background: hintLevel >= 1 ? 'var(--c-primary-dim)' : 'var(--c-card)',
-                  border: `1px solid ${hintLevel >= 1 ? 'var(--c-primary-br)' : 'var(--c-border)'}`,
-                  color: hintLevel >= 1 ? 'var(--c-primary)' : 'var(--c-muted)',
-                }}
-              >
-                <Lightbulb className="w-3.5 h-3.5" />
-                50/50
-              </button>
-              <button
-                onClick={useAnswerHint}
-                disabled={hintLevel >= 2}
-                className="flex-1 h-10 rounded-[11px] inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold transition-all active:scale-95 disabled:opacity-40"
-                style={{
-                  background: hintLevel >= 2 ? 'var(--c-primary-dim)' : 'var(--c-card)',
-                  border: `1px solid ${hintLevel >= 2 ? 'var(--c-primary-br)' : 'var(--c-border)'}`,
-                  color: hintLevel >= 2 ? 'var(--c-primary)' : 'var(--c-muted)',
-                }}
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Ответ
-              </button>
-            </div>
+            <button
+              onClick={use5050Hint}
+              disabled={hintLevel >= 1}
+              className="w-full h-10 rounded-[11px] inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold transition-all active:scale-95 disabled:opacity-40"
+              style={{
+                background: hintLevel >= 1 ? 'var(--c-primary-dim)' : 'var(--c-card)',
+                border: `1px solid ${hintLevel >= 1 ? 'var(--c-primary-br)' : 'var(--c-border)'}`,
+                color: hintLevel >= 1 ? 'var(--c-primary)' : 'var(--c-muted)',
+              }}
+            >
+              <Lightbulb className="w-3.5 h-3.5" />
+              50/50 — убрать 2 неверных
+            </button>
           )}
 
           {/* Варианты */}
