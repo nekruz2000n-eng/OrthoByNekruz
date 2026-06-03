@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { SubjectSelectScreen } from '@/components/SubjectSelectScreen';
+import { PreviewOnboardingScreen } from '@/components/PreviewOnboardingScreen';
+import { PreviewAwaitingScreen } from '@/components/PreviewAwaitingScreen';
 import { AuthScreen }    from '@/components/AuthScreen';
 import { Navigation, TabType } from '@/components/Navigation';
 import { QuestionsTab }  from '@/components/QuestionsTab';
@@ -11,6 +13,8 @@ import { StatsTab }      from '@/components/StatsTab';
 import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
 import { getDefaultSubjectId } from '@/lib/subjects';
+import type { PreviewStatus } from '@/lib/preview';
+import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
 
 // ─── updateSafeAreas ─────────────────────────────────────────────────────────
 //
@@ -121,7 +125,60 @@ export default function Home() {
   const [isLoading,       setIsLoading]       = useState<boolean>(true);
   const [activeTab,       setActiveTab]       = useState<TabType>('questions');
   const [testMode,        setTestMode]        = useState<boolean>(false);
+  const [previewStatus,   setPreviewStatus]   = useState<PreviewStatus | null>(null);
+  const [pickSubjects,    setPickSubjects]     = useState<string[]>([]);
+  const [previewChosen,   setPreviewChosen]    = useState<string | null>(null);
+  const [previewFaculty,  setPreviewFaculty]   = useState<string | null>(null);
+  const [subjectCatalog,  setSubjectCatalog]   = useState<SubjectCatalogEntry[]>([]);
+  const [previewEndsAt,   setPreviewEndsAt]    = useState<string | null>(null);
+  const [previewPicking,  setPreviewPicking]   = useState<boolean>(false);
+  const [statusChecking,  setStatusChecking]  = useState<boolean>(false);
+  const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
   const { toast }    = useToast();
+
+  const applyAccessPayload = useCallback((d: any) => {
+    const list: string[] = Array.isArray(d?.subjects) ? d.subjects : [];
+    setAvailableSubjects(list);
+    setHasMicro(list.includes('micro'));
+    setNavHidden(d?.navHidden && typeof d.navHidden === 'object' ? d.navHidden : {});
+    localStorage.setItem('available_subjects', JSON.stringify(list));
+    if (list.includes('micro')) localStorage.setItem('has_micro', 'true');
+    else localStorage.removeItem('has_micro');
+
+    const ps = d?.previewStatus ?? null;
+    setPreviewStatus(ps);
+    setPreviewChosen(d?.previewChosenSubject ?? null);
+    setPreviewFaculty(d?.previewFaculty ?? null);
+    setPreviewEndsAt(d?.previewEndsAt ?? null);
+
+    if (Array.isArray(d?.subjectCatalog)) setSubjectCatalog(d.subjectCatalog);
+    if (Array.isArray(d?.pickSubjects)) setPickSubjects(d.pickSubjects);
+
+    if (ps === 'active' && d?.previewEndsAt) {
+      localStorage.setItem('preview_end', d.previewEndsAt);
+    } else {
+      localStorage.removeItem('preview_end');
+    }
+
+    if (ps === 'expired') {
+      localStorage.removeItem('preview_end');
+    }
+
+    if (list.length === 0) return;
+
+    if (!list.includes(subject)) {
+      setSubject(list[0]);
+    }
+
+    const alreadyChosen = localStorage.getItem('subject_chosen') === 'true';
+    if (!alreadyChosen && list.length >= 2 && ps !== 'active' && ps !== 'confirmed') {
+      setShowSubjectSelect(true);
+    } else if (list.length >= 1) {
+      setSubject(list[0]);
+      localStorage.setItem('subject_chosen', 'true');
+      setShowSubjectSelect(false);
+    }
+  }, [subject, setSubject]);
 
   // Если активный таб админ скрыл — переключаем на первый доступный
   useEffect(() => {
@@ -172,14 +229,11 @@ export default function Home() {
   }, [isAuthenticated]);
 
   // ── Проверка доступных дисциплин ─────────────────────────────────────────
-  //    Сервер — единственный источник истины.
-  //    localStorage — только UI-кэш для быстрого отображения.
-  //    При получении списка subjects решаем что показать:
-  //      0 → экран "обратитесь к админу"
-  //      1 → сразу пускаем в эту дисциплину
-  //      2+ → показываем экран выбора (только если ещё не выбирали)
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setAccessChecked(false);
+      return;
+    }
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
     if (!tgId) return;
@@ -211,43 +265,16 @@ export default function Home() {
       })
       .then(d => {
         if (!d) return;
-        // Пользователь был удалён — сбрасываем авторизацию и отправляем на ввод ключа
         if (d.registered === false) {
-          ['is_authed', 'user_tg_id', 'available_subjects', 'subject_chosen', 'has_micro'].forEach(k => localStorage.removeItem(k));
+          ['is_authed', 'user_tg_id', 'available_subjects', 'subject_chosen', 'has_micro', 'preview_end'].forEach(k => localStorage.removeItem(k));
           setIsAuthenticated(false);
           return;
         }
-        const list: string[] = Array.isArray(d.subjects) ? d.subjects : [];
-        setAvailableSubjects(list);
-        setHasMicro(list.includes('micro'));
-        setNavHidden(d.navHidden && typeof d.navHidden === 'object' ? d.navHidden : {});
-        localStorage.setItem('available_subjects', JSON.stringify(list));
-        // Legacy: для совместимости
-        if (list.includes('micro')) localStorage.setItem('has_micro', 'true');
-        else localStorage.removeItem('has_micro');
-
-        // Если у юзера 0 открытых дисциплин — сбрасываем выбор
-        if (list.length === 0) return;
-
-        // Если текущая выбранная дисциплина закрыта — переключаемся на первую доступную
-        if (!list.includes(subject)) {
-          setSubject(list[0]);
-        }
-
-        // Логика показа экрана выбора:
-        //   - Если выбора ещё не было И открыто 2+ дисциплин — показываем
-        //   - Если открыта только 1 — сразу пускаем (выбор не нужен)
-        const alreadyChosen = localStorage.getItem('subject_chosen') === 'true';
-        if (!alreadyChosen && list.length >= 2) {
-          setShowSubjectSelect(true);
-        } else if (list.length === 1) {
-          // Автоматически выбираем единственную доступную
-          setSubject(list[0]);
-          localStorage.setItem('subject_chosen', 'true');
-        }
+        applyAccessPayload(d);
+        setAccessChecked(true);
       })
-      .catch(() => {});
-  }, [isAuthenticated]);
+      .catch(() => { setAccessChecked(true); });
+  }, [isAuthenticated, applyAccessPayload]);
 
   // ── Восстановление последнего предмета из localStorage (только на клиенте) ──
   useEffect(() => {
@@ -257,31 +284,7 @@ export default function Home() {
 
   // ── Авторизация ───────────────────────────────────────────────────────────
   useEffect(() => {
-    const authed   = localStorage.getItem('is_authed') === 'true';
-    const demo     = localStorage.getItem('demo_mode')  === 'true';
-    const demoTs   = localStorage.getItem('demo_start');
-    const demoUsed = localStorage.getItem('demo_used')  === 'true';
-
-    if (demo && demoTs) {
-      const LIMIT = 5*60_000;
-      const check = () => {
-        if (Date.now() - Number(demoTs) >= LIMIT) {
-          ['is_authed', 'demo_mode', 'demo_start'].forEach(k => localStorage.removeItem(k));
-          localStorage.setItem('demo_used', 'true');
-          setIsAuthenticated(false);
-          window.location.reload();
-          return true;
-        }
-        return false;
-      };
-      if (check()) return;
-      setIsAuthenticated(true);
-      setIsLoading(false);
-      const iv = setInterval(check, 1000);
-      return () => clearInterval(iv);
-    }
-
-    if (demoUsed && !authed) { setIsAuthenticated(false); setIsLoading(false); return; }
+    const authed = localStorage.getItem('is_authed') === 'true';
 
     if (authed) {
       const storedId  = localStorage.getItem('user_tg_id');
@@ -297,6 +300,101 @@ export default function Home() {
     }
     setIsLoading(false);
   }, []);
+
+  // ── Таймер пробного доступа (клиент; сервер проверяет при запросах) ───────
+  useEffect(() => {
+    if (!isAuthenticated || previewStatus !== 'active') return;
+    const endIso = previewEndsAt || localStorage.getItem('preview_end');
+    if (!endIso) return;
+
+    const tick = () => {
+      if (Date.now() >= Date.parse(endIso)) {
+        setPreviewStatus('expired');
+        localStorage.removeItem('preview_end');
+        setAvailableSubjects([]);
+        fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telegramId: localStorage.getItem('user_tg_id'),
+            mode: 'check_subjects',
+            initData: (window as any).Telegram?.WebApp?.initData || '',
+          }),
+        })
+          .then(r => r.json())
+          .then(d => applyAccessPayload(d))
+          .catch(() => {});
+        return true;
+      }
+      return false;
+    };
+
+    if (tick()) return;
+    const iv = setInterval(() => { if (tick()) clearInterval(iv); }, 1000);
+    return () => clearInterval(iv);
+  }, [isAuthenticated, previewStatus, previewEndsAt, applyAccessPayload]);
+
+  const handlePreviewPick = useCallback(async (subjectId: string) => {
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) return;
+    setPreviewPicking(true);
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: tgId,
+          mode: 'pick_preview_subject',
+          subjectId,
+          initData: initDat,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ variant: 'destructive', title: 'Ошибка', description: data.error || 'Не удалось сохранить выбор' });
+        return;
+      }
+      localStorage.setItem('is_authed', 'true');
+      localStorage.setItem('subject_chosen', 'true');
+      applyAccessPayload(data);
+      toast({ title: 'Пробный доступ начался', description: '5 минут на знакомство с материалами' });
+    } catch {
+      toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
+    } finally {
+      setPreviewPicking(false);
+    }
+  }, [applyAccessPayload, toast]);
+
+  const handleCheckPreviewStatus = useCallback(async () => {
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) return;
+    setStatusChecking(true);
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telegramId: tgId, mode: 'check_preview_status', initData: initDat }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ variant: 'destructive', title: 'Статус', description: data.error || 'Заявка не найдена' });
+        return;
+      }
+      if (data.previewStatus === 'confirmed') {
+        localStorage.setItem('is_authed', 'true');
+        applyAccessPayload(data);
+        toast({ title: 'Доступ открыт', description: 'Можно продолжать обучение' });
+      } else {
+        applyAccessPayload(data);
+      }
+    } catch {
+      toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
+    } finally {
+      setStatusChecking(false);
+    }
+  }, [applyAccessPayload, toast]);
 
   // ── Сброс (6 быстрых тапов) ───────────────────────────────────────────────
   const handleSecretTap = useCallback(() => {
@@ -325,10 +423,46 @@ export default function Home() {
     return <AuthScreen onAuthenticated={() => setIsAuthenticated(true)} />;
   }
 
+  if (!accessChecked && previewStatus !== 'expired') {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (previewStatus === 'selecting') {
+    if (!accessChecked || subjectCatalog.length === 0) {
+      return (
+        <div className="flex items-center justify-center min-h-screen bg-background">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        </div>
+      );
+    }
+    return (
+      <PreviewOnboardingScreen
+        facultyLabel={previewFaculty}
+        subjectCatalog={subjectCatalog}
+        loading={previewPicking}
+        onConfirm={handlePreviewPick}
+      />
+    );
+  }
+
+  if (previewStatus === 'expired') {
+    return (
+      <PreviewAwaitingScreen
+        chosenSubject={previewChosen}
+        course={null}
+        faculty={previewFaculty}
+        checking={statusChecking}
+        onCheckStatus={handleCheckPreviewStatus}
+      />
+    );
+  }
+
   // ── Если у пользователя нет ни одной открытой дисциплины ─────────────────
-  //    Это случается когда ключ активирован, но админ ещё не открыл предметы.
-  //    Демо-пользователи всегда имеют ortho, поэтому сюда не попадают.
-  if (availableSubjects.length === 0 && !localStorage.getItem('demo_mode')) {
+  if (availableSubjects.length === 0 && previewStatus !== 'active') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background p-6">
         <div className="max-w-sm text-center">

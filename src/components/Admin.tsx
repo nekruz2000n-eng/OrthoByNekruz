@@ -14,6 +14,11 @@ interface User {
   subjects:      string[];
   hasMicro:      boolean;
   usedDemo:      boolean;
+  previewStatus:        string | null;
+  previewChosenSubject: string | null;
+  promoCode:            string | null;
+  facultyId:            string | null;
+  previewFaculty:       string | null;
   activatedKey:  string | null;
   registeredAt:  string | null;
   lastLogin:     string | null;
@@ -53,7 +58,7 @@ const RES_TYPE_OPTS: { id: ResType; label: string; emoji: string }[] = [
 
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo' | 'unpaid';
 type SortBy = 'registered' | 'lastLogin' | 'loginCount';
-type Action = 'block' | 'unblock' | 'reset_demo' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid';
+type Action = 'block' | 'unblock' | 'reset_demo' | 'confirm_preview' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid';
 
 // Управляемые из админки разделы. Сам раздел «Статистика» не выключается
 // (там прогресс юзера), но внутри него можно скрыть блок «Проверка готовности».
@@ -268,8 +273,12 @@ function UserCard({
 }) {
   const busy        = actioning === user.tgId;
   const name        = displayName(user);
-  const hasFullKey  = user.activatedKey && user.activatedKey !== 'trial';
+  const hasFullKey  = user.activatedKey && user.activatedKey !== 'trial' && user.activatedKey !== 'preview' && !String(user.activatedKey).startsWith('promo:');
   const isTrial     = user.activatedKey === 'trial';
+  const isPreviewKey = user.activatedKey === 'preview';
+  const previewSubjectLabel = user.previewChosenSubject
+    ? (availableSubjects.find(s => s.id === user.previewChosenSubject)?.label || user.previewChosenSubject)
+    : null;
 
   // «Новенький» — регистрация менее 24 ч назад
   const isFresh = !!user.registeredAt &&
@@ -406,12 +415,22 @@ function UserCard({
               </span>
             )}
             {isTrial    && <Chip bg={T.warnSoft}   color={T.warn}>trial</Chip>}
+            {isPreviewKey && <Chip bg={T.purpleSoft} color={T.purple}>пробный</Chip>}
+            {user.previewStatus === 'expired' && previewSubjectLabel && (
+              <Chip bg={T.purpleSoft} color={T.purple}>→ {previewSubjectLabel}</Chip>
+            )}
+            {user.previewStatus === 'selecting' && (
+              <Chip bg={T.infoSoft} color={T.info}>выбирает</Chip>
+            )}
+            {user.previewStatus === 'active' && previewSubjectLabel && (
+              <Chip bg={T.warnSoft} color={T.warn}>5 мин · {previewSubjectLabel}</Chip>
+            )}
             {availableSubjects
               .filter(s => s.id !== 'ortho' && user.subjects.includes(s.id))
               .map(s => (
                 <Chip key={s.id} bg={T.successSoft} color={T.success}>{s.shortLabel}</Chip>
               ))}
-            {user.usedDemo && <Chip bg={T.purpleSoft} color={T.purple}>демо</Chip>}
+            {user.usedDemo && !user.previewStatus && <Chip bg={T.purpleSoft} color={T.purple}>демо</Chip>}
             {user.opensToday >= 3 && (
               <Chip
                 bg={user.opensToday >= 5 ? T.dangerSoft : T.warnSoft}
@@ -451,8 +470,33 @@ function UserCard({
             )}
             {user.activatedKey && (
               <Meta label="Ключ"
-                value={user.activatedKey === 'trial' ? 'триал' : `···${user.activatedKey.slice(-4)}`}
+                value={
+                  user.activatedKey === 'trial' ? 'триал'
+                    : user.activatedKey === 'preview' ? 'пробный'
+                    : String(user.activatedKey).startsWith('promo:') ? 'код канала'
+                    : `···${user.activatedKey.slice(-4)}`
+                }
                 mono />
+            )}
+            {previewSubjectLabel && (
+              <Meta label="Выбор (пробный)" value={previewSubjectLabel} color={T.purple} />
+            )}
+            {user.promoCode && (
+              <Meta label="Код канала" value={user.promoCode} mono />
+            )}
+            {user.previewFaculty && (
+              <Meta label="Факультет" value={user.previewFaculty} />
+            )}
+            {user.previewStatus && (
+              <Meta label="Статус пробного"
+                value={
+                  user.previewStatus === 'selecting' ? 'выбирает предмет'
+                    : user.previewStatus === 'active' ? 'идёт пробный период'
+                    : user.previewStatus === 'expired' ? 'ждёт подтверждения'
+                    : 'подтверждён'
+                }
+                color={user.previewStatus === 'expired' ? T.purple : T.textMuted}
+              />
             )}
             <Meta label="Открытий сегодня" value={String(user.opensToday)}
               color={user.opensToday >= 5 ? T.danger : user.opensToday >= 3 ? T.warn : undefined} />
@@ -580,10 +624,16 @@ function UserCard({
                 {busy ? '...' : 'Заблокировать'}
               </ActionBtn>
             )}
+            {(user.previewStatus === 'expired' || user.previewStatus === 'active') && user.previewChosenSubject && (
+              <ActionBtn variant="success" disabled={busy} fullWidth
+                onClick={() => onAction(user.tgId, 'confirm_preview')}>
+                {busy ? '...' : `✓ Подтвердить: ${previewSubjectLabel || user.previewChosenSubject}`}
+              </ActionBtn>
+            )}
             {user.usedDemo && (
               <ActionBtn variant="warn" disabled={busy} fullWidth
                 onClick={() => onAction(user.tgId, 'reset_demo')}>
-                {busy ? '...' : 'Выдать демо повторно'}
+                {busy ? '...' : 'Сбросить пробный доступ'}
               </ActionBtn>
             )}
             <a
@@ -924,43 +974,42 @@ export default function AdminPage() {
   const [wlAdding,     setWlAdding]     = useState(false);
   const [wlRemoving,   setWlRemoving]   = useState<string | null>(null);
 
-  // ── Глобальные настройки (демо-кнопка) ──────────────────────────────────
-  const [isDemoEnabled, setIsDemoEnabled] = useState(true);
-  const [isDemoLoading, setIsDemoLoading] = useState(false);
+  const [isPaidKeysEnabled, setIsPaidKeysEnabled] = useState(true);
+  const [isPaidKeysLoading, setIsPaidKeysLoading] = useState(false);
 
   useEffect(() => {
     fetch('/api/admin-config')
       .then(res => res.json())
       .then(data => {
-        if (typeof data.isDemoEnabled === 'boolean') setIsDemoEnabled(data.isDemoEnabled);
+        if (typeof data.isPaidKeysEnabled === 'boolean') setIsPaidKeysEnabled(data.isPaidKeysEnabled);
       })
       .catch(err => console.error('Ошибка загрузки конфига:', err));
   }, []);
 
-  const toggleDemoButton = async () => {
+  const togglePaidKeys = async () => {
     const initData = getTelegramInitData();
     if (!initData) { showToast('Нет доступа: не в Telegram'); return; }
 
-    setIsDemoLoading(true);
+    setIsPaidKeysLoading(true);
     try {
-      const newValue = !isDemoEnabled;
+      const newValue = !isPaidKeysEnabled;
       const res = await fetch('/api/admin-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isDemoEnabled: newValue, initData, secret }),
+        body: JSON.stringify({ isPaidKeysEnabled: newValue, initData, secret }),
       });
       if (res.ok) {
-        setIsDemoEnabled(newValue);
-        showToast(newValue ? '✓ Демо-кнопка включена для всех' : 'Демо-кнопка скрыта');
+        setIsPaidKeysEnabled(newValue);
+        showToast(newValue ? '✓ 8-значные ключи включены' : '8-значные ключи отключены');
       } else if (res.status === 403) {
         showToast('Нет прав');
       } else {
         showToast('Ошибка при переключении');
       }
-    } catch (error) {
+    } catch {
       showToast('Ошибка сети');
     } finally {
-      setIsDemoLoading(false);
+      setIsPaidKeysLoading(false);
     }
   };
 
@@ -1572,7 +1621,26 @@ export default function AdminPage() {
           case 'unblock':
             return { ...u, blocked: false, blockedReason: null, blockedAt: null, opensToday: 0, suspicious: false };
           case 'reset_demo':
-            return { ...u, usedDemo: false };
+            return {
+              ...u,
+              usedDemo: false,
+              previewStatus: null,
+              previewChosenSubject: null,
+              promoCode: null,
+              facultyId: null,
+              previewFaculty: null,
+              subjects: u.subjects.filter(() => false),
+            };
+          case 'confirm_preview': {
+            const chosen = u.previewChosenSubject;
+            const newSubjects = chosen ? [chosen] : (Array.isArray(data.subjects) ? data.subjects : u.subjects);
+            return {
+              ...u,
+              previewStatus: 'confirmed',
+              activatedKey: u.activatedKey === 'preview' || !u.activatedKey ? 'preview' : u.activatedKey,
+              subjects: newSubjects,
+            };
+          }
           case 'toggle_paid':
             return { ...u, paid: !u.paid };
           case 'toggle_subject': {
@@ -1623,7 +1691,8 @@ export default function AdminPage() {
       switch (action) {
         case 'block':          msg = '🚫 Заблокирован'; break;
         case 'unblock':        msg = '✓ Разблокирован'; break;
-        case 'reset_demo':     msg = '✓ Демо выдан повторно'; break;
+        case 'reset_demo':     msg = '✓ Пробный доступ сброшен'; break;
+        case 'confirm_preview': msg = '✓ Доступ подтверждён'; break;
         case 'toggle_paid': {
           const nowPaid = !users.find(u => u.tgId === tgId)?.paid;
           msg = nowPaid ? '💲 Отмечено как оплачено' : 'Отметка оплаты снята';
@@ -1914,11 +1983,11 @@ export default function AdminPage() {
 
         {adminTab === 'settings' && (<>
 
-        {/* демо-вход */}
+        {/* пробный вход — коды из канала */}
         <div style={{
           background: T.surface, border: `1px solid ${T.border}`,
           borderRadius: 14, padding: '13px 14px', marginBottom: 14,
-          display: 'flex', alignItems: 'center', gap: 12,
+          display: 'flex', alignItems: 'flex-start', gap: 12,
         }}>
           <div style={{
             width: 36, height: 36, borderRadius: 10, background: T.purpleSoft,
@@ -1926,28 +1995,52 @@ export default function AdminPage() {
             fontWeight: 700, fontSize: 15, flexShrink: 0,
           }}>D</div>
           <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, marginBottom: 4 }}>
+              Пробный вход
+            </div>
+            <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.5 }}>
+              Студент вводит код из канала: 🦷 <strong>3950</strong>, 🩺 <strong>5016</strong>, 👶 <strong>2314</strong>.
+              После 5 минут подтверждаешь заявку кнопкой «Подтвердить» в карточке.
+            </div>
+          </div>
+        </div>
+
+        {/* платные 8-значные ключи */}
+        <div style={{
+          background: T.surface, border: `1px solid ${T.border}`,
+          borderRadius: 14, padding: '13px 14px', marginBottom: 14,
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10, background: T.accentSoft,
+            color: T.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 700, fontSize: 13, flexShrink: 0,
+          }}>₽</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, marginBottom: 2 }}>
-              Демо-вход
+              Платные ключи (8 цифр)
             </div>
             <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.4 }}>
-              {isDemoEnabled ? 'Кнопка отображается на экране входа' : 'Кнопка полностью скрыта'}
+              {isPaidKeysEnabled
+                ? 'Старая монетизация активна — ключи из списка ниже принимаются'
+                : 'Отключено — только коды из канала и подтверждение админа'}
             </div>
           </div>
           <button
-            onClick={toggleDemoButton}
-            disabled={isDemoLoading}
-            aria-label="Toggle demo"
+            onClick={togglePaidKeys}
+            disabled={isPaidKeysLoading}
+            aria-label="Toggle paid keys"
             style={{
               width: 44, height: 26, borderRadius: 999,
-              background: isDemoEnabled ? T.accent : T.borderStrong,
+              background: isPaidKeysEnabled ? T.accent : T.borderStrong,
               border: 'none', position: 'relative', flexShrink: 0,
-              cursor: isDemoLoading ? 'default' : 'pointer',
+              cursor: isPaidKeysLoading ? 'default' : 'pointer',
               padding: 0, transition: 'background 0.15s',
-              opacity: isDemoLoading ? 0.6 : 1,
+              opacity: isPaidKeysLoading ? 0.6 : 1,
             }}
           >
             <span style={{
-              position: 'absolute', top: 3, left: isDemoEnabled ? 21 : 3,
+              position: 'absolute', top: 3, left: isPaidKeysEnabled ? 21 : 3,
               width: 20, height: 20, borderRadius: '50%',
               background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
               transition: 'left 0.15s',
@@ -2979,7 +3072,7 @@ export default function AdminPage() {
           <div style={{ flex: 1 }}>
             <span style={{ color: T.purple, fontWeight: 700, fontSize: 15 }}>{demoCount}</span>
             <span style={{ color: T.purple, opacity: 0.75, fontSize: 12.5, marginLeft: 6 }}>
-              использовали демо-доступ
+              использовали пробный доступ
             </span>
           </div>
           <span style={{ color: T.purple, fontSize: 12, fontWeight: 600 }}>
@@ -2998,7 +3091,7 @@ export default function AdminPage() {
             { id: 'blocked' as Filter,    label: 'Блок',       count: blockedCount,     accent: T.danger  },
             { id: 'suspicious' as Filter, label: 'Подозрит.',  count: suspiciousCount,  accent: T.warn    },
             { id: 'unpaid' as Filter,     label: 'Без 💲',     count: unpaidCount,      accent: T.warn    },
-            { id: 'demo' as Filter,       label: 'Демо',       count: demoCount,        accent: T.purple  },
+            { id: 'demo' as Filter,       label: 'Пробный',    count: demoCount,        accent: T.purple  },
           ].map(tab => {
             const active = filter === tab.id;
             return (

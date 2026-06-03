@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
 import { SUBJECTS, getSubject, getUserAvailableSubjects } from '@/lib/subjects';
+import { confirmPreviewUser, getEffectiveUserSubjects } from '@/lib/preview';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { getAllUserIds, registerUserId, removeUserId } from '@/lib/userIndex';
 
@@ -53,7 +54,7 @@ function toListUser(
   usedDemo: boolean,
 ) {
   user = ensureSubjects(user);
-  const userSubjects = getUserAvailableSubjects(user);
+  const userSubjects = getEffectiveUserSubjects(user);
   return {
     tgId:          id,
     username:      user.username      ?? null,
@@ -65,6 +66,11 @@ function toListUser(
     subjects:      userSubjects,
     hasMicro:      userSubjects.includes('micro'),
     usedDemo,
+    previewStatus:        user.previewStatus        ?? null,
+    previewChosenSubject: user.previewChosenSubject ?? null,
+    promoCode:            user.promoCode            ?? null,
+    facultyId:            user.facultyId            ?? null,
+    previewFaculty:       user.previewFaculty       ?? null,
     activatedKey:  user.activatedKey  ?? null,
     registeredAt:  user.date          ?? null,
     lastLogin:     user.lastLogin     ?? null,
@@ -82,7 +88,7 @@ function toDetailUser(
   usedDemo: boolean,
 ) {
   user = ensureSubjects(user);
-  const userSubjects = getUserAvailableSubjects(user);
+  const userSubjects = getEffectiveUserSubjects(user);
   return {
     tgId:          id,
     username:      user.username      ?? null,
@@ -94,6 +100,13 @@ function toDetailUser(
     subjects:      userSubjects,
     hasMicro:      userSubjects.includes('micro'),
     usedDemo,
+    previewStatus:        user.previewStatus        ?? null,
+    previewChosenSubject: user.previewChosenSubject ?? null,
+    promoCode:            user.promoCode            ?? null,
+    facultyId:            user.facultyId            ?? null,
+    previewFaculty:       user.previewFaculty       ?? null,
+    previewStartedAt:     user.previewStartedAt     ?? null,
+    previewConfirmedAt:   user.previewConfirmedAt   ?? null,
     activatedKey:  user.activatedKey  ?? null,
     registeredAt:  user.date          ?? null,
     lastLogin:     user.lastLogin     ?? null,
@@ -105,10 +118,10 @@ function toDetailUser(
   };
 }
 
-/** Ключ активирован (не trial), отметка «оплачено» не стоит */
+/** Ключ активирован (не trial/preview/promo), отметка «оплачено» не стоит */
 function isUnpaid(u: ReturnType<typeof toListUser>): boolean {
   const key = u.activatedKey;
-  if (!key || key === 'trial') return false;
+  if (!key || key === 'trial' || key === 'preview' || String(key).startsWith('promo:')) return false;
   return u.paid !== true;
 }
 
@@ -316,7 +329,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (action === 'reset_demo') {
         await redis.srem('used_demo_ids', tgId as string);
+        if (user) {
+          const cleaned: Record<string, any> = { ...user };
+          delete cleaned.previewStatus;
+          delete cleaned.previewChosenSubject;
+          delete cleaned.promoCode;
+          delete cleaned.facultyId;
+          delete cleaned.previewFaculty;
+          delete cleaned.previewStartedAt;
+          delete cleaned.previewPickedAt;
+          delete cleaned.previewExpiredAt;
+          delete cleaned.previewConfirmedAt;
+          if (cleaned.activatedKey === 'preview') delete cleaned.activatedKey;
+          await saveUser(String(tgId), cleaned);
+        }
         return res.status(200).json({ ok: true });
+      }
+
+      if (action === 'confirm_preview') {
+        if (!user?.previewChosenSubject) {
+          return res.status(400).json({ error: 'Предмет не выбран' });
+        }
+        if (user.previewStatus === 'confirmed') {
+          return res.status(200).json({
+            ok: true,
+            subjects: getUserAvailableSubjects(user),
+          });
+        }
+        const updated = confirmPreviewUser(user);
+        await saveUser(String(tgId), updated);
+        return res.status(200).json({
+          ok: true,
+          subjects: getUserAvailableSubjects(updated),
+          previewStatus: 'confirmed',
+        });
       }
 
       if (action === 'toggle_paid') {
@@ -379,7 +425,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let filtered = allUsers.filter(u => {
       if (listFilter === 'blocked'    && !u.blocked) return false;
       if (listFilter === 'suspicious' && !u.suspicious && !u.blocked) return false;
-      if (listFilter === 'demo'       && !u.usedDemo) return false;
+      if (listFilter === 'demo'       && !u.usedDemo && !u.previewStatus) return false;
       if (listFilter === 'unpaid'     && !isUnpaid(u)) return false;
       if (query && !matchesQuery(u, query)) return false;
       return true;
@@ -395,7 +441,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const blockedCount    = allUsers.filter(u => u.blocked).length;
     const suspiciousCount = allUsers.filter(u => u.suspicious && !u.blocked).length;
-    const demoCount       = allUsers.filter(u => u.usedDemo).length;
+    const demoCount       = allUsers.filter(u => u.usedDemo || u.previewStatus).length;
     const unpaidCount     = allUsers.filter(isUnpaid).length;
     const microCount      = allUsers.filter(u => u.subjects.some(s => s !== 'ortho')).length;
 

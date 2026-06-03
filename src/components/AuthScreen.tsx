@@ -7,7 +7,14 @@ import { Input } from '@/components/ui/input'; // Компонент поля в
 import { Button } from '@/components/ui/button'; // Компонент кнопки (из библиотеки shadcn/ui)
 import { useToast } from '@/hooks/use-toast'; // Хук для показа всплывающих уведомлений (тостов)
 import { Loader2, ExternalLink, Heart } from 'lucide-react'; // Иконки из библиотеки lucide-react
-import { cn } from '@/lib/utils'; // Утилита для удобного объединения CSS-классов
+import { cn } from '@/lib/utils';
+import {
+  detectFacultyByInput,
+  resolveFacultyPromoCode,
+  MAX_INPUT_LENGTH,
+  getDefaultDigitIcon,
+  isLegacyPaidKey,
+} from '@/lib/facultyCodes'; // Утилита для удобного объединения CSS-классов
 
 // ─── КОМПОНЕНТ ФОНА: ПАДАЮЩИЕ 3D ЗУБИКИ ──────────────────────────────────────
 const ToothRainBG = () => {
@@ -116,22 +123,22 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   // ── Стейты (Состояния компонента) ──
   const [mounted, setMounted] = useState(false); // Флаг: загрузился ли компонент в браузере
   const [key, setKey] = useState(''); // Введенный пользователем ключ (до 8 цифр)
-  const [loading, setLoading] = useState(false); // Флаг: идет ли сейчас загрузка (запрос на сервер)
-  const [error, setError] = useState(false); // Флаг ошибки (для запуска анимации тряски)
-  const [focused, setFocused] = useState(false); // В фокусе ли поле ввода ключа
-const [isDemoVisible, setIsDemoVisible] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [isPaidKeysEnabled, setIsPaidKeysEnabled] = useState(true);
 
-  // Этот useEffect запрашивает статус из базы в момент открытия экрана
   useEffect(() => {
     fetch('/api/admin-config')
       .then(res => res.json())
       .then(data => {
-        if (typeof data.isDemoEnabled === 'boolean') {
-          setIsDemoVisible(data.isDemoEnabled); // Обновляет стейт реальными данными
+        if (typeof data.isPaidKeysEnabled === 'boolean') {
+          setIsPaidKeysEnabled(data.isPaidKeysEnabled);
         }
       })
-      .catch(err => console.error('Ошибка загрузки конфига демо:', err));
-  }, []);  
+      .catch(err => console.error('Ошибка загрузки конфига:', err));
+  }, []);
+
   // Время блокировки (в секундах) при неверном вводе. Берем из localStorage, если юзер обновил страницу.
   const [lockoutTime, setLockoutTime] = useState(() => {
     if (typeof window === 'undefined') return 0;
@@ -268,14 +275,16 @@ const [isDemoVisible, setIsDemoVisible] = useState(true);
       const data = await res.json();
       
       if (res.ok) {
-        // Успешный вход!
         localStorage.setItem('is_authed', 'true');
         localStorage.setItem('user_tg_id', String(inputTgId));
-        // Показываем приветствие только при первом входе
+        if (data.previewStatus || data.preview) {
+          onAuthenticated();
+          return;
+        }
         if (!localStorage.getItem('welcome_seen') && inputKey !== '') {
           setShowWelcome(true);
         } else {
-          onAuthenticated(); // Сразу пускаем в приложение
+          onAuthenticated();
         }
       } else {
         // Ошибки сервера
@@ -287,8 +296,16 @@ const [isDemoVisible, setIsDemoVisible] = useState(true);
           setError(true);
           setErrorMessage('Открой приложение через кнопку бота в Telegram, а не через браузер.');
           setTimeout(() => setErrorMessage(''), 8000);
+        } else if (res.status === 403 && data.previewAwaiting) {
+          localStorage.setItem('is_authed', 'true');
+          localStorage.setItem('user_tg_id', String(inputTgId));
+          onAuthenticated();
+        } else if (res.status === 403 && data.needSubscription) {
+          setNeedsSubscription(true);
         } else if (res.status === 403) {
-          setNeedsSubscription(true); // Просим подписаться на канал
+          setError(true);
+          setErrorMessage(data.error || 'Доступ запрещён');
+          setTimeout(() => setErrorMessage(''), 5000);
         } else {
           // Неверный ключ. Блокируем ввод на 60 секунд (Защита от подбора)
           const LOCKOUT_SEC = 60;
@@ -309,39 +326,45 @@ const [isDemoVisible, setIsDemoVisible] = useState(true);
 
   // ── Обработчик клика по кнопке "Войти" ──
   const handleLoginClick = () => {
-    const id = autoTgId || manualTgId.trim(); // Берем либо авто-ID, либо то, что ввел юзер
+    const id = autoTgId || manualTgId.trim();
     if (!id) { toast({ variant: 'destructive', title: 'ID не найден', description: 'Введи ID вручную' }); return; }
-    // Проверка, что ID состоит только из цифр (5-12 символов)
     if (!/^\d{5,12}$/.test(id) || Number(id) < 10000) {
       toast({ variant: 'destructive', title: 'Неверный ID', description: 'Telegram ID должен быть числовым (5-12 цифр)' }); return;
     }
-    handleAuth(key, id); // Запускаем проверку
+    if (!canEnter) {
+      const msg = legacyReady && !isPaidKeysEnabled
+        ? 'Платные ключи временно отключены — введи код из канала'
+        : 'Введи код из канала полностью';
+      toast({ variant: 'destructive', title: 'Неверный код', description: msg });
+      return;
+    }
+    handleAuth(key, id);
   };
 
-  // ── Обработчик демо-кнопки ──
-  const handleDemoClick = async () => {
+  const handleCheckStatusClick = async () => {
     const id = autoTgId || manualTgId.trim();
     if (!id) { toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось определить ID.' }); return; }
     setLoading(true);
-    
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telegramId: String(id), mode: 'check_demo', initData }),
+        body: JSON.stringify({ telegramId: String(id), mode: 'check_preview_status', initData }),
       });
       const data = await res.json();
-      
-      if (data.success) {
-        localStorage.setItem('is_authed', 'true');
-        localStorage.setItem('demo_mode', 'true'); // Включаем демо-режим
-        localStorage.setItem('demo_start', String(Date.now()));
-        localStorage.setItem('user_tg_id', String(id));
-        onAuthenticated();
-      } else {
-        setDemoMessage(data.message || 'Демо недоступно, ты уже использовал его ранее');
+      if (!res.ok) {
+        setDemoMessage(data.error || 'Заявка не найдена');
         setTimeout(() => setDemoMessage(''), 3500);
+        return;
       }
+      localStorage.setItem('user_tg_id', String(id));
+      if (data.previewStatus === 'confirmed' || data.previewStatus === 'active' || data.previewStatus === 'selecting') {
+        localStorage.setItem('is_authed', 'true');
+        onAuthenticated();
+        return;
+      }
+      setDemoMessage('Заявка на рассмотрении — администратор скоро подтвердит доступ');
+      setTimeout(() => setDemoMessage(''), 4500);
     } catch {
       toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
     } finally {
@@ -351,6 +374,12 @@ const [isDemoVisible, setIsDemoVisible] = useState(true);
 
   // Пока компонент не смонтирован (hydration), ничего не рендерим, чтобы избежать мерцаний
   if (!mounted) return null;
+
+  const facultyHint = detectFacultyByInput(key);
+  const digitIcon   = facultyHint?.digitIcon ?? getDefaultDigitIcon();
+  const promoReady  = !!resolveFacultyPromoCode(key);
+  const legacyReady = isLegacyPaidKey(key) && isPaidKeysEnabled;
+  const canEnter    = promoReady || legacyReady;
 
   // ── ВИЗУАЛЬНАЯ ЧАСТЬ (RENDER) ───────────────────────────────────────────────
   return (
@@ -436,48 +465,48 @@ const [isDemoVisible, setIsDemoVisible] = useState(true);
               {/* Placeholder: показываем текст, если поле пустое */}
               {key.length === 0 && (
                 <span className="absolute text-[15px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                  {lockoutTime > 0 ? `Подожди ${lockoutTime}с` : 'Введите ключ доступа'}
+                  {lockoutTime > 0 ? `Подожди ${lockoutTime}с` : isPaidKeysEnabled ? 'Код из канала или ключ' : 'Код из канала'}
                 </span>
               )}
               
-              {/* Контейнер для отображения введенных символов (Эмодзи Зубики) */}
               <div className="flex gap-1 items-center z-10">
                 {key.split('').map((_, i) => {
-                  // ДИНАМИЧЕСКИЙ РАЗМЕР: 
-                  // Если цифра одна — эмодзи большой (41px). С каждой новой цифрой размер уменьшается на 3px.
-                  // Math.max не дает размеру опуститься ниже 20px (чтобы они не стали микроскопическими).
                   const dynamicSize = Math.max(20, 44 - (key.length * 3));
-                  
                   return (
                     <div 
                       key={i} 
                       style={{ 
-                        animation: 'authToothSlideUp 0.2s ease forwards', // Всплывают снизу
-                        fontSize: `${dynamicSize}px`, // Применяем высчитанный размер
-                        filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.49))', // Эффект неоновой эмали
-                        transition: 'font-size 0.2s ease-in-out', // Плавное изменение размера при наборе
-                        lineHeight: 1, // Чтобы размер не ломал высоту поля ввода
+                        animation: 'authToothSlideUp 0.2s ease forwards',
+                        fontSize: `${dynamicSize}px`,
+                        filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.49))',
+                        transition: 'font-size 0.2s ease-in-out',
+                        lineHeight: 1,
                       }}
                     >
-                      🦷
+                      {digitIcon}
                     </div>
                   );
                 })}
               </div>
               
-              {/* НАСТОЯЩИЙ INPUT. Скрыт от глаз, но именно он принимает нажатия клавиатуры */}
               <input
                 value={key}
-                onChange={e => setKey(e.target.value.replace(/\D/g, '').slice(0, 8))} // Разрешаем только цифры (\D), максимум 8
+                onChange={e => setKey(e.target.value.replace(/\D/g, '').slice(0, MAX_INPUT_LENGTH))}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
-                disabled={loading || lockoutTime > 0} // Блокируем при загрузке или штрафе по времени
+                disabled={loading || lockoutTime > 0}
                 maxLength={8}
-                inputMode="numeric" // Показываем цифровую клавиатуру на телефонах
-                className="absolute inset-0 opacity-0 cursor-text" // Растягиваем на весь блок прозрачно
+                inputMode="numeric"
+                className="absolute inset-0 opacity-0 cursor-text"
                 style={{ fontSize: 1 }}
               />
             </div>
+
+            {facultyHint && key.length > 0 && (
+              <p className="text-[11px] text-center leading-snug px-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                {facultyHint.facultyLabel} · {facultyHint.channelHint}
+              </p>
+            )}
 
             {/* ── РУЧНОЙ ВВОД TELEGRAM ID (Показывается, если скрипт не смог найти его сам) ── */}
             {idChecked && !autoTgId && (
@@ -496,38 +525,33 @@ const [isDemoVisible, setIsDemoVisible] = useState(true);
               disabled={loading || lockoutTime > 0}
               className="w-full h-[52px] rounded-2xl text-[15px] font-medium transition-all duration-250 active:scale-[0.98] flex items-center justify-center gap-2"
               // СТИЛИ МЕНЯЮТСЯ, если введено 4 или больше символов (кнопка "загорается")
-              style={key.length >= 4 ? {
+              style={canEnter ? {
                 background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))',
                 color: 'hsl(var(--primary-foreground))',
                 boxShadow: '0 8px 24px hsl(var(--primary) / 0.3)',
               } : {
-                background: 'hsl(var(--primary) / 0.12)', // Полупрозрачная (неактивный вид)
+                background: 'hsl(var(--primary) / 0.12)',
                 border: '1px solid transparent',
                 color: 'hsl(var(--primary) / 0.85)',
               }}
             >
-              {/* Показываем лоадер-крутилку, если идет запрос на сервер */}
               {loading
                 ? <Loader2 className="w-5 h-5 animate-spin" />
-                : key.length >= 4 ? '🦷 Войти' : 'Войти'}
+                : promoReady ? `${digitIcon} Войти` : canEnter ? 'Войти' : 'Войти'}
             </button>
 
-            {/* ── КНОПКА "ПОПРОБОВАТЬ ДЕМО" ── */}
-            {/* ── КНОПКА "ПОПРОБОВАТЬ ДЕМО" ── */}
-            {isDemoVisible && (
-              <button
-                onClick={handleDemoClick}
-                disabled={loading}
-                className="w-full h-[52px] rounded-2xl text-[15px] font-medium transition-all"
-                style={{
-                  background: 'transparent',
-                  border: '1px solid hsl(var(--primary) / 0.15)',
-                  color: 'hsl(var(--primary) / 0.8)',
-                }}
-              >
-                Попробовать демо
-              </button>
-            )}
+            <button
+              onClick={handleCheckStatusClick}
+              disabled={loading}
+              className="w-full h-[44px] rounded-2xl text-[13px] font-medium transition-all mt-2"
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: 'rgba(255,255,255,0.55)',
+              }}
+            >
+              Проверить статус заявки
+            </button>
 
             {/* ── БЛОК ОШИБКИ ДЕМО ── (Выезжает только если есть ошибка демо-режима) */}
             {demoMessage && (

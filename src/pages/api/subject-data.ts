@@ -24,6 +24,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis }                from '@upstash/redis';
 import { getSubject, getAllDataFileNames } from '@/lib/subjects';
+import { isPreviewExpired, maybeExpirePreviewUser } from '@/lib/preview';
 import { verifyInitDataId }     from '@/lib/verifyInitData';
 
 const redis     = Redis.fromEnv();
@@ -85,7 +86,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 2. Проверка доступа к дисциплине
-    const user: any = await redis.get(`user_id:${telegramId}`);
+    let user: any = await redis.get(`user_id:${telegramId}`);
+    user = await maybeExpirePreviewUser(redis, String(telegramId), user);
+    if (user?.previewStatus === 'active' && isPreviewExpired(user)) {
+      return res.status(403).json({ error: 'Preview expired' });
+    }
     if (!userHasSubject(user, subjectCfg.id)) {
       return res.status(403).json({ error: 'No access to subject' });
     }

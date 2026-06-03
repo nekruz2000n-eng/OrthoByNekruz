@@ -2,11 +2,22 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
 import {
   SUBJECTS,
+  getSubject,
   getUserAvailableSubjects,
   createDefaultSubjects,
-  createDemoSubjects,
-  getDemoSubjectId,
 } from '@/lib/subjects';
+import {
+  PREVIEW_DURATION_MS,
+  buildSelectingPreviewUser,
+  buildActivePreviewUser,
+  getAllPickableSubjectIds,
+  getEffectiveUserSubjects,
+  maybeExpirePreviewUser,
+  previewEndsAt,
+} from '@/lib/preview';
+import { resolveFacultyPromoCode } from '@/lib/facultyCodes';
+import { buildSubjectCatalog } from '@/lib/subjectCatalog';
+import type { FacultyPromo } from '@/lib/facultyCodes';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { registerUserId } from '@/lib/userIndex';
 
@@ -17,15 +28,73 @@ const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || 'nzsdental';
 const TRIAL_DAYS       = Number(process.env.TRIAL_DAYS) || 0;
 const ADMIN_TG_ID      = process.env.ADMIN_TG_ID || '';
 
+async function handlePreviewStart(
+  res: NextApiResponse,
+  tgIdStr: string,
+  ip: string,
+  user: any,
+  profile: { username: string | null; firstName: string | null; lastName: string | null },
+  promo?: FacultyPromo,
+) {
+  const { blocked } = await checkRateLimit(ip, `demo_${tgIdStr}`);
+  if (blocked) return res.status(429).json({ error: 'Слишком много попыток.' });
 
-// ── Валидация Telegram ID ──
+  if (user?.previewStatus === 'confirmed') {
+    return res.status(200).json({
+      success: true,
+      alreadyConfirmed: true,
+      subjects: getUserAvailableSubjects(user),
+      ...previewPayload(user),
+    });
+  }
+
+  if (user?.previewStatus === 'expired') {
+    return res.status(403).json({
+      error: 'Пробный доступ уже использован. Ожидайте подтверждения администратора.',
+      previewAwaiting: true,
+      ...previewPayload(user),
+    });
+  }
+
+  if (user?.previewStatus === 'selecting') {
+    return res.status(200).json({ success: true, resumed: true, ...previewPayload(user) });
+  }
+
+  if (user?.previewStatus === 'active') {
+    user = await maybeExpirePreviewUser(redis, tgIdStr, user);
+    if (user.previewStatus === 'expired') {
+      return res.status(403).json({
+        error: 'Пробный период завершён. Ожидайте подтверждения администратора.',
+        previewAwaiting: true,
+        ...previewPayload(user),
+      });
+    }
+    return res.status(200).json({ success: true, resumed: true, ...subjectsResponse(user) });
+  }
+
+  const alreadyUsed = await redis.sismember('used_demo_ids', tgIdStr);
+  if (alreadyUsed) {
+    return res.status(403).json({ error: 'Пробный доступ уже использован ранее.' });
+  }
+
+  if (!promo) {
+    return res.status(400).json({ error: 'Введи код из канала.' });
+  }
+
+  const newUser = buildSelectingPreviewUser(profile, promo);
+  await saveUser(tgIdStr, newUser);
+  await redis.sadd('used_demo_ids', tgIdStr);
+  await resetRateLimit(ip, `demo_${tgIdStr}`);
+
+  return res.status(200).json({ success: true, preview: true, ...previewPayload(newUser) });
+}
+
 const isValidTelegramId = (id: string): boolean => {
   if (!/^\d{5,12}$/.test(id)) return false;
   const n = Number(id);
   return n >= 10000 && n <= 9_999_999_999;
 };
 
-// ── Валидация формата ключа ──
 const isValidKeyFormat = (key: string): boolean => {
   const k = key.trim();
   if (!/^\d{8}$/.test(k)) return false;
@@ -35,7 +104,6 @@ const isValidKeyFormat = (key: string): boolean => {
   return sumCheck && modCheck;
 };
 
-// ── Проверка подписки ──
 async function isSubscribed(userId: number): Promise<boolean> {
   if (!BOT_TOKEN) return false;
   try {
@@ -53,7 +121,6 @@ async function isSubscribed(userId: number): Promise<boolean> {
   }
 }
 
-// ── Rate Limiting ──
 const MAX_ATTEMPTS      = 3;
 const BASE_BLOCK_SEC    = 2  * 60 * 60;
 const EXTRA_BLOCK_SEC   = 10 * 60 * 60;
@@ -96,28 +163,20 @@ function getIp(req: NextApiRequest): string {
   return req.socket?.remoteAddress ?? 'unknown';
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-//  Хелпер: миграция старого формата в новый на лету
-//  Старые пользователи имеют user.micro: true вместо user.subjects: {...}
-// ════════════════════════════════════════════════════════════════════════════
 function ensureSubjectsField(user: any): any {
   if (!user) return user;
 
-  // Уже новый формат — ничего не делаем
   if (user.subjects && typeof user.subjects === 'object') {
     return user;
   }
 
-  // Старый формат: конвертируем налету (НЕ записываем в Redis — просто отдаём)
   const subjects: { [k: string]: boolean } = {};
   for (const s of SUBJECTS) {
     subjects[s.id] = false;
   }
-  // Все старые пользователи (с активированным ключом) имели ортопедию
   if (user.activatedKey) {
     subjects.ortho = true;
   }
-  // Если был флаг micro: true — открываем микробиологию
   if (user.micro === true) {
     subjects.micro = true;
   }
@@ -125,13 +184,42 @@ function ensureSubjectsField(user: any): any {
   return { ...user, subjects };
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-//  MAIN HANDLER
-// ════════════════════════════════════════════════════════════════════════════
+function previewPayload(user: any) {
+  const catalog = buildSubjectCatalog();
+  return {
+    previewStatus:        user?.previewStatus ?? null,
+    previewChosenSubject: user?.previewChosenSubject ?? null,
+    previewFaculty:       user?.previewFaculty ?? null,
+    facultyId:            user?.facultyId ?? null,
+    promoCode:            user?.promoCode ?? null,
+    previewEndsAt:        previewEndsAt(user),
+    pickSubjects:         user?.previewStatus === 'selecting' ? getAllPickableSubjectIds() : undefined,
+    subjectCatalog:       user?.previewStatus ? catalog : undefined,
+  };
+}
+
+async function saveUser(tgId: string, user: any) {
+  await redis.set(`user_id:${tgId}`, user);
+  await registerUserId(redis, tgId);
+}
+
+function subjectsResponse(user: any) {
+  const navHidden = (user.navHidden && typeof user.navHidden === 'object')
+    ? user.navHidden as Record<string, string[]>
+    : {};
+  const subjects = getEffectiveUserSubjects(user);
+  return {
+    subjects,
+    navHidden,
+    registered: true,
+    ...previewPayload(user),
+  };
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { key, telegramId, mode, initData } = req.body;
+  const { key, telegramId, mode, initData, subjectId, course, faculty } = req.body;
 
   const tgIdStr = String(telegramId || '').trim();
   if (!isValidTelegramId(tgIdStr)) {
@@ -144,14 +232,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let skipSubscriptionCheck = false;
 
   if (!initData) {
-    // Нет initData (неофициальный клиент) — пропускаем только тех, кто в белом списке
     const inWL = await redis.sismember('sub_whitelist', tgIdStr);
     if (!inWL) {
       return res.status(403).json({ error: 'Открой приложение через бота в Telegram.', noInitData: true });
     }
     skipSubscriptionCheck = true;
   } else {
-    // Обычный путь: верифицируем данные от Telegram
     const tgUser = verifyInitDataUser(initData, BOT_TOKEN || '');
     if (!tgUser || String(tgUser.id) !== tgIdStr) {
       return res.status(401).json({ error: 'Ошибка верификации данных.' });
@@ -164,22 +250,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const ip = getIp(req);
 
   try {
-    // ── Сначала ищем юзера в базе ──
     let user: any = await redis.get(`user_id:${tgIdStr}`);
     if (typeof user === 'string') {
       try { user = JSON.parse(user); } catch { user = null; }
     }
-    // Конвертируем старый формат в новый (на лету)
     user = ensureSubjectsField(user);
 
-    // 1. ПРОВЕРКА БЛОКИРОВКИ (Самый высокий приоритет)
-    // Создатель приложения никогда не блокируется
     const isOwner = ADMIN_TG_ID && tgIdStr === ADMIN_TG_ID;
     if (!isOwner && user?.blocked === true) {
       return res.status(403).json({ error: 'Твой аккаунт заблокирован. Свяжись с администратором.', blocked: true });
     }
 
-    // 2. ЖЕСТКАЯ ПРОВЕРКА ПОДПИСКИ (белый список и bypass обходят проверку)
     if (!skipSubscriptionCheck) {
       const inWhitelist = await redis.sismember('sub_whitelist', tgIdStr);
       if (!inWhitelist) {
@@ -193,58 +274,97 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // --- ПОСЛЕ ЭТОЙ ТОЧКИ ПОЛЬЗОВАТЕЛЬ ТОЧНО НЕ ЗАБАНЕН И ТОЧНО ПОДПИСАН ---
-
-    // ── ДЕМО-РЕЖИМ ──
     if (mode === 'check_demo') {
-      const { blocked } = await checkRateLimit(ip, `demo_${tgIdStr}`);
-      if (blocked) return res.status(429).json({ error: 'Слишком много попыток.' });
+      return res.status(400).json({ error: 'Введи код из канала в поле выше.' });
+    }
 
-      const alreadyUsed = await redis.sismember('used_demo_ids', tgIdStr);
-      if (alreadyUsed) return res.status(403).json({ error: 'Демо-период уже использован.' });
+    if (mode === 'pick_preview_subject') {
+      if (!user || user.previewStatus !== 'selecting') {
+        return res.status(400).json({ error: 'Выбор предмета недоступен.' });
+      }
+      if (user.previewChosenSubject) {
+        return res.status(400).json({ error: 'Предмет уже выбран и изменить его нельзя.' });
+      }
 
-      await redis.sadd('used_demo_ids', tgIdStr);
-      await resetRateLimit(ip, `demo_${tgIdStr}`);
+      const chosen = String(subjectId || '').trim();
+      if (!getSubject(chosen)) {
+        return res.status(400).json({ error: 'Неизвестный предмет.' });
+      }
+
+      const catalogEntry = buildSubjectCatalog().find(s => s.id === chosen);
+      if (!catalogEntry?.hasAnyModule) {
+        return res.status(400).json({ error: 'Для этого предмета материалы ещё не готовы.' });
+      }
+
+      const updated = buildActivePreviewUser(user, chosen);
+      updated.username   = username ?? updated.username;
+      updated.firstName  = firstName ?? updated.firstName;
+      updated.lastName   = lastName ?? updated.lastName;
+      updated.lastLogin  = new Date().toISOString();
+      updated.loginCount = Number(updated.loginCount || 0) + 1;
+
+      await saveUser(tgIdStr, updated);
+
       return res.status(200).json({
         success: true,
-        // В демо открыта только основная дисциплина (ортопедия)
-        subjects: [getDemoSubjectId()],
+        ...subjectsResponse(updated),
+        previewDurationMs: PREVIEW_DURATION_MS,
       });
     }
 
-    // ── ПРОВЕРКА МИКРОБИОЛОГИИ (legacy, для совместимости) ──
+    if (mode === 'check_preview_status') {
+      if (!user?.previewStatus) {
+        return res.status(404).json({ error: 'Заявка не найдена.' });
+      }
+      user = await maybeExpirePreviewUser(redis, tgIdStr, user);
+      if (user.previewStatus === 'confirmed') {
+        return res.status(200).json({ success: true, ...subjectsResponse(user) });
+      }
+      if (user.previewStatus === 'expired') {
+        return res.status(200).json({ success: true, awaitingAdmin: true, ...previewPayload(user) });
+      }
+      if (user.previewStatus === 'selecting') {
+        return res.status(200).json({ success: true, needsSubjectPick: true, ...previewPayload(user) });
+      }
+      if (user.previewStatus === 'active') {
+        return res.status(200).json({
+          success: true,
+          ...subjectsResponse(user),
+          previewDurationMs: PREVIEW_DURATION_MS,
+        });
+      }
+      return res.status(404).json({ error: 'Статус не определён.' });
+    }
+
     if (mode === 'check_micro') {
-      const userSubjects = getUserAvailableSubjects(user);
+      const userSubjects = getEffectiveUserSubjects(user);
       return res.status(200).json({ hasMicro: userSubjects.includes('micro') });
     }
 
-    // ── ПРОВЕРКА ДОСТУПНЫХ ДИСЦИПЛИН (новый режим) ──
     if (mode === 'check_subjects') {
+      if (!user) {
+        return res.status(200).json({ subjects: [], navHidden: {}, registered: false });
+      }
+
+      user = await maybeExpirePreviewUser(redis, tgIdStr, user);
+
+      if (user.previewStatus) {
+        return res.status(200).json(subjectsResponse(user));
+      }
+
       const userSubjects = getUserAvailableSubjects(user);
-      // navHidden: { [subjectId]: ['stats', 'tasks', ...] } — какие табы скрыты для этого юзера
-      const navHidden = (user && (user as any).navHidden && typeof (user as any).navHidden === 'object')
-        ? (user as any).navHidden as Record<string, string[]>
+      const navHidden = (user.navHidden && typeof user.navHidden === 'object')
+        ? user.navHidden as Record<string, string[]>
         : {};
-      return res.status(200).json({ subjects: userSubjects, navHidden, registered: !!user });
+      return res.status(200).json({ subjects: userSubjects, navHidden, registered: true });
     }
 
-    // ── ОБЩАЯ АВТОРИЗАЦИЯ ──
     if (key) {
       const { blocked } = await checkRateLimit(ip, tgIdStr);
       if (blocked) return res.status(429).json({ error: 'Доступ временно заблокирован.' });
     }
 
-    // Существующий пользователь: вход + обновление профиля
-    if (user && !user.trial_until) {
-      // Обновляем username/имя если изменились в TG
-      const profileChanged =
-        username !== user.username ||
-        firstName !== user.firstName ||
-        lastName !== user.lastName;
-
-      // Если у старого юзера не было поля subjects — нужна миграция
-      const needsSubjectsMigration = !user._migrated_subjects;
-
+    if (user && !user.trial_until && !user.previewStatus) {
       await redis.set(`user_id:${tgIdStr}`, {
         ...user,
         username,
@@ -260,12 +380,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const userSubjects = getUserAvailableSubjects(user);
       return res.status(200).json({
         success:  true,
-        subjects: userSubjects,                    // список ID открытых дисциплин
-        hasMicro: userSubjects.includes('micro'),  // legacy для старого UI
+        subjects: userSubjects,
+        hasMicro: userSubjects.includes('micro'),
       });
     }
 
-    // Триал-период
     if (TRIAL_DAYS > 0) {
       const now = new Date();
       if (!user && !key) {
@@ -275,8 +394,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           date:         now.toISOString(),
           trial_until:  trialUntil.toISOString(),
           username, firstName, lastName,
-          // В триале открыта только демо-дисциплина (ортопедия)
-          subjects:     createDemoSubjects(),
+          subjects:     createDefaultSubjects(),
           _migrated_subjects: true,
         };
         await redis.set(`user_id:${tgIdStr}`, newUser);
@@ -311,22 +429,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    //  АКТИВАЦИЯ КЛЮЧА — ПОДХОД А: КЛЮЧ = ПУСТОЙ ПРОПУСК
-    //
-    //  После активации ключа у пользователя НЕТ доступа ни к одной дисциплине.
-    //  Админ должен открыть нужные предметы через админ-панель.
-    //
-    //  Если пользователь уже был (например, в триале) — сохраняем его старые
-    //  доступы (subjects), чтобы не потерять выданные ранее права.
-    // ═══════════════════════════════════════════════════════════════════════
-    if (!key) return res.status(401).json({ error: 'Введи ключ активации.' });
-    if (!isValidKeyFormat(key)) return res.status(401).json({ error: 'Неверный формат ключа.' });
+    if (!key) return res.status(401).json({ error: 'Введи код из канала или ключ доступа.' });
+
+    const promo = resolveFacultyPromoCode(String(key).trim());
+    if (promo) {
+      return handlePreviewStart(res, tgIdStr, ip, user, { username, firstName, lastName }, promo);
+    }
+
+    if (!isValidKeyFormat(key)) return res.status(401).json({ error: 'Неверный код или ключ.' });
+
+    const paidKeysEnabled = await redis.get('settings:is_paid_keys_enabled');
+    if (paidKeysEnabled === false) {
+      return res.status(401).json({ error: 'Платные ключи временно отключены. Введи код из канала.' });
+    }
 
     const isKeyValid = await redis.sismember('valid_keys', key.trim());
     if (!isKeyValid) return res.status(401).json({ error: 'Неверный ключ.' });
 
-    // Сохраняем существующие subjects (если были) или создаём пустые
     const existingSubjects = user?.subjects && typeof user.subjects === 'object'
       ? user.subjects
       : createDefaultSubjects();

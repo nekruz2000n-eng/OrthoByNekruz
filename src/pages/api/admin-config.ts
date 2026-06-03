@@ -15,29 +15,38 @@ function verifyAdmin(initData: string, secret: string): boolean {
   return true;
 }
 
+async function readSettings() {
+  const [isDemoEnabled, isPaidKeysEnabled] = await Promise.all([
+    redis.get('settings:is_demo_enabled'),
+    redis.get('settings:is_paid_keys_enabled'),
+  ]);
+  return {
+    isDemoEnabled:    isDemoEnabled ?? true,
+    isPaidKeysEnabled: isPaidKeysEnabled ?? true,
+  };
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // GET — публичный (AuthScreen + Watermark читают настройки при загрузке)
+  // GET — публичный (AuthScreen читает настройки при загрузке)
   if (req.method === 'GET') {
-    const isDemoEnabled = await redis.get('settings:is_demo_enabled');
-    return res.status(200).json({
-      isDemoEnabled: isDemoEnabled ?? true,
-    });
+    const settings = await readSettings();
+    return res.status(200).json(settings);
   }
 
   // POST — только админ с валидной initData и секретом
   if (req.method === 'POST') {
-    const { initData, secret, isDemoEnabled } = req.body ?? {};
+    const { initData, secret, isDemoEnabled, isPaidKeysEnabled } = req.body ?? {};
     if (!initData || !secret || !verifyAdmin(String(initData), String(secret))) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     if (typeof isDemoEnabled !== 'undefined') {
       await redis.set('settings:is_demo_enabled', Boolean(isDemoEnabled));
     }
-    const demo = await redis.get('settings:is_demo_enabled');
-    return res.status(200).json({
-      success:       true,
-      isDemoEnabled: demo ?? true,
-    });
+    if (typeof isPaidKeysEnabled !== 'undefined') {
+      await redis.set('settings:is_paid_keys_enabled', Boolean(isPaidKeysEnabled));
+    }
+    const settings = await readSettings();
+    return res.status(200).json({ success: true, ...settings });
   }
 
   return res.status(405).json({ error: 'Method not allowed' });

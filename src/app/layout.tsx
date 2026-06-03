@@ -19,21 +19,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     setIsChecking(false);
   }, []);
 
-  // Демо-доступ
+  // Пробный доступ: таймер контролируется в page.tsx
   useEffect(() => {
     if (!isAuthenticated) return;
-    const check = () => {
-      if (localStorage.getItem('demo_mode') !== 'true') return;
-      const start = localStorage.getItem('demo_start');
-      if (start && Date.now() - parseInt(start, 10) >= 5 * 60_000) {
-        localStorage.setItem('is_authed', 'false');
-        localStorage.setItem('demo_expired', 'true');
-        setIsAuthenticated(false);
-        toast({ variant: 'destructive', title: 'Демо завершено', description: 'Требуется ключ доступа.' });
-      }
-    };
-    const iv = setInterval(check, 2000);
-    return () => clearInterval(iv);
+    if (localStorage.getItem('preview_end')) return;
+    if (localStorage.getItem('demo_mode') !== 'true') return;
+    const start = localStorage.getItem('demo_start');
+    if (start && Date.now() - parseInt(start, 10) >= 5 * 60_000) {
+      localStorage.removeItem('is_authed');
+      localStorage.removeItem('demo_mode');
+      localStorage.removeItem('demo_start');
+      setIsAuthenticated(false);
+      toast({ variant: 'destructive', title: 'Пробный период завершён', description: 'Требуется подтверждение администратора.' });
+    }
   }, [isAuthenticated, toast]);
 
   // ── ВАЖНО: НЕ возвращаем null — всегда рендерим <html> ──────────────────
