@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
 import { SUBJECTS, getSubject, getUserAvailableSubjects } from '@/lib/subjects';
-import { confirmPreviewUser, getEffectiveUserSubjects } from '@/lib/preview';
+import { confirmPreviewUser, getEffectiveUserSubjects, clearPreviewTrialLock } from '@/lib/preview';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { getAllUserIds, registerUserId, removeUserId } from '@/lib/userIndex';
 
@@ -47,8 +47,8 @@ function isSuspicious(opensToday: number): boolean {
   return opensToday >= 5;
 }
 
-async function clearPreviewTrialLock(tgId: string) {
-  await redis.srem('used_demo_ids', String(tgId).trim());
+async function clearPreviewTrialLockForUser(tgId: string) {
+  await clearPreviewTrialLock(redis, tgId);
 }
 
 function toListUser(
@@ -332,7 +332,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (action === 'reset_demo') {
-        await clearPreviewTrialLock(String(tgId));
+        await clearPreviewTrialLockForUser(String(tgId));
         if (user) {
           const cleaned: Record<string, any> = { ...user };
           delete cleaned.previewStatus;
@@ -382,7 +382,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const id = String(tgId).trim();
         await redis.del(`user_id:${id}`);
         await removeUserId(redis, id);
-        await clearPreviewTrialLock(id);
+        await clearPreviewTrialLockForUser(id);
         try {
           let cur = 0;
           do {

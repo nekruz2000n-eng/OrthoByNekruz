@@ -26,6 +26,36 @@ export function getAllPickableSubjectIds(): string[] {
   return SUBJECTS.map(s => s.id);
 }
 
+type RedisSetOps = {
+  sismember: (key: string, member: string | number) => Promise<unknown>;
+  srem:      (key: string, ...members: (string | number)[]) => Promise<unknown>;
+  smembers:  (key: string) => Promise<unknown>;
+};
+
+/** Снимает блокировку «пробный уже использован» для TG ID (string/number в Redis). */
+export async function clearPreviewTrialLock(redis: RedisSetOps, tgId: string) {
+  const id = String(tgId).trim();
+  await redis.srem('used_demo_ids', id);
+  const num = Number(id);
+  if (Number.isSafeInteger(num)) await redis.srem('used_demo_ids', num);
+  try {
+    const members = await redis.smembers('used_demo_ids');
+    if (Array.isArray(members)) {
+      for (const m of members) {
+        if (String(m) === id) await redis.srem('used_demo_ids', m as string | number);
+      }
+    }
+  } catch { /* ignore */ }
+}
+
+export async function isPreviewTrialLocked(redis: RedisSetOps, tgId: string): Promise<boolean> {
+  const id = String(tgId).trim();
+  if (await redis.sismember('used_demo_ids', id)) return true;
+  const num = Number(id);
+  if (Number.isSafeInteger(num) && await redis.sismember('used_demo_ids', num)) return true;
+  return false;
+}
+
 export function buildSelectingPreviewUser(
   profile: {
     username: string | null;

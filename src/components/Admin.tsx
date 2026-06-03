@@ -1016,6 +1016,9 @@ export default function AdminPage() {
   };
 
   const resetPreviewByTgId = async () => {
+    const initData = getTelegramInitData();
+    if (!initData) { showToast('Нет доступа: не в Telegram'); return; }
+
     const id = demoResetTgId.replace(/\D/g, '').trim();
     if (!id || id.length < 5) {
       showToast('Введи корректный Telegram ID');
@@ -1026,11 +1029,13 @@ export default function AdminPage() {
       const r = await fetch('/api/admin-users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reset_demo', tgId: id, secret }),
+        body: JSON.stringify({ action: 'reset_demo', tgId: id, secret, initData }),
       });
       if (r.ok) {
         setDemoResetTgId('');
         showToast('✓ Пробный доступ сброшен — можно войти с кодом снова');
+      } else if (r.status === 403) {
+        showToast('Нет прав — открой админку через Telegram');
       } else {
         showToast('Ошибка сброса');
       }

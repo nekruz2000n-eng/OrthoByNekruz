@@ -14,6 +14,7 @@ import {
   getEffectiveUserSubjects,
   maybeExpirePreviewUser,
   previewEndsAt,
+  isPreviewTrialLocked,
 } from '@/lib/preview';
 import { resolveFacultyPromoCode } from '@/lib/facultyCodes';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
@@ -72,7 +73,7 @@ async function handlePreviewStart(
     return res.status(200).json({ success: true, resumed: true, ...subjectsResponse(user) });
   }
 
-  const alreadyUsed = await redis.sismember('used_demo_ids', tgIdStr);
+  const alreadyUsed = await isPreviewTrialLocked(redis, tgIdStr);
   if (alreadyUsed) {
     return res.status(403).json({ error: 'Пробный доступ уже использован ранее.' });
   }
