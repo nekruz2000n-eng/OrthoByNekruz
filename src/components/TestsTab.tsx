@@ -327,7 +327,9 @@ export const TestsTab = ({
   const [currentTestIndex, setCurrentTestIndex] = useState(0);
   const [selectedOption,   setSelectedOption]   = useState<string | null>(null);
   const [showResult,       setShowResult]       = useState(false);
-  const [score,            setScore]            = useState(0);
+  const [scoredAnswers,    setScoredAnswers]    = useState<Record<number, { option: string; correct: boolean }>>({});
+  const [reviewSelections, setReviewSelections] = useState<Record<number, string>>({});
+  const [optionOrders,     setOptionOrders]     = useState<Record<number, string[]>>({});
   const [completed,        setCompleted]        = useState(false);
   const [autoNext,         setAutoNext]         = useState(false);
   const [shuffleOptions,   setShuffleOptions]   = useState(false);
@@ -476,15 +478,46 @@ export const TestsTab = ({
 
   const currentTest = blockTests[currentTestIndex];
 
-  const shuffled = useMemo(() => {
-    if (!shuffleOptions || !currentTest) return currentTest?.options || [];
-    const s = [...currentTest.options];
-    for (let i = s.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [s[i], s[j]] = [s[j], s[i]];
+  const score = useMemo(
+    () => Object.values(scoredAnswers).filter(a => a.correct).length,
+    [scoredAnswers],
+  );
+
+  const options = useMemo(() => {
+    if (!currentTest) return [];
+    if (shuffleOptions) return optionOrders[currentTestIndex] ?? currentTest.options;
+    return currentTest.options;
+  }, [currentTest, shuffleOptions, optionOrders, currentTestIndex]);
+
+  // Восстановление ответа и порядка вариантов при смене вопроса
+  useEffect(() => {
+    if (!currentTest) return;
+
+    if (shuffleOptions) {
+      setOptionOrders(prev => {
+        if (prev[currentTestIndex]) return prev;
+        const s = [...currentTest.options];
+        for (let i = s.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [s[i], s[j]] = [s[j], s[i]];
+        }
+        return { ...prev, [currentTestIndex]: s };
+      });
     }
-    return s;
-  }, [currentTest?.options, shuffleOptions, currentTestIndex]);
+
+    const scored = scoredAnswers[currentTestIndex];
+    if (scored) {
+      setSelectedOption(reviewSelections[currentTestIndex] ?? scored.option);
+      setShowResult(true);
+      showResultRef.current = true;
+    } else {
+      setSelectedOption(null);
+      setShowResult(false);
+      showResultRef.current = false;
+    }
+    resetQuestionHints();
+    testScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [currentTestIndex, currentTest?.id]);
 
   const isRegularBlock = (id: BlockId | null): id is number =>
     id !== null && id !== 'mistakes' && id !== 'exam' && id !== 'favorites';
@@ -499,7 +532,9 @@ export const TestsTab = ({
     setCurrentTestIndex(0);
     setSelectedOption(null);
     setShowResult(false);
-    setScore(0);
+    setScoredAnswers({});
+    setReviewSelections({});
+    setOptionOrders({});
     setCompleted(false);
     resetQuestionHints();
     setForcedStudySession(false);
@@ -639,14 +674,14 @@ export const TestsTab = ({
     maybeShowOnboarding();
   };
 
+  const prevQuestion = () => {
+    if (currentTestIndex <= 0) return;
+    setCurrentTestIndex(i => i - 1);
+  };
+
   const nextQuestion = () => {
     if (currentTestIndex < blockTests.length - 1) {
-      showResultRef.current = false;
       setCurrentTestIndex(i => i + 1);
-      setSelectedOption(null);
-      setShowResult(false);
-      resetQuestionHints();
-      testScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     } else {
       if (isRegularBlock(selectedBlock)) {
         recordBlockAttempt(selectedBlock);
@@ -668,13 +703,24 @@ export const TestsTab = ({
   };
 
   const handleSelect = (opt: string) => {
+    const correct = opt === currentTest.correct;
+    const alreadyScored = scoredAnswers[currentTestIndex] !== undefined;
+
+    if (alreadyScored) {
+      setReviewSelections(prev => ({ ...prev, [currentTestIndex]: opt }));
+      setSelectedOption(opt);
+      setShowResult(true);
+      showResultRef.current = true;
+      return;
+    }
+
     if (showResultRef.current) return;
     showResultRef.current = true;
     setSelectedOption(opt);
     setShowResult(true);
-    const correct = opt === currentTest.correct;
+    setScoredAnswers(prev => ({ ...prev, [currentTestIndex]: { option: opt, correct } }));
+
     if (correct) {
-      setScore(s => s + 1);
       clearMistake(currentTest);
       if (autoNext && currentTestIndex < blockTests.length - 1) setTimeout(nextQuestion, 450);
     } else {
@@ -1167,7 +1213,6 @@ export const TestsTab = ({
   const isExamModeTest = selectedBlock === 'exam';
   const isFavoritesModeTest = selectedBlock === 'favorites';
   const isBlockMode = isRegularBlock(selectedBlock);
-  const options = shuffleOptions ? shuffled : (currentTest?.options || []);
   const visibleOptions = options.filter((opt: string) => !hidden5050.includes(opt));
   const answerRevealed = studyMode;
   const hintsAvailable = isBlockMode && hintsEnabled && !studyMode && !showResult;
@@ -1332,14 +1377,41 @@ export const TestsTab = ({
 
           
 
-          {/* Кнопка «Следующий» */}
-          {showResult && (
-            <button onClick={nextQuestion}
-              className="h-[52px] rounded-[13px] font-bold text-[14px] inline-flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-              style={{ background: 'var(--c-primary)', color: 'var(--c-bg)', boxShadow: '0 6px 18px var(--c-primary-dim)' }}>
-              {currentTestIndex === blockTests.length - 1 ? 'Результаты' : 'Следующий вопрос'}
-              <ArrowRight className="w-[15px] h-[15px]" />
-            </button>
+          {/* Навигация: предыдущий / следующий */}
+          {(showResult || currentTestIndex > 0) && (
+            <div
+              className="flex p-1 gap-1 rounded-full"
+              style={{ background: 'var(--c-bg-subtle)', border: '1px solid var(--c-border)' }}
+            >
+              <button
+                type="button"
+                onClick={prevQuestion}
+                disabled={currentTestIndex === 0}
+                className="flex-1 h-11 rounded-full inline-flex items-center justify-center gap-1.5 text-[13px] font-bold transition-all active:scale-[0.98] disabled:opacity-40"
+                style={{
+                  background: currentTestIndex === 0 ? 'transparent' : 'var(--c-card)',
+                  color: 'var(--c-muted)',
+                  border: currentTestIndex === 0 ? 'none' : '1px solid var(--c-border)',
+                }}
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Предыдущий
+              </button>
+              <button
+                type="button"
+                onClick={nextQuestion}
+                disabled={!showResult}
+                className="flex-1 h-11 rounded-full inline-flex items-center justify-center gap-1.5 text-[13px] font-bold transition-all active:scale-[0.98] disabled:opacity-40"
+                style={{
+                  background: showResult ? 'var(--c-primary)' : 'var(--c-card)',
+                  color: showResult ? 'var(--c-bg)' : 'var(--c-muted)',
+                  boxShadow: showResult ? '0 4px 14px var(--c-primary-dim)' : 'none',
+                }}
+              >
+                {currentTestIndex === blockTests.length - 1 ? 'Результаты' : 'Следующий'}
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
           )}
         </div>
       </div>
