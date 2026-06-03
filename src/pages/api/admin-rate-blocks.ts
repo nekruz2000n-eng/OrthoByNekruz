@@ -1,6 +1,7 @@
 // pages/api/admin-rate-blocks.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
+import { clearAuthRateLimitsForTgId, tgIdFromRateBlockKey } from '@/lib/authRateLimit';
 
 const redis        = Redis.fromEnv();
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
@@ -25,11 +26,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       for (const key of keys) {
         const ttl = await redis.ttl(key);
-        // Ключ: block:{ip}:{tgId}. tgId — только цифры (5–12 символов), всегда последний сегмент.
-        const parts       = key.split(':');
-        const possibleTgId = parts[parts.length - 1];
-        if (/^\d{5,12}$/.test(possibleTgId)) {
-          blocks.push({ key, tgId: possibleTgId, ttl });
+        const tgIdParsed = tgIdFromRateBlockKey(key);
+        if (tgIdParsed) {
+          blocks.push({ key, tgId: tgIdParsed, ttl });
         }
       }
     } while (cursor !== 0);
@@ -52,24 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (action === 'clear') {
     if (!tgId) return res.status(400).json({ error: 'tgId required' });
 
-    const patterns = [
-      `block:*:${tgId}`,
-      `viol:*:${tgId}`,
-      `rate:*:${tgId}`,
-    ];
-    let deleted = 0;
-
-    for (const pattern of patterns) {
-      let cur = 0;
-      do {
-        const [nextCur, keys] = await redis.scan(cur, { match: pattern, count: 100 });
-        cur = Number(nextCur);
-        if (keys.length > 0) {
-          await redis.del(...(keys as [string, ...string[]]));
-          deleted += keys.length;
-        }
-      } while (cur !== 0);
-    }
+    const deleted = await clearAuthRateLimitsForTgId(redis, String(tgId));
 
     return res.status(200).json({ ok: true, deleted });
   }

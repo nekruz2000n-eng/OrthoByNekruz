@@ -37,9 +37,6 @@ async function handlePreviewStart(
   profile: { username: string | null; firstName: string | null; lastName: string | null },
   promo?: FacultyPromo,
 ) {
-  const { blocked } = await checkRateLimit(ip, `demo_${tgIdStr}`);
-  if (blocked) return res.status(429).json({ error: 'Слишком много попыток.' });
-
   if (user?.previewStatus === 'confirmed') {
     return res.status(200).json({
       success: true,
@@ -81,6 +78,9 @@ async function handlePreviewStart(
   if (!promo) {
     return res.status(400).json({ error: 'Введи код из канала.' });
   }
+
+  const { blocked } = await checkRateLimit(ip, `demo_${tgIdStr}`);
+  if (blocked) return res.status(429).json({ error: 'Слишком много попыток.' });
 
   const newUser = buildSelectingPreviewUser(profile, promo);
   await saveUser(tgIdStr, newUser);

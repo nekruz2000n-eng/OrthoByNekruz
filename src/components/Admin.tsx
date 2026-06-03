@@ -1033,7 +1033,7 @@ export default function AdminPage() {
       });
       if (r.ok) {
         setDemoResetTgId('');
-        showToast('✓ Пробный доступ сброшен — можно войти с кодом снова');
+        showToast('✓ Сброшено: пробный доступ и блокировки входа');
       } else if (r.status === 403) {
         showToast('Нет прав — открой админку через Telegram');
       } else {
@@ -2067,7 +2067,7 @@ export default function AdminPage() {
               </button>
             </div>
             <div style={{ fontSize: 10.5, color: T.textFaint, marginTop: 6, lineHeight: 1.4 }}>
-              Если после удаления пишет «уже использовано» — введи ID и нажми сброс.
+              Снимает «уже использовано» и «слишком много попыток» — даже если аккаунта нет в списке.
             </div>
           </div>
         </div>

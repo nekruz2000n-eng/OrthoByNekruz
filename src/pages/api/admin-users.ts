@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
 import { SUBJECTS, getSubject, getUserAvailableSubjects } from '@/lib/subjects';
 import { confirmPreviewUser, getEffectiveUserSubjects, clearPreviewTrialLock } from '@/lib/preview';
+import { clearAuthRateLimitsForTgId } from '@/lib/authRateLimit';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { getAllUserIds, registerUserId, removeUserId } from '@/lib/userIndex';
 
@@ -332,7 +333,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (action === 'reset_demo') {
-        await clearPreviewTrialLockForUser(String(tgId));
+        const id = String(tgId).trim();
+        await clearPreviewTrialLockForUser(id);
+        await clearAuthRateLimitsForTgId(redis, id);
         if (user) {
           const cleaned: Record<string, any> = { ...user };
           delete cleaned.previewStatus;
@@ -383,6 +386,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         await redis.del(`user_id:${id}`);
         await removeUserId(redis, id);
         await clearPreviewTrialLockForUser(id);
+        await clearAuthRateLimitsForTgId(redis, id);
         try {
           let cur = 0;
           do {
