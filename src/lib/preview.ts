@@ -1,6 +1,28 @@
 import { SUBJECTS, createDefaultSubjects, getUserAvailableSubjects } from '@/lib/subjects';
 import type { FacultyPromo } from '@/lib/facultyCodes';
 import { getNavHiddenForSubject } from '@/lib/subjectCatalog';
+import {
+  type PreviewModule,
+  normalizePreviewModules,
+} from '@/lib/previewModules';
+
+export type { PreviewModule } from '@/lib/previewModules';
+export { PREVIEW_MODULE_LABELS, formatPreviewModulesList, normalizePreviewModules } from '@/lib/previewModules';
+
+/** Скрыть всё, что пользователь не выбрал + exam/materials + нет JSON */
+export function buildNavHiddenForPreview(
+  subjectId: string,
+  chosenModules: PreviewModule[],
+): string[] {
+  const hidden = new Set<string>(['exam', 'materials']);
+  for (const tab of ['questions', 'tests', 'tasks'] as PreviewModule[]) {
+    if (!chosenModules.includes(tab)) hidden.add(tab);
+  }
+  for (const tab of getNavHiddenForSubject(subjectId)) {
+    hidden.add(tab);
+  }
+  return [...hidden];
+}
 
 export const PREVIEW_DURATION_MS = 5 * 60 * 1000;
 
@@ -81,21 +103,26 @@ export function buildSelectingPreviewUser(
   };
 }
 
-export function buildActivePreviewUser(user: any, subjectId: string) {
+export function buildActivePreviewUser(
+  user: any,
+  subjectId: string,
+  chosenModules: PreviewModule[],
+) {
   const subjects = createDefaultSubjects();
   subjects[subjectId] = true;
   const now = new Date().toISOString();
-  const hiddenTabs = getNavHiddenForSubject(subjectId);
+  const hiddenTabs = buildNavHiddenForPreview(subjectId, chosenModules);
 
   return {
     ...user,
-    previewStatus:        'active' as PreviewStatus,
-    previewChosenSubject: subjectId,
-    previewStartedAt:     now,
-    previewPickedAt:      now,
+    previewStatus:         'active' as PreviewStatus,
+    previewChosenSubject:  subjectId,
+    previewChosenModules:  chosenModules,
+    previewStartedAt:      now,
+    previewPickedAt:       now,
     subjects,
-    navHidden:            hiddenTabs.length ? { [subjectId]: hiddenTabs } : {},
-    _migrated_subjects:   true,
+    navHidden:             { [subjectId]: hiddenTabs },
+    _migrated_subjects:    true,
   };
 }
 
@@ -111,11 +138,18 @@ export function expirePreviewUser(user: any) {
 
 export function confirmPreviewUser(user: any) {
   const chosen = user.previewChosenSubject;
+  let modules = normalizePreviewModules(user.previewChosenModules);
   if (!chosen) return user;
+  if (modules.length === 0) {
+    modules = (['questions', 'tests', 'tasks'] as PreviewModule[]).filter(
+      m => !getNavHiddenForSubject(chosen).includes(m),
+    );
+  }
+  if (modules.length === 0) return user;
   const subjects = createDefaultSubjects();
   subjects[chosen] = true;
   const now = new Date().toISOString();
-  const hiddenTabs = getNavHiddenForSubject(chosen);
+  const hiddenTabs = buildNavHiddenForPreview(chosen, modules);
 
   return {
     ...user,
@@ -125,7 +159,7 @@ export function confirmPreviewUser(user: any) {
       ? user.activatedKey
       : (user.activatedKey || 'preview'),
     subjects,
-    navHidden:          hiddenTabs.length ? { [chosen]: hiddenTabs } : {},
+    navHidden:          { [chosen]: hiddenTabs },
     [`${chosen}_grantedAt`]: now,
     _migrated_subjects: true,
   };

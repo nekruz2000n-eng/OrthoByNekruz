@@ -73,6 +73,7 @@ function toListUser(
     usedDemo,
     previewStatus:        user.previewStatus        ?? null,
     previewChosenSubject: user.previewChosenSubject ?? null,
+    previewChosenModules: Array.isArray(user.previewChosenModules) ? user.previewChosenModules : null,
     promoCode:            user.promoCode            ?? null,
     facultyId:            user.facultyId            ?? null,
     previewFaculty:       user.previewFaculty       ?? null,
@@ -107,6 +108,7 @@ function toDetailUser(
     usedDemo,
     previewStatus:        user.previewStatus        ?? null,
     previewChosenSubject: user.previewChosenSubject ?? null,
+    previewChosenModules: Array.isArray(user.previewChosenModules) ? user.previewChosenModules : null,
     promoCode:            user.promoCode            ?? null,
     facultyId:            user.facultyId            ?? null,
     previewFaculty:       user.previewFaculty       ?? null,
@@ -340,6 +342,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const cleaned: Record<string, any> = { ...user };
           delete cleaned.previewStatus;
           delete cleaned.previewChosenSubject;
+          delete cleaned.previewChosenModules;
           delete cleaned.promoCode;
           delete cleaned.facultyId;
           delete cleaned.previewFaculty;
@@ -364,6 +367,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.status(200).json({
             ok: true,
             subjects: getUserAvailableSubjects(user),
+            navHidden: user.navHidden ?? {},
           });
         }
         const updated = confirmPreviewUser(user);
@@ -371,6 +375,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({
           ok: true,
           subjects: getUserAvailableSubjects(updated),
+          navHidden: updated.navHidden ?? {},
           previewStatus: 'confirmed',
         });
       }

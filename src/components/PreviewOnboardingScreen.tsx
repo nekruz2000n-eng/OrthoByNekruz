@@ -1,16 +1,18 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ToothIcon } from '@/components/ToothIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
-import { Loader2, ChevronLeft } from 'lucide-react';
+import type { PreviewModule } from '@/lib/previewModules';
+import { PREVIEW_MODULE_LABELS } from '@/lib/previewModules';
+import { Loader2, ChevronLeft, Check } from 'lucide-react';
 
 interface PreviewOnboardingScreenProps {
   facultyLabel: string | null;
   subjectCatalog: SubjectCatalogEntry[];
   loading?: boolean;
-  onConfirm: (subjectId: string) => void;
+  onConfirm: (subjectId: string, modules: PreviewModule[]) => void;
 }
 
 type Step = 'subject' | 'modules';
@@ -23,6 +25,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
 }) => {
   const [step, setStep] = useState<Step>('subject');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedModules, setSelectedModules] = useState<PreviewModule[]>([]);
   const [confirmStep, setConfirmStep] = useState<0 | 1 | 2>(0);
 
   const selectedEntry = useMemo(
@@ -30,8 +33,20 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
     [subjectCatalog, selectedId],
   );
 
+  const availableModules = useMemo(
+    () => selectedEntry?.modules.filter(m => m.available) ?? [],
+    [selectedEntry],
+  );
+
+  useEffect(() => {
+    if (step === 'modules' && availableModules.length === 1) {
+      setSelectedModules([availableModules[0].id]);
+    }
+  }, [step, availableModules]);
+
   const openSubject = (id: string) => {
     setSelectedId(id);
+    setSelectedModules([]);
     setStep('modules');
     setConfirmStep(0);
   };
@@ -39,9 +54,18 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
   const goBack = () => {
     setStep('subject');
     setConfirmStep(0);
+    setSelectedModules([]);
   };
 
-  const availableModules = selectedEntry?.modules.filter(m => m.available) ?? [];
+  const toggleModule = (id: PreviewModule) => {
+    setSelectedModules(prev =>
+      prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id],
+    );
+  };
+
+  const modulesLabel = selectedModules
+    .map(m => PREVIEW_MODULE_LABELS[m])
+    .join(', ');
 
   return (
     <div
@@ -77,7 +101,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
         <p className="text-sm leading-relaxed max-w-xs" style={{ color: 'var(--c-muted)' }}>
           {step === 'subject'
             ? '5 минут пробного доступа · выбор один раз, без права на ошибку'
-            : 'Что будет доступно в пробном периоде'}
+            : 'Отметь только то, что нужно — админ увидит заявку'}
         </p>
         {facultyLabel && (
           <p className="text-[11px] mt-2 px-3 py-1 rounded-full" style={{ background: 'var(--c-card)', color: 'var(--c-muted)' }}>
@@ -94,8 +118,8 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
           color: 'var(--c-text)',
         }}
       >
-        <strong>Без права на ошибку:</strong> после двойного подтверждения предмет изменить нельзя.
-        Нужна биология — не выбирай ортопедию. Вернись назад, если ещё не подтвердил.
+        <strong>Без права на ошибку:</strong> после подтверждения предмет и разделы изменить нельзя.
+        Нужен только тест — не отмечай вопросы и задачи.
       </div>
 
       <div
@@ -155,32 +179,54 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
               exit={{ opacity: 0, x: -12 }}
               className="flex flex-col gap-3 w-full max-w-xs mx-auto px-5 pb-4"
             >
-              {selectedEntry?.modules.map((mod, i) => (
-                <div
-                  key={mod.id}
-                  className="rounded-[20px] p-4"
-                  style={{
-                    background: mod.available ? selectedEntry.dimColor : 'var(--c-card)',
-                    border: `1.5px solid ${mod.available ? selectedEntry.borderColor : 'var(--c-border)'}`,
-                    opacity: mod.available ? 1 : 0.5,
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <div className="text-[14px] font-bold" style={{ color: 'var(--c-text)' }}>
-                      {mod.label}
+              {selectedEntry?.modules.map(mod => {
+                const picked = selectedModules.includes(mod.id);
+                const canPick = mod.available;
+                return (
+                  <button
+                    key={mod.id}
+                    type="button"
+                    disabled={!canPick}
+                    onClick={() => canPick && toggleModule(mod.id)}
+                    className="rounded-[20px] p-4 text-left transition-all active:scale-[0.99]"
+                    style={{
+                      background: picked ? selectedEntry.dimColor : 'var(--c-card)',
+                      border: `1.5px solid ${
+                        picked ? selectedEntry.borderColor
+                          : canPick ? 'var(--c-border)' : 'var(--c-border)'
+                      }`,
+                      opacity: canPick ? 1 : 0.5,
+                      cursor: canPick ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="text-[14px] font-bold" style={{ color: 'var(--c-text)' }}>
+                        {mod.label}
+                      </div>
+                      {canPick ? (
+                        <span
+                          className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                          style={{
+                            background: picked ? selectedEntry.color : 'transparent',
+                            border: `2px solid ${picked ? selectedEntry.color : 'var(--c-border)'}`,
+                            color: picked ? 'var(--c-bg)' : 'transparent',
+                          }}
+                        >
+                          {picked && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
+                          style={{ background: 'var(--c-border)', color: 'var(--c-muted)' }}>
+                          в разработке
+                        </span>
+                      )}
                     </div>
-                    {!mod.available && (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
-                        style={{ background: 'var(--c-border)', color: 'var(--c-muted)' }}>
-                        в разработке
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[12px] leading-relaxed" style={{ color: 'var(--c-muted)' }}>
-                    {mod.description}
-                  </p>
-                </div>
-              ))}
+                    <p className="text-[12px] leading-relaxed" style={{ color: 'var(--c-muted)' }}>
+                      {mod.description}
+                    </p>
+                  </button>
+                );
+              })}
             </motion.div>
           )}
         </AnimatePresence>
@@ -191,10 +237,15 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
           className="flex-shrink-0 w-full px-5 pt-3 pb-5 relative z-10"
           style={{ background: 'linear-gradient(to top, var(--c-bg) 70%, transparent)' }}
         >
+          <p className="text-center text-[12px] mb-2" style={{ color: 'var(--c-muted)' }}>
+            {selectedModules.length === 0
+              ? 'Выбери хотя бы один раздел'
+              : `Выбрано: ${modulesLabel}`}
+          </p>
           <button
             type="button"
-            onClick={() => availableModules.length > 0 && setConfirmStep(1)}
-            disabled={loading || availableModules.length === 0}
+            onClick={() => selectedModules.length > 0 && setConfirmStep(1)}
+            disabled={loading || selectedModules.length === 0}
             className="w-full max-w-xs mx-auto block h-[52px] rounded-[18px] text-[15px] font-bold transition-all active:scale-[0.98] disabled:opacity-50"
             style={{
               background: selectedEntry.color,
@@ -204,7 +255,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
           >
             {loading
               ? <span className="inline-flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Сохраняем...</span>
-              : `Подтвердить: ${selectedEntry.label}`}
+              : 'Подтвердить выбор'}
           </button>
         </div>
       )}
@@ -215,7 +266,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
           body={
             <>
               Предмет: <strong>{selectedEntry.label}</strong><br />
-              Доступно: {availableModules.map(m => m.label).join(', ')}<br />
+              Разделы: <strong>{modulesLabel}</strong><br />
               {facultyLabel && <>Факультет: <strong>{facultyLabel}</strong></>}
             </>
           }
@@ -231,17 +282,18 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
           title="Последнее подтверждение"
           body={
             <>
-              Ты выбираешь <strong style={{ color: selectedEntry.color }}>{selectedEntry.label}</strong>.
-              <br />Пробный доступ 5 минут, затем решение принимает администратор.
+              <strong style={{ color: selectedEntry.color }}>{selectedEntry.label}</strong>
+              {' — '}{modulesLabel}
+              <br />Пробный доступ 5 минут, затем администратор подтверждает покупку.
             </>
           }
-          warn="Это финальный шаг. Поменять предмет после этого нельзя."
+          warn="Это финальный шаг. Поменять выбор после этого нельзя."
           primaryLabel="Начать пробный доступ"
           loading={loading}
           onBack={() => setConfirmStep(1)}
           onPrimary={() => {
             setConfirmStep(0);
-            onConfirm(selectedEntry.id);
+            onConfirm(selectedEntry.id, selectedModules);
           }}
         />
       )}

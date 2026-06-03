@@ -15,6 +15,7 @@ import {
   maybeExpirePreviewUser,
   previewEndsAt,
   isPreviewTrialLocked,
+  normalizePreviewModules,
 } from '@/lib/preview';
 import { resolveFacultyPromoCode } from '@/lib/facultyCodes';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
@@ -190,6 +191,7 @@ function previewPayload(user: any) {
   return {
     previewStatus:        user?.previewStatus ?? null,
     previewChosenSubject: user?.previewChosenSubject ?? null,
+    previewChosenModules: user?.previewChosenModules ?? null,
     previewFaculty:       user?.previewFaculty ?? null,
     facultyId:            user?.facultyId ?? null,
     promoCode:            user?.promoCode ?? null,
@@ -220,7 +222,7 @@ function subjectsResponse(user: any) {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { key, telegramId, mode, initData, subjectId, course, faculty } = req.body;
+  const { key, telegramId, mode, initData, subjectId, course, faculty, modules } = req.body;
 
   const tgIdStr = String(telegramId || '').trim();
   if (!isValidTelegramId(tgIdStr)) {
@@ -297,7 +299,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'Для этого предмета материалы ещё не готовы.' });
       }
 
-      const updated = buildActivePreviewUser(user, chosen);
+      const chosenModules = normalizePreviewModules(modules);
+      if (chosenModules.length === 0) {
+        return res.status(400).json({ error: 'Выбери хотя бы один раздел.' });
+      }
+      for (const modId of chosenModules) {
+        const mod = catalogEntry.modules.find(m => m.id === modId);
+        if (!mod?.available) {
+          return res.status(400).json({ error: 'Один из разделов недоступен.' });
+        }
+      }
+
+      const updated = buildActivePreviewUser(user, chosen, chosenModules);
       updated.username   = username ?? updated.username;
       updated.firstName  = firstName ?? updated.firstName;
       updated.lastName   = lastName ?? updated.lastName;

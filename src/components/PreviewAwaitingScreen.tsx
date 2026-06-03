@@ -2,10 +2,12 @@
 
 import React from 'react';
 import { getSubject } from '@/lib/subjects';
+import { formatPreviewModulesList } from '@/lib/previewModules';
 import { Loader2 } from 'lucide-react';
 
 interface PreviewAwaitingScreenProps {
   chosenSubject: string | null;
+  chosenModules?: string[];
   course: string | null;
   faculty: string | null;
   checking?: boolean;
@@ -14,12 +16,14 @@ interface PreviewAwaitingScreenProps {
 
 export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
   chosenSubject,
+  chosenModules = [],
   course,
   faculty,
   checking = false,
   onCheckStatus,
 }) => {
   const subjectCfg = chosenSubject ? getSubject(chosenSubject) : null;
+  const modulesLabel = formatPreviewModulesList(chosenModules);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-6">
@@ -29,11 +33,11 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
           Пробный период завершён
         </h1>
         <p className="text-sm leading-relaxed" style={{ color: 'var(--c-muted)' }}>
-          Администратор уже видит твою заявку. После подтверждения доступ откроется автоматически —
+          Администратор видит твою заявку. После подтверждения откроется только то, что ты выбрал —
           ключ вводить не нужно.
         </p>
 
-        {(subjectCfg || course || faculty) && (
+        {(subjectCfg || modulesLabel || course || faculty) && (
           <div
             className="rounded-2xl p-4 text-left text-sm space-y-2"
             style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
@@ -42,6 +46,12 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
               <div>
                 <span style={{ color: 'var(--c-muted)' }}>Предмет: </span>
                 <strong style={{ color: subjectCfg.color }}>{subjectCfg.label}</strong>
+              </div>
+            )}
+            {modulesLabel && (
+              <div>
+                <span style={{ color: 'var(--c-muted)' }}>Разделы: </span>
+                <strong style={{ color: 'var(--c-text)' }}>{modulesLabel}</strong>
               </div>
             )}
             {course && (

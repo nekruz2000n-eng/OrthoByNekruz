@@ -16,6 +16,7 @@ interface User {
   usedDemo:      boolean;
   previewStatus:        string | null;
   previewChosenSubject: string | null;
+  previewChosenModules: string[] | null;
   promoCode:            string | null;
   facultyId:            string | null;
   previewFaculty:       string | null;
@@ -279,6 +280,14 @@ function UserCard({
   const previewSubjectLabel = user.previewChosenSubject
     ? (availableSubjects.find(s => s.id === user.previewChosenSubject)?.label || user.previewChosenSubject)
     : null;
+  const previewModulesLabel = user.previewChosenModules?.length
+    ? user.previewChosenModules.map(m =>
+        m === 'questions' ? 'Вопросы' : m === 'tests' ? 'Тесты' : m === 'tasks' ? 'Задачи' : m,
+      ).join(', ')
+    : null;
+  const previewRequestLabel = previewSubjectLabel
+    ? (previewModulesLabel ? `${previewSubjectLabel} — ${previewModulesLabel}` : previewSubjectLabel)
+    : null;
 
   // «Новенький» — регистрация менее 24 ч назад
   const isFresh = !!user.registeredAt &&
@@ -478,7 +487,10 @@ function UserCard({
                 }
                 mono />
             )}
-            {previewSubjectLabel && (
+            {previewRequestLabel && (
+              <Meta label="Заявка" value={previewRequestLabel} color={T.purple} />
+            )}
+            {previewSubjectLabel && !previewModulesLabel && (
               <Meta label="Выбор (пробный)" value={previewSubjectLabel} color={T.purple} />
             )}
             {user.promoCode && (
@@ -627,7 +639,7 @@ function UserCard({
             {(user.previewStatus === 'expired' || user.previewStatus === 'active') && user.previewChosenSubject && (
               <ActionBtn variant="success" disabled={busy} fullWidth
                 onClick={() => onAction(user.tgId, 'confirm_preview')}>
-                {busy ? '...' : `✓ Подтвердить: ${previewSubjectLabel || user.previewChosenSubject}`}
+                {busy ? '...' : `✓ Подтвердить: ${previewRequestLabel || previewSubjectLabel}`}
               </ActionBtn>
             )}
             {user.usedDemo && (
@@ -1659,6 +1671,7 @@ export default function AdminPage() {
               usedDemo: false,
               previewStatus: null,
               previewChosenSubject: null,
+              previewChosenModules: null,
               promoCode: null,
               facultyId: null,
               previewFaculty: null,
@@ -1667,11 +1680,15 @@ export default function AdminPage() {
           case 'confirm_preview': {
             const chosen = u.previewChosenSubject;
             const newSubjects = chosen ? [chosen] : (Array.isArray(data.subjects) ? data.subjects : u.subjects);
+            const navHidden = (data.navHidden && typeof data.navHidden === 'object')
+              ? data.navHidden as Record<string, string[]>
+              : u.navHidden;
             return {
               ...u,
               previewStatus: 'confirmed',
               activatedKey: u.activatedKey === 'preview' || !u.activatedKey ? 'preview' : u.activatedKey,
               subjects: newSubjects,
+              navHidden,
             };
           }
           case 'toggle_paid':

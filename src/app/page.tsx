@@ -128,6 +128,7 @@ export default function Home() {
   const [previewStatus,   setPreviewStatus]   = useState<PreviewStatus | null>(null);
   const [pickSubjects,    setPickSubjects]     = useState<string[]>([]);
   const [previewChosen,   setPreviewChosen]    = useState<string | null>(null);
+  const [previewModules,  setPreviewModules]     = useState<string[]>([]);
   const [previewFaculty,  setPreviewFaculty]   = useState<string | null>(null);
   const [subjectCatalog,  setSubjectCatalog]   = useState<SubjectCatalogEntry[]>([]);
   const [previewEndsAt,   setPreviewEndsAt]    = useState<string | null>(null);
@@ -148,6 +149,7 @@ export default function Home() {
     const ps = d?.previewStatus ?? null;
     setPreviewStatus(ps);
     setPreviewChosen(d?.previewChosenSubject ?? null);
+    setPreviewModules(Array.isArray(d?.previewChosenModules) ? d.previewChosenModules : []);
     setPreviewFaculty(d?.previewFaculty ?? null);
     setPreviewEndsAt(d?.previewEndsAt ?? null);
 
@@ -334,7 +336,7 @@ export default function Home() {
     return () => clearInterval(iv);
   }, [isAuthenticated, previewStatus, previewEndsAt, applyAccessPayload]);
 
-  const handlePreviewPick = useCallback(async (subjectId: string) => {
+  const handlePreviewPick = useCallback(async (subjectId: string, modules: string[]) => {
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
     if (!tgId) return;
@@ -347,6 +349,7 @@ export default function Home() {
           telegramId: tgId,
           mode: 'pick_preview_subject',
           subjectId,
+          modules,
           initData: initDat,
         }),
       });
@@ -453,6 +456,7 @@ export default function Home() {
     return (
       <PreviewAwaitingScreen
         chosenSubject={previewChosen}
+        chosenModules={previewModules}
         course={null}
         faculty={previewFaculty}
         checking={statusChecking}
