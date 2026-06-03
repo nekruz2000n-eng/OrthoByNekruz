@@ -1,8 +1,4 @@
-import fs from 'fs';
-import path from 'path';
 import { SUBJECTS, getSubject } from '@/lib/subjects';
-
-const DATA_DIR = path.join(process.cwd(), 'src', 'data');
 
 export type ModuleKind = 'questions' | 'tests' | 'tasks';
 
@@ -40,10 +36,16 @@ const MODULE_META: Record<ModuleKind, { label: string; description: string }> = 
   },
 };
 
-function fileExists(fileName: string): boolean {
+/** Как /api/subject-data: JSON попадает в бандл через require, fs на Vercel не работает. */
+function moduleDataAvailable(fileName: string): boolean {
   if (!fileName) return false;
   try {
-    return fs.existsSync(path.join(DATA_DIR, fileName));
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const data = require(`../data/${fileName}`);
+    if (data == null) return false;
+    if (Array.isArray(data)) return data.length > 0;
+    if (typeof data === 'object') return Object.keys(data as object).length > 0;
+    return true;
   } catch {
     return false;
   }
@@ -61,7 +63,7 @@ export function buildSubjectCatalog(): SubjectCatalogEntry[] {
         id,
         label:       MODULE_META[id].label,
         description: MODULE_META[id].description,
-        available:   fileExists(file),
+        available:   moduleDataAvailable(file),
       };
     });
 
@@ -87,8 +89,8 @@ export function getNavHiddenForSubject(subjectId: string): string[] {
   if (!cfg) return ['questions', 'tests', 'tasks'];
 
   const hidden: string[] = [];
-  if (!fileExists(cfg.questionsFile)) hidden.push('questions');
-  if (!fileExists(cfg.testsFile))     hidden.push('tests');
-  if (!fileExists(cfg.tasksFile))     hidden.push('tasks');
+  if (!moduleDataAvailable(cfg.questionsFile)) hidden.push('questions');
+  if (!moduleDataAvailable(cfg.testsFile))     hidden.push('tests');
+  if (!moduleDataAvailable(cfg.tasksFile))     hidden.push('tasks');
   return hidden;
 }
