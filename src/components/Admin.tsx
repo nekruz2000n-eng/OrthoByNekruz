@@ -276,7 +276,10 @@ function UserCard({
   const name        = displayName(user);
   const hasFullKey  = user.activatedKey && user.activatedKey !== 'trial' && user.activatedKey !== 'preview' && !String(user.activatedKey).startsWith('promo:');
   const isTrial     = user.activatedKey === 'trial';
-  const isPreviewKey = user.activatedKey === 'preview';
+  const isChannelGrant = user.previewStatus === 'confirmed' && user.subjects.length > 0;
+  const isPreviewKey = (user.activatedKey === 'preview' || String(user.activatedKey || '').startsWith('promo:'))
+    && user.previewStatus !== 'confirmed';
+  const canMarkPaid = user.subjects.length > 0 && (hasFullKey || isChannelGrant);
   const previewSubjectLabel = user.previewChosenSubject
     ? (availableSubjects.find(s => s.id === user.previewChosenSubject)?.label || user.previewChosenSubject)
     : null;
@@ -403,25 +406,28 @@ function UserCard({
               }}
             >id {user.tgId}</span>
             {hasFullKey && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <Chip bg={T.accentSoft} color={T.accent}>ключ</Chip>
-                <button
-                  onClick={e => { e.stopPropagation(); onAction(user.tgId, 'toggle_paid'); }}
-                  disabled={busy}
-                  title={user.paid ? 'Оплачено — нажми чтобы снять' : 'Отметить как оплачено'}
-                  style={{
-                    width: 20, height: 20, borderRadius: 5, flexShrink: 0,
-                    border: `1px solid ${user.paid ? T.success + '66' : T.border}`,
-                    background: user.paid ? T.successSoft : T.surfaceAlt,
-                    color: user.paid ? T.success : T.textFaint,
-                    fontSize: 12, lineHeight: 1,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: busy ? 'default' : 'pointer',
-                    WebkitTapHighlightColor: 'transparent',
-                    transition: 'background 0.15s, border-color 0.15s',
-                  }}
-                >{user.paid ? '💲' : ''}</button>
-              </span>
+              <Chip bg={T.accentSoft} color={T.accent}>ключ</Chip>
+            )}
+            {isChannelGrant && !hasFullKey && (
+              <Chip bg={T.purpleSoft} color={T.purple}>канал</Chip>
+            )}
+            {canMarkPaid && (
+              <button
+                onClick={e => { e.stopPropagation(); onAction(user.tgId, 'toggle_paid'); }}
+                disabled={busy}
+                title={user.paid ? 'Оплачено — нажми чтобы снять' : 'Отметить как оплачено'}
+                style={{
+                  width: 20, height: 20, borderRadius: 5, flexShrink: 0,
+                  border: `1px solid ${user.paid ? T.success + '66' : T.border}`,
+                  background: user.paid ? T.successSoft : T.surfaceAlt,
+                  color: user.paid ? T.success : T.textFaint,
+                  fontSize: 12, lineHeight: 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: busy ? 'default' : 'pointer',
+                  WebkitTapHighlightColor: 'transparent',
+                  transition: 'background 0.15s, border-color 0.15s',
+                }}
+              >{user.paid ? '💲' : ''}</button>
             )}
             {isTrial    && <Chip bg={T.warnSoft}   color={T.warn}>trial</Chip>}
             {isPreviewKey && <Chip bg={T.purpleSoft} color={T.purple}>пробный</Chip>}
@@ -1686,6 +1692,7 @@ export default function AdminPage() {
             return {
               ...u,
               previewStatus: 'confirmed',
+              paid: false,
               activatedKey: u.activatedKey === 'preview' || !u.activatedKey ? 'preview' : u.activatedKey,
               subjects: newSubjects,
               navHidden,
@@ -1742,7 +1749,7 @@ export default function AdminPage() {
         case 'block':          msg = '🚫 Заблокирован'; break;
         case 'unblock':        msg = '✓ Разблокирован'; break;
         case 'reset_demo':     msg = '✓ Пробный доступ сброшен'; break;
-        case 'confirm_preview': msg = '✓ Доступ подтверждён'; break;
+        case 'confirm_preview': msg = '✓ Доступ подтверждён — отметь 💲 после оплаты'; break;
         case 'toggle_paid': {
           const nowPaid = !users.find(u => u.tgId === tgId)?.paid;
           msg = nowPaid ? '💲 Отмечено как оплачено' : 'Отметка оплаты снята';

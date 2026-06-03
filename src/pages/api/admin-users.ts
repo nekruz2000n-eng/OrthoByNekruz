@@ -125,11 +125,19 @@ function toDetailUser(
   };
 }
 
-/** Ключ активирован (не trial/preview/promo), отметка «оплачено» не стоит */
+/** Есть доступ, но админ ещё не отметил оплату (ключ или подтверждённая заявка). */
 function isUnpaid(u: ReturnType<typeof toListUser>): boolean {
+  if (u.paid === true) return false;
+  if (u.subjects.length === 0) return false;
+
   const key = u.activatedKey;
-  if (!key || key === 'trial' || key === 'preview' || String(key).startsWith('promo:')) return false;
-  return u.paid !== true;
+  if (!key || key === 'trial') return false;
+
+  if (key !== 'preview' && !String(key).startsWith('promo:')) {
+    return true;
+  }
+
+  return u.previewStatus === 'confirmed';
 }
 
 function matchesQuery(u: ReturnType<typeof toListUser>, q: string): boolean {
@@ -377,6 +385,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           subjects: getUserAvailableSubjects(updated),
           navHidden: updated.navHidden ?? {},
           previewStatus: 'confirmed',
+          paid: updated.paid === true,
         });
       }
 

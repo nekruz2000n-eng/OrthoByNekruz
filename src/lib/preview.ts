@@ -155,6 +155,7 @@ export function confirmPreviewUser(user: any) {
     ...user,
     previewStatus:      'confirmed' as PreviewStatus,
     previewConfirmedAt: now,
+    paid:               user.paid === true,
     activatedKey:       user.activatedKey && !String(user.activatedKey).startsWith('promo:')
       ? user.activatedKey
       : (user.activatedKey || 'preview'),
