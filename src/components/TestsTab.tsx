@@ -505,9 +505,21 @@ export const TestsTab = ({
       });
     }
 
-    const scored = scoredAnswers[currentTestIndex];
+    testScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [currentTestIndex, currentTest?.id, shuffleOptions]);
+
+  const isRegularBlock = (id: BlockId | null): id is number =>
+    id !== null && id !== 'mistakes' && id !== 'exam' && id !== 'favorites';
+
+  const resetQuestionHints = () => {
+    setHintLevel(0);
+    setHidden5050([]);
+  };
+
+  const applyQuestionUi = (index: number) => {
+    const scored = scoredAnswers[index];
     if (scored) {
-      setSelectedOption(reviewSelections[currentTestIndex] ?? scored.option);
+      setSelectedOption(reviewSelections[index] ?? scored.option);
       setShowResult(true);
       showResultRef.current = true;
     } else {
@@ -516,15 +528,12 @@ export const TestsTab = ({
       showResultRef.current = false;
     }
     resetQuestionHints();
-    testScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
-  }, [currentTestIndex, currentTest?.id]);
+  };
 
-  const isRegularBlock = (id: BlockId | null): id is number =>
-    id !== null && id !== 'mistakes' && id !== 'exam' && id !== 'favorites';
-
-  const resetQuestionHints = () => {
-    setHintLevel(0);
-    setHidden5050([]);
+  const goToQuestion = (index: number) => {
+    if (index < 0 || index >= blockTests.length) return;
+    applyQuestionUi(index);
+    setCurrentTestIndex(index);
   };
 
   const resetTest = () => {
@@ -676,12 +685,12 @@ export const TestsTab = ({
 
   const prevQuestion = () => {
     if (currentTestIndex <= 0) return;
-    setCurrentTestIndex(i => i - 1);
+    goToQuestion(currentTestIndex - 1);
   };
 
   const nextQuestion = () => {
     if (currentTestIndex < blockTests.length - 1) {
-      setCurrentTestIndex(i => i + 1);
+      goToQuestion(currentTestIndex + 1);
     } else {
       if (isRegularBlock(selectedBlock)) {
         recordBlockAttempt(selectedBlock);
@@ -741,7 +750,7 @@ export const TestsTab = ({
     setForcedStudySession(false);
     setAutoNext(firstPass);
     setSelectedBlock(info.blockId);
-    setCurrentTestIndex(info.indexInBlock);
+    goToQuestion(info.indexInBlock);
     maybeShowOnboarding();
   };
 
@@ -1344,9 +1353,10 @@ export const TestsTab = ({
             {visibleOptions.map((opt: string, idx: number) => {
               const correct        = opt === currentTest.correct;
               const selected       = selectedOption === opt;
-              const isWrong        = showResult && selected && !correct;
-              const selectedRight  = showResult && selected && correct;
-              const revealCorrect  = (showResult && correct && !selected) || (answerRevealed && correct && !showResult);
+              const questionLocked = scoredAnswers[currentTestIndex] !== undefined;
+              const isWrong        = showResult && questionLocked && selected && !correct;
+              const selectedRight  = showResult && questionLocked && selected && correct;
+              const revealCorrect  = (showResult && questionLocked && correct && !selected) || (answerRevealed && correct && !showResult);
               const dimmed         = showResult && !correct && !selected;
               return (
                 <button key={opt} onClick={() => handleSelect(opt)} disabled={showResult}
