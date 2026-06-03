@@ -19,6 +19,7 @@ import {
 } from '@/lib/preview';
 import { resolveFacultyPromoCode } from '@/lib/facultyCodes';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
+import { buildPreviewSubjectCatalog } from '@/lib/previewCatalogSettings';
 import type { FacultyPromo } from '@/lib/facultyCodes';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { registerUserId } from '@/lib/userIndex';
@@ -38,12 +39,14 @@ async function handlePreviewStart(
   profile: { username: string | null; firstName: string | null; lastName: string | null },
   promo?: FacultyPromo,
 ) {
+  const catalog = await buildPreviewSubjectCatalog(redis);
+
   if (user?.previewStatus === 'confirmed') {
     return res.status(200).json({
       success: true,
       alreadyConfirmed: true,
       subjects: getUserAvailableSubjects(user),
-      ...previewPayload(user),
+      ...previewPayload(user, catalog),
     });
   }
 
@@ -51,12 +54,12 @@ async function handlePreviewStart(
     return res.status(403).json({
       error: 'Пробный доступ уже использован. Ожидайте подтверждения администратора.',
       previewAwaiting: true,
-      ...previewPayload(user),
+      ...previewPayload(user, catalog),
     });
   }
 
   if (user?.previewStatus === 'selecting') {
-    return res.status(200).json({ success: true, resumed: true, ...previewPayload(user) });
+    return res.status(200).json({ success: true, resumed: true, ...previewPayload(user, catalog) });
   }
 
   if (user?.previewStatus === 'active') {
@@ -65,10 +68,10 @@ async function handlePreviewStart(
       return res.status(403).json({
         error: 'Пробный период завершён. Ожидайте подтверждения администратора.',
         previewAwaiting: true,
-        ...previewPayload(user),
+        ...previewPayload(user, catalog),
       });
     }
-    return res.status(200).json({ success: true, resumed: true, ...subjectsResponse(user) });
+    return res.status(200).json({ success: true, resumed: true, ...(await subjectsResponse(user)) });
   }
 
   const alreadyUsed = await isPreviewTrialLocked(redis, tgIdStr);
@@ -88,7 +91,7 @@ async function handlePreviewStart(
   await redis.sadd('used_demo_ids', tgIdStr);
   await resetRateLimit(ip, `demo_${tgIdStr}`);
 
-  return res.status(200).json({ success: true, preview: true, ...previewPayload(newUser) });
+  return res.status(200).json({ success: true, preview: true, ...previewPayload(newUser, catalog) });
 }
 
 const isValidTelegramId = (id: string): boolean => {
@@ -186,8 +189,7 @@ function ensureSubjectsField(user: any): any {
   return { ...user, subjects };
 }
 
-function previewPayload(user: any) {
-  const catalog = buildSubjectCatalog();
+function previewPayload(user: any, catalog?: ReturnType<typeof buildSubjectCatalog>) {
   return {
     previewStatus:        user?.previewStatus ?? null,
     previewChosenSubject: user?.previewChosenSubject ?? null,
@@ -206,16 +208,17 @@ async function saveUser(tgId: string, user: any) {
   await registerUserId(redis, tgId);
 }
 
-function subjectsResponse(user: any) {
+async function subjectsResponse(user: any) {
   const navHidden = (user.navHidden && typeof user.navHidden === 'object')
     ? user.navHidden as Record<string, string[]>
     : {};
   const subjects = getEffectiveUserSubjects(user);
+  const catalog = user?.previewStatus ? await buildPreviewSubjectCatalog(redis) : undefined;
   return {
     subjects,
     navHidden,
     registered: true,
-    ...previewPayload(user),
+    ...previewPayload(user, catalog),
   };
 }
 
@@ -294,7 +297,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'Неизвестный предмет.' });
       }
 
-      const catalogEntry = buildSubjectCatalog().find(s => s.id === chosen);
+      const catalogEntry = (await buildPreviewSubjectCatalog(redis)).find(s => s.id === chosen);
       if (!catalogEntry?.hasAnyModule) {
         return res.status(400).json({ error: 'Для этого предмета материалы ещё не готовы.' });
       }
@@ -321,7 +324,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       return res.status(200).json({
         success: true,
-        ...subjectsResponse(updated),
+        ...(await subjectsResponse(updated)),
         previewDurationMs: PREVIEW_DURATION_MS,
       });
     }
@@ -331,19 +334,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'Заявка не найдена.' });
       }
       user = await maybeExpirePreviewUser(redis, tgIdStr, user);
+      const catalog = await buildPreviewSubjectCatalog(redis);
       if (user.previewStatus === 'confirmed') {
-        return res.status(200).json({ success: true, ...subjectsResponse(user) });
+        return res.status(200).json({ success: true, ...(await subjectsResponse(user)) });
       }
       if (user.previewStatus === 'expired') {
-        return res.status(200).json({ success: true, awaitingAdmin: true, ...previewPayload(user) });
+        return res.status(200).json({ success: true, awaitingAdmin: true, ...previewPayload(user, catalog) });
       }
       if (user.previewStatus === 'selecting') {
-        return res.status(200).json({ success: true, needsSubjectPick: true, ...previewPayload(user) });
+        return res.status(200).json({ success: true, needsSubjectPick: true, ...previewPayload(user, catalog) });
       }
       if (user.previewStatus === 'active') {
         return res.status(200).json({
           success: true,
-          ...subjectsResponse(user),
+          ...(await subjectsResponse(user)),
           previewDurationMs: PREVIEW_DURATION_MS,
         });
       }
@@ -363,7 +367,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       user = await maybeExpirePreviewUser(redis, tgIdStr, user);
 
       if (user.previewStatus) {
-        return res.status(200).json(subjectsResponse(user));
+        return res.status(200).json(await subjectsResponse(user));
       }
 
       const userSubjects = getUserAvailableSubjects(user);

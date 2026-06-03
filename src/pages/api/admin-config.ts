@@ -1,6 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
+import { buildSubjectCatalog } from '@/lib/subjectCatalog';
+import {
+  loadPreviewCatalogSettings,
+  savePreviewCatalogSettings,
+  sanitizePreviewCatalogSettings,
+  getEffectivePreviewCatalogState,
+} from '@/lib/previewCatalogSettings';
 
 const redis        = Redis.fromEnv();
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
@@ -16,13 +23,18 @@ function verifyAdmin(initData: string, secret: string): boolean {
 }
 
 async function readSettings() {
-  const [isDemoEnabled, isPaidKeysEnabled] = await Promise.all([
+  const [isDemoEnabled, isPaidKeysEnabled, previewCatalogRaw] = await Promise.all([
     redis.get('settings:is_demo_enabled'),
     redis.get('settings:is_paid_keys_enabled'),
+    loadPreviewCatalogSettings(redis),
   ]);
+  const previewCatalogBase = buildSubjectCatalog();
   return {
-    isDemoEnabled:    isDemoEnabled ?? true,
-    isPaidKeysEnabled: isPaidKeysEnabled ?? true,
+    isDemoEnabled:           isDemoEnabled ?? true,
+    isPaidKeysEnabled:       isPaidKeysEnabled ?? true,
+    previewCatalog:          previewCatalogRaw,
+    previewCatalogBase,
+    previewCatalogEffective: getEffectivePreviewCatalogState(previewCatalogBase, previewCatalogRaw),
   };
 }
 
@@ -35,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // POST — только админ с валидной initData и секретом
   if (req.method === 'POST') {
-    const { initData, secret, isDemoEnabled, isPaidKeysEnabled } = req.body ?? {};
+    const { initData, secret, isDemoEnabled, isPaidKeysEnabled, previewCatalog } = req.body ?? {};
     if (!initData || !secret || !verifyAdmin(String(initData), String(secret))) {
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -44,6 +56,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     if (typeof isPaidKeysEnabled !== 'undefined') {
       await redis.set('settings:is_paid_keys_enabled', Boolean(isPaidKeysEnabled));
+    }
+    if (typeof previewCatalog !== 'undefined') {
+      await savePreviewCatalogSettings(redis, sanitizePreviewCatalogSettings(previewCatalog));
     }
     const settings = await readSettings();
     return res.status(200).json({ success: true, ...settings });

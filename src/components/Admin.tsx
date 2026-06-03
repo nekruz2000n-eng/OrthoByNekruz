@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import Script from 'next/script';
+import { PREVIEW_MODULE_LABELS } from '@/lib/previewModules';
 
 interface User {
   tgId:          string;
@@ -60,6 +61,19 @@ const RES_TYPE_OPTS: { id: ResType; label: string; emoji: string }[] = [
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo' | 'unpaid';
 type SortBy = 'registered' | 'lastLogin' | 'loginCount';
 type Action = 'block' | 'unblock' | 'reset_demo' | 'confirm_preview' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid';
+
+type PreviewModKind = 'questions' | 'tests' | 'tasks';
+type PreviewCatalogSettings = Record<string, {
+  open?: boolean;
+  modules?: Partial<Record<PreviewModKind, boolean>>;
+}>;
+type PreviewCatalogBaseEntry = {
+  id:      string;
+  label:   string;
+  badge:   string;
+  color:   string;
+  modules: { id: PreviewModKind; label: string; available: boolean }[];
+};
 
 // Управляемые из админки разделы. Сам раздел «Статистика» не выключается
 // (там прогресс юзера), но внутри него можно скрыть блок «Проверка готовности».
@@ -997,11 +1011,26 @@ export default function AdminPage() {
   const [demoResetTgId, setDemoResetTgId] = useState('');
   const [demoResetLoading, setDemoResetLoading] = useState(false);
 
+  const [previewCatalogExpanded, setPreviewCatalogExpanded] = useState(false);
+  const [previewCatalog, setPreviewCatalog] = useState<PreviewCatalogSettings>({});
+  const [previewCatalogBase, setPreviewCatalogBase] = useState<PreviewCatalogBaseEntry[]>([]);
+  const [previewCatalogEffective, setPreviewCatalogEffective] = useState<
+    Record<string, { open: boolean; modules: Record<PreviewModKind, boolean> }>
+  >({});
+  const [previewCatalogSaving, setPreviewCatalogSaving] = useState<string | null>(null);
+
   useEffect(() => {
     fetch('/api/admin-config')
       .then(res => res.json())
       .then(data => {
         if (typeof data.isPaidKeysEnabled === 'boolean') setIsPaidKeysEnabled(data.isPaidKeysEnabled);
+        if (Array.isArray(data.previewCatalogBase)) setPreviewCatalogBase(data.previewCatalogBase);
+        if (data.previewCatalog && typeof data.previewCatalog === 'object') {
+          setPreviewCatalog(data.previewCatalog as PreviewCatalogSettings);
+        }
+        if (data.previewCatalogEffective && typeof data.previewCatalogEffective === 'object') {
+          setPreviewCatalogEffective(data.previewCatalogEffective);
+        }
       })
       .catch(err => console.error('Ошибка загрузки конфига:', err));
   }, []);
@@ -1031,6 +1060,112 @@ export default function AdminPage() {
     } finally {
       setIsPaidKeysLoading(false);
     }
+  };
+
+  const applyPreviewCatalogResponse = (data: Record<string, unknown>) => {
+    if (data.previewCatalog && typeof data.previewCatalog === 'object') {
+      setPreviewCatalog(data.previewCatalog as PreviewCatalogSettings);
+    }
+    if (Array.isArray(data.previewCatalogBase)) setPreviewCatalogBase(data.previewCatalogBase);
+    if (data.previewCatalogEffective && typeof data.previewCatalogEffective === 'object') {
+      setPreviewCatalogEffective(data.previewCatalogEffective as typeof previewCatalogEffective);
+    }
+  };
+
+  const savePreviewCatalog = async (next: PreviewCatalogSettings, savingKey: string) => {
+    const initData = getTelegramInitData();
+    if (!initData) { showToast('Нет доступа: не в Telegram'); return; }
+
+    setPreviewCatalogSaving(savingKey);
+    try {
+      const res = await fetch('/api/admin-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ previewCatalog: next, initData, secret }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        applyPreviewCatalogResponse(data);
+        showToast('✓ Витрина обновлена');
+      } else if (res.status === 403) {
+        showToast('Нет прав');
+      } else {
+        showToast('Ошибка сохранения');
+      }
+    } catch {
+      showToast('Ошибка сети');
+    } finally {
+      setPreviewCatalogSaving(null);
+    }
+  };
+
+  const buildSubjectCatalogPatch = (
+    subjectId: string,
+    open: boolean,
+    modules: Record<PreviewModKind, boolean>,
+  ): PreviewCatalogSettings[string] | null => {
+    const baseEntry = previewCatalogBase.find(s => s.id === subjectId);
+    if (!baseEntry) return null;
+
+    const entry: PreviewCatalogSettings[string] = {};
+    if (!open) {
+      entry.open = false;
+      return entry;
+    }
+
+    const modOverrides: Partial<Record<PreviewModKind, boolean>> = {};
+    for (const mod of baseEntry.modules) {
+      if (!mod.available) continue;
+      if (modules[mod.id] === false) modOverrides[mod.id] = false;
+    }
+    if (Object.keys(modOverrides).length) entry.modules = modOverrides;
+    return Object.keys(entry).length ? entry : null;
+  };
+
+  const mergePreviewCatalog = (
+    current: PreviewCatalogSettings,
+    subjectId: string,
+    patch: PreviewCatalogSettings[string] | null,
+  ): PreviewCatalogSettings => {
+    const next = { ...current };
+    if (!patch) delete next[subjectId];
+    else next[subjectId] = patch;
+    return next;
+  };
+
+  const togglePreviewSubjectOpen = (subjectId: string) => {
+    const effective = previewCatalogEffective[subjectId];
+    const baseEntry = previewCatalogBase.find(s => s.id === subjectId);
+    if (!effective || !baseEntry) return;
+
+    const newOpen = !effective.open;
+    const modules = { ...effective.modules };
+    if (newOpen) {
+      for (const mod of baseEntry.modules) {
+        if (mod.available) modules[mod.id] = true;
+      }
+    }
+
+    const patch = buildSubjectCatalogPatch(subjectId, newOpen, modules);
+    const next = mergePreviewCatalog(previewCatalog, subjectId, patch);
+    savePreviewCatalog(next, `subject:${subjectId}`);
+  };
+
+  const togglePreviewModule = (subjectId: string, modId: PreviewModKind) => {
+    const effective = previewCatalogEffective[subjectId];
+    const baseEntry = previewCatalogBase.find(s => s.id === subjectId);
+    const baseMod = baseEntry?.modules.find(m => m.id === modId);
+    if (!effective || !baseEntry || !baseMod?.available) return;
+
+    const modules = { ...effective.modules };
+    modules[modId] = !effective.modules[modId];
+
+    const open = baseEntry.modules.some(
+      m => m.available && modules[m.id],
+    );
+    const patch = buildSubjectCatalogPatch(subjectId, open, modules);
+    const next = mergePreviewCatalog(previewCatalog, subjectId, patch);
+    savePreviewCatalog(next, `module:${subjectId}:${modId}`);
   };
 
   const resetPreviewByTgId = async () => {
@@ -2137,6 +2272,145 @@ export default function AdminPage() {
               transition: 'left 0.15s',
             }} />
           </button>
+        </div>
+
+        {/* витрина пробного выбора */}
+        <div style={{
+          background: T.surface, border: `1px solid ${T.border}`,
+          borderRadius: 14, marginBottom: 14, overflow: 'hidden',
+        }}>
+          <div
+            onClick={() => setPreviewCatalogExpanded(v => !v)}
+            style={{
+              padding: '13px 14px',
+              display: 'flex', alignItems: 'center', gap: 12,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <div style={{
+              width: 36, height: 36, borderRadius: 10, background: T.accentSoft,
+              color: T.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700, fontSize: 14, flexShrink: 0,
+            }}>👁</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, marginBottom: 2 }}>
+                Витрина пробного выбора
+              </div>
+              <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.4 }}>
+                Что показывать студенту при выборе предмета и разделов. Выключено — серое «в разработке».
+              </div>
+            </div>
+            <span style={{
+              color: T.textFaint, fontSize: 13,
+              transform: previewCatalogExpanded ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.2s', display: 'inline-block',
+            }}>▾</span>
+          </div>
+
+          {previewCatalogExpanded && (
+            <div style={{ borderTop: `1px solid ${T.border}`, padding: '10px 14px 14px' }}>
+              {previewCatalogBase.length === 0 ? (
+                <div style={{ fontSize: 12, color: T.textMuted }}>Загрузка каталога…</div>
+              ) : previewCatalogBase.map(entry => {
+                const effective = previewCatalogEffective[entry.id];
+                const subjectOpen = effective?.open ?? false;
+                const subjectSaving = previewCatalogSaving === `subject:${entry.id}`;
+
+                return (
+                  <div
+                    key={entry.id}
+                    style={{
+                      padding: '10px 0',
+                      borderBottom: `1px solid ${T.border}`,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <div style={{
+                        width: 8, height: 8, borderRadius: '50%',
+                        background: entry.color, flexShrink: 0,
+                      }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>
+                          {entry.label}
+                          <span style={{
+                            marginLeft: 6, fontSize: 10.5, fontWeight: 600,
+                            color: T.textMuted, background: T.surfaceAlt,
+                            borderRadius: 5, padding: '1px 6px',
+                          }}>{entry.badge}</span>
+                        </div>
+                        <div style={{ fontSize: 10.5, color: subjectOpen ? T.textMuted : T.textFaint }}>
+                          {subjectOpen ? 'В списке выбора' : 'Весь предмет — в разработке'}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => togglePreviewSubjectOpen(entry.id)}
+                        disabled={!!previewCatalogSaving}
+                        aria-label={`Toggle ${entry.label}`}
+                        style={{
+                          width: 44, height: 26, borderRadius: 999,
+                          background: subjectOpen ? T.accent : T.borderStrong,
+                          border: 'none', position: 'relative', flexShrink: 0,
+                          cursor: previewCatalogSaving ? 'default' : 'pointer',
+                          padding: 0, opacity: subjectSaving ? 0.6 : 1,
+                        }}
+                      >
+                        <span style={{
+                          position: 'absolute', top: 3, left: subjectOpen ? 21 : 3,
+                          width: 20, height: 20, borderRadius: '50%',
+                          background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                          transition: 'left 0.15s',
+                        }} />
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingLeft: 18 }}>
+                      {(['questions', 'tests', 'tasks'] as PreviewModKind[]).map(modId => {
+                        const baseMod = entry.modules.find(m => m.id === modId);
+                        const hasFile = baseMod?.available ?? false;
+                        const modOpen = effective?.modules?.[modId] ?? false;
+                        const modSaving = previewCatalogSaving === `module:${entry.id}:${modId}`;
+                        const label = PREVIEW_MODULE_LABELS[modId];
+
+                        return (
+                          <button
+                            key={modId}
+                            onClick={() => togglePreviewModule(entry.id, modId)}
+                            disabled={!hasFile || !!previewCatalogSaving || !subjectOpen}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 6,
+                              padding: '5px 10px', borderRadius: 8,
+                              border: `1px solid ${modOpen && hasFile ? entry.color + '55' : T.border}`,
+                              background: !hasFile
+                                ? T.surfaceAlt
+                                : modOpen && subjectOpen
+                                  ? entry.color + '18'
+                                  : T.surfaceAlt,
+                              color: !hasFile
+                                ? T.textFaint
+                                : modOpen && subjectOpen
+                                  ? T.text
+                                  : T.textMuted,
+                              fontSize: 11.5, fontWeight: 600,
+                              cursor: !hasFile || previewCatalogSaving || !subjectOpen ? 'default' : 'pointer',
+                              opacity: modSaving ? 0.6 : 1,
+                            }}
+                          >
+                            <span style={{
+                              width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                              background: modOpen && hasFile && subjectOpen ? entry.color : T.borderStrong,
+                            }} />
+                            {label}
+                            {!hasFile && ' · нет файла'}
+                            {hasFile && !modOpen && subjectOpen && ' · скрыто'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* блокировки входа */}
