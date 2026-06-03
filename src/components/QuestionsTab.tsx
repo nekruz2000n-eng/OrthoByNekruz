@@ -853,29 +853,19 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
             transition={{ type: 'spring', damping: 28, stiffness: 320 }}
             className="fixed inset-0 z-[100] flex flex-col overflow-hidden" style={{ background: 'var(--c-bg)' }}>
 
-            <div className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
+            <div className="flex items-center justify-center px-3 py-2 flex-shrink-0"
               style={{
                 background: 'color-mix(in srgb, var(--c-bg) 92%, transparent)',
                 backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
                 borderBottom: '1px solid var(--c-border)',
                 paddingTop: 'calc(var(--header-pt) - 28px)',
               }}>
-              <button onClick={() => setReadingQuestion(null)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-95"
-                style={{ background: 'transparent', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
-                <ArrowLeft className="w-4 h-4" />
-              </button>
-              <div className="flex-1 text-center min-w-0">
+              <div className="text-center min-w-0">
                 <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-muted)' }}>Чтение</div>
                 <div className="text-[12px] font-mono font-bold leading-tight" style={{ color: 'var(--c-text)' }}>
                   №{readingQuestion.id} · {cfg?.label || subject}
                 </div>
               </div>
-              <button onClick={() => setReadingQuestion(null)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-95"
-                style={{ background: 'transparent', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}>
-                <X className="w-4 h-4" />
-              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 pt-2 scroll-container"
