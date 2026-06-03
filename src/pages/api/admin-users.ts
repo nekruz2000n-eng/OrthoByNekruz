@@ -47,6 +47,10 @@ function isSuspicious(opensToday: number): boolean {
   return opensToday >= 5;
 }
 
+async function clearPreviewTrialLock(tgId: string) {
+  await redis.srem('used_demo_ids', String(tgId).trim());
+}
+
 function toListUser(
   id: string,
   user: any,
@@ -220,10 +224,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (action && tgId) {
       let user: any = await redis.get(`user_id:${tgId}`);
-      if (!user && action !== 'reset_demo') {
+      if (!user && action !== 'reset_demo' && action !== 'delete_user') {
         return res.status(404).json({ error: 'User not found' });
       }
-      user = ensureSubjects(user);
+      if (user) user = ensureSubjects(user);
 
       if (action === 'block') {
         const cleanReason = String(reason ?? '').trim().slice(0, 200) || 'manual';
@@ -328,7 +332,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (action === 'reset_demo') {
-        await redis.srem('used_demo_ids', tgId as string);
+        await clearPreviewTrialLock(String(tgId));
         if (user) {
           const cleaned: Record<string, any> = { ...user };
           delete cleaned.previewStatus;
@@ -340,7 +344,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           delete cleaned.previewPickedAt;
           delete cleaned.previewExpiredAt;
           delete cleaned.previewConfirmedAt;
-          if (cleaned.activatedKey === 'preview') delete cleaned.activatedKey;
+          const key = cleaned.activatedKey;
+          if (key === 'preview' || (key && String(key).startsWith('promo:'))) {
+            delete cleaned.activatedKey;
+          }
           await saveUser(String(tgId), cleaned);
         }
         return res.status(200).json({ ok: true });
@@ -372,10 +379,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (action === 'delete_user') {
-        const id = String(tgId);
+        const id = String(tgId).trim();
         await redis.del(`user_id:${id}`);
         await removeUserId(redis, id);
-        await redis.srem('used_demo_ids', id);
+        await clearPreviewTrialLock(id);
         try {
           let cur = 0;
           do {

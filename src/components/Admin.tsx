@@ -976,6 +976,8 @@ export default function AdminPage() {
 
   const [isPaidKeysEnabled, setIsPaidKeysEnabled] = useState(true);
   const [isPaidKeysLoading, setIsPaidKeysLoading] = useState(false);
+  const [demoResetTgId, setDemoResetTgId] = useState('');
+  const [demoResetLoading, setDemoResetLoading] = useState(false);
 
   useEffect(() => {
     fetch('/api/admin-config')
@@ -1010,6 +1012,32 @@ export default function AdminPage() {
       showToast('Ошибка сети');
     } finally {
       setIsPaidKeysLoading(false);
+    }
+  };
+
+  const resetPreviewByTgId = async () => {
+    const id = demoResetTgId.replace(/\D/g, '').trim();
+    if (!id || id.length < 5) {
+      showToast('Введи корректный Telegram ID');
+      return;
+    }
+    setDemoResetLoading(true);
+    try {
+      const r = await fetch('/api/admin-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset_demo', tgId: id, secret }),
+      });
+      if (r.ok) {
+        setDemoResetTgId('');
+        showToast('✓ Пробный доступ сброшен — можно войти с кодом снова');
+      } else {
+        showToast('Ошибка сброса');
+      }
+    } catch {
+      showToast('Ошибка сети');
+    } finally {
+      setDemoResetLoading(false);
     }
   };
 
@@ -2001,6 +2029,40 @@ export default function AdminPage() {
             <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.5 }}>
               Студент вводит код из канала: 🦷 <strong>3950</strong>, 🩺 <strong>5016</strong>, 👶 <strong>2314</strong>.
               После 5 минут подтверждаешь заявку кнопкой «Подтвердить» в карточке.
+            </div>
+            <div style={{
+              marginTop: 10, paddingTop: 10,
+              borderTop: `1px solid ${T.border}`,
+              display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
+            }}>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="Telegram ID для сброса"
+                value={demoResetTgId}
+                onChange={e => setDemoResetTgId(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                style={{
+                  flex: 1, minWidth: 140, height: 36, borderRadius: 10,
+                  border: `1px solid ${T.border}`, background: T.surfaceAlt,
+                  color: T.text, padding: '0 12px', fontSize: 13,
+                  fontFamily: FONT_MONO, boxSizing: 'border-box',
+                }}
+              />
+              <button
+                onClick={resetPreviewByTgId}
+                disabled={demoResetLoading}
+                style={{
+                  height: 36, padding: '0 14px', borderRadius: 10, border: 'none',
+                  background: T.purpleSoft, color: T.purple,
+                  fontSize: 12.5, fontWeight: 600, cursor: demoResetLoading ? 'default' : 'pointer',
+                  opacity: demoResetLoading ? 0.6 : 1, whiteSpace: 'nowrap',
+                }}
+              >
+                {demoResetLoading ? '...' : 'Сбросить пробный'}
+              </button>
+            </div>
+            <div style={{ fontSize: 10.5, color: T.textFaint, marginTop: 6, lineHeight: 1.4 }}>
+              Если после удаления пишет «уже использовано» — введи ID и нажми сброс.
             </div>
           </div>
         </div>
