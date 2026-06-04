@@ -149,6 +149,7 @@ export default function Home() {
   const [previewEndsAt,   setPreviewEndsAt]    = useState<string | null>(null);
   const [previewPicking,  setPreviewPicking]   = useState<boolean>(false);
   const [statusChecking,  setStatusChecking]  = useState<boolean>(false);
+  const [previewStatusMessage, setPreviewStatusMessage] = useState('');
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
   const { toast }    = useToast();
 
@@ -193,6 +194,19 @@ export default function Home() {
 
     if (ps === 'expired') {
       localStorage.removeItem('preview_end');
+      const pending = d?.previewChosenSubject as string | null | undefined;
+      if (pending && list.length > 0) {
+        const others = list.filter(s => s !== pending);
+        const saved = localStorage.getItem('last_subject');
+        const next =
+          (saved && others.includes(saved) ? saved : null)
+          ?? others[0]
+          ?? list[0];
+        if (next && next !== pending) {
+          setSubjectRaw(next);
+          localStorage.setItem('last_subject', next);
+        }
+      }
     }
 
     if (ps === 'selecting') return;
@@ -485,6 +499,7 @@ export default function Home() {
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
     if (!tgId) return;
     setStatusChecking(true);
+    setPreviewStatusMessage('');
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
@@ -493,22 +508,37 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast({ variant: 'destructive', title: 'Статус', description: data.error || 'Заявка не найдена' });
+        setPreviewStatusMessage(data.error || 'Не удалось проверить статус. Попробуй ещё раз.');
         return;
       }
       if (data.previewStatus === 'confirmed') {
         localStorage.setItem('is_authed', 'true');
+        setPreviewStatusMessage('');
         applyAccessPayload(data);
         toast({ title: 'Доступ открыт', description: 'Можно продолжать обучение' });
-      } else {
-        applyAccessPayload(data);
+        return;
       }
+      applyAccessPayload(data);
+      setPreviewStatusMessage(
+        'Администратор пока не открыл доступ к этому предмету. Напиши в Telegram — подтвердим вручную.',
+      );
     } catch {
-      toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
+      setPreviewStatusMessage('Ошибка соединения. Проверь интернет и попробуй снова.');
     } finally {
       setStatusChecking(false);
     }
   }, [applyAccessPayload, toast]);
+
+  const handleBackFromPendingPreview = useCallback(() => {
+    setPreviewStatusMessage('');
+    const pending = previewChosen;
+    const others = availableSubjects.filter(s => s !== pending);
+    const next = others[0] ?? availableSubjects.find(s => s !== pending);
+    if (next) {
+      setSubject(next);
+      localStorage.setItem('last_subject', next);
+    }
+  }, [availableSubjects, previewChosen, setSubject]);
 
   // ── Сброс (6 быстрых тапов) ───────────────────────────────────────────────
   const handleSecretTap = useCallback(() => {
@@ -580,13 +610,24 @@ export default function Home() {
     );
   }
 
-  if (previewStatus === 'expired' && previewChosen) {
+  const awaitingPendingSubject =
+    previewStatus === 'expired' &&
+    !!previewChosen &&
+    subject === previewChosen;
+
+  if (awaitingPendingSubject) {
     return (
       <PreviewAwaitingScreen
         chosenSubject={previewChosen}
         chosenModules={previewModules}
         checking={statusChecking}
+        statusMessage={previewStatusMessage}
         onCheckStatus={handleCheckPreviewStatus}
+        onBackToAvailable={
+          availableSubjects.some(s => s !== previewChosen)
+            ? handleBackFromPendingPreview
+            : undefined
+        }
       />
     );
   }

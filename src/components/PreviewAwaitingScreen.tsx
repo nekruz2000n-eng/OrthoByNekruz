@@ -9,14 +9,18 @@ interface PreviewAwaitingScreenProps {
   chosenSubject: string | null;
   chosenModules?: string[];
   checking?: boolean;
+  statusMessage?: string;
   onCheckStatus?: () => void;
+  onBackToAvailable?: () => void;
 }
 
 export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
   chosenSubject,
   chosenModules = [],
   checking = false,
+  statusMessage,
   onCheckStatus,
+  onBackToAvailable,
 }) => {
   const subjectCfg = chosenSubject ? getSubject(chosenSubject) : null;
   const modulesLabel = formatPreviewModulesList(chosenModules);
@@ -52,6 +56,19 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
           </div>
         )}
 
+        {statusMessage && (
+          <div
+            className="rounded-2xl px-4 py-3 text-sm leading-relaxed text-left"
+            style={{
+              border: '1.5px solid rgba(220, 38, 38, 0.45)',
+              background: 'rgba(220, 38, 38, 0.08)',
+              color: '#fca5a5',
+            }}
+          >
+            {statusMessage}
+          </div>
+        )}
+
         {onCheckStatus && (
           <button
             type="button"
@@ -69,8 +86,33 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
           </button>
         )}
 
+        {onBackToAvailable && (
+          <button
+            type="button"
+            onClick={onBackToAvailable}
+            disabled={checking}
+            className="w-full h-12 rounded-2xl text-sm font-semibold"
+            style={{
+              background: 'var(--c-card)',
+              color: 'var(--c-text)',
+              border: '1px solid var(--c-border)',
+            }}
+          >
+            Назад к доступным предметам
+          </button>
+        )}
+
         <p className="text-[11px]" style={{ color: 'var(--c-muted)', opacity: 0.7 }}>
-          Вопросы — DM @evoeidos
+          Вопросы —{' '}
+          <a
+            href="https://t.me/evoeidos"
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+            style={{ color: 'hsl(var(--primary) / 0.85)' }}
+          >
+            @evoeidos
+          </a>
         </p>
       </div>
     </div>
