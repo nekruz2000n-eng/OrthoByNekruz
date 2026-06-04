@@ -170,6 +170,9 @@ export default function Home() {
 
   /** Поздний ответ check_subjects не должен затирать свежий ответ после кода/группы. */
   const accessRequestGen = useRef(0);
+  const previewPollGen   = useRef(0);
+
+  const PREVIEW_ADMIN_POLL_MS = 45_000;
 
   const logoutLocal = useCallback(() => {
     clearLocalSession();
@@ -253,6 +256,35 @@ export default function Home() {
       return next;
     });
   }, [setSubjectRaw, triggerAccessWelcomeIfPending]);
+
+  const pollAccessForAdminConfirm = useCallback(async () => {
+    if (typeof document !== 'undefined' && document.hidden) return;
+    if (localStorage.getItem(PREVIEW_AWAITING_CONFIRM_KEY) !== '1') return;
+
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId || !initDat) return;
+
+    const gen = ++previewPollGen.current;
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telegramId: tgId, mode: 'check_subjects', initData: initDat }),
+      });
+      const d = await res.json();
+      if (gen !== previewPollGen.current) return;
+      if (res.status === 403 && d.needSubscription) {
+        logoutLocal();
+        return;
+      }
+      if (d.registered === false) {
+        logoutLocal();
+        return;
+      }
+      applyAccessPayload(d);
+    } catch { /* сеть — повторим на следующем интервале */ }
+  }, [applyAccessPayload, logoutLocal]);
 
   const refreshAccess = useCallback(() => {
     const tgId    = localStorage.getItem('user_tg_id');
@@ -441,6 +473,34 @@ export default function Home() {
     const iv = setInterval(() => { if (tick()) clearInterval(iv); }, 1000);
     return () => clearInterval(iv);
   }, [isAuthenticated, previewStatus, previewEndsAt, applyAccessPayload]);
+
+  // Опрос: админ подтвердил до конца пробы — сразу приветствие и доступ (вкладка видима)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (previewStatus !== 'active' && previewStatus !== 'expired') return;
+
+    const awaitingAdmin = () =>
+      localStorage.getItem(PREVIEW_AWAITING_CONFIRM_KEY) === '1';
+    if (!awaitingAdmin()) return;
+
+    const tick = () => {
+      if (awaitingAdmin()) void pollAccessForAdminConfirm();
+    };
+
+    tick();
+
+    const iv = setInterval(tick, PREVIEW_ADMIN_POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener('visibilitychange', onVisible);
+      previewPollGen.current += 1;
+    };
+  }, [isAuthenticated, previewStatus, pollAccessForAdminConfirm]);
 
   const handleChannelCodeSuccess = useCallback((data: Record<string, unknown>) => {
     accessRequestGen.current += 1;
