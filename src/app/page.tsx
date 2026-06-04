@@ -5,6 +5,7 @@ import { SubjectSelectScreen } from '@/components/SubjectSelectScreen';
 import { PreviewOnboardingScreen } from '@/components/PreviewOnboardingScreen';
 import { PreviewGroupScreen } from '@/components/PreviewGroupScreen';
 import { PreviewAwaitingScreen } from '@/components/PreviewAwaitingScreen';
+import { ChannelCodeEntryScreen } from '@/components/ChannelCodeEntryScreen';
 import { AuthScreen }    from '@/components/AuthScreen';
 import { Navigation, TabType } from '@/components/Navigation';
 import { QuestionsTab }  from '@/components/QuestionsTab';
@@ -141,6 +142,7 @@ export default function Home() {
   const [previewModules,  setPreviewModules]     = useState<string[]>([]);
   const [needsStudyGroup, setNeedsStudyGroup]   = useState<boolean>(false);
   const [groupSaving,     setGroupSaving]       = useState<boolean>(false);
+  const [showChannelCode, setShowChannelCode]   = useState<boolean>(false);
   const [subjectCatalog,  setSubjectCatalog]   = useState<SubjectCatalogEntry[]>([]);
   const [previewEndsAt,   setPreviewEndsAt]    = useState<string | null>(null);
   const [previewPicking,  setPreviewPicking]   = useState<boolean>(false);
@@ -389,6 +391,25 @@ export default function Home() {
     return () => clearInterval(iv);
   }, [isAuthenticated, previewStatus, previewEndsAt, applyAccessPayload]);
 
+  const handleChannelCodeSuccess = useCallback(async () => {
+    setShowChannelCode(false);
+    setAccessChecked(false);
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) return;
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telegramId: tgId, mode: 'check_subjects', initData: initDat }),
+      });
+      const data = await res.json();
+      if (res.ok) applyAccessPayload(data);
+    } finally {
+      setAccessChecked(true);
+    }
+  }, [applyAccessPayload]);
+
   const handleSetStudyGroup = useCallback(async (group: string) => {
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
@@ -512,6 +533,15 @@ export default function Home() {
     return <AuthScreen onAuthenticated={() => setIsAuthenticated(true)} />;
   }
 
+  if (showChannelCode) {
+    return (
+      <ChannelCodeEntryScreen
+        onSuccess={handleChannelCodeSuccess}
+        onCancel={() => setShowChannelCode(false)}
+      />
+    );
+  }
+
   if (!accessChecked && previewStatus !== 'expired') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -594,6 +624,7 @@ export default function Home() {
     return (
       <SubjectSelectScreen
         availableSubjects={availableSubjects}
+        onBrowseCatalog={() => setShowChannelCode(true)}
         onSelect={(s: string) => {
           setSubject(s);
           setShowSubjectSelect(false);
@@ -615,6 +646,7 @@ export default function Home() {
             onSubjectChange={setSubject}
             availableSubjects={availableSubjects}
             hasMicro={hasMicro}
+            onBrowseCatalog={() => setShowChannelCode(true)}
             examHidden={(navHidden[subject] || []).includes('exam')}
             materialsHidden={(navHidden[subject] || []).includes('materials')}
             onMicroUnlocked={() => {

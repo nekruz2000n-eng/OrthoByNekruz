@@ -13,6 +13,8 @@ interface SubjectSelectScreenProps {
   availableSubjects: string[];
   /** Колбэк при выборе дисциплины */
   onSelect: (subject: string) => void;
+  /** Открыть ввод кода канала (витрина предметов) */
+  onBrowseCatalog?: () => void;
 }
 
 // ─── Хук: разблокирует скролл (нужен для Telegram Mini App) ───────────────────
@@ -64,6 +66,7 @@ const FloatingTooth = ({
 export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
   availableSubjects,
   onSelect,
+  onBrowseCatalog,
 }) => {
   useReleaseScroll();
   const [selected, setSelected] = useState<string | null>(null);
@@ -217,6 +220,21 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
             ? `→ Войти в ${getSubject(selected)?.label || 'дисциплину'}`
             : 'Выберите предмет'}
         </motion.button>
+
+        {onBrowseCatalog && (
+          <button
+            type="button"
+            onClick={onBrowseCatalog}
+            className="w-full max-w-xs mx-auto block mt-3 h-[48px] rounded-[16px] text-[13px] font-bold transition-all active:scale-[0.98]"
+            style={{
+              background: 'var(--c-primary-soft)',
+              border: '1.5px solid var(--c-primary-br)',
+              color: 'var(--c-text)',
+            }}
+          >
+            Ввести код — посмотреть все предметы
+          </button>
+        )}
 
         <p
           className="mt-3 text-[10px] text-center"

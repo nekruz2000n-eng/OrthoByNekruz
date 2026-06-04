@@ -183,6 +183,7 @@ export function buildSelectingPreviewUserFromExisting(
     previewFaculty:             promo.facultyLabel,
     facultyId:                  promo.id,
     promoCode:                  promo.code,
+    studyGroup:                 user.facultyId && user.facultyId !== promo.id ? null : (user.studyGroup ?? null),
     previewChosenSubject:       null,
     previewChosenModules:       null,
     previewStartedAt:           null,

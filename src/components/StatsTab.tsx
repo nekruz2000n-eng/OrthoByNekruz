@@ -67,12 +67,14 @@ interface SubjectSheetProps {
   onClose:           () => void;
   hasMicro?:         boolean;
   availableSubjects?: string[];
+  onBrowseCatalog?:  () => void;
 }
 
 const SubjectSheet: React.FC<SubjectSheetProps> = ({
   currentSubject, onSelect, onClose,
   hasMicro = false,
   availableSubjects,
+  onBrowseCatalog,
 }) => {
   const [selected, setSelected] = useState<SubjectType>(currentSubject);
   const userSubjects: string[] = availableSubjects
@@ -183,6 +185,20 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
             borderTop: '1px solid color-mix(in srgb, var(--c-border) 50%, transparent)',
           }}
         >
+          {onBrowseCatalog && (
+            <button
+              type="button"
+              onClick={() => { onClose(); onBrowseCatalog(); }}
+              className="w-full py-3 mb-3 rounded-[16px] font-bold text-[13px] transition-all duration-200 active:scale-[0.98]"
+              style={{
+                background: 'var(--c-primary-soft)',
+                border: '1.5px solid var(--c-primary-br)',
+                color: 'var(--c-text)',
+              }}
+            >
+              Ввести код — посмотреть все предметы
+            </button>
+          )}
           <div className="flex gap-3">
             <button
               onClick={onClose}
@@ -213,6 +229,7 @@ interface StatsTabProps {
   hasMicro?:         boolean;
   onMicroUnlocked?:  () => void;
   availableSubjects?: string[];
+  onBrowseCatalog?:  () => void;
   /** Скрыть блок «Проверка готовности» (управляется из админки per-user) */
   examHidden?:      boolean;
   /** Скрыть раздел «Полезные материалы» (управляется из админки per-user) */
@@ -223,6 +240,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   subject, onSubjectChange,
   hasMicro = false, onMicroUnlocked,
   availableSubjects,
+  onBrowseCatalog,
   examHidden      = false,
   materialsHidden = false,
 }) => {
@@ -782,6 +800,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             onClose={() => setShowSubjectSheet(false)}
             hasMicro={hasMicro}
             availableSubjects={availableSubjects}
+            onBrowseCatalog={onBrowseCatalog}
           />
         )}
       </AnimatePresence>
