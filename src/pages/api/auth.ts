@@ -31,6 +31,7 @@ import { registerUserId } from '@/lib/userIndex';
 import { clearAuthRateLimitsForTgId, checkCatalogBrowseLimit } from '@/lib/authRateLimit';
 import {
   buildCatalogSelectingUser,
+  getCatalogGrantedSubjects,
   restartCatalogBrowseSelecting,
 } from '@/lib/catalogBrowse';
 
@@ -271,6 +272,9 @@ function ensureSubjectsField(user: any): any {
 function previewPayload(user: any, catalog?: ReturnType<typeof buildSubjectCatalog>) {
   const selecting = user?.previewStatus === 'selecting';
   const hasGroup  = !!String(user?.studyGroup || '').trim();
+  const navHidden = (user?.navHidden && typeof user.navHidden === 'object')
+    ? user.navHidden as Record<string, string[]>
+    : {};
   return {
     previewStatus:        user?.previewStatus ?? null,
     previewChosenSubject: user?.previewChosenSubject ?? null,
@@ -280,6 +284,10 @@ function previewPayload(user: any, catalog?: ReturnType<typeof buildSubjectCatal
     previewEndsAt:        previewEndsAt(user),
     pickSubjects:         selecting && hasGroup ? getAllPickableSubjectIds() : undefined,
     subjectCatalog:       user?.previewStatus && hasGroup ? catalog : undefined,
+    navHidden,
+    catalogGrantedSubjects: user?._catalogBrowse && hasGroup
+      ? getCatalogGrantedSubjects(user)
+      : undefined,
     ...facultyFieldsFromUser(user),
   };
 }

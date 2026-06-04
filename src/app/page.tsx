@@ -149,6 +149,7 @@ export default function Home() {
   const [showChannelCode, setShowChannelCode]   = useState<boolean>(false);
   const [catalogBrowseLoading, setCatalogBrowseLoading] = useState(false);
   const [subjectCatalog,  setSubjectCatalog]   = useState<SubjectCatalogEntry[]>([]);
+  const [catalogGrantedSubjects, setCatalogGrantedSubjects] = useState<string[]>([]);
   const [previewEndsAt,   setPreviewEndsAt]    = useState<string | null>(null);
   const [previewPicking,  setPreviewPicking]   = useState<boolean>(false);
   const [statusChecking,  setStatusChecking]  = useState<boolean>(false);
@@ -200,6 +201,11 @@ export default function Home() {
     setPreviewEndsAt(d?.previewEndsAt ?? null);
 
     if (Array.isArray(d?.subjectCatalog)) setSubjectCatalog(d.subjectCatalog);
+    if (Array.isArray(d?.catalogGrantedSubjects)) {
+      setCatalogGrantedSubjects(d.catalogGrantedSubjects);
+    } else if (ps !== 'selecting') {
+      setCatalogGrantedSubjects([]);
+    }
     if (Array.isArray(d?.pickSubjects)) setPickSubjects(d.pickSubjects);
 
     if (d?.facultyId) persistFacultyId(String(d.facultyId));
@@ -735,6 +741,8 @@ export default function Home() {
     return withAccessWelcome(
       <PreviewOnboardingScreen
         subjectCatalog={subjectCatalog}
+        catalogGrantedSubjects={catalogGrantedSubjects}
+        navHidden={navHidden}
         loading={previewPicking}
         onConfirm={handlePreviewPick}
       />,

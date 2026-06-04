@@ -4,12 +4,16 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { FacultyIcon } from '@/components/FacultyIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
+import { isCatalogModuleAlreadyGranted } from '@/lib/catalogBrowse';
 import type { PreviewModule } from '@/lib/previewModules';
 import { PREVIEW_MODULE_LABELS } from '@/lib/previewModules';
 import { Loader2, Check } from 'lucide-react';
 
 interface PreviewOnboardingScreenProps {
   subjectCatalog: SubjectCatalogEntry[];
+  /** Предметы, уже в постоянном доступе (витрина из приложения). */
+  catalogGrantedSubjects?: string[];
+  navHidden?: Record<string, string[]>;
   loading?: boolean;
   onConfirm: (subjectId: string, modules: PreviewModule[]) => void;
 }
@@ -18,6 +22,8 @@ type Step = 'subject' | 'modules';
 
 export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = ({
   subjectCatalog,
+  catalogGrantedSubjects = [],
+  navHidden = {},
   loading = false,
   onConfirm,
 }) => {
@@ -31,16 +37,22 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
     [subjectCatalog, selectedId],
   );
 
-  const availableModules = useMemo(
-    () => selectedEntry?.modules.filter(m => m.available) ?? [],
-    [selectedEntry],
+  const isModuleGranted = useCallback(
+    (subjectId: string, moduleId: PreviewModule) =>
+      isCatalogModuleAlreadyGranted(subjectId, moduleId, catalogGrantedSubjects, navHidden),
+    [catalogGrantedSubjects, navHidden],
+  );
+
+  const pickableModules = useMemo(
+    () => selectedEntry?.modules.filter(m => m.available && !isModuleGranted(selectedEntry.id, m.id)) ?? [],
+    [selectedEntry, isModuleGranted],
   );
 
   useEffect(() => {
-    if (step === 'modules' && availableModules.length === 1) {
-      setSelectedModules([availableModules[0].id]);
+    if (step === 'modules' && pickableModules.length === 1) {
+      setSelectedModules([pickableModules[0].id]);
     }
-  }, [step, availableModules]);
+  }, [step, pickableModules]);
 
   const openSubject = (id: string) => {
     setSelectedId(id);
@@ -162,7 +174,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
               exit={{ opacity: 0, x: -12 }}
               className="flex flex-col gap-3 w-full max-w-xs mx-auto px-5 pb-4"
             >
-              {availableModules.length === 0 && (
+              {pickableModules.length === 0 && (
                 <div
                   className="rounded-[16px] p-3 text-[12px] leading-relaxed mb-1"
                   style={{
@@ -171,12 +183,15 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
                     color: 'var(--c-muted)',
                   }}
                 >
-                  Разделы пока в разработке — вернись к списку и выбери предмет с готовыми материалами.
+                  {selectedEntry && selectedEntry.modules.some(m => m.available)
+                    ? 'Все готовые разделы у тебя уже открыты — вернись к списку и выбери другой предмет для пробы.'
+                    : 'Разделы пока в разработке — вернись к списку и выбери предмет с готовыми материалами.'}
                 </div>
               )}
               {selectedEntry?.modules.map(mod => {
                 const picked = selectedModules.includes(mod.id);
-                const canPick = mod.available;
+                const alreadyYours = isModuleGranted(selectedEntry.id, mod.id);
+                const canPick = mod.available && !alreadyYours;
                 return (
                   <button
                     key={mod.id}
@@ -188,9 +203,10 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
                       background: picked ? selectedEntry.dimColor : 'var(--c-card)',
                       border: `1.5px solid ${
                         picked ? selectedEntry.borderColor
-                          : canPick ? 'var(--c-border)' : 'var(--c-border)'
+                          : alreadyYours ? 'rgba(52, 211, 153, 0.35)'
+                          : 'var(--c-border)'
                       }`,
-                      opacity: canPick ? 1 : 0.5,
+                      opacity: canPick ? 1 : 0.72,
                       cursor: canPick ? 'pointer' : 'not-allowed',
                     }}
                   >
@@ -211,13 +227,18 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
                         </span>
                       ) : (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
-                          style={{ background: 'var(--c-border)', color: 'var(--c-muted)' }}>
-                          в разработке
+                          style={{
+                            background: alreadyYours ? 'rgba(52, 211, 153, 0.15)' : 'var(--c-border)',
+                            color: alreadyYours ? 'rgb(52, 211, 153)' : 'var(--c-muted)',
+                          }}>
+                          {alreadyYours ? 'тебе доступно' : 'в разработке'}
                         </span>
                       )}
                     </div>
                     <p className="text-[12px] leading-relaxed" style={{ color: 'var(--c-muted)' }}>
-                      {mod.description}
+                      {alreadyYours
+                        ? 'Этот раздел у тебя уже открыт — для пробы выбери другой.'
+                        : mod.description}
                     </p>
                   </button>
                 );
@@ -232,7 +253,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
           className="flex-shrink-0 w-full max-w-xs mx-auto px-5 pt-3 pb-5 relative z-10 flex flex-col gap-3"
           style={{ background: 'linear-gradient(to top, var(--c-bg) 70%, transparent)' }}
         >
-          {availableModules.length > 0 ? (
+          {pickableModules.length > 0 ? (
             <>
               <p className="text-center text-[12px]" style={{ color: 'var(--c-muted)' }}>
                 {selectedModules.length === 0
