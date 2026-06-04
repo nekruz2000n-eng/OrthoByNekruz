@@ -43,12 +43,13 @@ async function handlePreviewStart(
   user: any,
   profile: { username: string | null; firstName: string | null; lastName: string | null },
   promo?: FacultyPromo,
+  catalogBrowse = false,
 ) {
   const catalog = await buildPreviewSubjectCatalog(redis);
 
   if (user?.previewStatus === 'confirmed') {
     if (promo) {
-      const merged = buildSelectingPreviewUserFromExisting(user, profile, promo);
+      const merged = buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup: catalogBrowse });
       await saveUser(tgIdStr, merged);
       return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog) });
     }
@@ -69,6 +70,11 @@ async function handlePreviewStart(
   }
 
   if (user?.previewStatus === 'selecting') {
+    if (promo) {
+      const merged = buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup: catalogBrowse });
+      await saveUser(tgIdStr, merged);
+      return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog) });
+    }
     return res.status(200).json({ success: true, resumed: true, ...previewPayload(user, catalog) });
   }
 
@@ -88,7 +94,7 @@ async function handlePreviewStart(
     if (!promo) {
       return res.status(400).json({ error: 'Введи код из канала.' });
     }
-    const merged = buildSelectingPreviewUserFromExisting(user, profile, promo);
+    const merged = buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup: catalogBrowse });
     await saveUser(tgIdStr, merged);
     await resetRateLimit(ip, `demo_${tgIdStr}`);
     return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog) });
@@ -229,7 +235,11 @@ async function subjectsResponse(user: any) {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { key, telegramId, mode, initData, subjectId, course, faculty, modules, studyGroup: studyGroupRaw } = req.body;
+  const {
+    key, telegramId, mode, initData, subjectId, course, faculty, modules,
+    studyGroup: studyGroupRaw, catalogBrowse,
+  } = req.body;
+  const isCatalogBrowse = catalogBrowse === true || catalogBrowse === 'true';
 
   const tgIdStr = String(telegramId || '').trim();
   if (!isValidTelegramId(tgIdStr)) {
@@ -501,7 +511,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const promo = resolveFacultyPromoCode(String(key).trim());
     if (promo) {
-      return handlePreviewStart(res, tgIdStr, ip, user, { username, firstName, lastName }, promo);
+      return handlePreviewStart(res, tgIdStr, ip, user, { username, firstName, lastName }, promo, isCatalogBrowse);
     }
 
     if (!isValidKeyFormat(key)) return res.status(401).json({ error: 'Неверный код или ключ.' });

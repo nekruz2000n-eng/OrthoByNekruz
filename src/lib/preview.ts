@@ -175,15 +175,18 @@ export function buildSelectingPreviewUserFromExisting(
     lastName: string | null;
   },
   promo: FacultyPromo,
+  opts?: { forceNewGroup?: boolean },
 ) {
   const now = new Date().toISOString();
+  const facultyChanged = !!user.facultyId && user.facultyId !== promo.id;
+  const clearGroup = opts?.forceNewGroup === true || facultyChanged;
   return {
     ...user,
     previewStatus:              'selecting' as PreviewStatus,
     previewFaculty:             promo.facultyLabel,
     facultyId:                  promo.id,
     promoCode:                  promo.code,
-    studyGroup:                 user.facultyId && user.facultyId !== promo.id ? null : (user.studyGroup ?? null),
+    studyGroup:                 clearGroup ? null : (user.studyGroup ?? null),
     previewChosenSubject:       null,
     previewChosenModules:       null,
     previewStartedAt:           null,

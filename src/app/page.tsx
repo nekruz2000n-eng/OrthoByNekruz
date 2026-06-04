@@ -391,23 +391,10 @@ export default function Home() {
     return () => clearInterval(iv);
   }, [isAuthenticated, previewStatus, previewEndsAt, applyAccessPayload]);
 
-  const handleChannelCodeSuccess = useCallback(async () => {
+  const handleChannelCodeSuccess = useCallback((data: Record<string, unknown>) => {
     setShowChannelCode(false);
-    setAccessChecked(false);
-    const tgId    = localStorage.getItem('user_tg_id');
-    const initDat = (window as any).Telegram?.WebApp?.initData || '';
-    if (!tgId) return;
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telegramId: tgId, mode: 'check_subjects', initData: initDat }),
-      });
-      const data = await res.json();
-      if (res.ok) applyAccessPayload(data);
-    } finally {
-      setAccessChecked(true);
-    }
+    applyAccessPayload(data);
+    setAccessChecked(true);
   }, [applyAccessPayload]);
 
   const handleSetStudyGroup = useCallback(async (group: string) => {

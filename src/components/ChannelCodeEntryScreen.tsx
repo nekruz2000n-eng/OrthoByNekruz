@@ -11,7 +11,7 @@ import {
 } from '@/lib/facultyCodes';
 
 interface ChannelCodeEntryScreenProps {
-  onSuccess: () => void;
+  onSuccess: (data: Record<string, unknown>) => void;
   onCancel: () => void;
 }
 
@@ -58,14 +58,19 @@ export const ChannelCodeEntryScreen: React.FC<ChannelCodeEntryScreenProps> = ({
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: key.trim(), telegramId: tgId, initData }),
+        body: JSON.stringify({
+          key: key.trim(),
+          telegramId: tgId,
+          initData,
+          catalogBrowse: true,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'Неверный код');
         return;
       }
-      onSuccess();
+      onSuccess(data);
     } catch {
       setError('Ошибка соединения');
     } finally {
