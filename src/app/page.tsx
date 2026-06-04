@@ -601,6 +601,9 @@ export default function Home() {
     }
   }, [availableSubjects, previewChosen, setSubject]);
 
+  /** Витрина «Все доступные разработки» — только без незакрытой заявки или после подтверждения админом. */
+  const canBrowseCatalog = previewStatus == null || previewStatus === 'confirmed';
+
   // ── Сброс (6 быстрых тапов) ───────────────────────────────────────────────
   const handleSecretTap = useCallback(() => {
     tapCountRef.current += 1;
@@ -737,7 +740,7 @@ export default function Home() {
     return withAccessWelcome(
       <SubjectSelectScreen
         availableSubjects={availableSubjects}
-        onBrowseCatalog={handleBrowseCatalog}
+        onBrowseCatalog={canBrowseCatalog ? handleBrowseCatalog : undefined}
         browseCatalogBusy={catalogBrowseLoading}
         onSelect={(s: string) => {
           setSubject(s);
@@ -760,7 +763,7 @@ export default function Home() {
             onSubjectChange={setSubject}
             availableSubjects={availableSubjects}
             hasMicro={hasMicro}
-            onBrowseCatalog={handleBrowseCatalog}
+            onBrowseCatalog={canBrowseCatalog ? handleBrowseCatalog : undefined}
             browseCatalogBusy={catalogBrowseLoading}
             examHidden={(navHidden[subject] || []).includes('exam')}
             materialsHidden={(navHidden[subject] || []).includes('materials')}

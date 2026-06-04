@@ -126,9 +126,11 @@ function toDetailUser(
   };
 }
 
-/** Есть доступ, но админ ещё не отметил оплату (ключ или подтверждённая заявка). */
+/** Админ ещё не отметил оплату (в т.ч. заявка до подтверждения доступа). */
 function isUnpaid(u: ReturnType<typeof toListUser>): boolean {
   if (u.paid === true) return false;
+  if (u.previewNeedsConfirm) return true;
+
   if (u.subjects.length === 0) return false;
 
   const key = u.activatedKey;
