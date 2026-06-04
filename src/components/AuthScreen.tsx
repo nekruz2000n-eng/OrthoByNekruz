@@ -20,15 +20,58 @@ type FacultyVariant = 'tooth' | 'stethoscope' | 'pediatrics';
 
 const LOGO_PHASES: FacultyVariant[] = ['tooth', 'stethoscope', 'pediatrics'];
 
-const facultyPalette = (variant: FacultyVariant) =>
-  variant === 'stethoscope'
-    ? { stroke: '#FFFFFF', fill: 'rgb(96, 165, 250)' }
-    : variant === 'pediatrics'
-      ? { stroke: '#FFFFFF', fill: 'rgb(251, 191, 36)' }
-      : { stroke: '#FFFFFF', fill: 'hsl(var(--primary))' };
+const FACULTY_BLUE = '#60A5FA';
+const FACULTY_BLUE_DARK = '#3B82F6';
+const FACULTY_YELLOW = '#FBBF24';
+const FACULTY_YELLOW_DETAIL = '#B45309';
 
 const TOOTH_PATH =
   'M7.5 3C5.5 3 4 4.5 4 6.5C4 8.5 4.5 11 5.5 13.5C6.5 16 8.5 19.5 8.5 21C8.5 21.5 8.9 22 9.5 22C10.1 22 10.5 21.5 10.5 21C10.5 20.5 11 18 12 18C13 18 13.5 20.5 13.5 21C13.5 21.5 13.9 22 14.5 22C15.1 22 15.5 21.5 15.5 21C15.5 19.5 17.5 16 18.5 13.5C19.5 11 20 8.5 20 6.5C20 4.5 18.5 3 16.5 3C14.5 3 13 4 12 5C11 4 9.5 3 7.5 3Z';
+
+/** Стетоскоп: вилка сверху, трубка, круглая головка снизу — всё синее */
+const StethoscopeGraphic = ({ lineWidth, vivid }: { lineWidth: number; vivid?: boolean }) => {
+  const tube = vivid ? 2.4 : lineWidth;
+  const op = vivid ? 1 : 0.85;
+  return (
+    <g strokeLinecap="round" strokeLinejoin="round">
+      <path
+        d="M5.5 4.2a2.2 2.2 0 0 1 4.2 0v2.6c0 1.9 1.4 3.5 3.3 4M18.5 4.2a2.2 2.2 0 0 0-4.2 0v2.6c0 1.9-1.4 3.5-3.3 4"
+        stroke={FACULTY_BLUE}
+        strokeWidth={tube}
+        fill="none"
+      />
+      <path d="M10 10.8h4M12 10.8v3.2" stroke={FACULTY_BLUE} strokeWidth={tube} fill="none" />
+      <circle cx="12" cy="18.2" r="4" fill={FACULTY_BLUE} fillOpacity={op} />
+      <circle cx="12" cy="18.2" r="2" fill={FACULTY_BLUE_DARK} fillOpacity={0.45} />
+    </g>
+  );
+};
+
+/** Личико как 👶: жёлтый круг, тёмные глаза/улыбка, без «грудного» квадрата */
+const PediatricsGraphic = ({ vivid }: { vivid?: boolean }) => {
+  const op = vivid ? 1 : 0.92;
+  return (
+    <g>
+      <circle cx="12" cy="11.5" r="7.2" fill={FACULTY_YELLOW} fillOpacity={op} />
+      <circle cx="9.3" cy="10.8" r="1.25" fill={FACULTY_YELLOW_DETAIL} />
+      <circle cx="14.7" cy="10.8" r="1.25" fill={FACULTY_YELLOW_DETAIL} />
+      <path
+        d="M9.2 14.2 Q12 16.8 14.8 14.2"
+        stroke={FACULTY_YELLOW_DETAIL}
+        strokeWidth="1.35"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M10.2 5.8 Q12 4.6 13.8 5.8"
+        stroke={FACULTY_YELLOW_DETAIL}
+        strokeWidth="1.1"
+        strokeLinecap="round"
+        fill="none"
+      />
+    </g>
+  );
+};
 
 /** Логотип в центре (не дождь) */
 const FacultyIconSvg = ({
@@ -41,41 +84,23 @@ const FacultyIconSvg = ({
   size: number;
   strokeWidth?: number;
   fillOpacity?: number;
-}) => {
-  const palette = facultyPalette(variant);
-  const sw = strokeWidth;
+}) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+    {variant === 'tooth' && (
+      <path
+        d={TOOTH_PATH}
+        stroke="#FFFFFF"
+        strokeWidth={strokeWidth}
+        fill="hsl(var(--primary))"
+        fillOpacity={fillOpacity}
+      />
+    )}
+    {variant === 'stethoscope' && <StethoscopeGraphic lineWidth={strokeWidth} vivid />}
+    {variant === 'pediatrics' && <PediatricsGraphic vivid />}
+  </svg>
+);
 
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-      {variant === 'tooth' && (
-        <path d={TOOTH_PATH} stroke={palette.stroke} strokeWidth={sw} fill={palette.fill} fillOpacity={fillOpacity} />
-      )}
-      {variant === 'stethoscope' && (
-        <>
-          <circle cx="7" cy="5" r="3" stroke={palette.stroke} strokeWidth={sw} fill={palette.fill} fillOpacity={fillOpacity} />
-          <circle cx="17" cy="5" r="3" stroke={palette.stroke} strokeWidth={sw} fill={palette.fill} fillOpacity={fillOpacity} />
-          <rect x="10.5" y="5" width="3" height="5" fill={palette.fill} fillOpacity={fillOpacity} />
-          <rect x="11.5" y="9" width="1" height="4" fill={palette.fill} fillOpacity={fillOpacity} />
-          <circle cx="12" cy="18" r="4" stroke={palette.stroke} strokeWidth={sw} fill={palette.fill} fillOpacity={fillOpacity} />
-        </>
-      )}
-      {variant === 'pediatrics' && (
-        <>
-          <circle cx="12" cy="9" r="5.5" stroke={palette.stroke} strokeWidth={sw} fill={palette.fill} fillOpacity={fillOpacity} />
-          <circle cx="10" cy="8.5" r="1" fill={palette.stroke} />
-          <circle cx="14" cy="8.5" r="1" fill={palette.stroke} />
-          <path d="M9 11.5Q12 13.5 15 11.5" stroke={palette.stroke} strokeWidth="1.3" strokeLinecap="round" fill="none" />
-          <path d="M8.5 16.5h7v3.5H8.5z" stroke={palette.stroke} strokeWidth={sw} fill={palette.fill} fillOpacity={fillOpacity} />
-        </>
-      )}
-    </svg>
-  );
-};
-
-/**
- * Падающая частица — три отдельных ветки, как у рабочего зуба (svg + path + fallStyle на svg).
- * Общий FacultyIconSvg в дожде не используем: тонкие path там не видны при blur/opacity.
- */
+/** Падающая частица — отдельные ветки, как у зуба */
 const FallingFacultyParticle = ({
   variant,
   size,
@@ -87,20 +112,13 @@ const FallingFacultyParticle = ({
   strokeWidth: number;
   fallStyle: React.CSSProperties;
 }) => {
-  const palette = facultyPalette(variant);
   const sw = strokeWidth;
   const fo = 0.2;
 
   if (variant === 'tooth') {
     return (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={fallStyle}>
-        <path
-          d={TOOTH_PATH}
-          stroke="#FFFFFF"
-          strokeWidth={sw}
-          fill="hsl(var(--primary))"
-          fillOpacity={fo}
-        />
+        <path d={TOOTH_PATH} stroke="#FFFFFF" strokeWidth={sw} fill="hsl(var(--primary))" fillOpacity={fo} />
       </svg>
     );
   }
@@ -108,22 +126,14 @@ const FallingFacultyParticle = ({
   if (variant === 'stethoscope') {
     return (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={fallStyle}>
-        <circle cx="7" cy="5" r="3" stroke="#FFFFFF" strokeWidth={sw} fill={palette.fill} fillOpacity={fo} />
-        <circle cx="17" cy="5" r="3" stroke="#FFFFFF" strokeWidth={sw} fill={palette.fill} fillOpacity={fo} />
-        <rect x="10.5" y="5" width="3" height="5" fill={palette.fill} fillOpacity={fo} />
-        <rect x="11.5" y="9" width="1" height="4" fill={palette.fill} fillOpacity={fo} />
-        <circle cx="12" cy="18" r="4" stroke="#FFFFFF" strokeWidth={sw} fill={palette.fill} fillOpacity={fo} />
+        <StethoscopeGraphic lineWidth={Math.max(sw, 1.8)} vivid />
       </svg>
     );
   }
 
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={fallStyle}>
-      <circle cx="12" cy="9" r="5.5" stroke="#FFFFFF" strokeWidth={sw} fill={palette.fill} fillOpacity={fo} />
-      <circle cx="10" cy="8.5" r="1" fill="#FFFFFF" />
-      <circle cx="14" cy="8.5" r="1" fill="#FFFFFF" />
-      <path d="M9 11.5Q12 13.5 15 11.5" stroke="#FFFFFF" strokeWidth="1.3" strokeLinecap="round" fill="none" />
-      <path d="M8.5 16.5h7v3.5H8.5z" stroke="#FFFFFF" strokeWidth={sw} fill={palette.fill} fillOpacity={fo} />
+      <PediatricsGraphic vivid />
     </svg>
   );
 };
