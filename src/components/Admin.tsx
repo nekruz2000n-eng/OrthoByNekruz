@@ -26,6 +26,7 @@ interface User {
   previewNeedsConfirm?: boolean;
   previewIsAddon?:       boolean;
   contactUsername?:     string | null;
+  studyGroup?:          string | null;
   activatedKey:  string | null;
   registeredAt:  string | null;
   lastLogin:     string | null;
@@ -548,6 +549,9 @@ function UserCard({
             )}
             {user.promoCode && (
               <Meta label="Код канала" value={user.promoCode} mono />
+            )}
+            {user.studyGroup && (
+              <Meta label="Группа" value={user.studyGroup} mono />
             )}
             {user.previewFaculty && (
               <Meta label="Факультет" value={user.previewFaculty} />
@@ -1905,6 +1909,7 @@ export default function AdminPage() {
               promoCode: null,
               facultyId: null,
               previewFaculty: null,
+              studyGroup: null,
               subjects: u.subjects.filter(() => false),
             };
           case 'confirm_preview': {
@@ -2282,7 +2287,7 @@ export default function AdminPage() {
               Пробный вход
             </div>
             <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.5 }}>
-              Студент вводит код из канала: 🦷 <strong>3950</strong>, 🩺 <strong>5016</strong>, 👶 <strong>2314</strong>.
+              Студент вводит код (3950 / 5016 / 2314), затем группу (108с, 103л, 105п). Факультет в приложении не показывается — только в админке.
               После сессии подтверждаешь заявку кнопкой «Подтвердить» в карточке (10 мин).
             </div>
             <div style={{

@@ -73,6 +73,7 @@ function toListUser(
     previewNeedsConfirm:  previewChoiceNeedsAdminConfirm(user),
     previewIsAddon:       previewChoiceIsAddon(user),
     contactUsername:      user.contactUsername      ?? null,
+    studyGroup:           user.studyGroup           ?? null,
     activatedKey:  user.activatedKey  ?? null,
     registeredAt:  user.date          ?? null,
     lastLogin:     user.lastLogin     ?? null,
@@ -113,6 +114,7 @@ function toDetailUser(
     previewNeedsConfirm:  previewChoiceNeedsAdminConfirm(user),
     previewIsAddon:       previewChoiceIsAddon(user),
     contactUsername:      user.contactUsername      ?? null,
+    studyGroup:           user.studyGroup           ?? null,
     activatedKey:  user.activatedKey  ?? null,
     registeredAt:  user.date          ?? null,
     lastLogin:     user.lastLogin     ?? null,
@@ -353,6 +355,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           delete cleaned.promoCode;
           delete cleaned.facultyId;
           delete cleaned.previewFaculty;
+          delete cleaned.studyGroup;
           delete cleaned.previewStartedAt;
           delete cleaned.previewPickedAt;
           delete cleaned.previewExpiredAt;

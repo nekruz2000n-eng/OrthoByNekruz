@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { SubjectSelectScreen } from '@/components/SubjectSelectScreen';
 import { PreviewOnboardingScreen } from '@/components/PreviewOnboardingScreen';
+import { PreviewGroupScreen } from '@/components/PreviewGroupScreen';
 import { PreviewAwaitingScreen } from '@/components/PreviewAwaitingScreen';
 import { AuthScreen }    from '@/components/AuthScreen';
 import { Navigation, TabType } from '@/components/Navigation';
@@ -138,7 +139,8 @@ export default function Home() {
   const [pickSubjects,    setPickSubjects]     = useState<string[]>([]);
   const [previewChosen,   setPreviewChosen]    = useState<string | null>(null);
   const [previewModules,  setPreviewModules]     = useState<string[]>([]);
-  const [previewFaculty,  setPreviewFaculty]   = useState<string | null>(null);
+  const [needsStudyGroup, setNeedsStudyGroup]   = useState<boolean>(false);
+  const [groupSaving,     setGroupSaving]       = useState<boolean>(false);
   const [subjectCatalog,  setSubjectCatalog]   = useState<SubjectCatalogEntry[]>([]);
   const [previewEndsAt,   setPreviewEndsAt]    = useState<string | null>(null);
   const [previewPicking,  setPreviewPicking]   = useState<boolean>(false);
@@ -168,7 +170,7 @@ export default function Home() {
     setPreviewStatus(ps);
     setPreviewChosen(d?.previewChosenSubject ?? null);
     setPreviewModules(Array.isArray(d?.previewChosenModules) ? d.previewChosenModules : []);
-    setPreviewFaculty(d?.previewFaculty ?? null);
+    setNeedsStudyGroup(d?.needsStudyGroup === true);
     setPreviewEndsAt(d?.previewEndsAt ?? null);
 
     if (Array.isArray(d?.subjectCatalog)) setSubjectCatalog(d.subjectCatalog);
@@ -387,6 +389,35 @@ export default function Home() {
     return () => clearInterval(iv);
   }, [isAuthenticated, previewStatus, previewEndsAt, applyAccessPayload]);
 
+  const handleSetStudyGroup = useCallback(async (group: string) => {
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) return;
+    setGroupSaving(true);
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: tgId,
+          mode: 'set_study_group',
+          studyGroup: group,
+          initData: initDat,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ variant: 'destructive', title: 'Ошибка', description: data.error || 'Не удалось сохранить группу' });
+        return;
+      }
+      applyAccessPayload(data);
+    } catch {
+      toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
+    } finally {
+      setGroupSaving(false);
+    }
+  }, [applyAccessPayload, toast]);
+
   const handlePreviewPick = useCallback(async (subjectId: string, modules: string[]) => {
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
@@ -489,6 +520,15 @@ export default function Home() {
     );
   }
 
+  if (previewStatus === 'selecting' && needsStudyGroup) {
+    return (
+      <PreviewGroupScreen
+        loading={groupSaving}
+        onSubmit={handleSetStudyGroup}
+      />
+    );
+  }
+
   if (previewStatus === 'selecting') {
     if (!accessChecked || subjectCatalog.length === 0) {
       return (
@@ -499,7 +539,6 @@ export default function Home() {
     }
     return (
       <PreviewOnboardingScreen
-        facultyLabel={previewFaculty}
         subjectCatalog={subjectCatalog}
         loading={previewPicking}
         onConfirm={handlePreviewPick}
@@ -512,8 +551,6 @@ export default function Home() {
       <PreviewAwaitingScreen
         chosenSubject={previewChosen}
         chosenModules={previewModules}
-        course={null}
-        faculty={previewFaculty}
         checking={statusChecking}
         onCheckStatus={handleCheckPreviewStatus}
       />

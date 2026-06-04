@@ -22,6 +22,7 @@ import {
   normalizePreviewModules,
 } from '@/lib/preview';
 import { resolveFacultyPromoCode } from '@/lib/facultyCodes';
+import { normalizeStudyGroup, isValidStudyGroup } from '@/lib/studyGroup';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
 import { buildPreviewSubjectCatalog } from '@/lib/previewCatalogSettings';
 import type { FacultyPromo } from '@/lib/facultyCodes';
@@ -192,16 +193,17 @@ function ensureSubjectsField(user: any): any {
 }
 
 function previewPayload(user: any, catalog?: ReturnType<typeof buildSubjectCatalog>) {
+  const selecting = user?.previewStatus === 'selecting';
+  const hasGroup  = !!String(user?.studyGroup || '').trim();
   return {
     previewStatus:        user?.previewStatus ?? null,
     previewChosenSubject: user?.previewChosenSubject ?? null,
     previewChosenModules: user?.previewChosenModules ?? null,
-    previewFaculty:       user?.previewFaculty ?? null,
-    facultyId:            user?.facultyId ?? null,
-    promoCode:            user?.promoCode ?? null,
+    studyGroup:           user?.studyGroup ?? null,
+    needsStudyGroup:      selecting && !hasGroup,
     previewEndsAt:        previewEndsAt(user),
-    pickSubjects:         user?.previewStatus === 'selecting' ? getAllPickableSubjectIds() : undefined,
-    subjectCatalog:       user?.previewStatus ? catalog : undefined,
+    pickSubjects:         selecting && hasGroup ? getAllPickableSubjectIds() : undefined,
+    subjectCatalog:       user?.previewStatus && hasGroup ? catalog : undefined,
   };
 }
 
@@ -227,7 +229,7 @@ async function subjectsResponse(user: any) {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { key, telegramId, mode, initData, subjectId, course, faculty, modules } = req.body;
+  const { key, telegramId, mode, initData, subjectId, course, faculty, modules, studyGroup: studyGroupRaw } = req.body;
 
   const tgIdStr = String(telegramId || '').trim();
   if (!isValidTelegramId(tgIdStr)) {
@@ -286,9 +288,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Введи код из канала в поле выше.' });
     }
 
+    if (mode === 'set_study_group') {
+      if (!user || user.previewStatus !== 'selecting') {
+        return res.status(400).json({ error: 'Сейчас нельзя сохранить группу.' });
+      }
+      if (!isValidStudyGroup(String(studyGroupRaw ?? ''))) {
+        return res.status(400).json({ error: 'Формат: 108с, 103л или 105п' });
+      }
+      const updated = {
+        ...user,
+        studyGroup: normalizeStudyGroup(String(studyGroupRaw)),
+        username:   username ?? user.username,
+        firstName:  firstName ?? user.firstName,
+        lastName:   lastName ?? user.lastName,
+        lastLogin:  new Date().toISOString(),
+        loginCount: Number(user.loginCount || 0) + 1,
+      };
+      await saveUser(tgIdStr, updated);
+      const catalog = await buildPreviewSubjectCatalog(redis);
+      return res.status(200).json({
+        success: true,
+        ...(await subjectsResponse(updated)),
+      });
+    }
+
     if (mode === 'pick_preview_subject') {
       if (!user || user.previewStatus !== 'selecting') {
         return res.status(400).json({ error: 'Выбор предмета недоступен.' });
+      }
+      if (!String(user.studyGroup || '').trim()) {
+        return res.status(400).json({ error: 'Сначала укажи группу.' });
       }
       if (user.previewChosenSubject) {
         return res.status(400).json({ error: 'Предмет уже выбран и изменить его нельзя.' });

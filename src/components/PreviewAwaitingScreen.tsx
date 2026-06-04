@@ -8,8 +8,6 @@ import { Loader2 } from 'lucide-react';
 interface PreviewAwaitingScreenProps {
   chosenSubject: string | null;
   chosenModules?: string[];
-  course: string | null;
-  faculty: string | null;
   checking?: boolean;
   onCheckStatus?: () => void;
 }
@@ -17,8 +15,6 @@ interface PreviewAwaitingScreenProps {
 export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
   chosenSubject,
   chosenModules = [],
-  course,
-  faculty,
   checking = false,
   onCheckStatus,
 }) => {
@@ -36,7 +32,7 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
           Администратор видит твою заявку. После подтверждения откроется то, что ты выбрал.
         </p>
 
-        {(subjectCfg || modulesLabel || course || faculty) && (
+        {(subjectCfg || modulesLabel) && (
           <div
             className="rounded-2xl p-4 text-left text-sm space-y-2"
             style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
@@ -51,18 +47,6 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
               <div>
                 <span style={{ color: 'var(--c-muted)' }}>Разделы: </span>
                 <strong style={{ color: 'var(--c-text)' }}>{modulesLabel}</strong>
-              </div>
-            )}
-            {course && (
-              <div>
-                <span style={{ color: 'var(--c-muted)' }}>Курс: </span>
-                <strong style={{ color: 'var(--c-text)' }}>{course}</strong>
-              </div>
-            )}
-            {faculty && (
-              <div>
-                <span style={{ color: 'var(--c-muted)' }}>Факультет: </span>
-                <strong style={{ color: 'var(--c-text)' }}>{faculty}</strong>
               </div>
             )}
           </div>

@@ -9,12 +9,11 @@ import { useToast } from '@/hooks/use-toast'; // Хук для показа вс
 import { Loader2, ExternalLink, Heart } from 'lucide-react'; // Иконки из библиотеки lucide-react
 import { cn } from '@/lib/utils';
 import {
-  detectFacultyByInput,
   resolveFacultyPromoCode,
   MAX_INPUT_LENGTH,
   getDefaultDigitIcon,
   isLegacyPaidKey,
-} from '@/lib/facultyCodes'; // Утилита для удобного объединения CSS-классов
+} from '@/lib/facultyCodes';
 
 // ─── КОМПОНЕНТ ФОНА: ПАДАЮЩИЕ 3D ЗУБИКИ ──────────────────────────────────────
 const ToothRainBG = () => {
@@ -243,6 +242,43 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     return () => clearTimeout(timer);
   }, [mounted, idChecked, autoTgId, bgAttempts]);
 
+  // Уже зарегистрированные клиенты — без повторного ввода ключа
+  const silentLoginTried = useRef(false);
+  useEffect(() => {
+    if (!mounted || !autoTgId || !initData || silentLoginTried.current) return;
+    silentLoginTried.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telegramId: String(autoTgId),
+            mode: 'check_subjects',
+            initData,
+          }),
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (res.ok && data.registered !== false) {
+          const hasAccess = Array.isArray(data.subjects) && data.subjects.length > 0;
+          const inFlow = data.previewStatus === 'selecting'
+            || data.previewStatus === 'active'
+            || data.previewStatus === 'expired'
+            || data.previewStatus === 'confirmed'
+            || data.needsStudyGroup === true;
+          if (hasAccess || inFlow) {
+            localStorage.setItem('is_authed', 'true');
+            localStorage.setItem('user_tg_id', String(autoTgId));
+            onAuthenticated();
+          }
+        }
+      } catch { /* остаёмся на экране кода */ }
+    })();
+    return () => { cancelled = true; };
+  }, [mounted, autoTgId, initData, onAuthenticated]);
+
   // ── Секретная функция сброса (6 быстрых тапов по названию) ──
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -375,8 +411,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   // Пока компонент не смонтирован (hydration), ничего не рендерим, чтобы избежать мерцаний
   if (!mounted) return null;
 
-  const facultyHint = detectFacultyByInput(key);
-  const digitIcon   = facultyHint?.digitIcon ?? getDefaultDigitIcon();
+  const digitIcon   = getDefaultDigitIcon();
   const promoReady  = !!resolveFacultyPromoCode(key);
   const legacyReady = isLegacyPaidKey(key) && isPaidKeysEnabled;
   const canEnter    = promoReady || legacyReady;
@@ -465,7 +500,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               {/* Placeholder: показываем текст, если поле пустое */}
               {key.length === 0 && (
                 <span className="absolute text-[15px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                  {lockoutTime > 0 ? `Подожди ${lockoutTime}с` : isPaidKeysEnabled ? 'Код из канала или ключ' : 'Код из канала'}
+                  {lockoutTime > 0 ? `Подожди ${lockoutTime}с` : 'Код факультета'}
                 </span>
               )}
               
@@ -501,12 +536,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                 style={{ fontSize: 1 }}
               />
             </div>
-
-            {facultyHint && key.length > 0 && (
-              <p className="text-[11px] text-center leading-snug px-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                {facultyHint.facultyLabel} · {facultyHint.channelHint}
-              </p>
-            )}
 
             {/* ── РУЧНОЙ ВВОД TELEGRAM ID (Показывается, если скрипт не смог найти его сам) ── */}
             {idChecked && !autoTgId && (

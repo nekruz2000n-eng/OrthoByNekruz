@@ -9,7 +9,6 @@ import { PREVIEW_MODULE_LABELS } from '@/lib/previewModules';
 import { Loader2, ChevronLeft, Check } from 'lucide-react';
 
 interface PreviewOnboardingScreenProps {
-  facultyLabel: string | null;
   subjectCatalog: SubjectCatalogEntry[];
   loading?: boolean;
   onConfirm: (subjectId: string, modules: PreviewModule[]) => void;
@@ -18,7 +17,6 @@ interface PreviewOnboardingScreenProps {
 type Step = 'subject' | 'modules';
 
 export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = ({
-  facultyLabel,
   subjectCatalog,
   loading = false,
   onConfirm,
@@ -103,11 +101,6 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
             ? 'Посмотри все предметы и разделы — для пробы отметь только то, что нужно'
             : 'Отметь только то, что нужно — админ увидит заявку'}
         </p>
-        {facultyLabel && (
-          <p className="text-[11px] mt-2 px-3 py-1 rounded-full" style={{ background: 'var(--c-card)', color: 'var(--c-muted)' }}>
-            {facultyLabel}
-          </p>
-        )}
       </div>
 
       <div
@@ -278,8 +271,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
           body={
             <>
               Предмет: <strong>{selectedEntry.label}</strong><br />
-              Разделы: <strong>{modulesLabel}</strong><br />
-              {facultyLabel && <>Факультет: <strong>{facultyLabel}</strong></>}
+              Разделы: <strong>{modulesLabel}</strong>
             </>
           }
           warn="Проверь выбор. После второго подтверждения изменить нельзя."
