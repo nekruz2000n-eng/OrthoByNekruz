@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
 import type { PreviewModule } from '@/lib/previewModules';
 import { PREVIEW_MODULE_LABELS } from '@/lib/previewModules';
-import { Loader2, ChevronLeft, Check } from 'lucide-react';
+import { Loader2, Check } from 'lucide-react';
 
 interface PreviewOnboardingScreenProps {
   subjectCatalog: SubjectCatalogEntry[];
@@ -72,18 +72,8 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
     >
       <div
         className="flex flex-col items-center text-center px-6 flex-shrink-0 relative z-10"
-        style={{ paddingTop: step === 'modules' ? '8vh' : '10vh', paddingBottom: '1vh' }}
+        style={{ paddingTop: '10vh', paddingBottom: '1vh' }}
       >
-        {step === 'modules' && (
-          <button
-            type="button"
-            onClick={goBack}
-            className="absolute left-5 top-[8vh] flex items-center gap-1 text-sm font-medium"
-            style={{ color: 'var(--c-muted)' }}
-          >
-            <ChevronLeft className="w-4 h-4" /> Назад к предметам
-          </button>
-        )}
         <div
           className="w-[72px] h-[72px] rounded-[24px] flex items-center justify-center mb-4"
           style={{
@@ -239,29 +229,60 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
 
       {step === 'modules' && selectedEntry && (
         <div
-          className="flex-shrink-0 w-full px-5 pt-3 pb-5 relative z-10"
+          className="flex-shrink-0 w-full max-w-xs mx-auto px-5 pt-3 pb-5 relative z-10 flex flex-col gap-3"
           style={{ background: 'linear-gradient(to top, var(--c-bg) 70%, transparent)' }}
         >
-          <p className="text-center text-[12px] mb-2" style={{ color: 'var(--c-muted)' }}>
-            {selectedModules.length === 0
-              ? 'Выбери хотя бы один раздел'
-              : `Выбрано: ${modulesLabel}`}
-          </p>
-          <button
-            type="button"
-            onClick={() => selectedModules.length > 0 && setConfirmStep(1)}
-            disabled={loading || selectedModules.length === 0}
-            className="w-full max-w-xs mx-auto block h-[52px] rounded-[18px] text-[15px] font-bold transition-all active:scale-[0.98] disabled:opacity-50"
-            style={{
-              background: selectedEntry.color,
-              color: 'var(--c-bg)',
-              boxShadow: `0 8px 24px color-mix(in srgb, ${selectedEntry.color} 35%, transparent)`,
-            }}
-          >
-            {loading
-              ? <span className="inline-flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Сохраняем...</span>
-              : 'Подтвердить выбор'}
-          </button>
+          {availableModules.length > 0 ? (
+            <>
+              <p className="text-center text-[12px]" style={{ color: 'var(--c-muted)' }}>
+                {selectedModules.length === 0
+                  ? 'Выбери хотя бы один раздел'
+                  : `Выбрано: ${modulesLabel}`}
+              </p>
+              <button
+                type="button"
+                onClick={() => selectedModules.length > 0 && setConfirmStep(1)}
+                disabled={loading || selectedModules.length === 0}
+                className="w-full h-[52px] rounded-2xl text-[15px] font-bold transition-all active:scale-[0.98] disabled:opacity-50"
+                style={{
+                  background: selectedEntry.color,
+                  color: 'var(--c-bg)',
+                  boxShadow: `0 8px 24px color-mix(in srgb, ${selectedEntry.color} 35%, transparent)`,
+                }}
+              >
+                {loading
+                  ? <span className="inline-flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Сохраняем...</span>
+                  : 'Подтвердить выбор'}
+              </button>
+              <button
+                type="button"
+                onClick={goBack}
+                disabled={loading}
+                className="w-full h-12 rounded-2xl text-sm font-semibold disabled:opacity-45"
+                style={{
+                  background: 'var(--c-card)',
+                  color: 'var(--c-muted)',
+                  border: '1px solid var(--c-border)',
+                }}
+              >
+                Назад к предметам
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={goBack}
+              disabled={loading}
+              className="w-full h-[52px] rounded-2xl text-[15px] font-semibold disabled:opacity-45"
+              style={{
+                background: 'var(--c-card)',
+                color: 'var(--c-text)',
+                border: '1px solid var(--c-border)',
+              }}
+            >
+              Назад к предметам
+            </button>
+          )}
         </div>
       )}
 
