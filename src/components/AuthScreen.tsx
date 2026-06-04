@@ -16,11 +16,66 @@ import {
   isLegacyPaidKey,
 } from '@/lib/facultyCodes';
 
-// ─── КОМПОНЕНТ ФОНА: ПАДАЮЩИЕ 3D ЗУБИКИ ──────────────────────────────────────
+const FACULTY_EMOJI = ['🦷', '🩺', '👶'] as const;
+
+// ─── ЦЕНТРАЛЬНЫЙ ЛОГОТИП: ЗУБ → 🩺 → 👶 по кругу ─────────────────────────────
+const AuthLogoCycle = () => {
+  const [phase, setPhase] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const HOLD_MS = 2600;
+    const FADE_MS = 500;
+    let cancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    const schedule = (fn: () => void, ms: number) => {
+      const id = setTimeout(() => { if (!cancelled) fn(); }, ms);
+      timers.push(id);
+    };
+
+    const tick = () => {
+      setVisible(false);
+      schedule(() => {
+        setPhase(p => (p + 1) % 3);
+        setVisible(true);
+        schedule(tick, HOLD_MS);
+      }, FADE_MS);
+    };
+
+    schedule(tick, HOLD_MS);
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+
+  return (
+    <div
+      className="w-12 h-12 flex items-center justify-center transition-opacity duration-500 ease-in-out"
+      style={{ opacity: visible ? 1 : 0 }}
+    >
+      {phase === 0 ? (
+        <ToothIcon className="w-12 h-12 text-primary" variant="perfect" />
+      ) : (
+        <span
+          className="leading-none select-none"
+          style={{ fontSize: 44, filter: 'drop-shadow(0 0 8px hsl(var(--primary) / 0.5))' }}
+          aria-hidden
+        >
+          {FACULTY_EMOJI[phase]}
+        </span>
+      )}
+    </div>
+  );
+};
+
+// ─── КОМПОНЕНТ ФОНА: ПАДАЮЩИЕ ЗУБИКИ + ЭМОДЗИ ФАКУЛЬТЕТОВ ───────────────────
 const ToothRainBG = () => {
-  // Создаем массив из 16 элементов для падающих зубов.
-  // Мы не используем Math.random(), чтобы при рендере на сервере и клиенте не было рассинхрона (ошибок гидратации).
-  const teeth = Array.from({ length: 16 }, (_, i) => {
+  // 12 элементов: в основном SVG-зубы, немного эмодзи 🦷🩺👶 вперемешку (без random — гидратация).
+  const teeth = Array.from({ length: 12 }, (_, i) => {
+    const isEmoji = i % 4 === 3;
+    const emoji = FACULTY_EMOJI[i % 3];
     // 1. РАЗМЕР: Генерируем псевдослучайный размер от 12px до 36px
     const size = 12 + ((i * 11) % 24); 
     
@@ -28,9 +83,11 @@ const ToothRainBG = () => {
     const isForeground = size > 24; 
 
     return {
-      id: i, // Уникальный ключ для React
-      left: (i * 27) % 100, // Расположение по горизонтали в процентах (от 0% до 100% ширины экрана)
-      size: size,
+      id: i,
+      isEmoji,
+      emoji,
+      left: (i * 31 + 7) % 100,
+      size: isEmoji ? 18 + ((i * 5) % 10) : size,
       // 3. СКОРОСТЬ: Передние падают быстрее (6-9 сек), задние медленнее (10-15 сек)
       dur: isForeground ? (6 + ((i * 3) % 4)) : (10 + ((i * 5) % 6)), 
       // 4. ЗАДЕРЖКА: Чтобы они не падали все одновременно в одну секунду
@@ -85,33 +142,50 @@ const ToothRainBG = () => {
         .auth-shake { animation: authShake 0.2s ease-in-out 0s 2; }
       `}</style>
       
-      {/* Отрисовываем каждый зуб из массива */}
-      {teeth.map((t) => (
-        <svg
-          key={t.id}
-          width={t.size} height={t.size} viewBox="0 0 24 24" fill="none"
-          style={{
-            position: 'absolute', 
-            left: `${t.left}%`, 
-            top: -50,
-            animation: `toothFall3D ${t.dur}s ${t.delay}s linear infinite`,
-            // Передаем персональные данные зубика в CSS-переменные для анимации
-            '--max-op': t.maxOpacity,
-            '--spin': t.spinDir,
-            // Добавляем размытие (blur) и неоновое белое свечение (drop-shadow)
-            filter: `blur(${t.blur}px) drop-shadow(0 0 ${t.isForeground ? '4px' : '2px'} rgba(255, 255, 255, ${t.maxOpacity * 1.5}))`,
-          } as React.CSSProperties}
-        >
-          {/* Сам рисунок зуба (векторный путь) */}
-          <path
-            d="M7.5 3C5.5 3 4 4.5 4 6.5C4 8.5 4.5 11 5.5 13.5C6.5 16 8.5 19.5 8.5 21C8.5 21.5 8.9 22 9.5 22C10.1 22 10.5 21.5 10.5 21C10.5 20.5 11 18 12 18C13 18 13.5 20.5 13.5 21C13.5 21.5 13.9 22 14.5 22C15.1 22 15.5 21.5 15.5 21C15.5 19.5 17.5 16 18.5 13.5C19.5 11 20 8.5 20 6.5C20 4.5 18.5 3 16.5 3C14.5 3 13 4 12 5C11 4 9.5 3 7.5 3Z"
-            stroke="#FFFFFF" // Белый контур (Эмаль)
-            strokeWidth={t.isForeground ? "1.5" : "1"} // На переднем плане контур толще
-            fill="hsl(var(--primary))" // Изумрудная заливка (Дентин)
-            fillOpacity="0.2" // Очень прозрачная, чтобы просвечивал темный фон
-          />
-        </svg>
-      ))}
+      {teeth.map((t) => {
+        const fallStyle: React.CSSProperties = {
+          position: 'absolute',
+          left: `${t.left}%`,
+          top: -50,
+          animation: `toothFall3D ${t.dur}s ${t.delay}s linear infinite`,
+          '--max-op': t.maxOpacity,
+          '--spin': t.spinDir,
+          filter: `blur(${t.blur}px) drop-shadow(0 0 ${t.isForeground ? '4px' : '2px'} rgba(255, 255, 255, ${t.maxOpacity * 1.5}))`,
+        };
+
+        if (t.isEmoji) {
+          return (
+            <span
+              key={t.id}
+              aria-hidden
+              style={{
+                ...fallStyle,
+                fontSize: t.size,
+                lineHeight: 1,
+                userSelect: 'none',
+              }}
+            >
+              {t.emoji}
+            </span>
+          );
+        }
+
+        return (
+          <svg
+            key={t.id}
+            width={t.size} height={t.size} viewBox="0 0 24 24" fill="none"
+            style={fallStyle}
+          >
+            <path
+              d="M7.5 3C5.5 3 4 4.5 4 6.5C4 8.5 4.5 11 5.5 13.5C6.5 16 8.5 19.5 8.5 21C8.5 21.5 8.9 22 9.5 22C10.1 22 10.5 21.5 10.5 21C10.5 20.5 11 18 12 18C13 18 13.5 20.5 13.5 21C13.5 21.5 13.9 22 14.5 22C15.1 22 15.5 21.5 15.5 21C15.5 19.5 17.5 16 18.5 13.5C19.5 11 20 8.5 20 6.5C20 4.5 18.5 3 16.5 3C14.5 3 13 4 12 5C11 4 9.5 3 7.5 3Z"
+              stroke="#FFFFFF"
+              strokeWidth={t.isForeground ? "1.5" : "1"}
+              fill="hsl(var(--primary))"
+              fillOpacity="0.2"
+            />
+          </svg>
+        );
+      })}
     </div>
   );
 };
@@ -482,7 +556,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               filter: 'drop-shadow(0 0 12px hsl(var(--primary) / 0.5))', // Неоновое свечение вокруг
             }}
           >
-            <ToothIcon className="w-12 h-12 text-primary" variant="perfect" />
+            <AuthLogoCycle />
           </div>
           
           <h1
