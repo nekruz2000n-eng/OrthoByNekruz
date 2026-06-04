@@ -7,9 +7,12 @@ import {
   createDefaultSubjects,
 } from '@/lib/subjects';
 import {
-  PREVIEW_DURATION_MS,
   buildSelectingPreviewUser,
+  buildSelectingPreviewUserFromExisting,
   buildActivePreviewUser,
+  recordFacultyChoiceOnly,
+  isEstablishedAccount,
+  userAlreadyHasSubjectAccess,
   getAllPickableSubjectIds,
   getEffectiveUserSubjects,
   maybeExpirePreviewUser,
@@ -42,6 +45,11 @@ async function handlePreviewStart(
   const catalog = await buildPreviewSubjectCatalog(redis);
 
   if (user?.previewStatus === 'confirmed') {
+    if (promo) {
+      const merged = buildSelectingPreviewUserFromExisting(user, profile, promo);
+      await saveUser(tgIdStr, merged);
+      return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog) });
+    }
     return res.status(200).json({
       success: true,
       alreadyConfirmed: true,
@@ -52,7 +60,7 @@ async function handlePreviewStart(
 
   if (user?.previewStatus === 'expired') {
     return res.status(403).json({
-      error: 'Пробный доступ уже использован. Ожидайте подтверждения администратора.',
+      error: 'Ожидайте подтверждения доступа администратором.',
       previewAwaiting: true,
       ...previewPayload(user, catalog),
     });
@@ -66,7 +74,7 @@ async function handlePreviewStart(
     user = await maybeExpirePreviewUser(redis, tgIdStr, user);
     if (user.previewStatus === 'expired') {
       return res.status(403).json({
-        error: 'Пробный период завершён. Ожидайте подтверждения администратора.',
+        error: 'Сессия завершена. Ожидайте подтверждения доступа.',
         previewAwaiting: true,
         ...previewPayload(user, catalog),
       });
@@ -74,9 +82,19 @@ async function handlePreviewStart(
     return res.status(200).json({ success: true, resumed: true, ...(await subjectsResponse(user)) });
   }
 
+  if (isEstablishedAccount(user)) {
+    if (!promo) {
+      return res.status(400).json({ error: 'Введи код из канала.' });
+    }
+    const merged = buildSelectingPreviewUserFromExisting(user, profile, promo);
+    await saveUser(tgIdStr, merged);
+    await resetRateLimit(ip, `demo_${tgIdStr}`);
+    return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog) });
+  }
+
   const alreadyUsed = await isPreviewTrialLocked(redis, tgIdStr);
   if (alreadyUsed) {
-    return res.status(403).json({ error: 'Пробный доступ уже использован ранее.' });
+    return res.status(403).json({ error: 'Код из канала уже использован. Свяжись с администратором.' });
   }
 
   if (!promo) {
@@ -313,6 +331,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
+      if (userAlreadyHasSubjectAccess(user, chosen)) {
+        const updated = recordFacultyChoiceOnly(user, chosen, chosenModules);
+        updated.username   = username ?? updated.username;
+        updated.firstName  = firstName ?? updated.firstName;
+        updated.lastName   = lastName ?? updated.lastName;
+        updated.lastLogin  = new Date().toISOString();
+        updated.loginCount = Number(updated.loginCount || 0) + 1;
+        await saveUser(tgIdStr, updated);
+        return res.status(200).json({
+          success: true,
+          facultyRecorded: true,
+          ...(await subjectsResponse(updated)),
+        });
+      }
+
       const updated = buildActivePreviewUser(user, chosen, chosenModules);
       updated.username   = username ?? updated.username;
       updated.firstName  = firstName ?? updated.firstName;
@@ -325,7 +358,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({
         success: true,
         ...(await subjectsResponse(updated)),
-        previewDurationMs: PREVIEW_DURATION_MS,
       });
     }
 
@@ -348,7 +380,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({
           success: true,
           ...(await subjectsResponse(user)),
-          previewDurationMs: PREVIEW_DURATION_MS,
         });
       }
       return res.status(404).json({ error: 'Статус не определён.' });

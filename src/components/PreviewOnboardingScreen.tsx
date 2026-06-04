@@ -100,7 +100,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
         </h1>
         <p className="text-sm leading-relaxed max-w-xs" style={{ color: 'var(--c-muted)' }}>
           {step === 'subject'
-            ? '5 минут пробного доступа · выбор один раз, без права на ошибку'
+            ? 'Посмотри все предметы и разделы — для пробы отметь только то, что нужно'
             : 'Отметь только то, что нужно — админ увидит заявку'}
         </p>
         {facultyLabel && (
@@ -136,22 +136,22 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
               className="flex flex-col gap-3 w-full max-w-xs mx-auto px-5 pb-4"
             >
               {subjectCatalog.map((item, i) => {
-                const disabled = item.allModulesMissing;
+                const readyCount = item.modules.filter(m => m.available).length;
+                const inDev = readyCount === 0;
                 return (
                   <motion.button
                     key={item.id}
                     type="button"
-                    disabled={disabled}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: Math.min(0.04 * i, 0.35) }}
-                    onClick={() => !disabled && openSubject(item.id)}
+                    onClick={() => openSubject(item.id)}
                     className="flex items-center gap-3 rounded-[20px] p-4 transition-all duration-200 text-left"
                     style={{
-                      opacity: disabled ? 0.45 : 1,
+                      opacity: inDev ? 0.55 : 1,
                       background: 'var(--c-card)',
-                      border: `1.5px solid ${disabled ? 'var(--c-border)' : item.borderColor}`,
-                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      border: `1.5px solid ${inDev ? 'var(--c-border)' : item.borderColor}`,
+                      cursor: 'pointer',
                     }}
                   >
                     <div className="flex-1 min-w-0">
@@ -162,9 +162,9 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
                         {item.label}
                       </div>
                       <div className="text-[11px]" style={{ color: 'var(--c-muted)' }}>
-                        {disabled
-                          ? 'Материалы в разработке'
-                          : `${item.modules.filter(m => m.available).length} из ${item.modules.length} разделов готовы`}
+                        {inDev
+                          ? 'В разработке · можно посмотреть разделы'
+                          : `${readyCount} из ${item.modules.length} разделов готовы`}
                       </div>
                     </div>
                   </motion.button>
@@ -179,6 +179,18 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
               exit={{ opacity: 0, x: -12 }}
               className="flex flex-col gap-3 w-full max-w-xs mx-auto px-5 pb-4"
             >
+              {availableModules.length === 0 && (
+                <div
+                  className="rounded-[16px] p-3 text-[12px] leading-relaxed mb-1"
+                  style={{
+                    background: 'var(--c-card)',
+                    border: '1px solid var(--c-border)',
+                    color: 'var(--c-muted)',
+                  }}
+                >
+                  Разделы пока в разработке — вернись к списку и выбери предмет с готовыми материалами.
+                </div>
+              )}
               {selectedEntry?.modules.map(mod => {
                 const picked = selectedModules.includes(mod.id);
                 const canPick = mod.available;
@@ -270,7 +282,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
               {facultyLabel && <>Факультет: <strong>{facultyLabel}</strong></>}
             </>
           }
-          warn="Проверь выбор. После второго подтверждения назад дороги нет."
+          warn="Проверь выбор. После второго подтверждения изменить нельзя."
           primaryLabel="Да, всё верно"
           onBack={() => setConfirmStep(0)}
           onPrimary={() => setConfirmStep(2)}
@@ -284,11 +296,11 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
             <>
               <strong style={{ color: selectedEntry.color }}>{selectedEntry.label}</strong>
               {' — '}{modulesLabel}
-              <br />Пробный доступ 5 минут, затем администратор подтверждает покупку.
+              <br />После подтверждения доступ откроется по выбранным разделам.
             </>
           }
           warn="Это финальный шаг. Поменять выбор после этого нельзя."
-          primaryLabel="Начать пробный доступ"
+          primaryLabel="Открыть доступ"
           loading={loading}
           onBack={() => setConfirmStep(1)}
           onPrimary={() => {

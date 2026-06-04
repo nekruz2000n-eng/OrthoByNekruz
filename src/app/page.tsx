@@ -303,7 +303,7 @@ export default function Home() {
     setIsLoading(false);
   }, []);
 
-  // ── Таймер пробного доступа (клиент; сервер проверяет при запросах) ───────
+  // ── Таймер сессии витрины (без отображения пользователю) ─────────────────
   useEffect(() => {
     if (!isAuthenticated || previewStatus !== 'active') return;
     const endIso = previewEndsAt || localStorage.getItem('preview_end');
@@ -361,7 +361,11 @@ export default function Home() {
       localStorage.setItem('is_authed', 'true');
       localStorage.setItem('subject_chosen', 'true');
       applyAccessPayload(data);
-      toast({ title: 'Пробный доступ начался', description: '5 минут на знакомство с материалами' });
+      if (data.facultyRecorded) {
+        toast({ title: 'Готово', description: 'Факультет сохранён — можно продолжать' });
+      } else {
+        toast({ title: 'Доступ открыт', description: 'Можно начинать' });
+      }
     } catch {
       toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
     } finally {

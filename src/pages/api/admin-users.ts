@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
 import { SUBJECTS, getSubject, getUserAvailableSubjects } from '@/lib/subjects';
-import { confirmPreviewUser, getEffectiveUserSubjects, clearPreviewTrialLock } from '@/lib/preview';
+import { confirmPreviewUser, getEffectiveUserSubjects, clearPreviewTrialLock, previewChoiceNeedsAdminConfirm, previewChoiceIsAddon } from '@/lib/preview';
 import { clearAuthRateLimitsForTgId } from '@/lib/authRateLimit';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { getAllUserIds, registerUserId, removeUserId } from '@/lib/userIndex';
@@ -77,6 +77,8 @@ function toListUser(
     promoCode:            user.promoCode            ?? null,
     facultyId:            user.facultyId            ?? null,
     previewFaculty:       user.previewFaculty       ?? null,
+    previewNeedsConfirm:  previewChoiceNeedsAdminConfirm(user),
+    previewIsAddon:       previewChoiceIsAddon(user),
     activatedKey:  user.activatedKey  ?? null,
     registeredAt:  user.date          ?? null,
     lastLogin:     user.lastLogin     ?? null,
@@ -114,6 +116,8 @@ function toDetailUser(
     previewFaculty:       user.previewFaculty       ?? null,
     previewStartedAt:     user.previewStartedAt     ?? null,
     previewConfirmedAt:   user.previewConfirmedAt   ?? null,
+    previewNeedsConfirm:  previewChoiceNeedsAdminConfirm(user),
+    previewIsAddon:       previewChoiceIsAddon(user),
     activatedKey:  user.activatedKey  ?? null,
     registeredAt:  user.date          ?? null,
     lastLogin:     user.lastLogin     ?? null,

@@ -21,6 +21,8 @@ interface User {
   promoCode:            string | null;
   facultyId:            string | null;
   previewFaculty:       string | null;
+  previewNeedsConfirm?: boolean;
+  previewIsAddon?:       boolean;
   activatedKey:  string | null;
   registeredAt:  string | null;
   lastLogin:     string | null;
@@ -448,11 +450,14 @@ function UserCard({
             {user.previewStatus === 'expired' && previewSubjectLabel && (
               <Chip bg={T.purpleSoft} color={T.purple}>→ {previewSubjectLabel}</Chip>
             )}
+            {user.previewIsAddon && (user.previewStatus === 'expired' || user.previewStatus === 'active') && (
+              <Chip bg={T.infoSoft} color={T.info}>докупка</Chip>
+            )}
             {user.previewStatus === 'selecting' && (
               <Chip bg={T.infoSoft} color={T.info}>выбирает</Chip>
             )}
-            {user.previewStatus === 'active' && previewSubjectLabel && (
-              <Chip bg={T.warnSoft} color={T.warn}>5 мин · {previewSubjectLabel}</Chip>
+              {user.previewStatus === 'active' && previewSubjectLabel && (
+              <Chip bg={T.warnSoft} color={T.warn}>сессия · {previewSubjectLabel}</Chip>
             )}
             {availableSubjects
               .filter(s => s.id !== 'ortho' && user.subjects.includes(s.id))
@@ -656,10 +661,10 @@ function UserCard({
                 {busy ? '...' : 'Заблокировать'}
               </ActionBtn>
             )}
-            {(user.previewStatus === 'expired' || user.previewStatus === 'active') && user.previewChosenSubject && (
+            {user.previewNeedsConfirm && user.previewChosenSubject && (
               <ActionBtn variant="success" disabled={busy} fullWidth
                 onClick={() => onAction(user.tgId, 'confirm_preview')}>
-                {busy ? '...' : `✓ Подтвердить: ${previewRequestLabel || previewSubjectLabel}`}
+                {busy ? '...' : `✓ Подтвердить${user.previewIsAddon ? ' докупку' : ''}: ${previewRequestLabel || previewSubjectLabel}`}
               </ActionBtn>
             )}
             {user.usedDemo && (
@@ -2192,7 +2197,7 @@ export default function AdminPage() {
             </div>
             <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.5 }}>
               Студент вводит код из канала: 🦷 <strong>3950</strong>, 🩺 <strong>5016</strong>, 👶 <strong>2314</strong>.
-              После 5 минут подтверждаешь заявку кнопкой «Подтвердить» в карточке.
+              После сессии подтверждаешь заявку кнопкой «Подтвердить» в карточке (10 мин).
             </div>
             <div style={{
               marginTop: 10, paddingTop: 10,
@@ -2297,7 +2302,7 @@ export default function AdminPage() {
                 Витрина пробного выбора
               </div>
               <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.4 }}>
-                Что показывать студенту при выборе предмета и разделов. Выключено — серое «в разработке».
+                Что видят студенты с кодами 3950 / 5016 / 2314. Серое — «в разработке», но предмет всё равно можно открыть и посмотреть.
               </div>
             </div>
             <span style={{
@@ -2309,6 +2314,22 @@ export default function AdminPage() {
 
           {previewCatalogExpanded && (
             <div style={{ borderTop: `1px solid ${T.border}`, padding: '10px 14px 14px' }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => savePreviewCatalog({}, 'reset-all')}
+                  disabled={!!previewCatalogSaving}
+                  style={{
+                    flex: 1, height: 34, borderRadius: 10,
+                    border: `1px solid ${T.border}`, background: T.surfaceAlt,
+                    color: T.text, fontSize: 12, fontWeight: 600,
+                    cursor: previewCatalogSaving ? 'default' : 'pointer',
+                    opacity: previewCatalogSaving === 'reset-all' ? 0.6 : 1,
+                  }}
+                >
+                  Показать всё (сброс)
+                </button>
+              </div>
               {previewCatalogBase.length === 0 ? (
                 <div style={{ fontSize: 12, color: T.textMuted }}>Загрузка каталога…</div>
               ) : previewCatalogBase.map(entry => {
@@ -2339,7 +2360,9 @@ export default function AdminPage() {
                           }}>{entry.badge}</span>
                         </div>
                         <div style={{ fontSize: 10.5, color: subjectOpen ? T.textMuted : T.textFaint }}>
-                          {subjectOpen ? 'В списке выбора' : 'Весь предмет — в разработке'}
+                          {subjectOpen
+                            ? 'В витрине · можно выбрать готовые разделы'
+                            : 'Весь предмет серый · только просмотр'}
                         </div>
                       </div>
                       <button

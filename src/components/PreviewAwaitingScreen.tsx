@@ -30,11 +30,10 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
       <div className="max-w-sm text-center space-y-5">
         <div className="text-5xl">⏳</div>
         <h1 className="text-xl font-bold" style={{ color: 'var(--c-text)' }}>
-          Пробный период завершён
+          Ожидайте подтверждения
         </h1>
         <p className="text-sm leading-relaxed" style={{ color: 'var(--c-muted)' }}>
-          Администратор видит твою заявку. После подтверждения откроется только то, что ты выбрал —
-          ключ вводить не нужно.
+          Администратор видит твою заявку. После подтверждения откроется то, что ты выбрал.
         </p>
 
         {(subjectCfg || modulesLabel || course || faculty) && (
