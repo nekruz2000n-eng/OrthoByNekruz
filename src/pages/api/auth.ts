@@ -31,8 +31,7 @@ import { registerUserId } from '@/lib/userIndex';
 import { clearAuthRateLimitsForTgId, checkCatalogBrowseLimit } from '@/lib/authRateLimit';
 import {
   buildCatalogSelectingUser,
-  isCatalogDailySessionUsed,
-  markCatalogDailySessionUsed,
+  restartCatalogBrowseSelecting,
 } from '@/lib/catalogBrowse';
 
 const redis = Redis.fromEnv();
@@ -44,7 +43,7 @@ const ADMIN_TG_ID      = process.env.ADMIN_TG_ID || '';
 
 type Profile = { username: string | null; firstName: string | null; lastName: string | null };
 
-/** Просмотр каталога из статистики: код → группа → витрина → 10 мин другого предмета (1 раз в сутки). */
+/** Просмотр каталога из статистики: код → группа → витрина → просмотр другого предмета. */
 async function handleCatalogBrowseStart(
   res: NextApiResponse,
   tgIdStr: string,
@@ -65,10 +64,14 @@ async function handleCatalogBrowseStart(
   }
 
   if (user?.previewStatus === 'expired' && user._catalogBrowse) {
-    return res.status(403).json({
-      error: 'Пробный просмотр закончился. Напиши админу в Telegram — после оплаты откроем доступ.',
-      previewAwaiting: true,
-      ...previewPayload(user, catalog),
+    const merged = restartCatalogBrowseSelecting(user, profile, promo);
+    await saveUser(tgIdStr, merged);
+    await clearAuthRateLimitsForTgId(redis, tgIdStr);
+    return res.status(200).json({
+      success: true,
+      catalogBrowse: true,
+      subjects: [],
+      ...previewPayload(merged, catalog),
     });
   }
 
@@ -89,12 +92,6 @@ async function handleCatalogBrowseStart(
       catalogBrowse: true,
       subjects: [],
       ...previewPayload(user, catalog),
-    });
-  }
-
-  if (await isCatalogDailySessionUsed(redis, tgIdStr)) {
-    return res.status(403).json({
-      error: 'Сегодня пробный просмотр уже был (10 минут). Завтра снова или напиши админу в Telegram.',
     });
   }
 
@@ -459,12 +456,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (user._catalogBrowse) {
         if (userAlreadyHasSubjectAccess(user, chosen)) {
           return res.status(400).json({
-            error: 'Этот предмет уже открыт. Выбери другой для 10‑минутного просмотра.',
-          });
-        }
-        if (await isCatalogDailySessionUsed(redis, tgIdStr)) {
-          return res.status(403).json({
-            error: 'Сегодня пробный просмотр уже был. Завтра снова или напиши админу.',
+            error: 'Этот предмет уже открыт. Выбери другой.',
           });
         }
       } else if (userAlreadyHasSubjectAccess(user, chosen)) {
@@ -485,7 +477,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const updated = buildActivePreviewUser(user, chosen, chosenModules);
       if (user._catalogBrowse) {
         updated._catalogBrowse = true;
-        await markCatalogDailySessionUsed(redis, tgIdStr);
       }
       updated.username   = username ?? updated.username;
       updated.firstName  = firstName ?? updated.firstName;

@@ -1,22 +1,6 @@
-import type { Redis } from '@upstash/redis';
 import type { FacultyPromo } from '@/lib/facultyCodes';
 import { buildSelectingPreviewUserFromExisting } from '@/lib/preview';
-
-function todayUtc(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-const dailyKey = (tgId: string) => `catalog_daily:${String(tgId).trim()}`;
-
-/** Уже был 10‑минутный просмотр каталога сегодня. */
-export async function isCatalogDailySessionUsed(redis: Redis, tgId: string): Promise<boolean> {
-  const val = await redis.get(dailyKey(tgId));
-  return val === todayUtc();
-}
-
-export async function markCatalogDailySessionUsed(redis: Redis, tgId: string): Promise<void> {
-  await redis.set(dailyKey(tgId), todayUtc(), { ex: 48 * 3600 });
-}
+import type { PreviewStatus } from '@/lib/preview';
 
 /** Витрина из приложения для оплаченного аккаунта — отдельно от первого входа по коду канала. */
 export function buildCatalogSelectingUser(
@@ -34,5 +18,26 @@ export function buildCatalogSelectingUser(
   return {
     ...buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup }),
     _catalogBrowse: true,
+  };
+}
+
+/** После окончания просмотра — снова витрина, можно выбрать другой предмет. */
+export function restartCatalogBrowseSelecting(
+  user: any,
+  profile: {
+    username: string | null;
+    firstName: string | null;
+    lastName: string | null;
+  },
+  promo: FacultyPromo,
+) {
+  return {
+    ...buildCatalogSelectingUser(user, profile, promo),
+    previewStatus:           'selecting' as PreviewStatus,
+    previewChosenSubject:    null,
+    previewChosenModules:    null,
+    previewStartedAt:        null,
+    previewExpiredAt:        null,
+    _catalogBrowse:          true,
   };
 }
