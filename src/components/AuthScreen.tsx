@@ -27,53 +27,103 @@ const facultyPalette = (variant: FacultyVariant) =>
       ? { stroke: '#FFFFFF', fill: 'rgb(251, 191, 36)' }
       : { stroke: '#FFFFFF', fill: 'hsl(var(--primary))' };
 
-/** Одна и та же разметка SVG для дождя и логотипа (как у зуба — stroke + fill) */
+const TOOTH_PATH =
+  'M7.5 3C5.5 3 4 4.5 4 6.5C4 8.5 4.5 11 5.5 13.5C6.5 16 8.5 19.5 8.5 21C8.5 21.5 8.9 22 9.5 22C10.1 22 10.5 21.5 10.5 21C10.5 20.5 11 18 12 18C13 18 13.5 20.5 13.5 21C13.5 21.5 13.9 22 14.5 22C15.1 22 15.5 21.5 15.5 21C15.5 19.5 17.5 16 18.5 13.5C19.5 11 20 8.5 20 6.5C20 4.5 18.5 3 16.5 3C14.5 3 13 4 12 5C11 4 9.5 3 7.5 3Z';
+
+/** Логотип в центре (не дождь) */
 const FacultyIconSvg = ({
   variant,
   size,
   strokeWidth = 1.5,
   fillOpacity = 0.2,
-  style,
 }: {
   variant: FacultyVariant;
   size: number;
   strokeWidth?: number;
   fillOpacity?: number;
-  style?: React.CSSProperties;
 }) => {
   const palette = facultyPalette(variant);
+  const sw = strokeWidth;
 
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden style={style}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
       {variant === 'tooth' && (
-        <path
-          d="M7.5 3C5.5 3 4 4.5 4 6.5C4 8.5 4.5 11 5.5 13.5C6.5 16 8.5 19.5 8.5 21C8.5 21.5 8.9 22 9.5 22C10.1 22 10.5 21.5 10.5 21C10.5 20.5 11 18 12 18C13 18 13.5 20.5 13.5 21C13.5 21.5 13.9 22 14.5 22C15.1 22 15.5 21.5 15.5 21C15.5 19.5 17.5 16 18.5 13.5C19.5 11 20 8.5 20 6.5C20 4.5 18.5 3 16.5 3C14.5 3 13 4 12 5C11 4 9.5 3 7.5 3Z"
-          stroke={palette.stroke}
-          strokeWidth={strokeWidth}
-          fill={palette.fill}
-          fillOpacity={fillOpacity}
-        />
+        <path d={TOOTH_PATH} stroke={palette.stroke} strokeWidth={sw} fill={palette.fill} fillOpacity={fillOpacity} />
       )}
       {variant === 'stethoscope' && (
-        <path
-          d="M5 3v3.5a2.5 2.5 0 0 0 5 0V3M14 3v3.5a2.5 2.5 0 0 0 5 0V3M7.5 7h9M12 7v3a4 4 0 0 0 8 0V7M16 10v1.5a3 3 0 0 1-6 0V10M13 14a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"
-          stroke={palette.stroke}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill={palette.fill}
-          fillOpacity={fillOpacity}
-        />
+        <>
+          <circle cx="7" cy="5" r="3" stroke={palette.stroke} strokeWidth={sw} fill={palette.fill} fillOpacity={fillOpacity} />
+          <circle cx="17" cy="5" r="3" stroke={palette.stroke} strokeWidth={sw} fill={palette.fill} fillOpacity={fillOpacity} />
+          <rect x="10.5" y="5" width="3" height="5" fill={palette.fill} fillOpacity={fillOpacity} />
+          <rect x="11.5" y="9" width="1" height="4" fill={palette.fill} fillOpacity={fillOpacity} />
+          <circle cx="12" cy="18" r="4" stroke={palette.stroke} strokeWidth={sw} fill={palette.fill} fillOpacity={fillOpacity} />
+        </>
       )}
       {variant === 'pediatrics' && (
         <>
-          <circle cx="12" cy="10" r="5" stroke={palette.stroke} strokeWidth={strokeWidth} fill={palette.fill} fillOpacity={fillOpacity} />
-          <circle cx="10" cy="9.5" r="0.7" fill={palette.stroke} />
-          <circle cx="14" cy="9.5" r="0.7" fill={palette.stroke} />
-          <path d="M9 12.5Q12 14.5 15 12.5" stroke={palette.stroke} strokeWidth="1.2" strokeLinecap="round" fill="none" />
-          <path d="M8 17h8" stroke={palette.stroke} strokeWidth={strokeWidth} strokeLinecap="round" />
+          <circle cx="12" cy="9" r="5.5" stroke={palette.stroke} strokeWidth={sw} fill={palette.fill} fillOpacity={fillOpacity} />
+          <circle cx="10" cy="8.5" r="1" fill={palette.stroke} />
+          <circle cx="14" cy="8.5" r="1" fill={palette.stroke} />
+          <path d="M9 11.5Q12 13.5 15 11.5" stroke={palette.stroke} strokeWidth="1.3" strokeLinecap="round" fill="none" />
+          <path d="M8.5 16.5h7v3.5H8.5z" stroke={palette.stroke} strokeWidth={sw} fill={palette.fill} fillOpacity={fillOpacity} />
         </>
       )}
+    </svg>
+  );
+};
+
+/**
+ * Падающая частица — три отдельных ветки, как у рабочего зуба (svg + path + fallStyle на svg).
+ * Общий FacultyIconSvg в дожде не используем: тонкие path там не видны при blur/opacity.
+ */
+const FallingFacultyParticle = ({
+  variant,
+  size,
+  strokeWidth,
+  fallStyle,
+}: {
+  variant: FacultyVariant;
+  size: number;
+  strokeWidth: number;
+  fallStyle: React.CSSProperties;
+}) => {
+  const palette = facultyPalette(variant);
+  const sw = strokeWidth;
+  const fo = 0.2;
+
+  if (variant === 'tooth') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={fallStyle}>
+        <path
+          d={TOOTH_PATH}
+          stroke="#FFFFFF"
+          strokeWidth={sw}
+          fill="hsl(var(--primary))"
+          fillOpacity={fo}
+        />
+      </svg>
+    );
+  }
+
+  if (variant === 'stethoscope') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={fallStyle}>
+        <circle cx="7" cy="5" r="3" stroke="#FFFFFF" strokeWidth={sw} fill={palette.fill} fillOpacity={fo} />
+        <circle cx="17" cy="5" r="3" stroke="#FFFFFF" strokeWidth={sw} fill={palette.fill} fillOpacity={fo} />
+        <rect x="10.5" y="5" width="3" height="5" fill={palette.fill} fillOpacity={fo} />
+        <rect x="11.5" y="9" width="1" height="4" fill={palette.fill} fillOpacity={fo} />
+        <circle cx="12" cy="18" r="4" stroke="#FFFFFF" strokeWidth={sw} fill={palette.fill} fillOpacity={fo} />
+      </svg>
+    );
+  }
+
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={fallStyle}>
+      <circle cx="12" cy="9" r="5.5" stroke="#FFFFFF" strokeWidth={sw} fill={palette.fill} fillOpacity={fo} />
+      <circle cx="10" cy="8.5" r="1" fill="#FFFFFF" />
+      <circle cx="14" cy="8.5" r="1" fill="#FFFFFF" />
+      <path d="M9 11.5Q12 13.5 15 11.5" stroke="#FFFFFF" strokeWidth="1.3" strokeLinecap="round" fill="none" />
+      <path d="M8.5 16.5h7v3.5H8.5z" stroke="#FFFFFF" strokeWidth={sw} fill={palette.fill} fillOpacity={fo} />
     </svg>
   );
 };
@@ -144,6 +194,8 @@ const ToothRainBG = () => {
   const teeth = RAIN_VARIANTS.map((variant, i) => {
     const size = 12 + ((i * 11) % 24);
     const isForeground = size > 24;
+    // Стетоскоп/ребёнок — залитые фигуры, но без blur и чуть ярче (тонкие path в дожде не видны)
+    const accent = variant !== 'tooth';
 
     return {
       id: i,
@@ -152,10 +204,10 @@ const ToothRainBG = () => {
       size,
       dur: isForeground ? (6 + ((i * 3) % 4)) : (10 + ((i * 5) % 6)),
       delay: (i * 0.9) % 7,
-      blur: isForeground ? 0 : 1.5,
-      maxOpacity: isForeground ? 0.4 : 0.15,
+      blur: accent ? 0 : isForeground ? 0 : 1.5,
+      maxOpacity: accent ? 0.55 : isForeground ? 0.4 : 0.15,
       spinDir: i % 2 === 0 ? 1 : -1,
-      isForeground,
+      isForeground: accent || isForeground,
     };
   });
 
@@ -211,13 +263,12 @@ const ToothRainBG = () => {
         } as React.CSSProperties;
 
         return (
-          <FacultyIconSvg
+          <FallingFacultyParticle
             key={t.id}
             variant={t.variant}
             size={t.size}
             strokeWidth={t.isForeground ? 1.5 : 1}
-            fillOpacity={0.2}
-            style={fallStyle}
+            fallStyle={fallStyle}
           />
         );
       })}
