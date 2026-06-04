@@ -6,6 +6,7 @@ import { PreviewOnboardingScreen } from '@/components/PreviewOnboardingScreen';
 import { PreviewGroupScreen } from '@/components/PreviewGroupScreen';
 import { PreviewAwaitingScreen } from '@/components/PreviewAwaitingScreen';
 import { ChannelCodeEntryScreen } from '@/components/ChannelCodeEntryScreen';
+import { AccessWelcomeOverlay, PREVIEW_AWAITING_CONFIRM_KEY } from '@/components/AccessWelcomeOverlay';
 import { AuthScreen }    from '@/components/AuthScreen';
 import { Navigation, TabType } from '@/components/Navigation';
 import { QuestionsTab }  from '@/components/QuestionsTab';
@@ -119,6 +120,7 @@ function initTelegramApp(): () => void {
 const AUTH_STORAGE_KEYS = [
   'is_authed', 'user_tg_id', 'available_subjects', 'subject_chosen',
   'has_micro', 'preview_end', 'last_subject', 'welcome_seen',
+  PREVIEW_AWAITING_CONFIRM_KEY,
   USER_FACULTY_ID_KEY,
 ];
 
@@ -150,8 +152,20 @@ export default function Home() {
   const [previewPicking,  setPreviewPicking]   = useState<boolean>(false);
   const [statusChecking,  setStatusChecking]  = useState<boolean>(false);
   const [previewStatusMessage, setPreviewStatusMessage] = useState('');
+  const [showAccessWelcome, setShowAccessWelcome] = useState(false);
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
   const { toast }    = useToast();
+
+  const triggerAccessWelcomeIfPending = useCallback(() => {
+    if (localStorage.getItem(PREVIEW_AWAITING_CONFIRM_KEY) === '1') {
+      setShowAccessWelcome(true);
+    }
+  }, []);
+
+  const dismissAccessWelcome = useCallback(() => {
+    setShowAccessWelcome(false);
+    localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
+  }, []);
 
   /** Поздний ответ check_subjects не должен затирать свежий ответ после кода/группы. */
   const accessRequestGen = useRef(0);
@@ -192,6 +206,14 @@ export default function Home() {
       localStorage.removeItem('preview_end');
     }
 
+    if (d?.previewChosenSubject && (ps === 'active' || ps === 'expired')) {
+      localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
+    }
+
+    if (ps === 'confirmed') {
+      triggerAccessWelcomeIfPending();
+    }
+
     if (ps === 'expired') {
       localStorage.removeItem('preview_end');
       const pending = d?.previewChosenSubject as string | null | undefined;
@@ -229,7 +251,7 @@ export default function Home() {
       localStorage.setItem('last_subject', next);
       return next;
     });
-  }, [setSubjectRaw]);
+  }, [setSubjectRaw, triggerAccessWelcomeIfPending]);
 
   const refreshAccess = useCallback(() => {
     const tgId    = localStorage.getItem('user_tg_id');
@@ -515,7 +537,6 @@ export default function Home() {
         localStorage.setItem('is_authed', 'true');
         setPreviewStatusMessage('');
         applyAccessPayload(data);
-        toast({ title: 'Доступ открыт', description: 'Можно продолжать обучение' });
         return;
       }
       applyAccessPayload(data);
@@ -527,7 +548,7 @@ export default function Home() {
     } finally {
       setStatusChecking(false);
     }
-  }, [applyAccessPayload, toast]);
+  }, [applyAccessPayload]);
 
   const handleBackFromPendingPreview = useCallback(() => {
     setPreviewStatusMessage('');
@@ -553,6 +574,13 @@ export default function Home() {
       setTimeout(() => window.location.reload(), 600);
     }
   }, [toast]);
+
+  const withAccessWelcome = (node: React.ReactNode) => (
+    <>
+      {showAccessWelcome && <AccessWelcomeOverlay onContinue={dismissAccessWelcome} />}
+      {node}
+    </>
+  );
   // ─────────────────────────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -568,45 +596,45 @@ export default function Home() {
   }
 
   if (showChannelCode) {
-    return (
+    return withAccessWelcome(
       <ChannelCodeEntryScreen
         onSuccess={handleChannelCodeSuccess}
         onCancel={() => setShowChannelCode(false)}
-      />
+      />,
     );
   }
 
   if (!accessChecked && previewStatus !== 'expired') {
-    return (
+    return withAccessWelcome(
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
-      </div>
+      </div>,
     );
   }
 
   if (previewStatus === 'selecting' && needsStudyGroup) {
-    return (
+    return withAccessWelcome(
       <PreviewGroupScreen
         loading={groupSaving}
         onSubmit={handleSetStudyGroup}
-      />
+      />,
     );
   }
 
   if (previewStatus === 'selecting') {
     if (!accessChecked || subjectCatalog.length === 0) {
-      return (
+      return withAccessWelcome(
         <div className="flex items-center justify-center min-h-screen bg-background">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        </div>
+        </div>,
       );
     }
-    return (
+    return withAccessWelcome(
       <PreviewOnboardingScreen
         subjectCatalog={subjectCatalog}
         loading={previewPicking}
         onConfirm={handlePreviewPick}
-      />
+      />,
     );
   }
 
@@ -616,7 +644,7 @@ export default function Home() {
     subject === previewChosen;
 
   if (awaitingPendingSubject) {
-    return (
+    return withAccessWelcome(
       <PreviewAwaitingScreen
         chosenSubject={previewChosen}
         chosenModules={previewModules}
@@ -628,12 +656,12 @@ export default function Home() {
             ? handleBackFromPendingPreview
             : undefined
         }
-      />
+      />,
     );
   }
 
   if (availableSubjects.length === 0 && previewStatus !== 'active') {
-    return (
+    return withAccessWelcome(
       <div className="flex items-center justify-center min-h-screen bg-background p-6">
         <div className="max-w-sm text-center space-y-4">
           <div className="text-5xl">🔒</div>
@@ -660,13 +688,13 @@ export default function Home() {
             Войти заново
           </button>
         </div>
-      </div>
+      </div>,
     );
   }
 
   // ── Экран выбора дисциплины (только когда открыто 2+ и юзер ещё не выбирал) ──
   if (showSubjectSelect) {
-    return (
+    return withAccessWelcome(
       <SubjectSelectScreen
         availableSubjects={availableSubjects}
         onBrowseCatalog={() => setShowChannelCode(true)}
@@ -675,11 +703,11 @@ export default function Home() {
           setShowSubjectSelect(false);
           localStorage.setItem('subject_chosen', 'true');
         }}
-      />
+      />,
     );
   }
 
-  return (
+  return withAccessWelcome(
     <main className="flex flex-col h-[100dvh] w-full relative overflow-hidden">
       <div className="flex-1 overflow-hidden relative">
         {activeTab === 'questions' && <QuestionsTab subject={subject} />}
@@ -709,6 +737,6 @@ export default function Home() {
           hiddenTabs={(navHidden[subject] || []) as TabType[]}
         />
       )}
-    </main>
+    </main>,
   );
 }

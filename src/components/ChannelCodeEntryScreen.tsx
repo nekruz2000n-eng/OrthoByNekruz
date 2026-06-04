@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from 'react';
-import { Loader2, ChevronLeft } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import {
   detectFacultyByInput,
   resolveFacultyPromoCode,
@@ -85,23 +85,12 @@ export const ChannelCodeEntryScreen: React.FC<ChannelCodeEntryScreenProps> = ({
       className="flex flex-col min-h-screen"
       style={{ background: 'var(--c-bg)' }}
     >
-      <div className="flex items-center px-4 pt-4 pb-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="flex items-center gap-1 text-sm font-medium py-2"
-          style={{ color: 'var(--c-muted)' }}
-        >
-          <ChevronLeft className="w-4 h-4" /> Назад
-        </button>
-      </div>
-
-      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-10">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-10 pt-8">
         <h1 className="text-xl font-bold mb-2 text-center" style={{ color: 'var(--c-text)' }}>
-          Введи код
+          Введи код факультета
         </h1>
-        <p className="text-sm text-center mb-8 max-w-xs" style={{ color: 'var(--c-muted)' }}>
-          Код → группа → выбор другого предмета. Раз в сутки — 10 минут просмотра, потом подтверждение у админа.
+        <p className="text-sm text-center mb-8 max-w-xs leading-relaxed" style={{ color: 'var(--c-muted)' }}>
+          Код → группа → выбор другого предмета. Используй бесплатно — как только время пройдёт, напишешь админу в Telegram.
         </p>
 
         <div
@@ -113,7 +102,7 @@ export const ChannelCodeEntryScreen: React.FC<ChannelCodeEntryScreenProps> = ({
         >
           {key.length === 0 && (
             <span className="absolute text-[15px]" style={{ color: 'var(--c-muted)', opacity: 0.5 }}>
-              Введи код
+              Код факультета
             </span>
           )}
           <div className="flex gap-1 items-center z-10">
@@ -149,23 +138,66 @@ export const ChannelCodeEntryScreen: React.FC<ChannelCodeEntryScreenProps> = ({
           <p className="text-sm mb-4 text-center" style={{ color: '#f87171' }}>{error}</p>
         )}
 
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!promoReady || loading}
-          className="w-full max-w-xs h-[52px] rounded-2xl text-[15px] font-bold inline-flex items-center justify-center gap-2 disabled:opacity-45"
-          style={{
-            background: promoReady ? 'var(--c-primary)' : 'var(--c-card)',
-            color: promoReady ? 'var(--c-bg)' : 'var(--c-muted)',
-            border: promoReady ? 'none' : '1px solid var(--c-border)',
-          }}
-        >
-          {loading
-            ? <Loader2 className="w-5 h-5 animate-spin" />
-            : promoReady
-              ? `${digitIcon} Продолжить`
-              : 'Продолжить'}
-        </button>
+        <div className="w-full max-w-xs flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!promoReady || loading}
+            className="w-full h-[52px] rounded-2xl text-[15px] font-bold inline-flex items-center justify-center gap-2 disabled:opacity-45"
+            style={{
+              background: promoReady ? 'var(--c-primary)' : 'var(--c-card)',
+              color: promoReady ? 'var(--c-bg)' : 'var(--c-muted)',
+              border: promoReady ? 'none' : '1px solid var(--c-border)',
+            }}
+          >
+            {loading
+              ? <Loader2 className="w-5 h-5 animate-spin" />
+              : promoReady
+                ? `${digitIcon} Продолжить`
+                : 'Продолжить'}
+          </button>
+
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={loading}
+            className="w-full h-12 rounded-2xl text-sm font-semibold disabled:opacity-45"
+            style={{
+              background: 'var(--c-card)',
+              color: 'var(--c-muted)',
+              border: '1px solid var(--c-border)',
+            }}
+          >
+            Назад
+          </button>
+        </div>
+
+        <div className="mt-8 flex flex-col items-center gap-1.5 max-w-xs text-[11px] text-center" style={{ color: 'var(--c-muted)', opacity: 0.75 }}>
+          <p>
+            Код в канале —{' '}
+            <a
+              href="https://t.me/nzsdental"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+              style={{ color: 'hsl(var(--primary) / 0.85)' }}
+            >
+              @nzsdental
+            </a>
+          </p>
+          <p>
+            Вопросы —{' '}
+            <a
+              href="https://t.me/evoeidos"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+              style={{ color: 'hsl(var(--primary) / 0.85)' }}
+            >
+              @evoeidos
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );

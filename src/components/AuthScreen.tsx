@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'; // Компонент кноп�
 import { useToast } from '@/hooks/use-toast'; // Хук для показа всплывающих уведомлений (тостов)
 import { Loader2, ExternalLink, Heart } from 'lucide-react'; // Иконки из библиотеки lucide-react
 import { cn } from '@/lib/utils';
+import { PREVIEW_AWAITING_CONFIRM_KEY } from '@/components/AccessWelcomeOverlay';
 import {
   detectFacultyByInput,
   resolveFacultyPromoCode,
@@ -518,6 +519,9 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       localStorage.setItem('user_tg_id', String(id));
       if (data.previewStatus === 'confirmed' || data.previewStatus === 'active' || data.previewStatus === 'selecting') {
         localStorage.setItem('is_authed', 'true');
+        if (data.previewStatus === 'confirmed' && data.previewChosenSubject) {
+          localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
+        }
         syncFacultyAfterAuth(data, key);
         onAuthenticated();
         return;
