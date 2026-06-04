@@ -20,27 +20,31 @@ type FacultyVariant = 'tooth' | 'stethoscope' | 'pediatrics';
 
 const LOGO_PHASES: FacultyVariant[] = ['tooth', 'stethoscope', 'pediatrics'];
 
-/** SVG вместо emoji — в Telegram WebView текстовые эмодзи в анимации часто не рисуются */
-const FacultyRainIcon = ({
+const facultyPalette = (variant: FacultyVariant) =>
+  variant === 'stethoscope'
+    ? { stroke: '#FFFFFF', fill: 'rgb(96, 165, 250)' }
+    : variant === 'pediatrics'
+      ? { stroke: '#FFFFFF', fill: 'rgb(251, 191, 36)' }
+      : { stroke: '#FFFFFF', fill: 'hsl(var(--primary))' };
+
+/** Одна и та же разметка SVG для дождя и логотипа (как у зуба — stroke + fill) */
+const FacultyIconSvg = ({
   variant,
   size,
   strokeWidth = 1.5,
-  fillOpacity = 0.25,
+  fillOpacity = 0.2,
+  style,
 }: {
   variant: FacultyVariant;
   size: number;
   strokeWidth?: number;
   fillOpacity?: number;
+  style?: React.CSSProperties;
 }) => {
-  const palette =
-    variant === 'stethoscope'
-      ? { stroke: '#FFFFFF', fill: 'rgb(96, 165, 250)' }
-      : variant === 'pediatrics'
-        ? { stroke: '#FFFFFF', fill: 'rgb(251, 191, 36)' }
-        : { stroke: '#FFFFFF', fill: 'hsl(var(--primary))' };
+  const palette = facultyPalette(variant);
 
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden style={style}>
       {variant === 'tooth' && (
         <path
           d="M7.5 3C5.5 3 4 4.5 4 6.5C4 8.5 4.5 11 5.5 13.5C6.5 16 8.5 19.5 8.5 21C8.5 21.5 8.9 22 9.5 22C10.1 22 10.5 21.5 10.5 21C10.5 20.5 11 18 12 18C13 18 13.5 20.5 13.5 21C13.5 21.5 13.9 22 14.5 22C15.1 22 15.5 21.5 15.5 21C15.5 19.5 17.5 16 18.5 13.5C19.5 11 20 8.5 20 6.5C20 4.5 18.5 3 16.5 3C14.5 3 13 4 12 5C11 4 9.5 3 7.5 3Z"
@@ -51,14 +55,15 @@ const FacultyRainIcon = ({
         />
       )}
       {variant === 'stethoscope' && (
-        <>
-          <path d="M5 3v3.5a2.5 2.5 0 0 0 5 0V3" stroke={palette.stroke} strokeWidth={strokeWidth} strokeLinecap="round" fill="none" />
-          <path d="M14 3v3.5a2.5 2.5 0 0 0 5 0V3" stroke={palette.stroke} strokeWidth={strokeWidth} strokeLinecap="round" fill="none" />
-          <path d="M7.5 7h9" stroke={palette.stroke} strokeWidth={strokeWidth} strokeLinecap="round" />
-          <path d="M12 7v3a4 4 0 0 0 8 0V7" stroke={palette.stroke} strokeWidth={strokeWidth} strokeLinecap="round" fill="none" />
-          <path d="M16 10v1.5a3 3 0 0 1-6 0V10" stroke={palette.stroke} strokeWidth={strokeWidth} strokeLinecap="round" fill="none" />
-          <circle cx="13" cy="17" r="3" stroke={palette.stroke} strokeWidth={strokeWidth} fill={palette.fill} fillOpacity={fillOpacity} />
-        </>
+        <path
+          d="M5 3v3.5a2.5 2.5 0 0 0 5 0V3M14 3v3.5a2.5 2.5 0 0 0 5 0V3M7.5 7h9M12 7v3a4 4 0 0 0 8 0V7M16 10v1.5a3 3 0 0 1-6 0V10M13 14a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"
+          stroke={palette.stroke}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill={palette.fill}
+          fillOpacity={fillOpacity}
+        />
       )}
       {variant === 'pediatrics' && (
         <>
@@ -113,7 +118,7 @@ const AuthLogoCycle = () => {
       {LOGO_PHASES[phase] === 'tooth' ? (
         <ToothIcon className="w-12 h-12 text-primary" variant="perfect" />
       ) : (
-        <FacultyRainIcon
+        <FacultyIconSvg
           variant={LOGO_PHASES[phase]}
           size={48}
           strokeWidth={1.6}
@@ -124,42 +129,33 @@ const AuthLogoCycle = () => {
   );
 };
 
-// Частицы дождя (фиксированный порядок — без random, чтобы не ломать гидратацию)
-const RAIN_PARTICLES: { variant: FacultyVariant }[] = [
-  { variant: 'tooth' },
-  { variant: 'stethoscope' },
-  { variant: 'tooth' },
-  { variant: 'pediatrics' },
-  { variant: 'tooth' },
-  { variant: 'tooth' },
-  { variant: 'stethoscope' },
-  { variant: 'tooth' },
-  { variant: 'pediatrics' },
-  { variant: 'tooth' },
-  { variant: 'stethoscope' },
-  { variant: 'tooth' },
-  { variant: 'tooth' },
-  { variant: 'pediatrics' },
+// Частицы дождя: зуб / стетоскоп / ребёнок вперемешку (фиксированный порядок)
+const RAIN_VARIANTS: FacultyVariant[] = [
+  'tooth', 'stethoscope', 'pediatrics',
+  'tooth', 'stethoscope', 'pediatrics',
+  'tooth', 'stethoscope', 'pediatrics',
+  'tooth', 'stethoscope', 'pediatrics',
+  'tooth', 'stethoscope', 'pediatrics',
 ];
 
-// ─── КОМПОНЕНТ ФОНА: ПАДАЮЩИЕ ЗУБИКИ + ЭМОДЗИ ФАКУЛЬТЕТОВ ───────────────────
+// ─── КОМПОНЕНТ ФОНА: ПАДАЮЩИЕ ИКОНКИ ФАКУЛЬТЕТОВ ───────────────────────────
 const ToothRainBG = () => {
-  const teeth = RAIN_PARTICLES.map((particle, i) => {
-    const isAccent = particle.variant !== 'tooth';
-    const size = isAccent ? 26 + ((i * 4) % 10) : 12 + ((i * 11) % 24);
+  // Те же настройки для всех иконок, что и у зуба (размер, скорость, blur, opacity)
+  const teeth = RAIN_VARIANTS.map((variant, i) => {
+    const size = 12 + ((i * 11) % 24);
     const isForeground = size > 24;
 
     return {
       id: i,
-      variant: particle.variant,
-      left: (i * 23 + 5) % 92,
+      variant,
+      left: (i * 27) % 100,
       size,
-      dur: isAccent ? 7 + (i % 3) : isForeground ? (6 + ((i * 3) % 4)) : (10 + ((i * 5) % 6)),
-      delay: (i * 0.85) % 6.5,
-      blur: isAccent ? 0 : isForeground ? 0 : 1.5,
-      maxOpacity: isAccent ? 0.6 : isForeground ? 0.4 : 0.15,
+      dur: isForeground ? (6 + ((i * 3) % 4)) : (10 + ((i * 5) % 6)),
+      delay: (i * 0.9) % 7,
+      blur: isForeground ? 0 : 1.5,
+      maxOpacity: isForeground ? 0.4 : 0.15,
       spinDir: i % 2 === 0 ? 1 : -1,
-      isForeground: isAccent || isForeground,
+      isForeground,
     };
   });
 
@@ -215,14 +211,14 @@ const ToothRainBG = () => {
         } as React.CSSProperties;
 
         return (
-          <div key={t.id} style={fallStyle}>
-            <FacultyRainIcon
-              variant={t.variant}
-              size={t.size}
-              strokeWidth={t.isForeground ? 1.5 : 1}
-              fillOpacity={t.variant === 'tooth' ? 0.2 : 0.35}
-            />
-          </div>
+          <FacultyIconSvg
+            key={t.id}
+            variant={t.variant}
+            size={t.size}
+            strokeWidth={t.isForeground ? 1.5 : 1}
+            fillOpacity={0.2}
+            style={fallStyle}
+          />
         );
       })}
     </div>
