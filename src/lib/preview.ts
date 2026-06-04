@@ -86,12 +86,16 @@ export function previewChoiceNeedsAdminConfirm(user: any): boolean {
   if (user.previewStatus !== 'active' && user.previewStatus !== 'expired') return false;
   if (user.previewFacultyRecordedAt && !user.previewStartedAt) return false;
 
-  const grants = user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object'
-    ? user._subjectsBeforePreview
-    : user.subjects && typeof user.subjects === 'object'
-      ? user.subjects
-      : null;
+  // Во время active в user.subjects уже стоит временный доступ к chosen — сравниваем только снимок до пробы
+  if (user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object') {
+    return user._subjectsBeforePreview[chosen] !== true;
+  }
 
+  if (user.previewStatus === 'active') {
+    return true;
+  }
+
+  const grants = user.subjects && typeof user.subjects === 'object' ? user.subjects : null;
   if (grants) return grants[chosen] !== true;
   return true;
 }
