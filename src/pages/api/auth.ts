@@ -28,6 +28,7 @@ import { buildPreviewSubjectCatalog } from '@/lib/previewCatalogSettings';
 import type { FacultyPromo } from '@/lib/facultyCodes';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { registerUserId } from '@/lib/userIndex';
+import { clearAuthRateLimitsForTgId } from '@/lib/authRateLimit';
 
 const redis = Redis.fromEnv();
 
@@ -96,7 +97,7 @@ async function handlePreviewStart(
     }
     const merged = buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup: catalogBrowse });
     await saveUser(tgIdStr, merged);
-    await resetRateLimit(ip, `demo_${tgIdStr}`);
+    await clearAuthRateLimitsForTgId(redis, tgIdStr);
     return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog) });
   }
 
@@ -115,7 +116,7 @@ async function handlePreviewStart(
   const newUser = buildSelectingPreviewUser(profile, promo);
   await saveUser(tgIdStr, newUser);
   await redis.sadd('used_demo_ids', tgIdStr);
-  await resetRateLimit(ip, `demo_${tgIdStr}`);
+  await clearAuthRateLimitsForTgId(redis, tgIdStr);
 
   return res.status(200).json({ success: true, preview: true, ...previewPayload(newUser, catalog) });
 }
@@ -437,11 +438,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ subjects: userSubjects, navHidden, registered: true });
     }
 
-    if (key) {
-      const { blocked } = await checkRateLimit(ip, tgIdStr);
-      if (blocked) return res.status(429).json({ error: 'Доступ временно заблокирован.' });
-    }
-
     if (user && !user.trial_until && !user.previewStatus) {
       await redis.set(`user_id:${tgIdStr}`, {
         ...user,
@@ -510,9 +506,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!key) return res.status(401).json({ error: 'Введи код из канала или ключ доступа.' });
 
     const promo = resolveFacultyPromoCode(String(key).trim());
+
+    if (isCatalogBrowse && user) {
+      await clearAuthRateLimitsForTgId(redis, tgIdStr);
+      if (promo) {
+        return handlePreviewStart(res, tgIdStr, ip, user, { username, firstName, lastName }, promo, true);
+      }
+      return res.status(401).json({ error: 'Неверный код' });
+    }
+
     if (promo) {
+      await clearAuthRateLimitsForTgId(redis, tgIdStr);
       return handlePreviewStart(res, tgIdStr, ip, user, { username, firstName, lastName }, promo, isCatalogBrowse);
     }
+
+    const { blocked } = await checkRateLimit(ip, tgIdStr);
+    if (blocked) return res.status(429).json({ error: 'Доступ временно заблокирован.' });
 
     if (!isValidKeyFormat(key)) return res.status(401).json({ error: 'Неверный код или ключ.' });
 
@@ -547,7 +556,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await redis.set(`user_id:${tgIdStr}`, activatedUser);
     await registerUserId(redis, tgIdStr);
     await redis.srem('valid_keys', key.trim());
-    await resetRateLimit(ip, tgIdStr);
+    await clearAuthRateLimitsForTgId(redis, tgIdStr);
 
     const userSubjects = getUserAvailableSubjects(activatedUser);
     return res.status(200).json({
