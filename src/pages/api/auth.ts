@@ -22,7 +22,7 @@ import {
   normalizePreviewModules,
 } from '@/lib/preview';
 import { resolveFacultyPromoCode } from '@/lib/facultyCodes';
-import { normalizeStudyGroup, isValidStudyGroup } from '@/lib/studyGroup';
+import { normalizeStudyGroup, buildStudyGroupFromDigits } from '@/lib/studyGroup';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
 import { buildPreviewSubjectCatalog } from '@/lib/previewCatalogSettings';
 import type { FacultyPromo } from '@/lib/facultyCodes';
@@ -292,12 +292,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!user || user.previewStatus !== 'selecting') {
         return res.status(400).json({ error: 'Сейчас нельзя сохранить группу.' });
       }
-      if (!isValidStudyGroup(String(studyGroupRaw ?? ''))) {
-        return res.status(400).json({ error: 'Формат: 108с, 103л или 105п' });
+      const facultyId = String(user.facultyId || '').trim() || null;
+      const built = buildStudyGroupFromDigits(String(studyGroupRaw ?? ''), facultyId);
+      if (!built) {
+        return res.status(400).json({
+          error: facultyId
+            ? 'Введи номер группы цифрами, например 108'
+            : 'Сначала введи код доступа.',
+        });
       }
       const updated = {
         ...user,
-        studyGroup: normalizeStudyGroup(String(studyGroupRaw)),
+        studyGroup: normalizeStudyGroup(built),
         username:   username ?? user.username,
         firstName:  firstName ?? user.firstName,
         lastName:   lastName ?? user.lastName,

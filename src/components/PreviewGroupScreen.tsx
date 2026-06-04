@@ -3,11 +3,11 @@
 import React, { useState } from 'react';
 import { ToothIcon } from '@/components/ToothIcon';
 import { Loader2 } from 'lucide-react';
-import { STUDY_GROUP_PLACEHOLDER } from '@/lib/studyGroup';
+import { STUDY_GROUP_DIGITS_PLACEHOLDER } from '@/lib/studyGroup';
 
 interface PreviewGroupScreenProps {
   loading?: boolean;
-  onSubmit: (group: string) => void;
+  onSubmit: (groupDigits: string) => void;
 }
 
 export const PreviewGroupScreen: React.FC<PreviewGroupScreenProps> = ({
@@ -18,13 +18,17 @@ export const PreviewGroupScreen: React.FC<PreviewGroupScreenProps> = ({
   const [error, setError] = useState('');
 
   const submit = () => {
-    const g = value.trim();
-    if (!g) {
-      setError('Укажи группу');
+    const d = value.replace(/\D/g, '');
+    if (!d) {
+      setError('Укажи номер группы');
+      return;
+    }
+    if (d.length < 2 || d.length > 4) {
+      setError('От 2 до 4 цифр, например 108');
       return;
     }
     setError('');
-    onSubmit(g);
+    onSubmit(d);
   };
 
   return (
@@ -47,21 +51,25 @@ export const PreviewGroupScreen: React.FC<PreviewGroupScreenProps> = ({
             Твоя группа
           </h1>
           <p className="text-sm leading-relaxed max-w-xs" style={{ color: 'var(--c-muted)' }}>
-            Укажи номер группы — так администратор быстрее найдёт тебя в списке
+            Только цифры — номер группы
           </p>
         </div>
 
         <input
           type="text"
+          inputMode="numeric"
           value={value}
-          onChange={e => { setValue(e.target.value); setError(''); }}
-          placeholder={STUDY_GROUP_PLACEHOLDER}
+          onChange={e => {
+            setValue(e.target.value.replace(/\D/g, '').slice(0, 4));
+            setError('');
+          }}
+          placeholder={STUDY_GROUP_DIGITS_PLACEHOLDER}
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
           disabled={loading}
           onKeyDown={e => { if (e.key === 'Enter') submit(); }}
-          className="w-full h-14 rounded-2xl text-center text-lg font-medium outline-none"
+          className="w-full h-14 rounded-2xl text-center text-lg font-medium outline-none placeholder:opacity-40"
           style={{
             background: 'var(--c-card)',
             border: `1px solid ${error ? 'rgba(220,38,38,0.5)' : 'var(--c-border)'}`,
@@ -69,7 +77,7 @@ export const PreviewGroupScreen: React.FC<PreviewGroupScreenProps> = ({
           }}
         />
         <p className="text-[11px] text-center -mt-3" style={{ color: 'var(--c-muted)', opacity: 0.65 }}>
-          Пример: {STUDY_GROUP_PLACEHOLDER}
+          Например: 108, 207 или 114
         </p>
 
         {error && (
@@ -79,7 +87,7 @@ export const PreviewGroupScreen: React.FC<PreviewGroupScreenProps> = ({
         <button
           type="button"
           onClick={submit}
-          disabled={loading || !value.trim()}
+          disabled={loading || value.replace(/\D/g, '').length < 2}
           className="w-full h-[52px] rounded-2xl text-[15px] font-bold inline-flex items-center justify-center gap-2 disabled:opacity-50"
           style={{
             background: 'var(--c-primary)',
