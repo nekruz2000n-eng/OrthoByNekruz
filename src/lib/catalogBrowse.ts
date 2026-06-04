@@ -28,8 +28,11 @@ export function buildCatalogSelectingUser(
   },
   promo: FacultyPromo,
 ) {
+  const hasGroup = !!String(user?.studyGroup || '').trim();
+  const sameFaculty = !user?.facultyId || user.facultyId === promo.id;
+  const forceNewGroup = !(hasGroup && sameFaculty);
   return {
-    ...buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup: true }),
+    ...buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup }),
     _catalogBrowse: true,
   };
 }

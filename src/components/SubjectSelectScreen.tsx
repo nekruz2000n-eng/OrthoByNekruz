@@ -17,6 +17,7 @@ interface SubjectSelectScreenProps {
   onSelect: (subject: string) => void;
   /** Открыть ввод кода канала (витрина предметов) */
   onBrowseCatalog?: () => void;
+  browseCatalogBusy?: boolean;
 }
 
 // ─── Хук: разблокирует скролл (нужен для Telegram Mini App) ───────────────────
@@ -72,6 +73,7 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
   availableSubjects,
   onSelect,
   onBrowseCatalog,
+  browseCatalogBusy = false,
 }) => {
   useReleaseScroll();
   const facultyIcon = useFacultyIcon();
@@ -229,15 +231,16 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
         {onBrowseCatalog && (
           <button
             type="button"
-            onClick={onBrowseCatalog}
-            className="w-full max-w-xs mx-auto block mt-3 h-[48px] rounded-[16px] text-[13px] font-bold transition-all active:scale-[0.98]"
+            disabled={browseCatalogBusy}
+            onClick={() => { if (!browseCatalogBusy) onBrowseCatalog(); }}
+            className="w-full max-w-xs mx-auto block mt-3 h-[48px] rounded-[16px] text-[13px] font-bold transition-all active:scale-[0.98] disabled:opacity-50"
             style={{
               background: 'var(--c-primary-soft)',
               border: '1.5px solid var(--c-primary-br)',
               color: 'var(--c-text)',
             }}
           >
-            Ввести код — посмотреть все предметы
+            {browseCatalogBusy ? 'Открываем…' : 'Все доступные разработки'}
           </button>
         )}
 

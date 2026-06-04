@@ -68,6 +68,7 @@ interface SubjectSheetProps {
   hasMicro?:         boolean;
   availableSubjects?: string[];
   onBrowseCatalog?:  () => void;
+  browseCatalogBusy?: boolean;
 }
 
 const SubjectSheet: React.FC<SubjectSheetProps> = ({
@@ -75,6 +76,7 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
   hasMicro = false,
   availableSubjects,
   onBrowseCatalog,
+  browseCatalogBusy = false,
 }) => {
   const [selected, setSelected] = useState<SubjectType>(currentSubject);
   const userSubjects: string[] = availableSubjects
@@ -188,15 +190,16 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
           {onBrowseCatalog && (
             <button
               type="button"
-              onClick={() => { onClose(); onBrowseCatalog(); }}
-              className="w-full py-3 mb-3 rounded-[16px] font-bold text-[13px] transition-all duration-200 active:scale-[0.98]"
+              disabled={browseCatalogBusy}
+              onClick={() => { if (browseCatalogBusy) return; onClose(); onBrowseCatalog(); }}
+              className="w-full py-3 mb-3 rounded-[16px] font-bold text-[13px] transition-all duration-200 active:scale-[0.98] disabled:opacity-50"
               style={{
                 background: 'var(--c-primary-soft)',
                 border: '1.5px solid var(--c-primary-br)',
                 color: 'var(--c-text)',
               }}
             >
-              Ввести код — посмотреть все предметы
+              {browseCatalogBusy ? 'Открываем…' : 'Все доступные разработки'}
             </button>
           )}
           <div className="flex gap-3">
@@ -230,6 +233,7 @@ interface StatsTabProps {
   onMicroUnlocked?:  () => void;
   availableSubjects?: string[];
   onBrowseCatalog?:  () => void;
+  browseCatalogBusy?: boolean;
   /** Скрыть блок «Проверка готовности» (управляется из админки per-user) */
   examHidden?:      boolean;
   /** Скрыть раздел «Полезные материалы» (управляется из админки per-user) */
@@ -241,6 +245,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   hasMicro = false, onMicroUnlocked,
   availableSubjects,
   onBrowseCatalog,
+  browseCatalogBusy = false,
   examHidden      = false,
   materialsHidden = false,
 }) => {
@@ -801,6 +806,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             hasMicro={hasMicro}
             availableSubjects={availableSubjects}
             onBrowseCatalog={onBrowseCatalog}
+            browseCatalogBusy={browseCatalogBusy}
           />
         )}
       </AnimatePresence>

@@ -21,7 +21,7 @@ import {
   isPreviewTrialLocked,
   normalizePreviewModules,
 } from '@/lib/preview';
-import { resolveFacultyPromoCode, facultyFieldsFromUser } from '@/lib/facultyCodes';
+import { resolveFacultyPromoCode, facultyFieldsFromUser, getFacultyPromoById } from '@/lib/facultyCodes';
 import { normalizeStudyGroup, buildStudyGroupFromDigits } from '@/lib/studyGroup';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
 import { buildPreviewSubjectCatalog } from '@/lib/previewCatalogSettings';
@@ -370,6 +370,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (mode === 'check_demo') {
       return res.status(400).json({ error: 'Введи код из канала в поле выше.' });
+    }
+
+    if (mode === 'start_catalog_browse') {
+      if (!user) {
+        return res.status(401).json({ error: 'Сначала войди в приложение.' });
+      }
+      if (!isEstablishedAccount(user)) {
+        return res.status(403).json({ error: 'Каталог доступен после регистрации.' });
+      }
+      const promo = getFacultyPromoById(user.facultyId);
+      if (!promo) {
+        return res.status(400).json({
+          error: 'Код факультета не сохранён. Введи его из канала.',
+          needsFacultyCode: true,
+        });
+      }
+      const catalogLimit = await checkCatalogBrowseLimit(redis, ip, tgIdStr, 'success');
+      if (catalogLimit.blocked) {
+        return res.status(429).json({ error: 'Доступ временно заблокирован. Подожди 30 минут.' });
+      }
+      const profile = { username, firstName, lastName };
+      return handleCatalogBrowseStart(res, tgIdStr, user, profile, promo);
     }
 
     if (mode === 'set_study_group') {

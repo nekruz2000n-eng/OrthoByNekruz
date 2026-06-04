@@ -147,6 +147,7 @@ export default function Home() {
   const [needsStudyGroup, setNeedsStudyGroup]   = useState<boolean>(false);
   const [groupSaving,     setGroupSaving]       = useState<boolean>(false);
   const [showChannelCode, setShowChannelCode]   = useState<boolean>(false);
+  const [catalogBrowseLoading, setCatalogBrowseLoading] = useState(false);
   const [subjectCatalog,  setSubjectCatalog]   = useState<SubjectCatalogEntry[]>([]);
   const [previewEndsAt,   setPreviewEndsAt]    = useState<string | null>(null);
   const [previewPicking,  setPreviewPicking]   = useState<boolean>(false);
@@ -448,6 +449,45 @@ export default function Home() {
     setAccessChecked(true);
   }, [applyAccessPayload]);
 
+  const handleBrowseCatalog = useCallback(async () => {
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) return;
+    setCatalogBrowseLoading(true);
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: tgId,
+          mode: 'start_catalog_browse',
+          initData: initDat,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.needsFacultyCode) {
+          setShowChannelCode(true);
+          return;
+        }
+        toast({
+          variant: 'destructive',
+          title: 'Каталог',
+          description: data.error || 'Не удалось открыть каталог',
+        });
+        return;
+      }
+      accessRequestGen.current += 1;
+      setShowChannelCode(false);
+      applyAccessPayload(data);
+      setAccessChecked(true);
+    } catch {
+      toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
+    } finally {
+      setCatalogBrowseLoading(false);
+    }
+  }, [applyAccessPayload, toast]);
+
   const handleSetStudyGroup = useCallback(async (group: string) => {
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
@@ -697,7 +737,8 @@ export default function Home() {
     return withAccessWelcome(
       <SubjectSelectScreen
         availableSubjects={availableSubjects}
-        onBrowseCatalog={() => setShowChannelCode(true)}
+        onBrowseCatalog={handleBrowseCatalog}
+        browseCatalogBusy={catalogBrowseLoading}
         onSelect={(s: string) => {
           setSubject(s);
           setShowSubjectSelect(false);
@@ -719,7 +760,8 @@ export default function Home() {
             onSubjectChange={setSubject}
             availableSubjects={availableSubjects}
             hasMicro={hasMicro}
-            onBrowseCatalog={() => setShowChannelCode(true)}
+            onBrowseCatalog={handleBrowseCatalog}
+            browseCatalogBusy={catalogBrowseLoading}
             examHidden={(navHidden[subject] || []).includes('exam')}
             materialsHidden={(navHidden[subject] || []).includes('materials')}
             onMicroUnlocked={() => {
