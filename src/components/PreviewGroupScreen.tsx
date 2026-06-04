@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { ToothIcon } from '@/components/ToothIcon';
+import { FacultyIcon } from '@/components/FacultyIcon';
 import { Loader2 } from 'lucide-react';
 import { STUDY_GROUP_DIGITS_PLACEHOLDER } from '@/lib/studyGroup';
 
@@ -45,7 +45,7 @@ export const PreviewGroupScreen: React.FC<PreviewGroupScreenProps> = ({
               border: '1.5px solid var(--c-primary-br)',
             }}
           >
-            <ToothIcon className="w-10 h-10 text-primary" variant="perfect" />
+            <FacultyIcon size={40} />
           </div>
           <h1 className="text-2xl font-extrabold tracking-tight mb-2" style={{ color: 'var(--c-text)' }}>
             Твоя группа

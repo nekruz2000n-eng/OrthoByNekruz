@@ -8,6 +8,7 @@ import {
   MAX_INPUT_LENGTH,
   getDefaultDigitIcon,
   isLegacyPaidKey,
+  persistFacultyFromAccessCode,
 } from '@/lib/facultyCodes';
 
 interface ChannelCodeEntryScreenProps {
@@ -70,6 +71,7 @@ export const ChannelCodeEntryScreen: React.FC<ChannelCodeEntryScreenProps> = ({
         setError(data.error || 'Неверный код');
         return;
       }
+      persistFacultyFromAccessCode(key.trim());
       onSuccess(data);
     } catch {
       setError('Ошибка соединения');

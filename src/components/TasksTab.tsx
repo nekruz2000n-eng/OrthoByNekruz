@@ -13,7 +13,7 @@ import {
   Search, BookOpen, CheckCircle2, Circle, X, ChevronDown,
   Pencil, Trash2, ArrowLeft, ArrowRight,
 } from 'lucide-react';
-import { ToothIcon } from './ToothIcon';
+import { FacultyIcon } from './FacultyIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { RichText, GlossaryItem } from '@/components/RichText';
@@ -226,12 +226,7 @@ export const TasksTab = ({
           className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0"
           style={{ background: `color-mix(in srgb, ${accentColor} 14%, transparent)` }}
         >
-          <ToothIcon
-            className="w-5 h-5"
-            style={{ color: accentColor }}
-            variant={cfg?.iconVariant || 'perfect'}
-            onClick={onSecretTap}
-          />
+          <FacultyIcon size={20} onClick={onSecretTap} />
         </div>
         <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
           {cfg?.brandName || 'OrthoByNekruz'}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { ToothIcon } from '@/components/ToothIcon';
+import { FacultyIcon } from '@/components/FacultyIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
 import type { PreviewModule } from '@/lib/previewModules';
@@ -91,7 +91,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
             border: '1.5px solid var(--c-primary-br)',
           }}
         >
-          <ToothIcon className="w-10 h-10 text-primary" variant="perfect" />
+          <FacultyIcon size={40} />
         </div>
         <h1 className="text-2xl font-extrabold tracking-tight mb-2" style={{ color: 'var(--c-text)' }}>
           {step === 'subject' ? 'Выбор предмета' : selectedEntry?.label}

@@ -21,7 +21,7 @@ import {
   isPreviewTrialLocked,
   normalizePreviewModules,
 } from '@/lib/preview';
-import { resolveFacultyPromoCode } from '@/lib/facultyCodes';
+import { resolveFacultyPromoCode, facultyFieldsFromUser } from '@/lib/facultyCodes';
 import { normalizeStudyGroup, buildStudyGroupFromDigits } from '@/lib/studyGroup';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
 import { buildPreviewSubjectCatalog } from '@/lib/previewCatalogSettings';
@@ -283,6 +283,7 @@ function previewPayload(user: any, catalog?: ReturnType<typeof buildSubjectCatal
     previewEndsAt:        previewEndsAt(user),
     pickSubjects:         selecting && hasGroup ? getAllPickableSubjectIds() : undefined,
     subjectCatalog:       user?.previewStatus && hasGroup ? catalog : undefined,
+    ...facultyFieldsFromUser(user),
   };
 }
 

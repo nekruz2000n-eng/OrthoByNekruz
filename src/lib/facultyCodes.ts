@@ -66,6 +66,58 @@ export function getDefaultDigitIcon(): string {
   return '🦷';
 }
 
+export const USER_FACULTY_ID_KEY = 'user_faculty_id';
+
+export const FACULTY_ICON_CHANGED_EVENT = 'faculty-icon-changed';
+
+export const EMOJI_FONT_STACK =
+  '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+
+export function getFacultyPromoById(facultyId: string | null | undefined): FacultyPromo | null {
+  if (!facultyId) return null;
+  return FACULTY_PROMOS.find(p => p.id === facultyId) ?? null;
+}
+
+export function getDigitIconByFacultyId(facultyId: string | null | undefined): string {
+  return getFacultyPromoById(facultyId)?.digitIcon ?? getDefaultDigitIcon();
+}
+
+export function readStoredFacultyId(): string | null {
+  if (typeof window === 'undefined') return null;
+  const id = localStorage.getItem(USER_FACULTY_ID_KEY);
+  return id && FACULTY_PROMOS.some(p => p.id === id) ? id : null;
+}
+
+export function readStoredFacultyIcon(): string {
+  return getDigitIconByFacultyId(readStoredFacultyId());
+}
+
+export function persistFacultyId(facultyId: string | null | undefined): void {
+  if (typeof window === 'undefined') return;
+  if (facultyId && FACULTY_PROMOS.some(p => p.id === facultyId)) {
+    localStorage.setItem(USER_FACULTY_ID_KEY, facultyId);
+  } else {
+    localStorage.removeItem(USER_FACULTY_ID_KEY);
+  }
+  window.dispatchEvent(new Event(FACULTY_ICON_CHANGED_EVENT));
+}
+
+export function persistFacultyFromPromo(promo: FacultyPromo | null | undefined): void {
+  persistFacultyId(promo?.id ?? null);
+}
+
+export function persistFacultyFromAccessCode(code: string): void {
+  persistFacultyFromPromo(resolveFacultyPromoCode(code));
+}
+
+export function facultyFieldsFromUser(user: { facultyId?: string | null } | null | undefined) {
+  const facultyId = user?.facultyId ?? null;
+  return {
+    facultyId,
+    digitIcon: getDigitIconByFacultyId(facultyId),
+  };
+}
+
 export function isLegacyPaidKey(input: string): boolean {
   return /^\d{8}$/.test(input.trim());
 }

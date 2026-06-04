@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ToothIcon } from '@/components/ToothIcon';
+import { FacultyIcon } from '@/components/FacultyIcon';
+import { useFacultyIcon } from '@/hooks/use-faculty-icon';
+import { EMOJI_FONT_STACK } from '@/lib/facultyCodes';
 import { motion } from 'framer-motion';
 import { SUBJECTS, getSubject, SubjectConfig } from '@/lib/subjects';
 
@@ -44,22 +46,25 @@ function useReleaseScroll() {
   }, []);
 }
 
-// ─── Floating tooth background ────────────────────────────────────────────────
-const FloatingTooth = ({
-  x, y, size, delay, color,
-}: { x: number; y: number; size: number; delay: number; color: string }) => (
-  <svg
-    width={size} height={size} viewBox="0 0 24 24" fill="none"
+const FloatingFacultyEmoji = ({
+  icon, x, y, size, delay, opacity = 0.35,
+}: { icon: string; x: number; y: number; size: number; delay: number; opacity?: number }) => (
+  <div
+    aria-hidden
     style={{
-      position: 'absolute', left: x, top: y, pointerEvents: 'none',
+      position: 'absolute',
+      left: x,
+      top: y,
+      pointerEvents: 'none',
+      fontSize: size,
+      lineHeight: 1,
+      fontFamily: EMOJI_FONT_STACK,
+      opacity,
       animation: `subjectToothFloat ${2.5 + delay}s ${delay}s ease-in-out infinite`,
     }}
   >
-    <path
-      d="M7.5 3C5.5 3 4 4.5 4 6.5C4 8.5 4.5 11 5.5 13.5C6.5 16 8.5 19.5 8.5 21C8.5 21.5 8.9 22 9.5 22C10.1 22 10.5 21.5 10.5 21C10.5 20.5 11 18 12 18C13 18 13.5 20.5 13.5 21C13.5 21.5 13.9 22 14.5 22C15.1 22 15.5 21.5 15.5 21C15.5 19.5 17.5 16 18.5 13.5C19.5 11 20 8.5 20 6.5C20 4.5 18.5 3 16.5 3C14.5 3 13 4 12 5C11 4 9.5 3 7.5 3Z"
-      stroke={color} strokeWidth="1.5" fill={color} fillOpacity="0.25"
-    />
-  </svg>
+    {icon}
+  </div>
 );
 
 // ─── SubjectSelectScreen ──────────────────────────────────────────────────────
@@ -69,6 +74,7 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
   onBrowseCatalog,
 }) => {
   useReleaseScroll();
+  const facultyIcon = useFacultyIcon();
   const [selected, setSelected] = useState<string | null>(null);
 
   const visibleSubjects: SubjectConfig[] = SUBJECTS.filter(s =>
@@ -91,12 +97,11 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
         }
       `}</style>
 
-      {/* Background teeth */}
-      <FloatingTooth x={20}  y={80}  size={28} delay={0}   color="color-mix(in srgb, var(--c-primary) 15%, transparent)" />
-      <FloatingTooth x={320} y={120} size={20} delay={1}   color="color-mix(in srgb, var(--c-amber)  15%, transparent)" />
-      <FloatingTooth x={50}  y={560} size={18} delay={0.5} color="color-mix(in srgb, var(--c-primary) 10%, transparent)" />
-      <FloatingTooth x={300} y={620} size={24} delay={1.5} color="color-mix(in srgb, var(--c-amber)  10%, transparent)" />
-      <FloatingTooth x={160} y={40}  size={14} delay={2}   color="color-mix(in srgb, var(--c-primary)  8%, transparent)" />
+      <FloatingFacultyEmoji icon={facultyIcon} x={20}  y={80}  size={28} delay={0}   opacity={0.28} />
+      <FloatingFacultyEmoji icon={facultyIcon} x={320} y={120} size={20} delay={1}   opacity={0.22} />
+      <FloatingFacultyEmoji icon={facultyIcon} x={50}  y={560} size={18} delay={0.5} opacity={0.18} />
+      <FloatingFacultyEmoji icon={facultyIcon} x={300} y={620} size={24} delay={1.5} opacity={0.2} />
+      <FloatingFacultyEmoji icon={facultyIcon} x={160} y={40}  size={14} delay={2}   opacity={0.14} />
 
       {/* ── Большая центральная шапка (положение чуть выше центра) ── */}
       <motion.div
@@ -114,7 +119,7 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
             animation: 'subjectToothPulse 2.5s ease-in-out infinite',
           }}
         >
-          <ToothIcon className="w-10 h-10 text-primary" variant="perfect" />
+          <FacultyIcon size={40} />
         </div>
         <h1
           className="text-2xl font-extrabold tracking-tight mb-2"

@@ -11,7 +11,7 @@ import { Search, BookOpen, CheckCircle2, Circle, X, Pencil, Trash2, ArrowLeft, A
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger
 } from '@/components/ui/accordion';
-import { ToothIcon } from './ToothIcon';
+import { FacultyIcon } from './FacultyIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { termRegexSource as _termRegexSource } from '@/lib/glossaryUtils';
@@ -699,7 +699,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                 <div className="flex flex-col items-center justify-center flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ background: 'var(--c-primary-dim)' }}>
-                      <ToothIcon className="w-5 h-5" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} onClick={onSecretTap} />
+                      <FacultyIcon size={20} onClick={onSecretTap} />
                     </div>
                     <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
                       {cfg?.brandName || 'OrthoByNekruz'}

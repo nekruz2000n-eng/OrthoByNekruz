@@ -2,7 +2,6 @@
 
 // ─── ИМПОРТЫ ─────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ToothIcon } from './ToothIcon'; // Твоя кастомная SVG-иконка зуба
 import { Input } from '@/components/ui/input'; // Компонент поля ввода (из библиотеки shadcn/ui)
 import { Button } from '@/components/ui/button'; // Компонент кнопки (из библиотеки shadcn/ui)
 import { useToast } from '@/hooks/use-toast'; // Хук для показа всплывающих уведомлений (тостов)
@@ -15,11 +14,19 @@ import {
   getDefaultDigitIcon,
   isLegacyPaidKey,
   FACULTY_PROMOS,
+  EMOJI_FONT_STACK,
+  persistFacultyId,
+  persistFacultyFromAccessCode,
 } from '@/lib/facultyCodes';
 
 type FacultyVariant = 'tooth' | 'stethoscope' | 'pediatrics';
 
 const LOGO_PHASES: FacultyVariant[] = ['tooth', 'stethoscope', 'pediatrics'];
+
+function syncFacultyAfterAuth(data: { facultyId?: string | null }, accessCode: string) {
+  if (data?.facultyId) persistFacultyId(String(data.facultyId));
+  else if (accessCode.trim()) persistFacultyFromAccessCode(accessCode.trim());
+}
 
 /** Те же эмодзи, что в поле ввода кода (3950 / 5016 / 2314) */
 const FACULTY_EMOJI: Record<FacultyVariant, string> = {
@@ -27,12 +34,6 @@ const FACULTY_EMOJI: Record<FacultyVariant, string> = {
   stethoscope:   FACULTY_PROMOS.find(p => p.id === 'therapeutic')!.digitIcon,
   pediatrics:    FACULTY_PROMOS.find(p => p.id === 'pediatrics')!.digitIcon,
 };
-
-const EMOJI_FONT =
-  '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
-
-const TOOTH_PATH =
-  'M7.5 3C5.5 3 4 4.5 4 6.5C4 8.5 4.5 11 5.5 13.5C6.5 16 8.5 19.5 8.5 21C8.5 21.5 8.9 22 9.5 22C10.1 22 10.5 21.5 10.5 21C10.5 20.5 11 18 12 18C13 18 13.5 20.5 13.5 21C13.5 21.5 13.9 22 14.5 22C15.1 22 15.5 21.5 15.5 21C15.5 19.5 17.5 16 18.5 13.5C19.5 11 20 8.5 20 6.5C20 4.5 18.5 3 16.5 3C14.5 3 13 4 12 5C11 4 9.5 3 7.5 3Z';
 
 /** Эмодзи в дожде — как в поле ввода (статичный div, без blur) */
 const FallingFacultyEmoji = ({
@@ -57,7 +58,7 @@ const FallingFacultyEmoji = ({
       justifyContent: 'center',
       fontSize: size * 0.92,
       lineHeight: 1,
-      fontFamily: EMOJI_FONT,
+      fontFamily: EMOJI_FONT_STACK,
       userSelect: 'none',
       filter: blurPx
         ? `blur(${blurPx}px) drop-shadow(0 0 6px rgba(255,255,255,0.5))`
@@ -68,43 +69,24 @@ const FallingFacultyEmoji = ({
   </div>
 );
 
-/** Падающая частица: зуб — SVG, стетоскоп/ребёнок — те же эмодзи, что в поле кода */
 const FallingFacultyParticle = ({
   variant,
   size,
-  strokeWidth,
   fallStyle,
   blurPx,
 }: {
   variant: FacultyVariant;
   size: number;
-  strokeWidth: number;
   fallStyle: React.CSSProperties;
   blurPx: number;
-}) => {
-  if (variant === 'tooth') {
-    return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={fallStyle}>
-        <path
-          d={TOOTH_PATH}
-          stroke="#FFFFFF"
-          strokeWidth={strokeWidth}
-          fill="hsl(var(--primary))"
-          fillOpacity={0.2}
-        />
-      </svg>
-    );
-  }
-
-  return (
-    <FallingFacultyEmoji
-      emoji={FACULTY_EMOJI[variant]}
-      size={size}
-      fallStyle={fallStyle}
-      blurPx={blurPx}
-    />
-  );
-};
+}) => (
+  <FallingFacultyEmoji
+    emoji={FACULTY_EMOJI[variant]}
+    size={size}
+    fallStyle={fallStyle}
+    blurPx={blurPx}
+  />
+);
 
 // ─── ЦЕНТРАЛЬНЫЙ ЛОГОТИП: зуб → стетоскоп → педиатрия по кругу ───────────────
 const AuthLogoCycle = () => {
@@ -143,21 +125,17 @@ const AuthLogoCycle = () => {
       className="w-12 h-12 flex items-center justify-center transition-opacity duration-500 ease-in-out"
       style={{ opacity: visible ? 1 : 0 }}
     >
-      {LOGO_PHASES[phase] === 'tooth' ? (
-        <ToothIcon className="w-12 h-12 text-primary" variant="perfect" />
-      ) : (
-        <span
-          className="leading-none select-none"
-          style={{
-            fontSize: 44,
-            fontFamily: EMOJI_FONT,
-            filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.35))',
-          }}
-          aria-hidden
-        >
-          {FACULTY_EMOJI[LOGO_PHASES[phase]]}
-        </span>
-      )}
+      <span
+        className="leading-none select-none"
+        style={{
+          fontSize: 44,
+          fontFamily: EMOJI_FONT_STACK,
+          filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.35))',
+        }}
+        aria-hidden
+      >
+        {FACULTY_EMOJI[LOGO_PHASES[phase]]}
+      </span>
     </div>
   );
 };
@@ -177,9 +155,6 @@ const ToothRainBG = () => {
   const teeth = RAIN_VARIANTS.map((variant, i) => {
     const size = 12 + ((i * 11) % 24);
     const isForeground = size > 24;
-    // Стетоскоп/ребёнок — залитые фигуры, но без blur и чуть ярче (тонкие path в дожде не видны)
-    const accent = variant !== 'tooth';
-
     return {
       id: i,
       variant,
@@ -187,10 +162,10 @@ const ToothRainBG = () => {
       size,
       dur: isForeground ? (6 + ((i * 3) % 4)) : (10 + ((i * 5) % 6)),
       delay: (i * 0.9) % 7,
-      blur: accent ? 0 : isForeground ? 0 : 1.5,
-      maxOpacity: accent ? 0.55 : isForeground ? 0.4 : 0.15,
+      blur: isForeground ? 0 : 1.5,
+      maxOpacity: isForeground ? 0.4 : 0.15,
       spinDir: i % 2 === 0 ? 1 : -1,
-      isForeground: accent || isForeground,
+      isForeground,
     };
   });
 
@@ -250,7 +225,6 @@ const ToothRainBG = () => {
             key={t.id}
             variant={t.variant}
             size={t.size}
-            strokeWidth={t.isForeground ? 1.5 : 1}
             fallStyle={fallStyle}
             blurPx={t.blur}
           />
@@ -416,6 +390,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           if (hasAccess || inFlow) {
             localStorage.setItem('is_authed', 'true');
             localStorage.setItem('user_tg_id', String(autoTgId));
+            syncFacultyAfterAuth(data, '');
             onAuthenticated();
           }
         }
@@ -458,6 +433,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       if (res.ok) {
         localStorage.setItem('is_authed', 'true');
         localStorage.setItem('user_tg_id', String(inputTgId));
+        syncFacultyAfterAuth(data, inputKey);
         if (data.previewStatus || data.preview) {
           onAuthenticated();
           return;
@@ -480,6 +456,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         } else if (res.status === 403 && data.previewAwaiting) {
           localStorage.setItem('is_authed', 'true');
           localStorage.setItem('user_tg_id', String(inputTgId));
+          syncFacultyAfterAuth(data, inputKey);
           onAuthenticated();
         } else if (res.status === 403 && data.needSubscription) {
           setNeedsSubscription(true);
@@ -541,6 +518,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       localStorage.setItem('user_tg_id', String(id));
       if (data.previewStatus === 'confirmed' || data.previewStatus === 'active' || data.previewStatus === 'selecting') {
         localStorage.setItem('is_authed', 'true');
+        syncFacultyAfterAuth(data, key);
         onAuthenticated();
         return;
       }

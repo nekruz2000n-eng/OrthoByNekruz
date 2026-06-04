@@ -17,6 +17,7 @@ import { useToast }      from '@/hooks/use-toast';
 import { getDefaultSubjectId } from '@/lib/subjects';
 import type { PreviewStatus } from '@/lib/preview';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
+import { persistFacultyId, USER_FACULTY_ID_KEY } from '@/lib/facultyCodes';
 
 // ─── updateSafeAreas ─────────────────────────────────────────────────────────
 //
@@ -118,6 +119,7 @@ function initTelegramApp(): () => void {
 const AUTH_STORAGE_KEYS = [
   'is_authed', 'user_tg_id', 'available_subjects', 'subject_chosen',
   'has_micro', 'preview_end', 'last_subject', 'welcome_seen',
+  USER_FACULTY_ID_KEY,
 ];
 
 function clearLocalSession() {
@@ -180,6 +182,8 @@ export default function Home() {
 
     if (Array.isArray(d?.subjectCatalog)) setSubjectCatalog(d.subjectCatalog);
     if (Array.isArray(d?.pickSubjects)) setPickSubjects(d.pickSubjects);
+
+    if (d?.facultyId) persistFacultyId(String(d.facultyId));
 
     if (ps === 'active' && d?.previewEndsAt) {
       localStorage.setItem('preview_end', d.previewEndsAt);

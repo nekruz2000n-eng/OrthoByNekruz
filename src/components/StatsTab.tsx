@@ -7,7 +7,7 @@ import {
   BookOpen, ClipboardList, PenTool, Trash2, Sun, Moon, Sparkles,
   Award, ChevronRight, Calendar, Pencil,
 } from 'lucide-react';
-import { ToothIcon }     from './ToothIcon';
+import { FacultyIcon }     from './FacultyIcon';
 import { SubjectType }   from '@/components/SubjectSelectScreen';
 import { SUBJECTS, getSubject } from '@/lib/subjects';
 import { loadSubjectData } from '@/lib/subjectData';
@@ -149,7 +149,7 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
                     className="w-11 h-11 rounded-[13px] flex items-center justify-center flex-shrink-0"
                     style={{ background: item.dimVar, border: `1px solid ${item.brVar}` }}
                   >
-                    <ToothIcon className="w-6 h-6" style={{ color: item.color }} variant={item.variant} />
+                    <FacultyIcon size={24} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
@@ -437,7 +437,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                         className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0"
                         style={{ background: 'var(--c-primary-dim)' }}
                       >
-                        <ToothIcon className="w-5 h-5" style={{ color: accentColor }} variant={cfg?.iconVariant || 'perfect'} />
+                        <FacultyIcon size={20} />
                       </div>
                       <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
                         {cfg?.brandName || 'OrthoByNekruz'}
