@@ -4,6 +4,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import Script from 'next/script';
 import { PREVIEW_MODULE_LABELS } from '@/lib/previewModules';
 import { getTgChatHref, formatTgChatLabel, openTgChat, normalizeTelegramUsername, isValidTelegramUsername } from '@/lib/tgLinks';
+import { AdminPatternLock, ADMIN_PATTERN, ADMIN_UNLOCK_SECRET } from '@/components/AdminPatternLock';
 
 interface User {
   tgId:          string;
@@ -1652,8 +1653,8 @@ export default function AdminPage() {
 
   useEffect(() => {
     const saved = sessionStorage.getItem('admin_secret');
-    if (saved) setSecret(saved);
-  }, []);
+    if (saved && authed) setSecret(saved);
+  }, [authed]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -1819,17 +1820,16 @@ export default function AdminPage() {
     });
   }, [sortBy, registeredAsc, secret, fetchUsers]);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!secret) return;
-
+  const handlePatternUnlock = useCallback(() => {
     const initData = getTelegramInitData();
     if (!initData) {
       setError('Откройте панель через Telegram — вход из браузера заблокирован');
       return;
     }
-    fetchUsers(secret);
-  };
+    setError('');
+    setSecret(ADMIN_UNLOCK_SECRET);
+    fetchUsers(ADMIN_UNLOCK_SECRET);
+  }, [fetchUsers]);
 
   // ── POST: действие над пользователем ──────────────────────────────────────
   const doAction = async (
@@ -2042,50 +2042,40 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <div style={{
-              fontSize: 11, color: T.textMuted, fontWeight: 600,
-              textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 7,
-            }}>Секретный ключ</div>
-            <input
-              type="password" placeholder="ADMIN_SECRET"
-              value={secret} onChange={e => setSecret(e.target.value)}
-              autoComplete="current-password"
-              style={{
-                width: '100%', padding: '13px 14px', borderRadius: 12,
-                border: `1px solid ${error ? T.danger + '66' : T.borderStrong}`,
-                background: T.surfaceAlt, color: T.text,
-                fontFamily: FONT_MONO, fontSize: 15, letterSpacing: 1.5,
-                outline: 'none', boxSizing: 'border-box',
-              }}
-            />
-          </div>
+        <div style={{
+          fontSize: 11, color: T.textMuted, fontWeight: 600,
+          textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14, textAlign: 'center',
+        }}>Графический ключ</div>
 
-          {error && (
-            <div style={{
-              background: T.dangerSoft, border: `1px solid ${T.danger}33`,
-              borderRadius: 10, padding: '10px 13px',
-              color: T.danger, fontSize: 13, lineHeight: 1.4,
-            }}>{error}</div>
-          )}
+        <AdminPatternLock
+          expectedPattern={[...ADMIN_PATTERN]}
+          onSuccess={handlePatternUnlock}
+          disabled={loading}
+          theme={{
+            accent: T.accent,
+            accentSoft: T.accentSoft,
+            border: T.border,
+            textMuted: T.textMuted,
+            danger: T.danger,
+            surfaceAlt: T.surfaceAlt,
+          }}
+        />
 
-          <button
-            type="submit" disabled={loading || !secret}
-            style={{
-              padding: '14px', borderRadius: 12,
-              background: loading || !secret ? T.surfaceAlt : T.accent,
-              color: loading || !secret ? T.textFaint : '#fff',
-              border: `1px solid ${loading || !secret ? T.border : T.accent}`,
-              fontSize: 15, fontWeight: 700, letterSpacing: 0.2,
-              cursor: loading || !secret ? 'default' : 'pointer',
-              minHeight: 50, fontFamily: FONT_SANS,
-            }}
-          >
-            {loading ? '...' : 'Войти в панель'}
-          </button>
+        {error && (
+          <div style={{
+            marginTop: 14,
+            background: T.dangerSoft, border: `1px solid ${T.danger}33`,
+            borderRadius: 10, padding: '10px 13px',
+            color: T.danger, fontSize: 13, lineHeight: 1.4,
+          }}>{error}</div>
+        )}
 
-        </form>
+        {loading && (
+          <div style={{
+            marginTop: 12, textAlign: 'center',
+            color: T.textMuted, fontSize: 13,
+          }}>Вход...</div>
+        )}
       </div>
     </div>
   );
