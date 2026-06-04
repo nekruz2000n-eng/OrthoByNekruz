@@ -29,6 +29,11 @@ import type { FacultyPromo } from '@/lib/facultyCodes';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { registerUserId } from '@/lib/userIndex';
 import { clearAuthRateLimitsForTgId, checkCatalogBrowseLimit } from '@/lib/authRateLimit';
+import {
+  buildCatalogSelectingUser,
+  isCatalogDailySessionUsed,
+  markCatalogDailySessionUsed,
+} from '@/lib/catalogBrowse';
 
 const redis = Redis.fromEnv();
 
@@ -36,6 +41,73 @@ const BOT_TOKEN        = process.env.BOT_TOKEN;
 const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || 'nzsdental';
 const TRIAL_DAYS       = Number(process.env.TRIAL_DAYS) || 0;
 const ADMIN_TG_ID      = process.env.ADMIN_TG_ID || '';
+
+type Profile = { username: string | null; firstName: string | null; lastName: string | null };
+
+/** Просмотр каталога из статистики: код → группа → витрина → 10 мин другого предмета (1 раз в сутки). */
+async function handleCatalogBrowseStart(
+  res: NextApiResponse,
+  tgIdStr: string,
+  user: any,
+  profile: Profile,
+  promo: FacultyPromo,
+) {
+  const catalog = await buildPreviewSubjectCatalog(redis);
+  user = user ? await maybeExpirePreviewUser(redis, tgIdStr, user) : user;
+
+  if (user?.previewStatus === 'active') {
+    return res.status(200).json({
+      success: true,
+      resumed: true,
+      catalogBrowse: true,
+      ...(await subjectsResponse(user)),
+    });
+  }
+
+  if (user?.previewStatus === 'expired' && user._catalogBrowse) {
+    return res.status(403).json({
+      error: 'Пробный просмотр закончился. Напиши админу в Telegram — после оплаты откроем доступ.',
+      previewAwaiting: true,
+      ...previewPayload(user, catalog),
+    });
+  }
+
+  if (user?.previewStatus === 'selecting' && user._catalogBrowse) {
+    if (promo) {
+      const merged = buildCatalogSelectingUser(user, profile, promo);
+      await saveUser(tgIdStr, merged);
+      return res.status(200).json({
+        success: true,
+        catalogBrowse: true,
+        subjects: [],
+        ...previewPayload(merged, catalog),
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      resumed: true,
+      catalogBrowse: true,
+      subjects: [],
+      ...previewPayload(user, catalog),
+    });
+  }
+
+  if (await isCatalogDailySessionUsed(redis, tgIdStr)) {
+    return res.status(403).json({
+      error: 'Сегодня пробный просмотр уже был (10 минут). Завтра снова или напиши админу в Telegram.',
+    });
+  }
+
+  const merged = buildCatalogSelectingUser(user, profile, promo);
+  await saveUser(tgIdStr, merged);
+  await clearAuthRateLimitsForTgId(redis, tgIdStr);
+  return res.status(200).json({
+    success: true,
+    catalogBrowse: true,
+    subjects: [],
+    ...previewPayload(merged, catalog),
+  });
+}
 
 async function handlePreviewStart(
   res: NextApiResponse,
@@ -361,7 +433,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      if (userAlreadyHasSubjectAccess(user, chosen)) {
+      if (user._catalogBrowse) {
+        if (userAlreadyHasSubjectAccess(user, chosen)) {
+          return res.status(400).json({
+            error: 'Этот предмет уже открыт. Выбери другой для 10‑минутного просмотра.',
+          });
+        }
+        if (await isCatalogDailySessionUsed(redis, tgIdStr)) {
+          return res.status(403).json({
+            error: 'Сегодня пробный просмотр уже был. Завтра снова или напиши админу.',
+          });
+        }
+      } else if (userAlreadyHasSubjectAccess(user, chosen)) {
         const updated = recordFacultyChoiceOnly(user, chosen, chosenModules);
         updated.username   = username ?? updated.username;
         updated.firstName  = firstName ?? updated.firstName;
@@ -377,6 +460,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const updated = buildActivePreviewUser(user, chosen, chosenModules);
+      if (user._catalogBrowse) {
+        updated._catalogBrowse = true;
+        await markCatalogDailySessionUsed(redis, tgIdStr);
+      }
       updated.username   = username ?? updated.username;
       updated.firstName  = firstName ?? updated.firstName;
       updated.lastName   = lastName ?? updated.lastName;
@@ -507,16 +594,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const promo = resolveFacultyPromoCode(String(key).trim());
 
-    if (isCatalogBrowse && user) {
+    if (isCatalogBrowse) {
       if (promo) {
         const catalogLimit = await checkCatalogBrowseLimit(redis, ip, tgIdStr, 'success');
         if (catalogLimit.blocked) {
           return res.status(429).json({ error: 'Доступ временно заблокирован. Подожди 30 минут.' });
         }
-        if (catalogLimit.throttled) {
-          return res.status(429).json({ error: 'Слишком часто. Попробуй позже (лимит в час).' });
+        const profile = { username, firstName, lastName };
+        if (user && isEstablishedAccount(user)) {
+          return handleCatalogBrowseStart(res, tgIdStr, user, profile, promo);
         }
-        return handlePreviewStart(res, tgIdStr, ip, user, { username, firstName, lastName }, promo, true);
+        if (!user) {
+          return res.status(401).json({ error: 'Сначала войди в приложение.' });
+        }
+        return handlePreviewStart(res, tgIdStr, ip, user, profile, promo, true);
       }
       const catalogLimit = await checkCatalogBrowseLimit(redis, ip, tgIdStr, 'fail');
       if (catalogLimit.blocked) {

@@ -39,7 +39,7 @@ export function tgIdFromRateBlockKey(key: string): string | null {
   return /^\d{5,12}$/.test(id) ? id : null;
 }
 
-export type CatalogRateResult = { blocked: boolean; throttled?: boolean };
+export type CatalogRateResult = { blocked: boolean };
 
 /** Лимит просмотра каталога из приложения (отдельно от входа по ключу). */
 export async function checkCatalogBrowseLimit(
@@ -65,13 +65,6 @@ export async function checkCatalogBrowseLimit(
       return { blocked: true };
     }
     return { blocked: false };
-  }
-
-  const openKey = `catalog_open:${ip}:${id}`;
-  const opens = await redis.incr(openKey);
-  if (opens === 1) await redis.expire(openKey, 3600);
-  if (opens > 12) {
-    return { blocked: false, throttled: true };
   }
 
   await redis.del(`catalog_fail:${ip}:${id}`);

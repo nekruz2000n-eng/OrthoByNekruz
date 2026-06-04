@@ -191,6 +191,8 @@ export default function Home() {
       localStorage.removeItem('preview_end');
     }
 
+    if (ps === 'selecting') return;
+
     if (list.length === 0) return;
 
     const alreadyChosen = localStorage.getItem('subject_chosen') === 'true';
@@ -574,7 +576,7 @@ export default function Home() {
     );
   }
 
-  if (previewStatus === 'expired' && availableSubjects.length === 0) {
+  if (previewStatus === 'expired' && previewChosen) {
     return (
       <PreviewAwaitingScreen
         chosenSubject={previewChosen}

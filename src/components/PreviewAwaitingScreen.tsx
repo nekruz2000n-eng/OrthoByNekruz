@@ -29,7 +29,7 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
           Ожидайте подтверждения
         </h1>
         <p className="text-sm leading-relaxed" style={{ color: 'var(--c-muted)' }}>
-          Администратор видит твою заявку. После подтверждения откроется то, что ты выбрал.
+          10 минут закончились. Напиши админу в Telegram — после оплаты подтвердит доступ к выбранному предмету.
         </p>
 
         {(subjectCfg || modulesLabel) && (

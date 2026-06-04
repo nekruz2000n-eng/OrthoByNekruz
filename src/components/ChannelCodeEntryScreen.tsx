@@ -99,7 +99,7 @@ export const ChannelCodeEntryScreen: React.FC<ChannelCodeEntryScreenProps> = ({
           Введи код
         </h1>
         <p className="text-sm text-center mb-8 max-w-xs" style={{ color: 'var(--c-muted)' }}>
-          После кода укажешь группу и увидишь все доступные предметы
+          Код → группа → выбор другого предмета. Раз в сутки — 10 минут просмотра, потом подтверждение у админа.
         </p>
 
         <div
