@@ -28,21 +28,42 @@ const FACULTY_YELLOW_DETAIL = '#B45309';
 const TOOTH_PATH =
   'M7.5 3C5.5 3 4 4.5 4 6.5C4 8.5 4.5 11 5.5 13.5C6.5 16 8.5 19.5 8.5 21C8.5 21.5 8.9 22 9.5 22C10.1 22 10.5 21.5 10.5 21C10.5 20.5 11 18 12 18C13 18 13.5 20.5 13.5 21C13.5 21.5 13.9 22 14.5 22C15.1 22 15.5 21.5 15.5 21C15.5 19.5 17.5 16 18.5 13.5C19.5 11 20 8.5 20 6.5C20 4.5 18.5 3 16.5 3C14.5 3 13 4 12 5C11 4 9.5 3 7.5 3Z';
 
-/** Стетоскоп: вилка сверху, трубка, круглая головка снизу — всё синее */
+/** Стетоскоп: наушники, изогнутые трубки, шток, металлическая головка */
 const StethoscopeGraphic = ({ lineWidth, vivid }: { lineWidth: number; vivid?: boolean }) => {
-  const tube = vivid ? 2.4 : lineWidth;
-  const op = vivid ? 1 : 0.85;
+  const tube = vivid ? 2.1 : Math.max(lineWidth, 1.6);
+  const op = vivid ? 1 : 0.88;
+  const tip = FACULTY_BLUE_DARK;
+  const metal = FACULTY_BLUE;
+  const shine = '#93C5FD';
+
   return (
     <g strokeLinecap="round" strokeLinejoin="round">
+      {/* Мягкие наушники */}
+      <ellipse cx="5.2" cy="3.4" rx="2.1" ry="1.35" fill={tip} fillOpacity={op} transform="rotate(-28 5.2 3.4)" />
+      <ellipse cx="18.8" cy="3.4" rx="2.1" ry="1.35" fill={tip} fillOpacity={op} transform="rotate(28 18.8 3.4)" />
+
+      {/* Левая и правая трубки к Y-разветвлению */}
       <path
-        d="M5.5 4.2a2.2 2.2 0 0 1 4.2 0v2.6c0 1.9 1.4 3.5 3.3 4M18.5 4.2a2.2 2.2 0 0 0-4.2 0v2.6c0 1.9-1.4 3.5-3.3 4"
-        stroke={FACULTY_BLUE}
+        d="M6.2 4.2 C6.2 6.2 7.2 8.2 9.2 9.4 C10.4 10.1 11.2 10.4 12 10.5"
+        stroke={metal}
         strokeWidth={tube}
         fill="none"
       />
-      <path d="M10 10.8h4M12 10.8v3.2" stroke={FACULTY_BLUE} strokeWidth={tube} fill="none" />
-      <circle cx="12" cy="18.2" r="4" fill={FACULTY_BLUE} fillOpacity={op} />
-      <circle cx="12" cy="18.2" r="2" fill={FACULTY_BLUE_DARK} fillOpacity={0.45} />
+      <path
+        d="M17.8 4.2 C17.8 6.2 16.8 8.2 14.8 9.4 C13.6 10.1 12.8 10.4 12 10.5"
+        stroke={metal}
+        strokeWidth={tube}
+        fill="none"
+      />
+
+      {/* Шток и основная трубка */}
+      <path d="M12 10.5 V15.2" stroke={metal} strokeWidth={tube + 0.2} fill="none" />
+
+      {/* Головка: внешний обод (bell), диафрагма, блик */}
+      <circle cx="12" cy="19.2" r="4.6" fill={metal} fillOpacity={op} />
+      <circle cx="12" cy="19.2" r="3.35" fill={FACULTY_BLUE_DARK} fillOpacity={0.55} />
+      <circle cx="12" cy="19.2" r="2.1" fill={shine} fillOpacity={0.75} />
+      <ellipse cx="11.1" cy="18.3" rx="0.9" ry="0.55" fill="#FFFFFF" fillOpacity={0.35} />
     </g>
   );
 };
