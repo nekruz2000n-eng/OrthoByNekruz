@@ -14,148 +14,95 @@ import {
   MAX_INPUT_LENGTH,
   getDefaultDigitIcon,
   isLegacyPaidKey,
+  FACULTY_PROMOS,
 } from '@/lib/facultyCodes';
 
 type FacultyVariant = 'tooth' | 'stethoscope' | 'pediatrics';
 
 const LOGO_PHASES: FacultyVariant[] = ['tooth', 'stethoscope', 'pediatrics'];
 
-const FACULTY_BLUE = '#60A5FA';
-const FACULTY_BLUE_DARK = '#3B82F6';
-const FACULTY_YELLOW = '#FBBF24';
-const FACULTY_YELLOW_DETAIL = '#B45309';
+/** Те же эмодзи, что в поле ввода кода (3950 / 5016 / 2314) */
+const FACULTY_EMOJI: Record<FacultyVariant, string> = {
+  tooth:         FACULTY_PROMOS.find(p => p.id === 'stomatology')!.digitIcon,
+  stethoscope:   FACULTY_PROMOS.find(p => p.id === 'therapeutic')!.digitIcon,
+  pediatrics:    FACULTY_PROMOS.find(p => p.id === 'pediatrics')!.digitIcon,
+};
+
+const EMOJI_FONT =
+  '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 
 const TOOTH_PATH =
   'M7.5 3C5.5 3 4 4.5 4 6.5C4 8.5 4.5 11 5.5 13.5C6.5 16 8.5 19.5 8.5 21C8.5 21.5 8.9 22 9.5 22C10.1 22 10.5 21.5 10.5 21C10.5 20.5 11 18 12 18C13 18 13.5 20.5 13.5 21C13.5 21.5 13.9 22 14.5 22C15.1 22 15.5 21.5 15.5 21C15.5 19.5 17.5 16 18.5 13.5C19.5 11 20 8.5 20 6.5C20 4.5 18.5 3 16.5 3C14.5 3 13 4 12 5C11 4 9.5 3 7.5 3Z';
 
-/** Стетоскоп: наушники, изогнутые трубки, шток, металлическая головка */
-const StethoscopeGraphic = ({ lineWidth, vivid }: { lineWidth: number; vivid?: boolean }) => {
-  const tube = vivid ? 2.1 : Math.max(lineWidth, 1.6);
-  const op = vivid ? 1 : 0.88;
-  const tip = FACULTY_BLUE_DARK;
-  const metal = FACULTY_BLUE;
-  const shine = '#93C5FD';
-
-  return (
-    <g strokeLinecap="round" strokeLinejoin="round">
-      {/* Мягкие наушники */}
-      <ellipse cx="5.2" cy="3.4" rx="2.1" ry="1.35" fill={tip} fillOpacity={op} transform="rotate(-28 5.2 3.4)" />
-      <ellipse cx="18.8" cy="3.4" rx="2.1" ry="1.35" fill={tip} fillOpacity={op} transform="rotate(28 18.8 3.4)" />
-
-      {/* Левая и правая трубки к Y-разветвлению */}
-      <path
-        d="M6.2 4.2 C6.2 6.2 7.2 8.2 9.2 9.4 C10.4 10.1 11.2 10.4 12 10.5"
-        stroke={metal}
-        strokeWidth={tube}
-        fill="none"
-      />
-      <path
-        d="M17.8 4.2 C17.8 6.2 16.8 8.2 14.8 9.4 C13.6 10.1 12.8 10.4 12 10.5"
-        stroke={metal}
-        strokeWidth={tube}
-        fill="none"
-      />
-
-      {/* Шток и основная трубка */}
-      <path d="M12 10.5 V15.2" stroke={metal} strokeWidth={tube + 0.2} fill="none" />
-
-      {/* Головка: внешний обод (bell), диафрагма, блик */}
-      <circle cx="12" cy="19.2" r="4.6" fill={metal} fillOpacity={op} />
-      <circle cx="12" cy="19.2" r="3.35" fill={FACULTY_BLUE_DARK} fillOpacity={0.55} />
-      <circle cx="12" cy="19.2" r="2.1" fill={shine} fillOpacity={0.75} />
-      <ellipse cx="11.1" cy="18.3" rx="0.9" ry="0.55" fill="#FFFFFF" fillOpacity={0.35} />
-    </g>
-  );
-};
-
-/** Личико как 👶: жёлтый круг, тёмные глаза/улыбка, без «грудного» квадрата */
-const PediatricsGraphic = ({ vivid }: { vivid?: boolean }) => {
-  const op = vivid ? 1 : 0.92;
-  return (
-    <g>
-      <circle cx="12" cy="11.5" r="7.2" fill={FACULTY_YELLOW} fillOpacity={op} />
-      <circle cx="9.3" cy="10.8" r="1.25" fill={FACULTY_YELLOW_DETAIL} />
-      <circle cx="14.7" cy="10.8" r="1.25" fill={FACULTY_YELLOW_DETAIL} />
-      <path
-        d="M9.2 14.2 Q12 16.8 14.8 14.2"
-        stroke={FACULTY_YELLOW_DETAIL}
-        strokeWidth="1.35"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <path
-        d="M10.2 5.8 Q12 4.6 13.8 5.8"
-        stroke={FACULTY_YELLOW_DETAIL}
-        strokeWidth="1.1"
-        strokeLinecap="round"
-        fill="none"
-      />
-    </g>
-  );
-};
-
-/** Логотип в центре (не дождь) */
-const FacultyIconSvg = ({
-  variant,
+/** Эмодзи в дожде — как в поле ввода (статичный div, без blur) */
+const FallingFacultyEmoji = ({
+  emoji,
   size,
-  strokeWidth = 1.5,
-  fillOpacity = 0.2,
+  fallStyle,
+  blurPx,
 }: {
-  variant: FacultyVariant;
+  emoji: string;
   size: number;
-  strokeWidth?: number;
-  fillOpacity?: number;
+  fallStyle: React.CSSProperties;
+  blurPx: number;
 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-    {variant === 'tooth' && (
-      <path
-        d={TOOTH_PATH}
-        stroke="#FFFFFF"
-        strokeWidth={strokeWidth}
-        fill="hsl(var(--primary))"
-        fillOpacity={fillOpacity}
-      />
-    )}
-    {variant === 'stethoscope' && <StethoscopeGraphic lineWidth={strokeWidth} vivid />}
-    {variant === 'pediatrics' && <PediatricsGraphic vivid />}
-  </svg>
+  <div
+    aria-hidden
+    style={{
+      ...fallStyle,
+      width: size,
+      height: size,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: size * 0.92,
+      lineHeight: 1,
+      fontFamily: EMOJI_FONT,
+      userSelect: 'none',
+      filter: blurPx
+        ? `blur(${blurPx}px) drop-shadow(0 0 6px rgba(255,255,255,0.5))`
+        : 'drop-shadow(0 0 6px rgba(255,255,255,0.5))',
+    }}
+  >
+    {emoji}
+  </div>
 );
 
-/** Падающая частица — отдельные ветки, как у зуба */
+/** Падающая частица: зуб — SVG, стетоскоп/ребёнок — те же эмодзи, что в поле кода */
 const FallingFacultyParticle = ({
   variant,
   size,
   strokeWidth,
   fallStyle,
+  blurPx,
 }: {
   variant: FacultyVariant;
   size: number;
   strokeWidth: number;
   fallStyle: React.CSSProperties;
+  blurPx: number;
 }) => {
-  const sw = strokeWidth;
-  const fo = 0.2;
-
   if (variant === 'tooth') {
     return (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={fallStyle}>
-        <path d={TOOTH_PATH} stroke="#FFFFFF" strokeWidth={sw} fill="hsl(var(--primary))" fillOpacity={fo} />
-      </svg>
-    );
-  }
-
-  if (variant === 'stethoscope') {
-    return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={fallStyle}>
-        <StethoscopeGraphic lineWidth={Math.max(sw, 1.8)} vivid />
+        <path
+          d={TOOTH_PATH}
+          stroke="#FFFFFF"
+          strokeWidth={strokeWidth}
+          fill="hsl(var(--primary))"
+          fillOpacity={0.2}
+        />
       </svg>
     );
   }
 
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={fallStyle}>
-      <PediatricsGraphic vivid />
-    </svg>
+    <FallingFacultyEmoji
+      emoji={FACULTY_EMOJI[variant]}
+      size={size}
+      fallStyle={fallStyle}
+      blurPx={blurPx}
+    />
   );
 };
 
@@ -199,12 +146,17 @@ const AuthLogoCycle = () => {
       {LOGO_PHASES[phase] === 'tooth' ? (
         <ToothIcon className="w-12 h-12 text-primary" variant="perfect" />
       ) : (
-        <FacultyIconSvg
-          variant={LOGO_PHASES[phase]}
-          size={48}
-          strokeWidth={1.6}
-          fillOpacity={0.35}
-        />
+        <span
+          className="leading-none select-none"
+          style={{
+            fontSize: 44,
+            fontFamily: EMOJI_FONT,
+            filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.35))',
+          }}
+          aria-hidden
+        >
+          {FACULTY_EMOJI[LOGO_PHASES[phase]]}
+        </span>
       )}
     </div>
   );
@@ -300,6 +252,7 @@ const ToothRainBG = () => {
             size={t.size}
             strokeWidth={t.isForeground ? 1.5 : 1}
             fallStyle={fallStyle}
+            blurPx={t.blur}
           />
         );
       })}
