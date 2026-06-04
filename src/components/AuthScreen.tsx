@@ -70,35 +70,46 @@ const AuthLogoCycle = () => {
   );
 };
 
+// Типы частиц дождя (фиксированный порядок — без random, чтобы не ломать гидратацию)
+const RAIN_PARTICLES: (
+  | { kind: 'svg' }
+  | { kind: 'emoji'; char: (typeof FACULTY_EMOJI)[number] }
+)[] = [
+  { kind: 'svg' },
+  { kind: 'emoji', char: '🩺' },
+  { kind: 'svg' },
+  { kind: 'emoji', char: '👶' },
+  { kind: 'svg' },
+  { kind: 'svg' },
+  { kind: 'emoji', char: '🦷' },
+  { kind: 'svg' },
+  { kind: 'emoji', char: '🩺' },
+  { kind: 'svg' },
+  { kind: 'emoji', char: '👶' },
+  { kind: 'svg' },
+  { kind: 'svg' },
+  { kind: 'emoji', char: '🩺' },
+];
+
 // ─── КОМПОНЕНТ ФОНА: ПАДАЮЩИЕ ЗУБИКИ + ЭМОДЗИ ФАКУЛЬТЕТОВ ───────────────────
 const ToothRainBG = () => {
-  // 12 элементов: в основном SVG-зубы, немного эмодзи 🦷🩺👶 вперемешку (без random — гидратация).
-  const teeth = Array.from({ length: 12 }, (_, i) => {
-    const isEmoji = i % 4 === 3;
-    const emoji = FACULTY_EMOJI[i % 3];
-    // 1. РАЗМЕР: Генерируем псевдослучайный размер от 12px до 36px
-    const size = 12 + ((i * 11) % 24); 
-    
-    // 2. ГЛУБИНА (3D): Если зуб больше 24px, считаем, что он на переднем плане (ближе к экрану)
-    const isForeground = size > 24; 
+  const teeth = RAIN_PARTICLES.map((particle, i) => {
+    const isEmoji = particle.kind === 'emoji';
+    const size = 12 + ((i * 11) % 24);
+    const isForeground = !isEmoji && size > 24;
 
     return {
       id: i,
       isEmoji,
-      emoji,
-      left: (i * 31 + 7) % 100,
-      size: isEmoji ? 18 + ((i * 5) % 10) : size,
-      // 3. СКОРОСТЬ: Передние падают быстрее (6-9 сек), задние медленнее (10-15 сек)
-      dur: isForeground ? (6 + ((i * 3) % 4)) : (10 + ((i * 5) % 6)), 
-      // 4. ЗАДЕРЖКА: Чтобы они не падали все одновременно в одну секунду
-      delay: (i * 0.9) % 7,
-      // 5. РАЗМЫТИЕ: Задний фон размыт (3px), передний план четкий (0px)
-      blur: isForeground ? 0 : 1.5 , 
-      // 6. ПРОЗРАЧНОСТЬ: Передние ярче (0.4), задние почти прозрачные (0.15)
-      maxOpacity: isForeground ? 0.4 : 0.15, 
-      // 7. НАПРАВЛЕНИЕ ВРАЩЕНИЯ: Четные крутятся вправо (1), нечетные влево (-1)
+      emoji: isEmoji ? particle.char : null,
+      left: (i * 23 + 5) % 92,
+      size: isEmoji ? 28 + ((i * 4) % 8) : size,
+      dur: isEmoji ? 7 + (i % 3) : isForeground ? (6 + ((i * 3) % 4)) : (10 + ((i * 5) % 6)),
+      delay: (i * 0.85) % 6.5,
+      blur: isEmoji ? 0 : isForeground ? 0 : 1.5,
+      maxOpacity: isEmoji ? 0.55 : isForeground ? 0.4 : 0.15,
       spinDir: i % 2 === 0 ? 1 : -1,
-      isForeground: isForeground, // Сохраняем флаг переднего плана
+      isForeground: isEmoji || isForeground,
     };
   });
 
@@ -153,16 +164,19 @@ const ToothRainBG = () => {
           filter: `blur(${t.blur}px) drop-shadow(0 0 ${t.isForeground ? '4px' : '2px'} rgba(255, 255, 255, ${t.maxOpacity * 1.5}))`,
         } as React.CSSProperties;
 
-        if (t.isEmoji) {
+        if (t.isEmoji && t.emoji) {
           return (
             <span
               key={t.id}
               aria-hidden
+              className="inline-block"
               style={{
                 ...fallStyle,
                 fontSize: t.size,
                 lineHeight: 1,
                 userSelect: 'none',
+                filter: `drop-shadow(0 0 6px rgba(255,255,255,0.35))`,
+                zIndex: 1,
               }}
             >
               {t.emoji}
