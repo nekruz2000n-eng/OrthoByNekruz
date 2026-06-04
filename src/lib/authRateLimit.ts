@@ -1,3 +1,5 @@
+import type { Redis } from '@upstash/redis';
+
 type RedisScanDel = {
   scan: (cursor: number, opts: { match: string; count: number }) => Promise<[number | string, string[]]>;
   del:  (...keys: [string, ...string[]]) => Promise<unknown>;
@@ -41,13 +43,7 @@ export type CatalogRateResult = { blocked: boolean; throttled?: boolean };
 
 /** Лимит просмотра каталога из приложения (отдельно от входа по ключу). */
 export async function checkCatalogBrowseLimit(
-  redis: {
-    exists: (key: string) => Promise<number>;
-    incr: (key: string) => Promise<number>;
-    expire: (key: string, opts: { ex: number }) => Promise<unknown>;
-    set: (key: string, value: string, opts: { ex: number }) => Promise<unknown>;
-    del: (...keys: [string, ...string[]]) => Promise<unknown>;
-  },
+  redis: Redis,
   ip: string,
   tgId: string,
   outcome: 'success' | 'fail',
@@ -62,7 +58,7 @@ export async function checkCatalogBrowseLimit(
   if (outcome === 'fail') {
     const failKey = `catalog_fail:${ip}:${id}`;
     const attempts = await redis.incr(failKey);
-    if (attempts === 1) await redis.expire(failKey, { ex: 3600 });
+    if (attempts === 1) await redis.expire(failKey, 3600);
     if (attempts >= 5) {
       await redis.set(blockKey, '1', { ex: 30 * 60 });
       await redis.del(failKey);
@@ -73,7 +69,7 @@ export async function checkCatalogBrowseLimit(
 
   const openKey = `catalog_open:${ip}:${id}`;
   const opens = await redis.incr(openKey);
-  if (opens === 1) await redis.expire(openKey, { ex: 3600 });
+  if (opens === 1) await redis.expire(openKey, 3600);
   if (opens > 12) {
     return { blocked: false, throttled: true };
   }
