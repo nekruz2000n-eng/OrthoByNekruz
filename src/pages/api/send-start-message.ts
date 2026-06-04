@@ -22,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           inline_keyboard: [
             [
               {
-                text: '💎 Открыть OrthoByNekruz',
+                text: '💎 Открыть ByNekruz',
                 // ВАЖНО: попробуй сначала системную ссылку бота, 
                 // если не сработает - оставляй Vercel, но через кнопку Mini App
                 web_app: {

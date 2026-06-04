@@ -21,7 +21,7 @@ async function notifyAdmin(tgId: string, count: number): Promise<void> {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id:    ADMIN_TG_ID,
-          text:       `⚠️ <b>OrthoByNekruz — подозрительная активность</b>\n\nTelegram ID: <code>${tgId}</code>\nОткрытий сегодня: <b>${count}</b>\n\nВозможно аккаунт используется несколькими людьми.`,
+          text:       `⚠️ <b>ByNekruz — подозрительная активность</b>\n\nTelegram ID: <code>${tgId}</code>\nОткрытий сегодня: <b>${count}</b>\n\nВозможно аккаунт используется несколькими людьми.`,
           parse_mode: 'HTML',
         }),
       }

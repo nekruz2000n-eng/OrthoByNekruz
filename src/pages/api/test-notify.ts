@@ -24,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id:    ADMIN_TG_ID,
-          text:       '🔧 Тест уведомлений OrthoByNekruz работает!',
+          text:       '🔧 Тест уведомлений ByNekruz работает!',
           parse_mode: 'HTML',
         }),
       }

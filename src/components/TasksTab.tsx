@@ -229,7 +229,7 @@ export const TasksTab = ({
           <FacultyIcon size={20} onClick={onSecretTap} />
         </div>
         <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
-          {cfg?.brandName || 'OrthoByNekruz'}
+          {cfg?.brandName || 'ByNekruz'}
         </h1>
       </div>
       

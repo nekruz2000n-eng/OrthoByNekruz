@@ -611,7 +611,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
             className="text-3xl font-bold tracking-tighter text-white select-none cursor-default"
             onClick={handleTitleClick} // Обработчик 6 тапов для сброса
           >
-            OrthoByNekruz
+            ByNekruz
           </h1>
           <p className="text-[13px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Подготовка к экзамену</p>
           

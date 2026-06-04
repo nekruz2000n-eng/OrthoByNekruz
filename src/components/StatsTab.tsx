@@ -440,7 +440,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                         <FacultyIcon size={20} />
                       </div>
                       <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
-                        {cfg?.brandName || 'OrthoByNekruz'}
+                        {cfg?.brandName || 'ByNekruz'}
                       </h1>
                     </div>
                     <p className="text-[10px] font-bold uppercase tracking-widest mt-1 mb-1 text-center" style={{ color: accentColor }}>

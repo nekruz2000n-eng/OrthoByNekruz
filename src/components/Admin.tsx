@@ -2039,7 +2039,7 @@ export default function AdminPage() {
             color: '#fff', fontWeight: 700, fontSize: 18, letterSpacing: -0.5,
           }}>O</div>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: T.text, letterSpacing: -0.3 }}>OrthoByNekruz</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: T.text, letterSpacing: -0.3 }}>ByNekruz</div>
             <div style={{
               fontSize: 11, color: T.textMuted, fontWeight: 500,
               textTransform: 'uppercase', letterSpacing: 0.8,
@@ -2118,7 +2118,7 @@ export default function AdminPage() {
         }}>O</div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14.5, fontWeight: 700, color: T.text, letterSpacing: -0.2 }}>
-            OrthoByNekruz Admin
+            ByNekruz Admin
           </div>
           <div style={{ fontSize: 11, color: T.textMuted, fontWeight: 500 }}>
             {refreshing ? 'Обновление…' : (
