@@ -3,11 +3,13 @@ type RedisScanDel = {
   del:  (...keys: [string, ...string[]]) => Promise<unknown>;
 };
 
-/** Снимает block/rate/viol для tgId и demo_{tgId} (все IP). */
+const AUTH_PREFIXES = ['block', 'rate', 'viol', 'catalog_block', 'catalog_fail', 'catalog_open'];
+
+/** Снимает лимиты входа и каталога для tgId (все IP). */
 export async function clearAuthRateLimitsForTgId(redis: RedisScanDel, tgId: string): Promise<number> {
   const id = String(tgId).trim();
   const suffixes = [id, `demo_${id}`];
-  const prefixes = ['block', 'rate', 'viol'];
+  const prefixes = AUTH_PREFIXES;
   let deleted = 0;
 
   for (const suffix of suffixes) {
@@ -28,9 +30,54 @@ export async function clearAuthRateLimitsForTgId(redis: RedisScanDel, tgId: stri
   return deleted;
 }
 
-/** Из ключа block:{ip}:{suffix} достаёт TG ID для отображения в админке. */
+/** Из ключа block:*:{suffix} или catalog_block:*:{suffix} достаёт TG ID для админки. */
 export function tgIdFromRateBlockKey(key: string): string | null {
   const suffix = key.split(':').pop() ?? '';
   const id = suffix.startsWith('demo_') ? suffix.slice(5) : suffix;
   return /^\d{5,12}$/.test(id) ? id : null;
+}
+
+export type CatalogRateResult = { blocked: boolean; throttled?: boolean };
+
+/** Лимит просмотра каталога из приложения (отдельно от входа по ключу). */
+export async function checkCatalogBrowseLimit(
+  redis: {
+    exists: (key: string) => Promise<number>;
+    incr: (key: string) => Promise<number>;
+    expire: (key: string, opts: { ex: number }) => Promise<unknown>;
+    set: (key: string, value: string, opts: { ex: number }) => Promise<unknown>;
+    del: (...keys: [string, ...string[]]) => Promise<unknown>;
+  },
+  ip: string,
+  tgId: string,
+  outcome: 'success' | 'fail',
+): Promise<CatalogRateResult> {
+  const id = String(tgId).trim();
+  const blockKey = `catalog_block:${ip}:${id}`;
+
+  if (await redis.exists(blockKey)) {
+    return { blocked: true };
+  }
+
+  if (outcome === 'fail') {
+    const failKey = `catalog_fail:${ip}:${id}`;
+    const attempts = await redis.incr(failKey);
+    if (attempts === 1) await redis.expire(failKey, { ex: 3600 });
+    if (attempts >= 5) {
+      await redis.set(blockKey, '1', { ex: 30 * 60 });
+      await redis.del(failKey);
+      return { blocked: true };
+    }
+    return { blocked: false };
+  }
+
+  const openKey = `catalog_open:${ip}:${id}`;
+  const opens = await redis.incr(openKey);
+  if (opens === 1) await redis.expire(openKey, { ex: 3600 });
+  if (opens > 12) {
+    return { blocked: false, throttled: true };
+  }
+
+  await redis.del(`catalog_fail:${ip}:${id}`);
+  return { blocked: false };
 }

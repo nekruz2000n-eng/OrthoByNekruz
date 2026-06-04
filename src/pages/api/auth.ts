@@ -28,7 +28,7 @@ import { buildPreviewSubjectCatalog } from '@/lib/previewCatalogSettings';
 import type { FacultyPromo } from '@/lib/facultyCodes';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { registerUserId } from '@/lib/userIndex';
-import { clearAuthRateLimitsForTgId } from '@/lib/authRateLimit';
+import { clearAuthRateLimitsForTgId, checkCatalogBrowseLimit } from '@/lib/authRateLimit';
 
 const redis = Redis.fromEnv();
 
@@ -508,9 +508,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const promo = resolveFacultyPromoCode(String(key).trim());
 
     if (isCatalogBrowse && user) {
-      await clearAuthRateLimitsForTgId(redis, tgIdStr);
       if (promo) {
+        const catalogLimit = await checkCatalogBrowseLimit(redis, ip, tgIdStr, 'success');
+        if (catalogLimit.blocked) {
+          return res.status(429).json({ error: 'Доступ временно заблокирован. Подожди 30 минут.' });
+        }
+        if (catalogLimit.throttled) {
+          return res.status(429).json({ error: 'Слишком часто. Попробуй позже (лимит в час).' });
+        }
         return handlePreviewStart(res, tgIdStr, ip, user, { username, firstName, lastName }, promo, true);
+      }
+      const catalogLimit = await checkCatalogBrowseLimit(redis, ip, tgIdStr, 'fail');
+      if (catalogLimit.blocked) {
+        return res.status(429).json({ error: 'Доступ временно заблокирован.' });
       }
       return res.status(401).json({ error: 'Неверный код' });
     }

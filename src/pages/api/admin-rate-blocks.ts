@@ -18,20 +18,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // ── Список активных блокировок входа ──────────────────────────────────────
   if (action === 'list') {
     const blocks: { key: string; tgId: string; ttl: number }[] = [];
-    let cursor = 0;
 
-    do {
-      const [nextCursor, keys] = await redis.scan(cursor, { match: 'block:*', count: 100 });
-      cursor = Number(nextCursor);
+    for (const pattern of ['block:*', 'catalog_block:*']) {
+      let cursor = 0;
+      do {
+        const [nextCursor, keys] = await redis.scan(cursor, { match: pattern, count: 100 });
+        cursor = Number(nextCursor);
 
-      for (const key of keys) {
-        const ttl = await redis.ttl(key);
-        const tgIdParsed = tgIdFromRateBlockKey(key);
-        if (tgIdParsed) {
-          blocks.push({ key, tgId: tgIdParsed, ttl });
+        for (const key of keys) {
+          const ttl = await redis.ttl(key);
+          const tgIdParsed = tgIdFromRateBlockKey(key);
+          if (tgIdParsed) {
+            blocks.push({ key, tgId: tgIdParsed, ttl });
+          }
         }
-      }
-    } while (cursor !== 0);
+      } while (cursor !== 0);
+    }
 
     // Объединяем дубли (несколько IP с одним tgId) — берём максимальный TTL
     const byTgId = new Map<string, number>();
