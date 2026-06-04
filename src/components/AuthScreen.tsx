@@ -143,7 +143,7 @@ const ToothRainBG = () => {
       `}</style>
       
       {teeth.map((t) => {
-        const fallStyle: React.CSSProperties = {
+        const fallStyle = {
           position: 'absolute',
           left: `${t.left}%`,
           top: -50,
@@ -151,7 +151,7 @@ const ToothRainBG = () => {
           '--max-op': t.maxOpacity,
           '--spin': t.spinDir,
           filter: `blur(${t.blur}px) drop-shadow(0 0 ${t.isForeground ? '4px' : '2px'} rgba(255, 255, 255, ${t.maxOpacity * 1.5}))`,
-        };
+        } as React.CSSProperties;
 
         if (t.isEmoji) {
           return (
