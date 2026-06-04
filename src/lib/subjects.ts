@@ -10,7 +10,7 @@
 //        (опционально bio_glossary.json)
 //   2. Раскомментируй (или добавь) объект в массив SUBJECTS ниже
 //   3. Всё. Админка покажет кнопку выдачи доступа автоматически,
-//      шапка табов будет показывать brandName (ByNekruz)
+//      шапка табов будет показывать brandName (MicroByNekruz, BioByNekruz и т.д.)
 //
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -28,7 +28,7 @@ export interface SubjectConfig {
   /** Короткое название для бейджей в админке */
   shortLabel: string;
 
-  /** Брендовое имя в шапке табов */
+  /** Брендовое имя в шапке табов (MicroByNekruz, BioByNekruz и т.д.) */
   brandName: string;
 
   /** Подзаголовок на карточке выбора */
@@ -78,7 +78,7 @@ export const SUBJECTS: SubjectConfig[] = [
     id:             'ortho',
     label:          'Ортопедия',
     shortLabel:     'ortho',
-    brandName:      APP_BRAND_NAME,
+    brandName:      'OrthoByNekruz',
     sub:            'Вопросы · Тесты · Задачи',
     badge:          '2 курс',
     color:          'hsl(140 61% 41%)',
@@ -99,7 +99,7 @@ export const SUBJECTS: SubjectConfig[] = [
     id:             'micro',
     label:          'Микробиология',
     shortLabel:     'micro',
-    brandName:      APP_BRAND_NAME,
+    brandName:      'MicroByNekruz',
     sub:            'Вопросы · Тесты · Задачи',
     badge:          '2 курс',
     color:          'hsl(39 82% 43%)',
@@ -120,7 +120,7 @@ export const SUBJECTS: SubjectConfig[] = [
     id:             'bio',
     label:          'Биология',
     shortLabel:     'bio',
-    brandName:      APP_BRAND_NAME,
+    brandName:      'BioByNekruz',
     sub:            'Вопросы · Тесты · Задачи',
     badge:          '1 курс',
     color:          'hsl(142 70% 45%)',
@@ -141,7 +141,7 @@ export const SUBJECTS: SubjectConfig[] = [
     id:             'fizo',
     label:          'Физиология',
     shortLabel:     'fizo',
-    brandName:      APP_BRAND_NAME,
+    brandName:      'FizoByNekruz',
     sub:            'Вопросы · Тесты · Задачи',
     badge:          '2 курс',
     color:          'hsl(210 80% 55%)',
@@ -162,7 +162,7 @@ export const SUBJECTS: SubjectConfig[] = [
     id:             'gista',
     label:          'Гистология',
     shortLabel:     'gista',
-    brandName:      APP_BRAND_NAME,
+    brandName:      'GistaByNekruz',
     sub:            'Вопросы · Тесты · Задачи',
     badge:          '2 курс',
     color:          'hsl(280 65% 55%)',
@@ -183,7 +183,7 @@ export const SUBJECTS: SubjectConfig[] = [
     id:             'bioxim',
     label:          'Биохимия',
     shortLabel:     'bioxim',
-    brandName:      APP_BRAND_NAME,
+    brandName:      'BioXimByNekruz',
     sub:            'Вопросы · Тесты · Задачи',
     badge:          '2 курс',
     color:          'hsl(25 90% 55%)',
@@ -204,7 +204,7 @@ export const SUBJECTS: SubjectConfig[] = [
     id:             'anat',
     label:          'Анатомия',
     shortLabel:     'anat',
-    brandName:      APP_BRAND_NAME,
+    brandName:      'AnatByNekruz',
     sub:            'Вопросы · Тесты · Задачи',
     badge:          '1 курс',
     color:          'hsl(0 75% 55%)',
@@ -225,7 +225,7 @@ export const SUBJECTS: SubjectConfig[] = [
     id:             'therapy',
     label:          'Терапевтическая стоматология',
     shortLabel:     'therapy',
-    brandName:      APP_BRAND_NAME,
+    brandName:      'TherapyByNekruz',
     sub:            'Вопросы · Тесты · Задачи',
     badge:          '3 курс',
     color:          'hsl(175 70% 42%)',
@@ -246,7 +246,7 @@ export const SUBJECTS: SubjectConfig[] = [
     id:             'patan',
     label:          'Патологическая анатомия',
     shortLabel:     'patan',
-    brandName:      APP_BRAND_NAME,
+    brandName:      'PatAnByNekruz',
     sub:            'Вопросы · Тесты · Задачи',
     badge:          '3 курс',
     color:          'hsl(330 65% 55%)',
@@ -267,7 +267,7 @@ export const SUBJECTS: SubjectConfig[] = [
     id:             'patfiz',
     label:          'Патологическая физиология',
     shortLabel:     'patfiz',
-    brandName:      APP_BRAND_NAME,
+    brandName:      'PatFizByNekruz',
     sub:            'Вопросы · Тесты · Задачи',
     badge:          '3 курс',
     color:          'hsl(50 90% 50%)',
@@ -287,7 +287,7 @@ export const SUBJECTS: SubjectConfig[] = [
     id:             'eng',
     label:          'Английский язык',
     shortLabel:     'eng',
-    brandName:      APP_BRAND_NAME,
+    brandName:      'EngByNekruz',
     sub:            'Вопросы · Тесты · Задачи',
     badge:          '1 курс',
     color:          'hsl(56, 72%, 56%)',

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { SubjectType } from '@/components/SubjectSelectScreen';
-import { getSubject } from '@/lib/subjects';
+import { getSubject, APP_BRAND_NAME } from '@/lib/subjects';
 import { loadSubjectData } from '@/lib/subjectData';
 import { CachedImage } from '@/components/CachedImage';
 import { Input } from '@/components/ui/input';
@@ -702,7 +702,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                       <FacultyIcon size={20} onClick={onSecretTap} />
                     </div>
                     <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
-                      {cfg?.brandName || 'ByNekruz'}
+                      {cfg?.brandName || APP_BRAND_NAME}
                     </h1>
                   </div>
                   

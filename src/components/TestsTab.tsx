@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { SubjectType } from '@/components/SubjectSelectScreen';
-import { getSubject } from '@/lib/subjects';
+import { getSubject, APP_BRAND_NAME } from '@/lib/subjects';
 import { loadSubjectData } from '@/lib/subjectData';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -780,7 +780,7 @@ export const TestsTab = ({
             <FacultyIcon size={20} onClick={onSecretTap} />
           </div>
           <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
-            {cfg?.brandName || 'ByNekruz'}
+            {cfg?.brandName || APP_BRAND_NAME}
           </h1>
         </div>
         

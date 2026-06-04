@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { FacultyIcon }     from './FacultyIcon';
 import { SubjectType }   from '@/components/SubjectSelectScreen';
-import { SUBJECTS, getSubject } from '@/lib/subjects';
+import { SUBJECTS, getSubject, APP_BRAND_NAME } from '@/lib/subjects';
 import { loadSubjectData } from '@/lib/subjectData';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExamScreen, loadExamHistory, ExamHistoryEntry } from './ExamScreen';
@@ -440,7 +440,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                         <FacultyIcon size={20} />
                       </div>
                       <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
-                        {cfg?.brandName || 'ByNekruz'}
+                        {cfg?.brandName || APP_BRAND_NAME}
                       </h1>
                     </div>
                     <p className="text-[10px] font-bold uppercase tracking-widest mt-1 mb-1 text-center" style={{ color: accentColor }}>
