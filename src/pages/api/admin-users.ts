@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
-import { SUBJECTS, getSubject, getUserAvailableSubjects } from '@/lib/subjects';
+import { SUBJECTS, getSubject, getUserAvailableSubjects, migrateUserSubjects } from '@/lib/subjects';
 import { confirmPreviewUser, getEffectiveUserSubjects, clearPreviewTrialLock, previewChoiceNeedsAdminConfirm, previewChoiceIsAddon } from '@/lib/preview';
 import { clearAuthRateLimitsForTgId } from '@/lib/authRateLimit';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
@@ -24,15 +24,7 @@ function verifyAdmin(initData: string, secret: string): boolean {
 }
 
 function ensureSubjects(user: any): any {
-  if (!user) return user;
-  if (user.subjects && typeof user.subjects === 'object') return user;
-
-  const subjects: { [k: string]: boolean } = {};
-  for (const s of SUBJECTS) subjects[s.id] = false;
-  if (user.activatedKey) subjects.ortho = true;
-  if (user.micro === true) subjects.micro = true;
-
-  return { ...user, subjects };
+  return migrateUserSubjects(user);
 }
 
 function subjectPayload() {

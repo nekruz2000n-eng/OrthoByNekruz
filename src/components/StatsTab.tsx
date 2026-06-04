@@ -132,7 +132,11 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
               return (
                 <button
                   key={item.id}
-                  onClick={() => setSelected(item.id)}
+                  onClick={() => {
+                    setSelected(item.id);
+                    onSelect(item.id);
+                    onClose();
+                  }}
                   className="flex items-center gap-3 rounded-[18px] p-3.5 text-left transition-all duration-200 active:scale-[0.98]"
                   style={{
                     background: isSel ? item.dimVar : 'color-mix(in srgb, var(--c-border) 25%, transparent)',

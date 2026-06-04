@@ -168,19 +168,23 @@ export default function Home() {
 
     if (list.length === 0) return;
 
-    if (!list.includes(subject)) {
-      setSubject(list[0]);
-    }
-
     const alreadyChosen = localStorage.getItem('subject_chosen') === 'true';
+    const saved = localStorage.getItem('last_subject');
+    const preferred = (saved && list.includes(saved)) ? saved : list[0];
+
     if (!alreadyChosen && list.length >= 2 && ps !== 'active' && ps !== 'confirmed') {
       setShowSubjectSelect(true);
-    } else if (list.length >= 1) {
-      setSubject(list[0]);
-      localStorage.setItem('subject_chosen', 'true');
-      setShowSubjectSelect(false);
+      return;
     }
-  }, [subject, setSubject]);
+
+    setShowSubjectSelect(false);
+    localStorage.setItem('subject_chosen', 'true');
+    setSubjectRaw(current => {
+      const next = list.includes(current) ? current : preferred;
+      localStorage.setItem('last_subject', next);
+      return next;
+    });
+  }, [setSubjectRaw]);
 
   // Если активный таб админ скрыл — переключаем на первый доступный
   useEffect(() => {

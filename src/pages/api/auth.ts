@@ -5,6 +5,7 @@ import {
   getSubject,
   getUserAvailableSubjects,
   createDefaultSubjects,
+  migrateUserSubjects,
 } from '@/lib/subjects';
 import {
   buildSelectingPreviewUser,
@@ -187,24 +188,7 @@ function getIp(req: NextApiRequest): string {
 }
 
 function ensureSubjectsField(user: any): any {
-  if (!user) return user;
-
-  if (user.subjects && typeof user.subjects === 'object') {
-    return user;
-  }
-
-  const subjects: { [k: string]: boolean } = {};
-  for (const s of SUBJECTS) {
-    subjects[s.id] = false;
-  }
-  if (user.activatedKey) {
-    subjects.ortho = true;
-  }
-  if (user.micro === true) {
-    subjects.micro = true;
-  }
-
-  return { ...user, subjects };
+  return migrateUserSubjects(user);
 }
 
 function previewPayload(user: any, catalog?: ReturnType<typeof buildSubjectCatalog>) {

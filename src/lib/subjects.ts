@@ -352,6 +352,21 @@ export interface UserSubjects {
   [subjectId: string]: boolean;
 }
 
+/** Legacy: добавить поле subjects, если его ещё нет (без лишней ортопедии). */
+export function migrateUserSubjects(user: any): any {
+  if (!user) return user;
+  if (user.subjects && typeof user.subjects === 'object') return user;
+
+  const subjects: UserSubjects = {};
+  for (const s of SUBJECTS) subjects[s.id] = false;
+
+  const key = String(user.activatedKey || '').trim();
+  if (/^\d{8}$/.test(key)) subjects.ortho = true;
+  if (user.micro === true) subjects.micro = true;
+
+  return { ...user, subjects, _migrated_subjects: true };
+}
+
 /** Получить список ID открытых дисциплин у пользователя. */
 export function getUserAvailableSubjects(user: any): string[] {
   if (!user) return [];
@@ -364,10 +379,9 @@ export function getUserAvailableSubjects(user: any): string[] {
 
   // Legacy: старый формат до поля subjects
   const result: string[] = [];
-  if (user.activatedKey) {
-    result.push('ortho');
-    if (user.micro === true) result.push('micro');
-  }
+  const key = String(user.activatedKey || '').trim();
+  if (/^\d{8}$/.test(key)) result.push('ortho');
+  if (user.micro === true) result.push('micro');
   return result;
 }
 
