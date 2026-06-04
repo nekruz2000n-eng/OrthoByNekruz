@@ -150,6 +150,9 @@ export default function Home() {
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
   const { toast }    = useToast();
 
+  /** Поздний ответ check_subjects не должен затирать свежий ответ после кода/группы. */
+  const accessRequestGen = useRef(0);
+
   const logoutLocal = useCallback(() => {
     clearLocalSession();
     setIsAuthenticated(false);
@@ -214,6 +217,7 @@ export default function Home() {
     if (!tgId) { logoutLocal(); return Promise.resolve(); }
 
     setAccessChecked(false);
+    const gen = ++accessRequestGen.current;
     return fetch('/api/auth', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -228,14 +232,16 @@ export default function Home() {
         return d;
       })
       .then(d => {
-        if (!d) return;
+        if (!d || gen !== accessRequestGen.current) return;
         if (d.registered === false) {
           logoutLocal();
           return;
         }
         applyAccessPayload(d);
       })
-      .finally(() => setAccessChecked(true));
+      .finally(() => {
+        if (gen === accessRequestGen.current) setAccessChecked(true);
+      });
   }, [applyAccessPayload, logoutLocal]);
 
   // Если активный таб админ скрыл — переключаем на первый доступный
@@ -305,7 +311,7 @@ export default function Home() {
       }
     } catch {}
 
-    // Запрашиваем актуальный список с сервера
+    const gen = ++accessRequestGen.current;
     fetch('/api/auth', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -321,7 +327,7 @@ export default function Home() {
         return d;
       })
       .then(d => {
-        if (!d) return;
+        if (!d || gen !== accessRequestGen.current) return;
         if (d.registered === false) {
           logoutLocal();
           setAccessChecked(true);
@@ -330,7 +336,9 @@ export default function Home() {
         applyAccessPayload(d);
         setAccessChecked(true);
       })
-      .catch(() => { setAccessChecked(true); });
+      .catch(() => {
+        if (gen === accessRequestGen.current) setAccessChecked(true);
+      });
   }, [isAuthenticated, applyAccessPayload, logoutLocal]);
 
   // ── Восстановление последнего предмета из localStorage (только на клиенте) ──
@@ -392,6 +400,7 @@ export default function Home() {
   }, [isAuthenticated, previewStatus, previewEndsAt, applyAccessPayload]);
 
   const handleChannelCodeSuccess = useCallback((data: Record<string, unknown>) => {
+    accessRequestGen.current += 1;
     setShowChannelCode(false);
     applyAccessPayload(data);
     setAccessChecked(true);
@@ -418,6 +427,7 @@ export default function Home() {
         toast({ variant: 'destructive', title: 'Ошибка', description: data.error || 'Не удалось сохранить группу' });
         return;
       }
+      accessRequestGen.current += 1;
       applyAccessPayload(data);
     } catch {
       toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
@@ -450,6 +460,7 @@ export default function Home() {
       }
       localStorage.setItem('is_authed', 'true');
       localStorage.setItem('subject_chosen', 'true');
+      accessRequestGen.current += 1;
       applyAccessPayload(data);
       if (data.facultyRecorded) {
         toast({ title: 'Готово', description: 'Факультет сохранён — можно продолжать' });
