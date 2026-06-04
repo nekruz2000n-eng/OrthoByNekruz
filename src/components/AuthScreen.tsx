@@ -16,9 +16,64 @@ import {
   isLegacyPaidKey,
 } from '@/lib/facultyCodes';
 
-const FACULTY_EMOJI = ['🦷', '🩺', '👶'] as const;
+type FacultyVariant = 'tooth' | 'stethoscope' | 'pediatrics';
 
-// ─── ЦЕНТРАЛЬНЫЙ ЛОГОТИП: ЗУБ → 🩺 → 👶 по кругу ─────────────────────────────
+const LOGO_PHASES: FacultyVariant[] = ['tooth', 'stethoscope', 'pediatrics'];
+
+/** SVG вместо emoji — в Telegram WebView текстовые эмодзи в анимации часто не рисуются */
+const FacultyRainIcon = ({
+  variant,
+  size,
+  strokeWidth = 1.5,
+  fillOpacity = 0.25,
+}: {
+  variant: FacultyVariant;
+  size: number;
+  strokeWidth?: number;
+  fillOpacity?: number;
+}) => {
+  const palette =
+    variant === 'stethoscope'
+      ? { stroke: '#FFFFFF', fill: 'rgb(96, 165, 250)' }
+      : variant === 'pediatrics'
+        ? { stroke: '#FFFFFF', fill: 'rgb(251, 191, 36)' }
+        : { stroke: '#FFFFFF', fill: 'hsl(var(--primary))' };
+
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      {variant === 'tooth' && (
+        <path
+          d="M7.5 3C5.5 3 4 4.5 4 6.5C4 8.5 4.5 11 5.5 13.5C6.5 16 8.5 19.5 8.5 21C8.5 21.5 8.9 22 9.5 22C10.1 22 10.5 21.5 10.5 21C10.5 20.5 11 18 12 18C13 18 13.5 20.5 13.5 21C13.5 21.5 13.9 22 14.5 22C15.1 22 15.5 21.5 15.5 21C15.5 19.5 17.5 16 18.5 13.5C19.5 11 20 8.5 20 6.5C20 4.5 18.5 3 16.5 3C14.5 3 13 4 12 5C11 4 9.5 3 7.5 3Z"
+          stroke={palette.stroke}
+          strokeWidth={strokeWidth}
+          fill={palette.fill}
+          fillOpacity={fillOpacity}
+        />
+      )}
+      {variant === 'stethoscope' && (
+        <>
+          <path d="M5 3v3.5a2.5 2.5 0 0 0 5 0V3" stroke={palette.stroke} strokeWidth={strokeWidth} strokeLinecap="round" fill="none" />
+          <path d="M14 3v3.5a2.5 2.5 0 0 0 5 0V3" stroke={palette.stroke} strokeWidth={strokeWidth} strokeLinecap="round" fill="none" />
+          <path d="M7.5 7h9" stroke={palette.stroke} strokeWidth={strokeWidth} strokeLinecap="round" />
+          <path d="M12 7v3a4 4 0 0 0 8 0V7" stroke={palette.stroke} strokeWidth={strokeWidth} strokeLinecap="round" fill="none" />
+          <path d="M16 10v1.5a3 3 0 0 1-6 0V10" stroke={palette.stroke} strokeWidth={strokeWidth} strokeLinecap="round" fill="none" />
+          <circle cx="13" cy="17" r="3" stroke={palette.stroke} strokeWidth={strokeWidth} fill={palette.fill} fillOpacity={fillOpacity} />
+        </>
+      )}
+      {variant === 'pediatrics' && (
+        <>
+          <circle cx="12" cy="10" r="5" stroke={palette.stroke} strokeWidth={strokeWidth} fill={palette.fill} fillOpacity={fillOpacity} />
+          <circle cx="10" cy="9.5" r="0.7" fill={palette.stroke} />
+          <circle cx="14" cy="9.5" r="0.7" fill={palette.stroke} />
+          <path d="M9 12.5Q12 14.5 15 12.5" stroke={palette.stroke} strokeWidth="1.2" strokeLinecap="round" fill="none" />
+          <path d="M8 17h8" stroke={palette.stroke} strokeWidth={strokeWidth} strokeLinecap="round" />
+        </>
+      )}
+    </svg>
+  );
+};
+
+// ─── ЦЕНТРАЛЬНЫЙ ЛОГОТИП: зуб → стетоскоп → педиатрия по кругу ───────────────
 const AuthLogoCycle = () => {
   const [phase, setPhase] = useState(0);
   const [visible, setVisible] = useState(true);
@@ -55,61 +110,56 @@ const AuthLogoCycle = () => {
       className="w-12 h-12 flex items-center justify-center transition-opacity duration-500 ease-in-out"
       style={{ opacity: visible ? 1 : 0 }}
     >
-      {phase === 0 ? (
+      {LOGO_PHASES[phase] === 'tooth' ? (
         <ToothIcon className="w-12 h-12 text-primary" variant="perfect" />
       ) : (
-        <span
-          className="leading-none select-none"
-          style={{ fontSize: 44, filter: 'drop-shadow(0 0 8px hsl(var(--primary) / 0.5))' }}
-          aria-hidden
-        >
-          {FACULTY_EMOJI[phase]}
-        </span>
+        <FacultyRainIcon
+          variant={LOGO_PHASES[phase]}
+          size={48}
+          strokeWidth={1.6}
+          fillOpacity={0.35}
+        />
       )}
     </div>
   );
 };
 
-// Типы частиц дождя (фиксированный порядок — без random, чтобы не ломать гидратацию)
-const RAIN_PARTICLES: (
-  | { kind: 'svg' }
-  | { kind: 'emoji'; char: (typeof FACULTY_EMOJI)[number] }
-)[] = [
-  { kind: 'svg' },
-  { kind: 'emoji', char: '🩺' },
-  { kind: 'svg' },
-  { kind: 'emoji', char: '👶' },
-  { kind: 'svg' },
-  { kind: 'svg' },
-  { kind: 'emoji', char: '🦷' },
-  { kind: 'svg' },
-  { kind: 'emoji', char: '🩺' },
-  { kind: 'svg' },
-  { kind: 'emoji', char: '👶' },
-  { kind: 'svg' },
-  { kind: 'svg' },
-  { kind: 'emoji', char: '🩺' },
+// Частицы дождя (фиксированный порядок — без random, чтобы не ломать гидратацию)
+const RAIN_PARTICLES: { variant: FacultyVariant }[] = [
+  { variant: 'tooth' },
+  { variant: 'stethoscope' },
+  { variant: 'tooth' },
+  { variant: 'pediatrics' },
+  { variant: 'tooth' },
+  { variant: 'tooth' },
+  { variant: 'stethoscope' },
+  { variant: 'tooth' },
+  { variant: 'pediatrics' },
+  { variant: 'tooth' },
+  { variant: 'stethoscope' },
+  { variant: 'tooth' },
+  { variant: 'tooth' },
+  { variant: 'pediatrics' },
 ];
 
 // ─── КОМПОНЕНТ ФОНА: ПАДАЮЩИЕ ЗУБИКИ + ЭМОДЗИ ФАКУЛЬТЕТОВ ───────────────────
 const ToothRainBG = () => {
   const teeth = RAIN_PARTICLES.map((particle, i) => {
-    const isEmoji = particle.kind === 'emoji';
-    const size = 12 + ((i * 11) % 24);
-    const isForeground = !isEmoji && size > 24;
+    const isAccent = particle.variant !== 'tooth';
+    const size = isAccent ? 26 + ((i * 4) % 10) : 12 + ((i * 11) % 24);
+    const isForeground = size > 24;
 
     return {
       id: i,
-      isEmoji,
-      emoji: isEmoji ? particle.char : null,
+      variant: particle.variant,
       left: (i * 23 + 5) % 92,
-      size: isEmoji ? 28 + ((i * 4) % 8) : size,
-      dur: isEmoji ? 7 + (i % 3) : isForeground ? (6 + ((i * 3) % 4)) : (10 + ((i * 5) % 6)),
+      size,
+      dur: isAccent ? 7 + (i % 3) : isForeground ? (6 + ((i * 3) % 4)) : (10 + ((i * 5) % 6)),
       delay: (i * 0.85) % 6.5,
-      blur: isEmoji ? 0 : isForeground ? 0 : 1.5,
-      maxOpacity: isEmoji ? 0.55 : isForeground ? 0.4 : 0.15,
+      blur: isAccent ? 0 : isForeground ? 0 : 1.5,
+      maxOpacity: isAccent ? 0.6 : isForeground ? 0.4 : 0.15,
       spinDir: i % 2 === 0 ? 1 : -1,
-      isForeground: isEmoji || isForeground,
+      isForeground: isAccent || isForeground,
     };
   });
 
@@ -164,40 +214,15 @@ const ToothRainBG = () => {
           filter: `blur(${t.blur}px) drop-shadow(0 0 ${t.isForeground ? '4px' : '2px'} rgba(255, 255, 255, ${t.maxOpacity * 1.5}))`,
         } as React.CSSProperties;
 
-        if (t.isEmoji && t.emoji) {
-          return (
-            <span
-              key={t.id}
-              aria-hidden
-              className="inline-block"
-              style={{
-                ...fallStyle,
-                fontSize: t.size,
-                lineHeight: 1,
-                userSelect: 'none',
-                filter: `drop-shadow(0 0 6px rgba(255,255,255,0.35))`,
-                zIndex: 1,
-              }}
-            >
-              {t.emoji}
-            </span>
-          );
-        }
-
         return (
-          <svg
-            key={t.id}
-            width={t.size} height={t.size} viewBox="0 0 24 24" fill="none"
-            style={fallStyle}
-          >
-            <path
-              d="M7.5 3C5.5 3 4 4.5 4 6.5C4 8.5 4.5 11 5.5 13.5C6.5 16 8.5 19.5 8.5 21C8.5 21.5 8.9 22 9.5 22C10.1 22 10.5 21.5 10.5 21C10.5 20.5 11 18 12 18C13 18 13.5 20.5 13.5 21C13.5 21.5 13.9 22 14.5 22C15.1 22 15.5 21.5 15.5 21C15.5 19.5 17.5 16 18.5 13.5C19.5 11 20 8.5 20 6.5C20 4.5 18.5 3 16.5 3C14.5 3 13 4 12 5C11 4 9.5 3 7.5 3Z"
-              stroke="#FFFFFF"
-              strokeWidth={t.isForeground ? "1.5" : "1"}
-              fill="hsl(var(--primary))"
-              fillOpacity="0.2"
+          <div key={t.id} style={fallStyle}>
+            <FacultyRainIcon
+              variant={t.variant}
+              size={t.size}
+              strokeWidth={t.isForeground ? 1.5 : 1}
+              fillOpacity={t.variant === 'tooth' ? 0.2 : 0.35}
             />
-          </svg>
+          </div>
         );
       })}
     </div>
