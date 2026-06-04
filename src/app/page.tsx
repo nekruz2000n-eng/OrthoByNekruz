@@ -113,6 +113,15 @@ function initTelegramApp(): () => void {
 
 // ═════════════════════════════════════════════════════════════════════════════
 
+const AUTH_STORAGE_KEYS = [
+  'is_authed', 'user_tg_id', 'available_subjects', 'subject_chosen',
+  'has_micro', 'preview_end', 'last_subject', 'welcome_seen',
+];
+
+function clearLocalSession() {
+  AUTH_STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
+}
+
 export default function Home() {
   // Хуки состояния теперь находятся на верхнем уровне компонента — там, где и должны быть
   const [subject,         setSubjectRaw]      = useState<string>(getDefaultSubjectId());
@@ -136,6 +145,15 @@ export default function Home() {
   const [statusChecking,  setStatusChecking]  = useState<boolean>(false);
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
   const { toast }    = useToast();
+
+  const logoutLocal = useCallback(() => {
+    clearLocalSession();
+    setIsAuthenticated(false);
+    setAccessChecked(false);
+    setAvailableSubjects([]);
+    setPreviewStatus(null);
+    setShowSubjectSelect(false);
+  }, []);
 
   const applyAccessPayload = useCallback((d: any) => {
     const list: string[] = Array.isArray(d?.subjects) ? d.subjects : [];
@@ -185,6 +203,36 @@ export default function Home() {
       return next;
     });
   }, [setSubjectRaw]);
+
+  const refreshAccess = useCallback(() => {
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) { logoutLocal(); return Promise.resolve(); }
+
+    setAccessChecked(false);
+    return fetch('/api/auth', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ telegramId: tgId, mode: 'check_subjects', initData: initDat }),
+    })
+      .then(async r => {
+        const d = await r.json();
+        if (r.status === 403 && d.needSubscription) {
+          logoutLocal();
+          return null;
+        }
+        return d;
+      })
+      .then(d => {
+        if (!d) return;
+        if (d.registered === false) {
+          logoutLocal();
+          return;
+        }
+        applyAccessPayload(d);
+      })
+      .finally(() => setAccessChecked(true));
+  }, [applyAccessPayload, logoutLocal]);
 
   // Если активный таб админ скрыл — переключаем на первый доступный
   useEffect(() => {
@@ -263,8 +311,7 @@ export default function Home() {
         const d = await r.json();
         // Отписался от канала — разлогиниваем и возвращаем на экран входа
         if (r.status === 403 && d.needSubscription) {
-          ['is_authed', 'user_tg_id', 'available_subjects', 'subject_chosen', 'has_micro'].forEach(k => localStorage.removeItem(k));
-          setIsAuthenticated(false);
+          logoutLocal();
           return null;
         }
         return d;
@@ -272,15 +319,15 @@ export default function Home() {
       .then(d => {
         if (!d) return;
         if (d.registered === false) {
-          ['is_authed', 'user_tg_id', 'available_subjects', 'subject_chosen', 'has_micro', 'preview_end'].forEach(k => localStorage.removeItem(k));
-          setIsAuthenticated(false);
+          logoutLocal();
+          setAccessChecked(true);
           return;
         }
         applyAccessPayload(d);
         setAccessChecked(true);
       })
       .catch(() => { setAccessChecked(true); });
-  }, [isAuthenticated, applyAccessPayload]);
+  }, [isAuthenticated, applyAccessPayload, logoutLocal]);
 
   // ── Восстановление последнего предмета из localStorage (только на клиенте) ──
   useEffect(() => {
@@ -482,28 +529,23 @@ export default function Home() {
             Доступ пока не открыт
           </h1>
           <p className="text-sm leading-relaxed" style={{ color: 'var(--c-muted)' }}>
-            Администратор ещё не активировал материалы. Если уже оплатил — нажми «Обновить» или напиши в DM.
+            Войди заново ключом или кодом из канала. Если уже оплатил — напиши админу, он откроет доступ.
           </p>
           <button
             type="button"
-            onClick={() => {
-              setAccessChecked(false);
-              const tgId = localStorage.getItem('user_tg_id');
-              const initDat = (window as any).Telegram?.WebApp?.initData || '';
-              if (!tgId) return;
-              fetch('/api/auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ telegramId: tgId, mode: 'check_subjects', initData: initDat }),
-              })
-                .then(r => r.json())
-                .then(d => { if (d?.registered !== false) applyAccessPayload(d); })
-                .finally(() => setAccessChecked(true));
-            }}
+            onClick={() => refreshAccess()}
             className="w-full h-12 rounded-2xl text-sm font-semibold"
             style={{ background: 'var(--c-primary)', color: 'var(--c-bg)' }}
           >
             Обновить
+          </button>
+          <button
+            type="button"
+            onClick={logoutLocal}
+            className="w-full h-12 rounded-2xl text-sm font-semibold"
+            style={{ background: 'var(--c-card)', color: 'var(--c-text)', border: '1px solid var(--c-border)' }}
+          >
+            Войти заново
           </button>
         </div>
       </div>

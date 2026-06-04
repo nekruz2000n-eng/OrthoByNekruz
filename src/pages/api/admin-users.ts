@@ -393,6 +393,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (action === 'delete_user') {
         const id = String(tgId).trim();
+        const key = String(user?.activatedKey || '').trim();
+        if (/^\d{8}$/.test(key)) {
+          await redis.sadd('valid_keys', key);
+        }
         await redis.del(`user_id:${id}`);
         await removeUserId(redis, id);
         await clearPreviewTrialLockForUser(id);
