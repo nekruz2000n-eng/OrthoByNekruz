@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import Script from 'next/script';
 import { PREVIEW_MODULE_LABELS } from '@/lib/previewModules';
+import { getTgChatHref, formatTgChatLabel, openTgChat, normalizeTelegramUsername, isValidTelegramUsername } from '@/lib/tgLinks';
 
 interface User {
   tgId:          string;
@@ -23,6 +24,7 @@ interface User {
   previewFaculty:       string | null;
   previewNeedsConfirm?: boolean;
   previewIsAddon?:       boolean;
+  contactUsername?:     string | null;
   activatedKey:  string | null;
   registeredAt:  string | null;
   lastLogin:     string | null;
@@ -62,7 +64,7 @@ const RES_TYPE_OPTS: { id: ResType; label: string; emoji: string }[] = [
 
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo' | 'unpaid';
 type SortBy = 'registered' | 'lastLogin' | 'loginCount';
-type Action = 'block' | 'unblock' | 'reset_demo' | 'confirm_preview' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid';
+type Action = 'block' | 'unblock' | 'reset_demo' | 'confirm_preview' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid' | 'set_contact_username';
 
 type PreviewModKind = 'questions' | 'tests' | 'tasks';
 type PreviewCatalogSettings = Record<string, {
@@ -329,6 +331,13 @@ function UserCard({
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockReason, setBlockReason] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [contactDraft, setContactDraft] = useState(user.contactUsername || '');
+  const [contactError, setContactError] = useState('');
+
+  useEffect(() => {
+    setContactDraft(user.contactUsername || '');
+    setContactError('');
+  }, [user.contactUsername, user.tgId]);
 
   // Long-press на ID → копировать
   const pressTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -352,9 +361,24 @@ function UserCard({
     }
   };
 
-  const tgChatHref = user.username
-    ? `https://t.me/${user.username}`
-    : `tg://user?id=${user.tgId}`;
+  const tgChatHref = getTgChatHref(user.tgId, user.username, user.contactUsername);
+  const tgChatLabel = formatTgChatLabel(user.username, user.contactUsername);
+
+  const saveContactUsername = () => {
+    const raw = contactDraft.trim();
+    if (!raw) {
+      setContactError('');
+      onAction(user.tgId, 'set_contact_username', undefined, undefined, '');
+      return;
+    }
+    const handle = normalizeTelegramUsername(raw);
+    if (!isValidTelegramUsername(handle)) {
+      setContactError('5–32 символа, латиница, цифры и _');
+      return;
+    }
+    setContactError('');
+    onAction(user.tgId, 'set_contact_username', undefined, undefined, handle);
+  };
 
   return (
     <div style={{
@@ -421,6 +445,9 @@ function UserCard({
                 WebkitTapHighlightColor: 'transparent',
               }}
             >id {user.tgId}</span>
+            {!user.username && user.contactUsername && (
+              <Chip bg={T.infoSoft} color={T.info}>@{user.contactUsername}</Chip>
+            )}
             {hasFullKey && (
               <Chip bg={T.accentSoft} color={T.accent}>ключ</Chip>
             )}
@@ -648,6 +675,54 @@ function UserCard({
             </div>
           )}
 
+          {!user.username && (
+            <div style={{
+              background: T.surface, border: `1px solid ${T.border}`,
+              borderRadius: 10, padding: '10px 12px',
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, marginBottom: 8, letterSpacing: 0.3 }}>
+                КОНТАКТ В TELEGRAM
+              </div>
+              <div style={{ fontSize: 12, color: T.textFaint, marginBottom: 8, lineHeight: 1.45 }}>
+                У пользователя нет @username в профиле. Укажи его вручную — кнопка «Написать» откроет чат.
+              </div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
+                <input
+                  value={contactDraft}
+                  onChange={e => { setContactDraft(e.target.value); setContactError(''); }}
+                  onClick={e => e.stopPropagation()}
+                  placeholder="@username"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  style={{
+                    flex: 1, minWidth: 0,
+                    background: T.surfaceAlt, color: T.text,
+                    border: `1px solid ${contactError ? T.danger + '66' : T.border}`,
+                    borderRadius: 8, padding: '8px 10px',
+                    fontSize: 13, fontFamily: FONT_MONO,
+                    outline: 'none',
+                  }}
+                />
+                <ActionBtn
+                  variant={user.contactUsername && normalizeTelegramUsername(contactDraft) === user.contactUsername ? 'neutral' : 'primary'}
+                  disabled={busy}
+                  onClick={saveContactUsername}
+                >
+                  {busy ? '...' : 'Сохранить'}
+                </ActionBtn>
+              </div>
+              {contactError && (
+                <div style={{ fontSize: 11.5, color: T.danger, marginTop: 6 }}>{contactError}</div>
+              )}
+              {user.contactUsername && !contactError && (
+                <div style={{ fontSize: 11.5, color: T.success, marginTop: 6 }}>
+                  Привязан @{user.contactUsername}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* действия */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {user.blocked ? (
@@ -673,25 +748,23 @@ function UserCard({
                 {busy ? '...' : 'Сбросить пробный доступ'}
               </ActionBtn>
             )}
-            <a
-              href={tgChatHref}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
               style={{
                 background: T.infoSoft, color: T.info,
                 border: `1px solid ${T.info}33`,
                 borderRadius: 10, padding: '9px 13px',
                 fontSize: 13, fontWeight: 600, letterSpacing: 0.1,
-                textDecoration: 'none', minHeight: 38,
+                minHeight: 38,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 flex: '1 1 0', whiteSpace: 'nowrap',
-                fontFamily: FONT_SANS,
+                fontFamily: FONT_SANS, cursor: 'pointer',
                 WebkitTapHighlightColor: 'transparent',
               }}
-              onClick={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); openTgChat(tgChatHref); }}
             >
-              ✉ {user.username ? `@${user.username}` : 'Написать в TG'}
-            </a>
+              ✉ {tgChatLabel}
+            </button>
           </div>
 
           {/* удаление навсегда */}
@@ -1785,6 +1858,9 @@ export default function AdminPage() {
       if (action === 'block' && reason) {
         body.reason = reason;
       }
+      if (action === 'set_contact_username') {
+        body.contactUsername = reason ?? '';
+      }
 
       const r = await fetch('/api/admin-users', {
         method:  'POST',
@@ -1792,7 +1868,15 @@ export default function AdminPage() {
         body:    JSON.stringify(body),
       });
 
-      if (!r.ok) { showToast('Ошибка действия'); return; }
+      if (!r.ok) {
+        if (action === 'set_contact_username') {
+          const err = await r.json().catch(() => ({}));
+          showToast((err as { error?: string }).error || 'Некорректный username');
+        } else {
+          showToast('Ошибка действия');
+        }
+        return;
+      }
       const data = await r.json().catch(() => ({}));
 
       // Удаление — убираем пользователя из списка целиком
@@ -1840,6 +1924,13 @@ export default function AdminPage() {
           }
           case 'toggle_paid':
             return { ...u, paid: !u.paid };
+          case 'set_contact_username': {
+            const handle = String(reason ?? '').trim();
+            return {
+              ...u,
+              contactUsername: handle ? normalizeTelegramUsername(handle) : null,
+            };
+          }
           case 'toggle_subject': {
             if (!subjectId) return u;
             const newSubjects = enabled
@@ -1906,6 +1997,11 @@ export default function AdminPage() {
           const subj  = availableSubjects.find(s => s.id === subjectId);
           const subjLabel = subj?.shortLabel || subjectId;
           msg = enabled ? `✓ «${sectionLabel}» включён в ${subjLabel}` : `«${sectionLabel}» скрыт в ${subjLabel}`;
+          break;
+        }
+        case 'set_contact_username': {
+          const handle = String(reason ?? '').trim();
+          msg = handle ? `✓ Контакт @${normalizeTelegramUsername(handle)} сохранён` : 'Контакт удалён';
           break;
         }
       }

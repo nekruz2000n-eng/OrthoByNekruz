@@ -5,6 +5,7 @@ import { confirmPreviewUser, getEffectiveUserSubjects, clearPreviewTrialLock, pr
 import { clearAuthRateLimitsForTgId } from '@/lib/authRateLimit';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { getAllUserIds, registerUserId, removeUserId } from '@/lib/userIndex';
+import { isValidTelegramUsername, normalizeTelegramUsername } from '@/lib/tgLinks';
 
 const redis        = Redis.fromEnv();
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
@@ -71,6 +72,7 @@ function toListUser(
     previewFaculty:       user.previewFaculty       ?? null,
     previewNeedsConfirm:  previewChoiceNeedsAdminConfirm(user),
     previewIsAddon:       previewChoiceIsAddon(user),
+    contactUsername:      user.contactUsername      ?? null,
     activatedKey:  user.activatedKey  ?? null,
     registeredAt:  user.date          ?? null,
     lastLogin:     user.lastLogin     ?? null,
@@ -110,6 +112,7 @@ function toDetailUser(
     previewConfirmedAt:   user.previewConfirmedAt   ?? null,
     previewNeedsConfirm:  previewChoiceNeedsAdminConfirm(user),
     previewIsAddon:       previewChoiceIsAddon(user),
+    contactUsername:      user.contactUsername      ?? null,
     activatedKey:  user.activatedKey  ?? null,
     registeredAt:  user.date          ?? null,
     lastLogin:     user.lastLogin     ?? null,
@@ -206,7 +209,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'POST') return res.status(405).end();
 
   const {
-    initData, secret, action, tgId, subject, enable, reason, section,
+    initData, secret, action, tgId, subject, enable, reason, section, contactUsername: contactUsernameRaw,
     page, limit, filter, q, sortBy, sortDir,
   } = req.body ?? {};
 
@@ -389,6 +392,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const newPaid = !user.paid;
         await saveUser(String(tgId), { ...user, paid: newPaid });
         return res.status(200).json({ ok: true, paid: newPaid });
+      }
+
+      if (action === 'set_contact_username') {
+        const raw = String(contactUsernameRaw ?? reason ?? '').trim();
+        const updated: Record<string, unknown> = { ...user };
+        if (!raw) {
+          delete updated.contactUsername;
+        } else {
+          const handle = normalizeTelegramUsername(raw);
+          if (!isValidTelegramUsername(handle)) {
+            return res.status(400).json({ error: 'Некорректный username (5–32 символа, латиница)' });
+          }
+          updated.contactUsername = handle;
+        }
+        await saveUser(String(tgId), updated);
+        return res.status(200).json({
+          ok: true,
+          contactUsername: (updated.contactUsername as string | undefined) ?? null,
+        });
       }
 
       if (action === 'delete_user') {
