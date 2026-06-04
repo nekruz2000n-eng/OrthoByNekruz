@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast'; // Хук для показа вс
 import { Loader2, ExternalLink, Heart } from 'lucide-react'; // Иконки из библиотеки lucide-react
 import { cn } from '@/lib/utils';
 import {
+  detectFacultyByInput,
   resolveFacultyPromoCode,
   MAX_INPUT_LENGTH,
   getDefaultDigitIcon,
@@ -411,10 +412,27 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   // Пока компонент не смонтирован (hydration), ничего не рендерим, чтобы избежать мерцаний
   if (!mounted) return null;
 
-  const digitIcon   = getDefaultDigitIcon();
+  const promoHint   = isLegacyPaidKey(key) ? null : detectFacultyByInput(key);
+  const digitIcon   = promoHint?.digitIcon ?? getDefaultDigitIcon();
   const promoReady  = !!resolveFacultyPromoCode(key);
   const legacyReady = isLegacyPaidKey(key) && isPaidKeysEnabled;
   const canEnter    = promoReady || legacyReady;
+
+  const inputBorder = focused
+    ? promoHint?.id === 'stomatology'
+      ? 'rgba(52, 211, 153, 0.45)'
+      : promoHint?.id === 'therapeutic'
+        ? 'rgba(96, 165, 250, 0.45)'
+        : promoHint?.id === 'pediatrics'
+          ? 'rgba(251, 191, 36, 0.45)'
+          : 'hsl(var(--primary) / 0.4)'
+    : promoHint
+      ? promoHint.id === 'stomatology'
+        ? 'rgba(52, 211, 153, 0.22)'
+        : promoHint.id === 'therapeutic'
+          ? 'rgba(96, 165, 250, 0.22)'
+          : 'rgba(251, 191, 36, 0.22)'
+      : 'rgba(255,255,255,0.08)';
 
   // ── ВИЗУАЛЬНАЯ ЧАСТЬ (RENDER) ───────────────────────────────────────────────
   return (
@@ -494,13 +512,13 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               className="relative h-14 rounded-2xl flex items-center justify-center overflow-hidden cursor-text transition-colors"
               style={{
                 background: 'rgba(255,255,255,0.03)', 
-                border: `1px solid ${focused ? 'hsl(var(--primary) / 0.4)' : 'rgba(255,255,255,0.08)'}`, // Рамка ярче при фокусе
+                border: `1px solid ${inputBorder}`,
               }}
             >
               {/* Placeholder: показываем текст, если поле пустое */}
               {key.length === 0 && (
                 <span className="absolute text-[15px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                  {lockoutTime > 0 ? `Подожди ${lockoutTime}с` : 'Код факультета'}
+                  {lockoutTime > 0 ? `Подожди ${lockoutTime}с` : 'Введи код'}
                 </span>
               )}
               
@@ -566,7 +584,13 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
             >
               {loading
                 ? <Loader2 className="w-5 h-5 animate-spin" />
-                : promoReady ? `${digitIcon} Войти` : canEnter ? 'Войти' : 'Войти'}
+                : promoReady
+                  ? `${digitIcon} Войти`
+                  : promoHint && key.length > 0
+                    ? digitIcon
+                    : canEnter
+                      ? 'Войти'
+                      : 'Войти'}
             </button>
 
             <button
