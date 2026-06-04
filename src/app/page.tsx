@@ -460,7 +460,7 @@ export default function Home() {
     );
   }
 
-  if (previewStatus === 'expired') {
+  if (previewStatus === 'expired' && availableSubjects.length === 0) {
     return (
       <PreviewAwaitingScreen
         chosenSubject={previewChosen}
@@ -473,19 +473,38 @@ export default function Home() {
     );
   }
 
-  // ── Если у пользователя нет ни одной открытой дисциплины ─────────────────
   if (availableSubjects.length === 0 && previewStatus !== 'active') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background p-6">
-        <div className="max-w-sm text-center">
-          <div className="text-5xl mb-4">🔒</div>
-          <h1 className="text-xl font-bold mb-3" style={{ color: 'var(--c-text)' }}>
-            Доступ ещё не открыт
+        <div className="max-w-sm text-center space-y-4">
+          <div className="text-5xl">🔒</div>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--c-text)' }}>
+            Доступ пока не открыт
           </h1>
           <p className="text-sm leading-relaxed" style={{ color: 'var(--c-muted)' }}>
-            Ключ успешно принят, но дисциплины пока не активированы.
-            Свяжитесь с администратором.
+            Администратор ещё не активировал материалы. Если уже оплатил — нажми «Обновить» или напиши в DM.
           </p>
+          <button
+            type="button"
+            onClick={() => {
+              setAccessChecked(false);
+              const tgId = localStorage.getItem('user_tg_id');
+              const initDat = (window as any).Telegram?.WebApp?.initData || '';
+              if (!tgId) return;
+              fetch('/api/auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ telegramId: tgId, mode: 'check_subjects', initData: initDat }),
+              })
+                .then(r => r.json())
+                .then(d => { if (d?.registered !== false) applyAccessPayload(d); })
+                .finally(() => setAccessChecked(true));
+            }}
+            className="w-full h-12 rounded-2xl text-sm font-semibold"
+            style={{ background: 'var(--c-primary)', color: 'var(--c-bg)' }}
+          >
+            Обновить
+          </button>
         </div>
       </div>
     );

@@ -303,8 +303,10 @@ export function confirmPreviewUser(user: any) {
 
 export function getEffectiveUserSubjects(user: any): string[] {
   if (!user) return [];
-  if (user.previewStatus === 'selecting' || user.previewStatus === 'expired') return [];
-  if (user.previewStatus === 'active' && isPreviewExpired(user)) return [];
+  if (user.previewStatus === 'selecting') return [];
+  if (user.previewStatus === 'active' && isPreviewExpired(user)) {
+    return getUserAvailableSubjects(user);
+  }
   return getUserAvailableSubjects(user);
 }
 

@@ -484,10 +484,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       : createDefaultSubjects();
 
     const activatedUser = {
-      activatedKey: key.trim(),
-      date:         new Date().toISOString(),
+      ...(user || {}),
+      activatedKey:       key.trim(),
+      date:               user?.date ?? new Date().toISOString(),
       username, firstName, lastName,
-      subjects:     existingSubjects,
+      subjects:           existingSubjects,
+      previewStatus:      null,
+      previewChosenSubject:  null,
+      previewChosenModules:  null,
+      previewStartedAt:      null,
+      previewExpiredAt:      null,
+      _subjectsBeforePreview:     undefined,
+      _previewStatusBeforeCatalog: undefined,
       _migrated_subjects: true,
     };
 
