@@ -141,7 +141,7 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
               </p>
             )}
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-row items-stretch gap-1.5 w-full">
               {moduleRow.map(opt => {
                 const active = selectedModules.includes(opt.id);
                 const disabled = !canEditModules || savingModules || !opt.selectable;
@@ -151,34 +151,23 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
                     type="button"
                     disabled={disabled}
                     onClick={() => toggleModule(opt.id, opt.selectable)}
-                    className="rounded-xl px-1 py-2.5 transition-all active:scale-[0.97] disabled:cursor-not-allowed"
+                    className="flex-1 min-w-0 h-9 rounded-lg transition-all active:scale-[0.97] disabled:cursor-not-allowed inline-flex items-center justify-center"
                     style={{
                       background: active
                         ? `color-mix(in srgb, ${accent} 18%, var(--c-card))`
                         : 'var(--c-bg)',
                       border: active
-                        ? `2px solid ${accent}`
-                        : '1.5px solid var(--c-border)',
-                      opacity: opt.selectable ? (disabled ? 0.55 : 1) : 0.38,
-                      boxShadow: active
-                        ? `0 4px 14px color-mix(in srgb, ${accent} 22%, transparent)`
-                        : 'none',
+                        ? `1.5px solid ${accent}`
+                        : '1px solid var(--c-border)',
+                      opacity: opt.selectable ? (disabled ? 0.55 : 1) : 0.35,
                     }}
                   >
-                    <div
-                      className="text-[11px] font-bold leading-tight"
+                    <span
+                      className="text-[10px] font-bold leading-none whitespace-nowrap"
                       style={{ color: active ? accent : 'var(--c-muted)' }}
                     >
                       {opt.shortLabel}
-                    </div>
-                    {opt.unitPriceRub != null && (
-                      <div
-                        className="text-[10px] font-semibold mt-0.5"
-                        style={{ color: active ? 'var(--c-text)' : 'var(--c-muted)', opacity: 0.9 }}
-                      >
-                        {formatPriceRub(opt.unitPriceRub)}
-                      </div>
-                    )}
+                    </span>
                   </button>
                 );
               })}
@@ -194,11 +183,9 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
                   {savingModules && <Loader2 className="w-4 h-4 animate-spin opacity-70" />}
                 </div>
                 {priceSummary.lines.length > 0 && (
-                  <div className="text-[12px] space-y-0.5" style={{ color: 'var(--c-muted)' }}>
-                    {priceSummary.lines.map(line => (
-                      <div key={line}>· {line}</div>
-                    ))}
-                  </div>
+                  <p className="text-[11px] leading-snug" style={{ color: 'var(--c-muted)' }}>
+                    {priceSummary.lines.join(' · ')}
+                  </p>
                 )}
                 <p className="text-[11px] leading-snug" style={{ color: 'var(--c-muted)', opacity: 0.85 }}>
                   {priceSummary.hint}

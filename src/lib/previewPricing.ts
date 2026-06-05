@@ -51,9 +51,9 @@ const ALL_PREVIEW_MODULES: PreviewModule[] = ['questions', 'tests', 'tasks'];
 export const PAYMENT_MODULE_ROW_ORDER: PreviewModule[] = ['questions', 'tests', 'tasks'];
 
 const PAYMENT_MODULE_SHORT_LABELS: Record<PreviewModule, string> = {
-  questions: 'Вопросы',
-  tests:     'Тесты',
-  tasks:     'Задачи',
+  questions: 'Вопр.',
+  tests:     'Тест',
+  tasks:     'Задач.',
 };
 
 /** Разделы с ценой за единицу — для кнопок на экране оплаты. */
