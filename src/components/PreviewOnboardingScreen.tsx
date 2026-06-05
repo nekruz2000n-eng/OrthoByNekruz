@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { FacultyIcon } from '@/components/FacultyIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';

@@ -70,6 +70,7 @@ function toListUser(
     promoCode:            user.promoCode            ?? null,
     facultyId:            user.facultyId            ?? null,
     previewFaculty:       user.previewFaculty       ?? null,
+    previewConfirmedAt:   user.previewConfirmedAt   ?? null,
     previewNeedsConfirm:  previewChoiceNeedsAdminConfirm(user),
     previewIsAddon:       previewChoiceIsAddon(user),
     contactUsername:      user.contactUsername      ?? null,

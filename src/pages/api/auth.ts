@@ -132,7 +132,6 @@ async function handlePreviewStart(
     return res.status(200).json({
       success: true,
       alreadyConfirmed: true,
-      subjects: getUserAvailableSubjects(healed),
       ...(await subjectsResponse(healed, tgIdStr)),
     });
   }
@@ -309,15 +308,11 @@ async function saveUser(tgId: string, user: any) {
 }
 
 async function subjectsResponse(user: any, tgId?: string) {
-  const navHidden = (user.navHidden && typeof user.navHidden === 'object')
-    ? user.navHidden as Record<string, string[]>
-    : {};
   const subjects = getEffectiveUserSubjects(user, tgId);
   const catalog = user?.previewStatus ? await buildPreviewSubjectCatalog(redis) : undefined;
   return {
-    subjects,
-    navHidden,
     registered: true,
+    subjects,
     ...previewPayload(user, catalog, tgId),
   };
 }

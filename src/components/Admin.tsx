@@ -23,6 +23,8 @@ interface User {
   promoCode:            string | null;
   facultyId:            string | null;
   previewFaculty:       string | null;
+  previewStartedAt?:    string | null;
+  previewConfirmedAt?:  string | null;
   previewNeedsConfirm?: boolean;
   previewIsAddon?:       boolean;
   contactUsername?:     string | null;
