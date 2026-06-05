@@ -20,3 +20,11 @@ export function normalizePreviewModules(input: unknown): PreviewModule[] {
     .map(m => String(m))
     .filter((m): m is PreviewModule => allowed.includes(m as PreviewModule));
 }
+
+const MODULE_TAB_ORDER: PreviewModule[] = ['questions', 'tests', 'tasks'];
+
+/** Первый раздел из выбора — для входа в приложение после витрины или оплаты. */
+export function firstPreviewModuleTab(modules: string[] | PreviewModule[]): PreviewModule | null {
+  const chosen = normalizePreviewModules(modules);
+  return MODULE_TAB_ORDER.find(m => chosen.includes(m)) ?? null;
+}

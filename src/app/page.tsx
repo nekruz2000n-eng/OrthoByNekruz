@@ -17,7 +17,7 @@ import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
 import { getDefaultSubjectId } from '@/lib/subjects';
 import { getPreviewDurationMs, type PreviewStatus } from '@/lib/preview';
-import type { PreviewModule } from '@/lib/previewModules';
+import { firstPreviewModuleTab, type PreviewModule } from '@/lib/previewModules';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
 import { persistFacultyId, USER_FACULTY_ID_KEY } from '@/lib/facultyCodes';
 
@@ -287,6 +287,12 @@ export default function Home() {
         localStorage.setItem('last_subject', pendingSubject);
         localStorage.setItem('subject_chosen', 'true');
       }
+    }
+
+    if (ps === 'active' && pendingSubject) {
+      setSubjectRaw(pendingSubject);
+      localStorage.setItem('last_subject', pendingSubject);
+      localStorage.setItem('subject_chosen', 'true');
     }
 
     if (ps === 'expired') {
@@ -677,7 +683,12 @@ export default function Home() {
       }
       localStorage.setItem('is_authed', 'true');
       localStorage.setItem('subject_chosen', 'true');
+      localStorage.setItem('last_subject', subjectId);
       accessRequestGen.current += 1;
+      setSubjectRaw(subjectId);
+      const entryTab = firstPreviewModuleTab(modules);
+      if (entryTab) setActiveTab(entryTab);
+      setAccessChecked(true);
       applyAccessPayload(data);
       if (data.facultyRecorded) {
         toast({ title: 'Готово', description: 'Факультет сохранён — можно продолжать' });
@@ -746,6 +757,14 @@ export default function Home() {
       localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
       localStorage.setItem('is_authed', 'true');
       applyAccessPayload(data);
+      const grantedSubject = (data.previewChosenSubject as string | null) ?? previewChosen;
+      if (grantedSubject) {
+        setSubjectRaw(grantedSubject);
+        localStorage.setItem('last_subject', grantedSubject);
+        localStorage.setItem('subject_chosen', 'true');
+      }
+      const entryTab = firstPreviewModuleTab(modules);
+      if (entryTab) setActiveTab(entryTab);
       previewPollGen.current += 1;
       setAccessChecked(true);
       localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
@@ -755,7 +774,7 @@ export default function Home() {
     } finally {
       setStatusChecking(false);
     }
-  }, [applyAccessPayload, toast]);
+  }, [applyAccessPayload, previewChosen, toast]);
 
   const handleCheckPreviewStatus = useCallback(async () => {
     const tgId    = localStorage.getItem('user_tg_id');
@@ -850,7 +869,7 @@ export default function Home() {
     );
   }
 
-  if (!accessChecked && previewStatus !== 'expired' && !receiptClaimedAt) {
+  if (!accessChecked && previewStatus !== 'expired' && previewStatus !== 'active' && !receiptClaimedAt) {
     return withAccessWelcome(
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
