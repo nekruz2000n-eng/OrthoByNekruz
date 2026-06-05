@@ -37,6 +37,41 @@ function calcOrthoPreviewPrice(modules: PreviewModule[]): number {
   return total;
 }
 
+export type PaymentModuleOption = {
+  id: PreviewModule;
+  label: string;
+  unitPriceRub: number | null;
+};
+
+const ALL_PREVIEW_MODULES: PreviewModule[] = ['questions', 'tests', 'tasks'];
+
+/** Разделы с ценой за единицу — для кнопок на экране оплаты. */
+export function getPaymentModuleOptions(subjectId: string): PaymentModuleOption[] {
+  if (subjectId === 'ortho') {
+    return ALL_PREVIEW_MODULES.map(id => ({
+      id,
+      label: PREVIEW_MODULE_LABELS[id],
+      unitPriceRub: ORTHO_MODULE_PRICES[id],
+    }));
+  }
+  if (subjectId === 'micro') {
+    return ALL_PREVIEW_MODULES.map(id => ({
+      id,
+      label: PREVIEW_MODULE_LABELS[id],
+      unitPriceRub: MODULE_PRICE_RUB,
+    }));
+  }
+  return [{
+    id: 'tests',
+    label: PREVIEW_MODULE_LABELS.tests,
+    unitPriceRub: MODULE_PRICE_RUB,
+  }];
+}
+
+export function getModuleUnitPriceRub(subjectId: string, module: PreviewModule): number | null {
+  return getPaymentModuleOptions(subjectId).find(o => o.id === module)?.unitPriceRub ?? null;
+}
+
 export function getPreviewPriceHint(subjectId: string): string {
   if (subjectId === 'ortho') {
     return 'Вопросы 1000 ₽ · Задачи 500 ₽ · Тест 500 ₽ · без теста = 1200 ₽';

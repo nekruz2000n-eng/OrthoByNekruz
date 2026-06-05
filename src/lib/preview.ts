@@ -343,6 +343,26 @@ export function inferChosenModulesForConfirm(user: any, subjectId: string): Prev
   return [];
 }
 
+/** Студент меняет разделы на экране оплаты — пересчёт суммы и заявки. */
+export function updatePreviewPaymentChoice(user: any, modules: PreviewModule[]) {
+  const subject = user?.previewChosenSubject;
+  if (!subject) return null;
+  if (user.receiptClaimedAt || hasFinalizedPreviewAccess(user)) return null;
+
+  const chosen = normalizePreviewModules(modules);
+  if (chosen.length === 0) return null;
+
+  const hiddenTabs = buildNavHiddenForPreview(subject, chosen);
+  const navHidden = { ...(user.navHidden || {}), [subject]: hiddenTabs };
+
+  return {
+    ...user,
+    previewChosenModules: chosen,
+    previewQuotedPrice:   calcPreviewPriceRub(subject, chosen),
+    navHidden,
+  };
+}
+
 /** Студент нажал «Скинул чек» — убираем пробник, ждём подтверждения админа. */
 export function claimPreviewReceipt(user: any) {
   const chosen = user?.previewChosenSubject;

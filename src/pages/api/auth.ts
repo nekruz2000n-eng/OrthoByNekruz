@@ -23,6 +23,7 @@ import {
   hasFinalizedPreviewAccess,
   healStalePreviewForFinalizedUser,
   claimPreviewReceipt,
+  updatePreviewPaymentChoice,
   normalizePreviewModules,
 } from '@/lib/preview';
 import { resolveFacultyPromoCode, facultyFieldsFromUser, getFacultyPromoById } from '@/lib/facultyCodes';
@@ -506,6 +507,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       await saveUser(tgIdStr, updated);
 
+      return res.status(200).json({
+        success: true,
+        ...(await subjectsResponse(updated, tgIdStr)),
+      });
+    }
+
+    if (mode === 'update_preview_payment_choice') {
+      if (!user?.previewChosenSubject) {
+        return res.status(400).json({ error: 'Заявка не найдена.' });
+      }
+      if (user.receiptClaimedAt) {
+        return res.status(400).json({ error: 'После отправки чека выбор изменить нельзя.' });
+      }
+      user = await maybeExpirePreviewUser(redis, tgIdStr, user);
+      const updated = updatePreviewPaymentChoice(user, normalizePreviewModules(modules));
+      if (!updated) {
+        return res.status(400).json({ error: 'Выбери хотя бы один раздел.' });
+      }
+      await saveUser(tgIdStr, updated);
       return res.status(200).json({
         success: true,
         ...(await subjectsResponse(updated, tgIdStr)),

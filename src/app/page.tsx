@@ -17,6 +17,7 @@ import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
 import { getDefaultSubjectId } from '@/lib/subjects';
 import { getPreviewDurationMs, type PreviewStatus } from '@/lib/preview';
+import type { PreviewModule } from '@/lib/previewModules';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
 import { persistFacultyId, USER_FACULTY_ID_KEY } from '@/lib/facultyCodes';
 
@@ -171,6 +172,7 @@ export default function Home() {
   const [previewStartedAt, setPreviewStartedAt] = useState<string | null>(null);
   const [previewPicking,  setPreviewPicking]   = useState<boolean>(false);
   const [statusChecking,  setStatusChecking]  = useState<boolean>(false);
+  const [savingPaymentModules, setSavingPaymentModules] = useState<boolean>(false);
   const [previewStatusMessage, setPreviewStatusMessage] = useState('');
   const [previewQuotedPrice, setPreviewQuotedPrice] = useState<number | null>(null);
   const [receiptClaimedAt, setReceiptClaimedAt] = useState<string | null>(null);
@@ -669,6 +671,36 @@ export default function Home() {
     }
   }, [applyAccessPayload, toast]);
 
+  const handleUpdatePreviewPaymentModules = useCallback(async (modules: PreviewModule[]) => {
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) return;
+    setSavingPaymentModules(true);
+    setPreviewStatusMessage('');
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: tgId,
+          mode: 'update_preview_payment_choice',
+          modules,
+          initData: initDat,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPreviewStatusMessage(data.error || 'Не удалось сохранить выбор.');
+        return;
+      }
+      applyAccessPayload(data);
+    } catch {
+      setPreviewStatusMessage('Ошибка соединения. Попробуй ещё раз.');
+    } finally {
+      setSavingPaymentModules(false);
+    }
+  }, [applyAccessPayload]);
+
   const handleClaimReceipt = useCallback(async () => {
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
@@ -835,12 +867,13 @@ export default function Home() {
       <PreviewAwaitingScreen
         chosenSubject={previewChosen}
         chosenModules={previewModules}
-        quotedPrice={previewQuotedPrice}
         receiptClaimed={!!receiptClaimedAt}
         checking={statusChecking}
+        savingModules={savingPaymentModules}
         statusMessage={previewStatusMessage}
         onCheckStatus={handleCheckPreviewStatus}
         onClaimReceipt={handleClaimReceipt}
+        onModulesChange={handleUpdatePreviewPaymentModules}
         onBackToAvailable={
           availableSubjects.some(s => s !== previewChosen)
             ? handleBackFromPendingPreview

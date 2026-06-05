@@ -1,10 +1,14 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getSubject } from '@/lib/subjects';
-import { formatPreviewModulesList, type PreviewModule } from '@/lib/previewModules';
-import { describePreviewPrice, formatPriceRub } from '@/lib/previewPricing';
-import { Loader2, X } from 'lucide-react';
+import { normalizePreviewModules, type PreviewModule } from '@/lib/previewModules';
+import {
+  describePreviewPrice,
+  formatPriceRub,
+  getPaymentModuleOptions,
+} from '@/lib/previewPricing';
+import { Check, Loader2, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const SBP_PHONE_DISPLAY = '+7 900 316 66 46';
@@ -14,40 +18,62 @@ const RECEIPT_TG_URL = 'https://t.me/evoeidos';
 interface PreviewAwaitingScreenProps {
   chosenSubject: string | null;
   chosenModules?: string[];
-  quotedPrice?: number | null;
   receiptClaimed?: boolean;
   checking?: boolean;
+  savingModules?: boolean;
   statusMessage?: string;
   onCheckStatus?: () => void;
   onClaimReceipt?: () => void;
+  onModulesChange?: (modules: PreviewModule[]) => void;
   onBackToAvailable?: () => void;
 }
 
 export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
   chosenSubject,
   chosenModules = [],
-  quotedPrice = null,
   receiptClaimed = false,
   checking = false,
+  savingModules = false,
   statusMessage,
   onCheckStatus,
   onClaimReceipt,
+  onModulesChange,
   onBackToAvailable,
 }) => {
   const { toast } = useToast();
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [selectedModules, setSelectedModules] = useState<PreviewModule[]>(
+    () => normalizePreviewModules(chosenModules),
+  );
+
+  useEffect(() => {
+    setSelectedModules(normalizePreviewModules(chosenModules));
+  }, [chosenModules]);
+
   const subjectCfg = chosenSubject ? getSubject(chosenSubject) : null;
-  const modulesLabel = formatPreviewModulesList(chosenModules);
+  const moduleOptions = useMemo(
+    () => (chosenSubject ? getPaymentModuleOptions(chosenSubject) : []),
+    [chosenSubject],
+  );
 
   const priceSummary = useMemo(() => {
-    if (!chosenSubject || chosenModules.length === 0) return null;
-    const fromChoice = describePreviewPrice(chosenSubject, chosenModules as PreviewModule[]);
-    if (!fromChoice) return null;
-    if (quotedPrice != null && quotedPrice !== fromChoice.total) {
-      return { ...fromChoice, total: quotedPrice };
-    }
-    return fromChoice;
-  }, [chosenSubject, chosenModules, quotedPrice]);
+    if (!chosenSubject || selectedModules.length === 0) return null;
+    return describePreviewPrice(chosenSubject, selectedModules);
+  }, [chosenSubject, selectedModules]);
+
+  const canEditModules = !receiptClaimed && moduleOptions.length > 0;
+
+  const toggleModule = (id: PreviewModule) => {
+    if (!canEditModules) return;
+    setSelectedModules(prev => {
+      const next = prev.includes(id)
+        ? prev.filter(m => m !== id)
+        : [...prev, id];
+      if (next.length === 0) return prev;
+      onModulesChange?.(next);
+      return next;
+    });
+  };
 
   const copyPhone = useCallback(async () => {
     try {
@@ -75,12 +101,18 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
       onCheckStatus?.();
       return;
     }
+    if (selectedModules.length === 0) {
+      toast({ variant: 'destructive', title: 'Выбери хотя бы один раздел' });
+      return;
+    }
     setReceiptModalOpen(true);
   };
 
+  const accent = subjectCfg?.color ?? 'hsl(var(--primary))';
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-6">
-      <div className="max-w-sm text-center space-y-5">
+      <div className="max-w-sm text-center space-y-5 w-full">
         <div className="text-5xl">{receiptClaimed ? '📨' : '⏳'}</div>
         <h1 className="text-xl font-bold leading-snug" style={{ color: 'var(--c-text)' }}>
           {receiptClaimed ? 'Чек отправлен — ждём подтверждения' : 'Ты уже знаешь что внутри.'}
@@ -91,29 +123,89 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
             : <>Плата не за доступ —<br />за то, чтобы не потерять то, что уже нашёл.</>}
         </p>
 
-        {priceSummary && (
+        {chosenSubject && (
           <div
-            className="rounded-2xl p-4 text-left space-y-2"
+            className="rounded-2xl p-4 text-left space-y-3"
             style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
           >
-            <div className="text-center">
-              <div className="text-[11px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--c-muted)' }}>
-                К переводу
-              </div>
-              <div className="text-2xl font-extrabold" style={{ color: subjectCfg?.color ?? 'var(--c-text)' }}>
-                {formatPriceRub(priceSummary.total)}
-              </div>
-            </div>
-            {priceSummary.lines.length > 0 && (
-              <div className="text-[12px] space-y-0.5 pt-1" style={{ color: 'var(--c-muted)' }}>
-                {priceSummary.lines.map(line => (
-                  <div key={line}>· {line}</div>
-                ))}
+            {subjectCfg && (
+              <div className="text-sm text-center">
+                <span style={{ color: 'var(--c-muted)' }}>Предмет: </span>
+                <strong style={{ color: subjectCfg.color }}>{subjectCfg.label}</strong>
               </div>
             )}
-            <p className="text-[11px] leading-snug text-center pt-1" style={{ color: 'var(--c-muted)', opacity: 0.85 }}>
-              {priceSummary.hint}
-            </p>
+
+            <div>
+              <div className="text-[11px] uppercase tracking-wide mb-2 text-center" style={{ color: 'var(--c-muted)' }}>
+                {canEditModules ? 'Что оплачиваешь — нажми, чтобы изменить' : 'Разделы в заявке'}
+              </div>
+              <div className="flex flex-col gap-2">
+                {moduleOptions.map(opt => {
+                  const picked = selectedModules.includes(opt.id);
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      disabled={!canEditModules || savingModules}
+                      onClick={() => toggleModule(opt.id)}
+                      className="rounded-2xl p-3 text-left transition-all active:scale-[0.99] disabled:opacity-60"
+                      style={{
+                        background: picked ? `color-mix(in srgb, ${accent} 12%, var(--c-card))` : 'var(--c-bg)',
+                        border: `1.5px solid ${picked ? accent : 'var(--c-border)'}`,
+                        cursor: canEditModules ? 'pointer' : 'default',
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                            style={{
+                              background: picked ? accent : 'transparent',
+                              border: `2px solid ${picked ? accent : 'var(--c-border)'}`,
+                              color: picked ? 'var(--c-bg)' : 'transparent',
+                            }}
+                          >
+                            {picked && <Check className="w-3 h-3" strokeWidth={3} />}
+                          </span>
+                          <span className="text-[14px] font-semibold" style={{ color: 'var(--c-text)' }}>
+                            {opt.label}
+                          </span>
+                        </div>
+                        {opt.unitPriceRub != null && (
+                          <span className="text-[13px] font-bold shrink-0" style={{ color: picked ? accent : 'var(--c-muted)' }}>
+                            {formatPriceRub(opt.unitPriceRub)}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {priceSummary && (
+              <div className="pt-1 border-t text-center" style={{ borderColor: 'var(--c-border)' }}>
+                <div className="text-[11px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--c-muted)' }}>
+                  К переводу
+                </div>
+                <div className="text-2xl font-extrabold" style={{ color: accent }}>
+                  {formatPriceRub(priceSummary.total)}
+                  {savingModules && (
+                    <Loader2 className="inline w-4 h-4 ml-2 animate-spin opacity-70" />
+                  )}
+                </div>
+                {priceSummary.lines.length > 0 && (
+                  <div className="text-[12px] space-y-0.5 pt-1" style={{ color: 'var(--c-muted)' }}>
+                    {priceSummary.lines.map(line => (
+                      <div key={line}>· {line}</div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[11px] leading-snug pt-1" style={{ color: 'var(--c-muted)', opacity: 0.85 }}>
+                  {priceSummary.hint}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -140,26 +232,6 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
           </div>
         )}
 
-        {(subjectCfg || modulesLabel) && (
-          <div
-            className="rounded-2xl p-4 text-left text-sm space-y-2"
-            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
-          >
-            {subjectCfg && (
-              <div>
-                <span style={{ color: 'var(--c-muted)' }}>Предмет: </span>
-                <strong style={{ color: subjectCfg.color }}>{subjectCfg.label}</strong>
-              </div>
-            )}
-            {modulesLabel && (
-              <div>
-                <span style={{ color: 'var(--c-muted)' }}>Разделы: </span>
-                <strong style={{ color: 'var(--c-text)' }}>{modulesLabel}</strong>
-              </div>
-            )}
-          </div>
-        )}
-
         {statusMessage && (
           <div
             className="rounded-2xl px-4 py-3 text-sm leading-relaxed text-left"
@@ -177,8 +249,8 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
           <button
             type="button"
             onClick={handleCheckClick}
-            disabled={checking}
-            className="w-full h-12 rounded-2xl text-sm font-semibold inline-flex items-center justify-center gap-2"
+            disabled={checking || savingModules || selectedModules.length === 0}
+            className="w-full h-12 rounded-2xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50"
             style={{
               background: 'var(--c-primary)',
               color: 'var(--c-bg)',
@@ -194,8 +266,8 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
           <button
             type="button"
             onClick={onBackToAvailable}
-            disabled={checking}
-            className="w-full h-12 rounded-2xl text-sm font-semibold"
+            disabled={checking || savingModules}
+            className="w-full h-12 rounded-2xl text-sm font-semibold disabled:opacity-50"
             style={{
               background: 'var(--c-card)',
               color: 'var(--c-text)',
