@@ -80,6 +80,7 @@ function toListUser(
     loginCount:    Number(user.loginCount) || 0,
     opensToday,
     suspicious:    isSuspicious(opensToday),
+    navHidden:     (user.navHidden && typeof user.navHidden === 'object') ? user.navHidden : {},
     paid:          user.paid === true,
   };
 }
@@ -384,6 +385,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           });
         }
         const updated = confirmPreviewUser(user);
+        if (!updated) {
+          return res.status(400).json({
+            error: 'Не удалось определить выбранные разделы. Попроси студента выбрать заново.',
+          });
+        }
         await saveUser(String(tgId), updated);
         return res.status(200).json({
           ok: true,

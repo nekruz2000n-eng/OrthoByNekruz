@@ -317,16 +317,29 @@ export function expirePreviewUser(user: any) {
   };
 }
 
+/** Разделы из заявки: сначала previewChosenModules, иначе из navHidden активной пробы. */
+export function inferChosenModulesForConfirm(user: any, subjectId: string): PreviewModule[] {
+  const fromField = normalizePreviewModules(user?.previewChosenModules);
+  if (fromField.length > 0) return fromField;
+
+  const hiddenList = user?.navHidden?.[subjectId];
+  if (Array.isArray(hiddenList)) {
+    const hidden = new Set(hiddenList.map(String));
+    const inferred = (['questions', 'tests', 'tasks'] as PreviewModule[]).filter(
+      m => !hidden.has(m),
+    );
+    if (inferred.length > 0) return inferred;
+  }
+
+  return [];
+}
+
 export function confirmPreviewUser(user: any) {
   const chosen = user.previewChosenSubject;
-  let modules = normalizePreviewModules(user.previewChosenModules);
-  if (!chosen) return user;
-  if (modules.length === 0) {
-    modules = (['questions', 'tests', 'tasks'] as PreviewModule[]).filter(
-      m => !getNavHiddenForSubject(chosen).includes(m),
-    );
-  }
-  if (modules.length === 0) return user;
+  if (!chosen) return null;
+
+  const modules = inferChosenModulesForConfirm(user, chosen);
+  if (modules.length === 0) return null;
 
   const subjects = user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object'
     ? { ...user._subjectsBeforePreview }

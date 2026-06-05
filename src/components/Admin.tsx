@@ -1988,6 +1988,10 @@ export default function AdminPage() {
         return next;
       });
 
+      if (action === 'confirm_preview') {
+        void fetchUserDetail(secret, tgId);
+      }
+
       if (action === 'reset_demo') setDemoCount(c => Math.max(0, c - 1));
       if (action === 'toggle_paid') {
         const nowPaid = !users.find(u => u.tgId === tgId)?.paid;
