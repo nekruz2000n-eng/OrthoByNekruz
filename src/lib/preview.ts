@@ -27,11 +27,15 @@ export function buildNavHiddenForPreview(
 export const PREVIEW_DURATION_MS = 10 * 60 * 1000;
 export const PREVIEW_SHORT_DURATION_MS = 40 * 1000;
 
-/** TG ID с укороченным пробником (для теста оплаты). */
+/** TG ID с укороченным пробником (для теста оплаты; совпадает с ADMIN_TG_ID). */
 const PREVIEW_SHORT_DURATION_TG_IDS = new Set(['978243325']);
 
+export function isPreviewShortDurationAccount(tgId?: string | null): boolean {
+  return !!tgId && PREVIEW_SHORT_DURATION_TG_IDS.has(String(tgId).trim());
+}
+
 export function getPreviewDurationMs(tgId?: string | null): number {
-  if (tgId && PREVIEW_SHORT_DURATION_TG_IDS.has(String(tgId).trim())) {
+  if (isPreviewShortDurationAccount(tgId)) {
     return PREVIEW_SHORT_DURATION_MS;
   }
   return PREVIEW_DURATION_MS;

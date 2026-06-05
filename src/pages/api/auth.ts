@@ -19,6 +19,7 @@ import {
   maybeExpirePreviewUser,
   previewEndsAt,
   isPreviewTrialLocked,
+  isPreviewShortDurationAccount,
   normalizePreviewModules,
 } from '@/lib/preview';
 import { resolveFacultyPromoCode, facultyFieldsFromUser, getFacultyPromoById } from '@/lib/facultyCodes';
@@ -472,7 +473,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             error: 'Этот предмет уже открыт. Выбери другой.',
           });
         }
-      } else if (userAlreadyHasSubjectAccess(user, chosen)) {
+      } else if (
+        userAlreadyHasSubjectAccess(user, chosen)
+        && !isPreviewShortDurationAccount(tgIdStr)
+      ) {
         const updated = recordFacultyChoiceOnly(user, chosen, chosenModules);
         updated.username   = username ?? updated.username;
         updated.firstName  = firstName ?? updated.firstName;
