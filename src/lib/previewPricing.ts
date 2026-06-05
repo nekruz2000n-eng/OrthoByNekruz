@@ -1,4 +1,5 @@
 import type { PreviewModule } from '@/lib/previewModules';
+import { PREVIEW_MODULE_LABELS } from '@/lib/previewModules';
 
 const MODULE_PRICE_RUB = 500;
 
@@ -44,6 +45,58 @@ export function getPreviewPriceHint(subjectId: string): string {
     return 'Каждый раздел — 500 ₽';
   }
   return 'Любой тест — 500 ₽';
+}
+
+export type PreviewPriceSummary = {
+  total: number;
+  hint: string;
+  lines: string[];
+};
+
+/** Для экрана оплаты после пробы — сумма и расшифровка по выбору. */
+export function describePreviewPrice(
+  subjectId: string,
+  modules: PreviewModule[] = [],
+): PreviewPriceSummary | null {
+  const chosen = modules.filter(Boolean);
+  if (!subjectId || chosen.length === 0) return null;
+
+  const total = calcPreviewPriceRub(subjectId, chosen);
+  if (total <= 0) return null;
+
+  if (subjectId === 'ortho') {
+    const hasQuestions = chosen.includes('questions');
+    const hasTasks     = chosen.includes('tasks');
+    const hasTests     = chosen.includes('tests');
+
+    if (hasQuestions && hasTasks && !hasTests) {
+      return {
+        total,
+        hint: getPreviewPriceHint(subjectId),
+        lines: ['Вопросы + задачи (пакет без теста)'],
+      };
+    }
+
+    const lines: string[] = [];
+    if (hasQuestions) lines.push(PREVIEW_MODULE_LABELS.questions);
+    if (hasTasks)     lines.push(PREVIEW_MODULE_LABELS.tasks);
+    if (hasTests)     lines.push(PREVIEW_MODULE_LABELS.tests);
+    return { total, hint: getPreviewPriceHint(subjectId), lines };
+  }
+
+  if (subjectId === 'micro') {
+    return {
+      total,
+      hint: getPreviewPriceHint(subjectId),
+      lines: chosen.map(m => PREVIEW_MODULE_LABELS[m]),
+    };
+  }
+
+  return {
+    total,
+    hint: getPreviewPriceHint(subjectId),
+    lines: ['Доступ к тесту'],
+  };
 }
 
 export function formatPriceRub(amount: number): string {

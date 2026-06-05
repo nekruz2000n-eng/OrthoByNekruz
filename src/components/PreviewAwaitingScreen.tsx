@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { getSubject } from '@/lib/subjects';
-import { formatPreviewModulesList } from '@/lib/previewModules';
-import { formatPriceRub } from '@/lib/previewPricing';
+import { formatPreviewModulesList, type PreviewModule } from '@/lib/previewModules';
+import { describePreviewPrice, formatPriceRub } from '@/lib/previewPricing';
 import { Loader2, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -38,6 +38,16 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const subjectCfg = chosenSubject ? getSubject(chosenSubject) : null;
   const modulesLabel = formatPreviewModulesList(chosenModules);
+
+  const priceSummary = useMemo(() => {
+    if (!chosenSubject || chosenModules.length === 0) return null;
+    const fromChoice = describePreviewPrice(chosenSubject, chosenModules as PreviewModule[]);
+    if (!fromChoice) return null;
+    if (quotedPrice != null && quotedPrice !== fromChoice.total) {
+      return { ...fromChoice, total: quotedPrice };
+    }
+    return fromChoice;
+  }, [chosenSubject, chosenModules, quotedPrice]);
 
   const copyPhone = useCallback(async () => {
     try {
@@ -81,17 +91,29 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
             : <>Плата не за доступ —<br />за то, чтобы не потерять то, что уже нашёл.</>}
         </p>
 
-        {quotedPrice != null && (
+        {priceSummary && (
           <div
-            className="rounded-2xl px-4 py-3"
+            className="rounded-2xl p-4 text-left space-y-2"
             style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
           >
-            <div className="text-[11px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--c-muted)' }}>
-              Сумма перевода
+            <div className="text-center">
+              <div className="text-[11px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--c-muted)' }}>
+                К переводу
+              </div>
+              <div className="text-2xl font-extrabold" style={{ color: subjectCfg?.color ?? 'var(--c-text)' }}>
+                {formatPriceRub(priceSummary.total)}
+              </div>
             </div>
-            <div className="text-2xl font-extrabold" style={{ color: subjectCfg?.color ?? 'var(--c-text)' }}>
-              {formatPriceRub(quotedPrice)}
-            </div>
+            {priceSummary.lines.length > 0 && (
+              <div className="text-[12px] space-y-0.5 pt-1" style={{ color: 'var(--c-muted)' }}>
+                {priceSummary.lines.map(line => (
+                  <div key={line}>· {line}</div>
+                ))}
+              </div>
+            )}
+            <p className="text-[11px] leading-snug text-center pt-1" style={{ color: 'var(--c-muted)', opacity: 0.85 }}>
+              {priceSummary.hint}
+            </p>
           </div>
         )}
 
@@ -221,9 +243,9 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
             <h2 className="text-lg font-bold" style={{ color: 'var(--c-text)' }}>
               Чек на @evoeidos скинул?
             </h2>
-            {quotedPrice != null && (
+            {priceSummary && (
               <p className="text-sm" style={{ color: 'var(--c-muted)' }}>
-                Сумма: <strong style={{ color: 'var(--c-text)' }}>{formatPriceRub(quotedPrice)}</strong>
+                Сумма: <strong style={{ color: 'var(--c-text)' }}>{formatPriceRub(priceSummary.total)}</strong>
               </p>
             )}
             <a
