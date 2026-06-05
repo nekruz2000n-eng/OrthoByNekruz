@@ -21,6 +21,7 @@ import {
   isPreviewTrialLocked,
   isPreviewShortDurationAccount,
   hasFinalizedPreviewAccess,
+  healStalePreviewForFinalizedUser,
   normalizePreviewModules,
 } from '@/lib/preview';
 import { resolveFacultyPromoCode, facultyFieldsFromUser, getFacultyPromoById } from '@/lib/facultyCodes';
@@ -121,16 +122,18 @@ async function handlePreviewStart(
   const catalog = await buildPreviewSubjectCatalog(redis);
 
   if (hasFinalizedPreviewAccess(user)) {
-    if (promo) {
-      const merged = buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup: catalogBrowse });
+    if (promo && catalogBrowse) {
+      const merged = buildCatalogSelectingUser(user, profile, promo);
       await saveUser(tgIdStr, merged);
       return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog, tgIdStr) });
     }
+    const healed = healStalePreviewForFinalizedUser(user);
+    if (healed !== user) await saveUser(tgIdStr, healed);
     return res.status(200).json({
       success: true,
       alreadyConfirmed: true,
-      subjects: getUserAvailableSubjects(user),
-      ...previewPayload(user, catalog, tgIdStr),
+      subjects: getUserAvailableSubjects(healed),
+      ...(await subjectsResponse(healed, tgIdStr)),
     });
   }
 
@@ -546,6 +549,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       user = await maybeExpirePreviewUser(redis, tgIdStr, user);
+      const healed = healStalePreviewForFinalizedUser(user);
+      if (healed !== user) {
+        await saveUser(tgIdStr, healed);
+        user = healed;
+      }
 
       if (user.previewStatus) {
         return res.status(200).json(await subjectsResponse(user, tgIdStr));

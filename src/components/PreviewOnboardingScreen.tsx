@@ -43,6 +43,11 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
     [catalogGrantedSubjects, navHidden],
   );
 
+  const isCatalogBrowse = catalogGrantedSubjects.length > 0;
+
+  const isSubjectAlreadyOwned = (subjectId: string) =>
+    isCatalogBrowse && catalogGrantedSubjects.includes(subjectId);
+
   const pickableModules = useMemo(
     () => selectedEntry?.modules.filter(m => m.available && !isModuleGranted(selectedEntry.id, m.id)) ?? [],
     [selectedEntry, isModuleGranted],
@@ -55,6 +60,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
   }, [step, pickableModules]);
 
   const openSubject = (id: string) => {
+    if (isSubjectAlreadyOwned(id)) return;
     setSelectedId(id);
     setSelectedModules([]);
     setStep('modules');
@@ -100,8 +106,12 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
         </h1>
         <p className="text-sm leading-relaxed max-w-xs" style={{ color: 'var(--c-muted)' }}>
           {step === 'subject'
-            ? 'Посмотри все предметы и разделы — для пробы отметь только то, что нужно'
-            : 'Отметь только то, что нужно — админ увидит заявку'}
+            ? (isCatalogBrowse
+              ? 'Выбери другой предмет — уже купленные отмечены'
+              : 'Посмотри все предметы и разделы — для пробы отметь только то, что нужно')
+            : (isCatalogBrowse
+              ? 'Отметь разделы для докупки — админ увидит заявку'
+              : 'Отметь только то, что нужно — админ увидит заявку')}
         </p>
       </div>
 
@@ -133,20 +143,25 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
               {subjectCatalog.map((item, i) => {
                 const readyCount = item.modules.filter(m => m.available).length;
                 const inDev = readyCount === 0;
+                const alreadyOwned = isSubjectAlreadyOwned(item.id);
                 return (
                   <motion.button
                     key={item.id}
                     type="button"
+                    disabled={alreadyOwned}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: Math.min(0.04 * i, 0.35) }}
                     onClick={() => openSubject(item.id)}
                     className="flex items-center gap-3 rounded-[20px] p-4 transition-all duration-200 text-left"
                     style={{
-                      opacity: inDev ? 0.55 : 1,
+                      opacity: alreadyOwned ? 0.62 : inDev ? 0.55 : 1,
                       background: 'var(--c-card)',
-                      border: `1.5px solid ${inDev ? 'var(--c-border)' : item.borderColor}`,
-                      cursor: 'pointer',
+                      border: `1.5px solid ${
+                        alreadyOwned ? 'rgba(52, 211, 153, 0.35)'
+                          : inDev ? 'var(--c-border)' : item.borderColor
+                      }`,
+                      cursor: alreadyOwned ? 'not-allowed' : 'pointer',
                     }}
                   >
                     <div className="flex-1 min-w-0">
@@ -157,9 +172,11 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
                         {item.label}
                       </div>
                       <div className="text-[11px]" style={{ color: 'var(--c-muted)' }}>
-                        {inDev
-                          ? 'В разработке · можно посмотреть разделы'
-                          : `${readyCount} из ${item.modules.length} разделов готовы`}
+                        {alreadyOwned
+                          ? 'Уже куплен — выбери другой предмет'
+                          : inDev
+                            ? 'В разработке · можно посмотреть разделы'
+                            : `${readyCount} из ${item.modules.length} разделов готовы`}
                       </div>
                     </div>
                   </motion.button>

@@ -50,6 +50,29 @@ export function hasFinalizedPreviewAccess(user: any): boolean {
   return !!user.previewConfirmedAt && !user.previewStatus;
 }
 
+/** Оплаченный доступ есть, но в Redis остался старый статус витрины — сбрасываем при обычном входе. */
+export function healStalePreviewForFinalizedUser(user: any): any {
+  if (!hasFinalizedPreviewAccess(user)) return user;
+
+  const inCatalogBrowse = user._catalogBrowse === true;
+  const staleSelecting = user.previewStatus === 'selecting' && !inCatalogBrowse;
+  const staleExpired = user.previewStatus === 'expired' && !inCatalogBrowse;
+  if (!staleSelecting && !staleExpired) return user;
+
+  const healed: Record<string, any> = { ...user };
+  delete healed.previewStatus;
+  delete healed.previewChosenSubject;
+  delete healed.previewChosenModules;
+  delete healed.previewStartedAt;
+  delete healed.previewExpiredAt;
+  delete healed.previewPickedAt;
+  delete healed.previewFacultyRecordedAt;
+  delete healed._subjectsBeforePreview;
+  delete healed._previewStatusBeforeCatalog;
+  delete healed._catalogBrowse;
+  return healed;
+}
+
 export function isPreviewUser(user: any): boolean {
   return !!user?.previewStatus;
 }
