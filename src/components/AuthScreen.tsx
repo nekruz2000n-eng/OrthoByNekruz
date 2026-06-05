@@ -141,34 +141,41 @@ const AuthLogoCycle = () => {
   );
 };
 
-// Частицы дождя: зуб / стетоскоп / ребёнок вперемешку (фиксированный порядок)
-const RAIN_VARIANTS: FacultyVariant[] = [
-  'tooth', 'stethoscope', 'pediatrics',
-  'tooth', 'stethoscope', 'pediatrics',
-  'tooth', 'stethoscope', 'pediatrics',
-  'tooth', 'stethoscope', 'pediatrics',
-  'tooth', 'stethoscope', 'pediatrics',
-];
+const RAIN_CYCLE: FacultyVariant[] = ['tooth', 'stethoscope', 'pediatrics'];
+
+function buildRainParticles() {
+  const background = Array.from({ length: 18 }, (_, i) => ({
+    id: `bg-${i}`,
+    variant: RAIN_CYCLE[i % 3],
+    left: (i * 27) % 100,
+    size: 12 + ((i * 11) % 20),
+    dur: 10 + ((i * 5) % 6),
+    delay: (i * 0.9) % 7,
+    blur: 1.5,
+    maxOpacity: 0.15,
+    swayDir: i % 2 === 0 ? 1 : -1,
+    isForeground: false,
+  }));
+
+  const foreground = Array.from({ length: 12 }, (_, i) => ({
+    id: `fg-${i}`,
+    variant: RAIN_CYCLE[(i + 1) % 3],
+    left: (i * 19 + 11) % 94,
+    size: 28 + ((i * 4) % 14),
+    dur: 5 + ((i * 2) % 4) * 0.6,
+    delay: (i * 0.65) % 6,
+    blur: 0,
+    maxOpacity: 0.44,
+    swayDir: i % 2 === 0 ? -1 : 1,
+    isForeground: true,
+  }));
+
+  return [...background, ...foreground];
+}
 
 // ─── КОМПОНЕНТ ФОНА: ПАДАЮЩИЕ ИКОНКИ ФАКУЛЬТЕТОВ ───────────────────────────
 const ToothRainBG = () => {
-  // Те же настройки для всех иконок, что и у зуба (размер, скорость, blur, opacity)
-  const teeth = RAIN_VARIANTS.map((variant, i) => {
-    const size = 12 + ((i * 11) % 24);
-    const isForeground = size > 24;
-    return {
-      id: i,
-      variant,
-      left: (i * 27) % 100,
-      size,
-      dur: isForeground ? (6 + ((i * 3) % 4)) : (10 + ((i * 5) % 6)),
-      delay: (i * 0.9) % 7,
-      blur: isForeground ? 0 : 1.5,
-      maxOpacity: isForeground ? 0.4 : 0.15,
-      spinDir: i % 2 === 0 ? 1 : -1,
-      isForeground,
-    };
-  });
+  const teeth = buildRainParticles();
 
   return (
     // Обертка на весь экран (absolute inset-0). pointer-events-none делает так, чтобы зубы не перекрывали клики по кнопкам.
@@ -179,16 +186,18 @@ const ToothRainBG = () => {
         /* Анимация 3D падения зубов */
         @keyframes toothFall3D {
           0% {
-            /* Старт чуть выше верхнего края экрана */
-            transform: translateY(-50px) rotate(0deg) translateX(0px);
-            opacity: 0; /* Начинают появляться плавно */
+            transform: translateY(-50px) rotate(calc(-16deg * var(--sway))) translateX(0px);
+            opacity: 0;
           }
-          15% { opacity: var(--max-op); } /* Достигают своей максимальной яркости */
-          85% { opacity: var(--max-op); } /* Держат яркость почти до самого низа */
+          15% { opacity: var(--max-op); }
+          50% {
+            transform: translateY(52vh) rotate(calc(12deg * var(--sway))) translateX(calc(14px * var(--sway)));
+            opacity: var(--max-op);
+          }
+          85% { opacity: var(--max-op); }
           100% {
-            /* Улетают за нижний край (110vh), крутятся (rotate) и немного смещаются вбок (translateX - имитация ветра) */
-            transform: translateY(110vh) rotate(calc(360deg * var(--spin))) translateX(calc(30px * var(--spin)));
-            opacity: 0; /* Плавно исчезают внизу */
+            transform: translateY(110vh) rotate(calc(-10deg * var(--sway))) translateX(calc(22px * var(--sway)));
+            opacity: 0;
           }
         }
         /* Анимация пульсации центрального логотипа-зуба */
@@ -215,10 +224,10 @@ const ToothRainBG = () => {
           position: 'absolute',
           left: `${t.left}%`,
           top: -50,
+          zIndex: t.isForeground ? 2 : 0,
           animation: `toothFall3D ${t.dur}s ${t.delay}s linear infinite`,
           '--max-op': t.maxOpacity,
-          '--spin': t.spinDir,
-          filter: `blur(${t.blur}px) drop-shadow(0 0 ${t.isForeground ? '4px' : '2px'} rgba(255, 255, 255, ${t.maxOpacity * 1.5}))`,
+          '--sway': t.swayDir,
         } as React.CSSProperties;
 
         return (
