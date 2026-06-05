@@ -208,7 +208,15 @@ export default function Home() {
   }, []);
 
   const applyAccessPayload = useCallback((d: any) => {
-    const list: string[] = Array.isArray(d?.subjects) ? d.subjects : [];
+    const pendingSubjectEarly = d?.previewChosenSubject as string | null | undefined;
+    let list: string[] = Array.isArray(d?.subjects) ? d.subjects : [];
+    if (
+      list.length === 0
+      && pendingSubjectEarly
+      && (d?.accessGranted === true || d?.previewConfirmedAt)
+    ) {
+      list = [pendingSubjectEarly];
+    }
     setAvailableSubjects(list);
     setHasMicro(list.includes('micro'));
     setNavHidden(d?.navHidden && typeof d.navHidden === 'object' ? d.navHidden : {});
@@ -258,7 +266,10 @@ export default function Home() {
       && ps !== 'expired'
       && ps !== 'selecting';
 
-    if (pendingSubject && (ps === 'active' || ps === 'expired' || d?.receiptClaimedAt)) {
+    if (
+      pendingSubject
+      && (ps === 'active' || ps === 'expired' || (d?.receiptClaimedAt && !d?.previewConfirmedAt))
+    ) {
       localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
     }
 
@@ -540,6 +551,7 @@ export default function Home() {
   // Опрос: админ подтвердил до конца пробы — сразу приветствие и доступ (вкладка видима)
   useEffect(() => {
     if (!isAuthenticated) return;
+    if (previewConfirmedAt) return;
     if (previewStatus !== 'active' && previewStatus !== 'expired' && !receiptClaimedAt) return;
 
     const awaitingAdmin = () =>
@@ -563,7 +575,7 @@ export default function Home() {
       document.removeEventListener('visibilitychange', onVisible);
       previewPollGen.current += 1;
     };
-  }, [isAuthenticated, previewStatus, receiptClaimedAt, pollAccessForAdminConfirm]);
+  }, [isAuthenticated, previewStatus, previewConfirmedAt, receiptClaimedAt, pollAccessForAdminConfirm]);
 
   const handleChannelCodeSuccess = useCallback((data: Record<string, unknown>) => {
     accessRequestGen.current += 1;
@@ -734,6 +746,9 @@ export default function Home() {
       localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
       localStorage.setItem('is_authed', 'true');
       applyAccessPayload(data);
+      previewPollGen.current += 1;
+      setAccessChecked(true);
+      localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
       toast({ title: 'Доступ открыт' });
     } catch {
       setPreviewStatusMessage('Ошибка соединения. Проверь интернет и попробуй снова.');
@@ -897,7 +912,12 @@ export default function Home() {
     );
   }
 
-  if (availableSubjects.length === 0 && previewStatus !== 'active' && !awaitingPendingSubject) {
+  if (
+    availableSubjects.length === 0
+    && previewStatus !== 'active'
+    && !previewConfirmedAt
+    && !awaitingPendingSubject
+  ) {
     return withAccessWelcome(
       <div className="flex items-center justify-center min-h-screen bg-background p-6">
         <div className="max-w-sm text-center space-y-4">

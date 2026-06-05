@@ -312,6 +312,7 @@ async function saveUser(tgId: string, user: any) {
 }
 
 async function subjectsResponse(user: any, tgId?: string) {
+  user = migrateUserSubjects(user);
   const subjects = getEffectiveUserSubjects(user, tgId);
   const catalog = user?.previewStatus ? await buildPreviewSubjectCatalog(redis) : undefined;
   return {
@@ -602,15 +603,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         user = healed;
       }
 
-      if (user.previewStatus) {
-        return res.status(200).json(await subjectsResponse(user, tgIdStr));
-      }
-
-      const userSubjects = getUserAvailableSubjects(user);
-      const navHidden = (user.navHidden && typeof user.navHidden === 'object')
-        ? user.navHidden as Record<string, string[]>
-        : {};
-      return res.status(200).json({ subjects: userSubjects, navHidden, registered: true });
+      return res.status(200).json(await subjectsResponse(user, tgIdStr));
     }
 
     if (user && !user.trial_until && !user.previewStatus) {
