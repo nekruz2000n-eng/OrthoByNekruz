@@ -43,6 +43,13 @@ export function getPreviewDurationMs(tgId?: string | null): number {
 
 export type PreviewStatus = 'selecting' | 'active' | 'expired' | 'confirmed';
 
+/** Пробник завершён админом: доступ выдан, сессия витрины снята. */
+export function hasFinalizedPreviewAccess(user: any): boolean {
+  if (!user) return false;
+  if (user.previewStatus === 'confirmed') return true;
+  return !!user.previewConfirmedAt && !user.previewStatus;
+}
+
 export function isPreviewUser(user: any): boolean {
   return !!user?.previewStatus;
 }
@@ -68,7 +75,7 @@ export function isEstablishedAccount(user: any): boolean {
   if (!user) return false;
   const key = String(user.activatedKey || '').trim();
   if (/^\d{8}$/.test(key)) return true;
-  if (user.previewStatus === 'confirmed') return true;
+  if (hasFinalizedPreviewAccess(user)) return true;
   const granted = getUserAvailableSubjects(user);
   return granted.length > 0 && user.previewStatus !== 'selecting' && user.previewStatus !== 'active';
 }
@@ -308,20 +315,31 @@ export function confirmPreviewUser(user: any) {
   const hiddenTabs = buildNavHiddenForPreview(chosen, modules);
   const navHidden = { ...(user.navHidden || {}), [chosen]: hiddenTabs };
 
-  return {
+  const updated: Record<string, any> = {
     ...user,
-    previewStatus:           'confirmed' as PreviewStatus,
-    previewConfirmedAt:      now,
-    paid:                    user.paid === true,
-    activatedKey:            user.activatedKey && !String(user.activatedKey).startsWith('promo:')
-      ? user.activatedKey
-      : (user.activatedKey || 'preview'),
     subjects,
     navHidden,
+    previewChosenSubject: chosen,
+    previewChosenModules: modules,
+    previewConfirmedAt:   now,
+    paid:                 user.paid === true,
+    activatedKey:         user.activatedKey && !String(user.activatedKey).startsWith('promo:')
+      ? user.activatedKey
+      : (user.activatedKey || 'preview'),
     [`${chosen}_grantedAt`]: now,
     _subjectsBeforePreview:  undefined,
     _migrated_subjects:      true,
   };
+
+  delete updated.previewStatus;
+  delete updated.previewStartedAt;
+  delete updated.previewExpiredAt;
+  delete updated.previewPickedAt;
+  delete updated.previewFacultyRecordedAt;
+  delete updated._previewStatusBeforeCatalog;
+  delete updated._catalogBrowse;
+
+  return updated;
 }
 
 export function getEffectiveUserSubjects(user: any, tgId?: string | null): string[] {

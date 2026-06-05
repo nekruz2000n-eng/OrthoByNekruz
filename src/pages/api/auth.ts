@@ -20,6 +20,7 @@ import {
   previewEndsAt,
   isPreviewTrialLocked,
   isPreviewShortDurationAccount,
+  hasFinalizedPreviewAccess,
   normalizePreviewModules,
 } from '@/lib/preview';
 import { resolveFacultyPromoCode, facultyFieldsFromUser, getFacultyPromoById } from '@/lib/facultyCodes';
@@ -119,7 +120,7 @@ async function handlePreviewStart(
 ) {
   const catalog = await buildPreviewSubjectCatalog(redis);
 
-  if (user?.previewStatus === 'confirmed') {
+  if (hasFinalizedPreviewAccess(user)) {
     if (promo) {
       const merged = buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup: catalogBrowse });
       await saveUser(tgIdStr, merged);
@@ -288,6 +289,7 @@ function previewPayload(
     needsStudyGroup:      selecting && !hasGroup,
     previewEndsAt:        previewEndsAt(user, tgId),
     previewStartedAt:     user?.previewStatus === 'active' ? (user.previewStartedAt ?? null) : null,
+    previewConfirmedAt:   user?.previewConfirmedAt ?? null,
     pickSubjects:         selecting && hasGroup ? getAllPickableSubjectIds() : undefined,
     subjectCatalog:       user?.previewStatus && hasGroup ? catalog : undefined,
     navHidden,
@@ -510,12 +512,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (mode === 'check_preview_status') {
-      if (!user?.previewStatus) {
+      if (!user?.previewStatus && !hasFinalizedPreviewAccess(user)) {
         return res.status(404).json({ error: 'Заявка не найдена.' });
       }
       user = await maybeExpirePreviewUser(redis, tgIdStr, user);
       const catalog = await buildPreviewSubjectCatalog(redis);
-      if (user.previewStatus === 'confirmed') {
+      if (hasFinalizedPreviewAccess(user)) {
         return res.status(200).json({ success: true, ...(await subjectsResponse(user, tgIdStr)) });
       }
       if (user.previewStatus === 'expired') {

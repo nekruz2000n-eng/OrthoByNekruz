@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
 import { SUBJECTS, getSubject, getUserAvailableSubjects, migrateUserSubjects } from '@/lib/subjects';
-import { confirmPreviewUser, getEffectiveUserSubjects, clearPreviewTrialLock, previewChoiceNeedsAdminConfirm, previewChoiceIsAddon } from '@/lib/preview';
+import { confirmPreviewUser, getEffectiveUserSubjects, clearPreviewTrialLock, previewChoiceNeedsAdminConfirm, previewChoiceIsAddon, hasFinalizedPreviewAccess } from '@/lib/preview';
 import { clearAuthRateLimitsForTgId } from '@/lib/authRateLimit';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { getAllUserIds, registerUserId, removeUserId } from '@/lib/userIndex';
@@ -140,7 +140,7 @@ function isUnpaid(u: ReturnType<typeof toListUser>): boolean {
     return true;
   }
 
-  return u.previewStatus === 'confirmed';
+  return hasFinalizedPreviewAccess({ previewStatus: u.previewStatus, previewConfirmedAt: u.previewConfirmedAt });
 }
 
 function matchesQuery(u: ReturnType<typeof toListUser>, q: string): boolean {
@@ -375,11 +375,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (!user?.previewChosenSubject) {
           return res.status(400).json({ error: 'Предмет не выбран' });
         }
-        if (user.previewStatus === 'confirmed') {
+        if (hasFinalizedPreviewAccess(user)) {
           return res.status(200).json({
             ok: true,
             subjects: getUserAvailableSubjects(user),
             navHidden: user.navHidden ?? {},
+            previewConfirmedAt: user.previewConfirmedAt ?? null,
           });
         }
         const updated = confirmPreviewUser(user);
@@ -388,7 +389,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ok: true,
           subjects: getUserAvailableSubjects(updated),
           navHidden: updated.navHidden ?? {},
-          previewStatus: 'confirmed',
+          previewStatus: null,
+          previewConfirmedAt: updated.previewConfirmedAt ?? null,
+          previewChosenSubject: updated.previewChosenSubject ?? null,
+          previewChosenModules: updated.previewChosenModules ?? null,
           paid: updated.paid === true,
         });
       }

@@ -296,9 +296,9 @@ function UserCard({
   const name        = displayName(user);
   const hasFullKey  = user.activatedKey && user.activatedKey !== 'trial' && user.activatedKey !== 'preview' && !String(user.activatedKey).startsWith('promo:');
   const isTrial     = user.activatedKey === 'trial';
-  const isChannelGrant = user.previewStatus === 'confirmed' && user.subjects.length > 0;
+  const isChannelGrant = !!user.previewConfirmedAt && user.subjects.length > 0;
   const isPreviewKey = (user.activatedKey === 'preview' || String(user.activatedKey || '').startsWith('promo:'))
-    && user.previewStatus !== 'confirmed';
+    && !user.previewConfirmedAt;
   const previewSubjectLabel = user.previewChosenSubject
     ? (availableSubjects.find(s => s.id === user.previewChosenSubject)?.label || user.previewChosenSubject)
     : null;
@@ -1920,15 +1920,22 @@ export default function AdminPage() {
               subjects: u.subjects.filter(() => false),
             };
           case 'confirm_preview': {
-            const chosen = u.previewChosenSubject;
-            const newSubjects = chosen ? [chosen] : (Array.isArray(data.subjects) ? data.subjects : u.subjects);
+            const newSubjects = Array.isArray(data.subjects) ? data.subjects : u.subjects;
             const navHidden = (data.navHidden && typeof data.navHidden === 'object')
               ? data.navHidden as Record<string, string[]>
               : u.navHidden;
             return {
               ...u,
-              previewStatus: 'confirmed',
-              paid: false,
+              previewStatus: null,
+              previewStartedAt: null,
+              previewExpiredAt: null,
+              previewConfirmedAt: (data.previewConfirmedAt as string | null) ?? new Date().toISOString(),
+              previewChosenSubject: (data.previewChosenSubject as string | null) ?? u.previewChosenSubject,
+              previewChosenModules: Array.isArray(data.previewChosenModules)
+                ? data.previewChosenModules
+                : u.previewChosenModules,
+              previewNeedsConfirm: false,
+              paid: data.paid === true,
               activatedKey: u.activatedKey === 'preview' || !u.activatedKey ? 'preview' : u.activatedKey,
               subjects: newSubjects,
               navHidden,

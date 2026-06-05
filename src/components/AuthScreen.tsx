@@ -526,9 +526,11 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         return;
       }
       localStorage.setItem('user_tg_id', String(id));
-      if (data.previewStatus === 'confirmed' || data.previewStatus === 'active' || data.previewStatus === 'selecting') {
+      const confirmed = data.previewStatus === 'confirmed'
+        || (data.previewConfirmedAt && !data.previewStatus);
+      if (confirmed || data.previewStatus === 'active' || data.previewStatus === 'selecting') {
         localStorage.setItem('is_authed', 'true');
-        if (data.previewStatus === 'confirmed' && data.previewChosenSubject) {
+        if (confirmed && data.previewChosenSubject) {
           localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
         }
         syncFacultyAfterAuth(data, key);

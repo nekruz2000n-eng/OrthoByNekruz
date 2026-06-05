@@ -241,12 +241,25 @@ export default function Home() {
       localStorage.removeItem('preview_start');
     }
 
-    if (d?.previewChosenSubject && (ps === 'active' || ps === 'expired')) {
+    const pendingSubject = d?.previewChosenSubject as string | null | undefined;
+    const wasAwaitingConfirm = localStorage.getItem(PREVIEW_AWAITING_CONFIRM_KEY) === '1';
+    const accessJustOpened = wasAwaitingConfirm
+      && !!pendingSubject
+      && list.includes(pendingSubject)
+      && ps !== 'active'
+      && ps !== 'expired'
+      && ps !== 'selecting';
+
+    if (pendingSubject && (ps === 'active' || ps === 'expired')) {
       localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
     }
 
-    if (ps === 'confirmed') {
+    if (ps === 'confirmed' || accessJustOpened) {
       triggerAccessWelcomeIfPending();
+      if (accessJustOpened && pendingSubject) {
+        setSubjectRaw(pendingSubject);
+        localStorage.setItem('last_subject', pendingSubject);
+      }
     }
 
     if (ps === 'expired') {
@@ -667,7 +680,9 @@ export default function Home() {
         setPreviewStatusMessage(data.error || 'Не удалось проверить статус. Попробуй ещё раз.');
         return;
       }
-      if (data.previewStatus === 'confirmed') {
+      const confirmed = data.previewStatus === 'confirmed'
+        || (data.previewConfirmedAt && !data.previewStatus);
+      if (confirmed) {
         localStorage.setItem('is_authed', 'true');
         setPreviewStatusMessage('');
         applyAccessPayload(data);
