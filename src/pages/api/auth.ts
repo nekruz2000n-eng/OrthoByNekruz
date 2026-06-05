@@ -22,6 +22,7 @@ import {
   isPreviewShortDurationAccount,
   hasFinalizedPreviewAccess,
   healStalePreviewForFinalizedUser,
+  claimPreviewReceipt,
   normalizePreviewModules,
 } from '@/lib/preview';
 import { resolveFacultyPromoCode, facultyFieldsFromUser, getFacultyPromoById } from '@/lib/facultyCodes';
@@ -292,6 +293,8 @@ function previewPayload(
     previewEndsAt:        previewEndsAt(user, tgId),
     previewStartedAt:     user?.previewStatus === 'active' ? (user.previewStartedAt ?? null) : null,
     previewConfirmedAt:   user?.previewConfirmedAt ?? null,
+    previewQuotedPrice:   user?.previewQuotedPrice ?? null,
+    receiptClaimedAt:     user?.receiptClaimedAt ?? null,
     pickSubjects:         selecting && hasGroup ? getAllPickableSubjectIds() : undefined,
     subjectCatalog:       user?.previewStatus && hasGroup ? catalog : undefined,
     navHidden,
@@ -509,14 +512,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    if (mode === 'claim_preview_receipt') {
+      if (!user?.previewChosenSubject) {
+        return res.status(400).json({ error: 'Заявка не найдена.' });
+      }
+      user = await maybeExpirePreviewUser(redis, tgIdStr, user);
+      const updated = claimPreviewReceipt(user);
+      if (!updated) return res.status(400).json({ error: 'Не удалось сохранить.' });
+      await saveUser(tgIdStr, updated);
+      return res.status(200).json({
+        success: true,
+        receiptClaimed: true,
+        ...(await subjectsResponse(updated, tgIdStr)),
+      });
+    }
+
     if (mode === 'check_preview_status') {
-      if (!user?.previewStatus && !hasFinalizedPreviewAccess(user)) {
+      if (!user?.previewStatus && !hasFinalizedPreviewAccess(user) && !user?.receiptClaimedAt) {
         return res.status(404).json({ error: 'Заявка не найдена.' });
       }
       user = await maybeExpirePreviewUser(redis, tgIdStr, user);
       const catalog = await buildPreviewSubjectCatalog(redis);
       if (hasFinalizedPreviewAccess(user)) {
         return res.status(200).json({ success: true, ...(await subjectsResponse(user, tgIdStr)) });
+      }
+      if (user.receiptClaimedAt) {
+        return res.status(200).json({
+          success: true,
+          awaitingAdmin: true,
+          receiptClaimed: true,
+          ...previewPayload(user, catalog, tgIdStr),
+        });
       }
       if (user.previewStatus === 'expired') {
         return res.status(200).json({ success: true, awaitingAdmin: true, ...previewPayload(user, catalog, tgIdStr) });

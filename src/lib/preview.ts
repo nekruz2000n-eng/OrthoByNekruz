@@ -5,6 +5,7 @@ import {
   type PreviewModule,
   normalizePreviewModules,
 } from '@/lib/previewModules';
+import { calcPreviewPriceRub } from '@/lib/previewPricing';
 
 export type { PreviewModule } from '@/lib/previewModules';
 export { PREVIEW_MODULE_LABELS, formatPreviewModulesList, normalizePreviewModules } from '@/lib/previewModules';
@@ -52,6 +53,10 @@ export function hasFinalizedPreviewAccess(user: any): boolean {
 
 /** Оплаченный доступ есть, но в Redis остался старый статус витрины — сбрасываем при обычном входе. */
 export function healStalePreviewForFinalizedUser(user: any): any {
+  if (!user) return user;
+  if (user.receiptClaimedAt && user.previewChosenSubject && !hasFinalizedPreviewAccess(user)) {
+    return user;
+  }
   if (!hasFinalizedPreviewAccess(user)) return user;
 
   const inCatalogBrowse = user._catalogBrowse === true;
@@ -128,6 +133,8 @@ function snapshotSubjects(user: any): Record<string, boolean> | null {
 export function previewChoiceNeedsAdminConfirm(user: any): boolean {
   const chosen = user?.previewChosenSubject;
   if (!chosen) return false;
+  if (hasFinalizedPreviewAccess(user)) return false;
+  if (user.receiptClaimedAt) return true;
   if (user.previewStatus !== 'active' && user.previewStatus !== 'expired') return false;
   if (user.previewFacultyRecordedAt && !user.previewStartedAt) return false;
 
@@ -289,8 +296,10 @@ export function buildActivePreviewUser(
     previewStatus:          'active' as PreviewStatus,
     previewChosenSubject:   subjectId,
     previewChosenModules:   chosenModules,
+    previewQuotedPrice:     calcPreviewPriceRub(subjectId, chosenModules),
     previewStartedAt:       now,
     previewPickedAt:          now,
+    receiptClaimedAt:         null,
     subjects,
     navHidden,
     _subjectsBeforePreview: before,
@@ -334,6 +343,43 @@ export function inferChosenModulesForConfirm(user: any, subjectId: string): Prev
   return [];
 }
 
+/** Студент нажал «Скинул чек» — убираем пробник, ждём подтверждения админа. */
+export function claimPreviewReceipt(user: any) {
+  const chosen = user?.previewChosenSubject;
+  if (!chosen) return null;
+  if (user.receiptClaimedAt) return user;
+
+  const updated: Record<string, any> = { ...user, receiptClaimedAt: new Date().toISOString() };
+  if (user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object') {
+    updated.subjects = { ...user._subjectsBeforePreview };
+  }
+  delete updated.previewStatus;
+  delete updated.previewStartedAt;
+  delete updated.previewExpiredAt;
+  delete updated.previewPickedAt;
+  delete updated._subjectsBeforePreview;
+  return updated;
+}
+
+/** Админ вернул на витрину — студент выбирает заново. */
+export function reopenPreviewVitrine(user: any) {
+  if (!user) return null;
+  const updated: Record<string, any> = {
+    ...user,
+    previewStatus:        'selecting' as PreviewStatus,
+    previewChosenSubject: null,
+    previewChosenModules: null,
+    previewQuotedPrice:   null,
+    previewStartedAt:     null,
+    previewExpiredAt:     null,
+    previewPickedAt:      null,
+    receiptClaimedAt:     null,
+    _subjectsBeforePreview: undefined,
+  };
+  delete updated._catalogBrowse;
+  return updated;
+}
+
 export function confirmPreviewUser(user: any) {
   const chosen = user.previewChosenSubject;
   if (!chosen) return null;
@@ -358,6 +404,7 @@ export function confirmPreviewUser(user: any) {
     previewChosenSubject: chosen,
     previewChosenModules: modules,
     previewConfirmedAt:   now,
+    receiptClaimedAt:     user.receiptClaimedAt ?? now,
     paid:                 user.paid === true,
     activatedKey:         user.activatedKey && !String(user.activatedKey).startsWith('promo:')
       ? user.activatedKey

@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import Script from 'next/script';
 import { PREVIEW_MODULE_LABELS } from '@/lib/previewModules';
+import { formatPriceRub } from '@/lib/previewPricing';
 import { getTgChatHref, formatTgChatLabel, openTgChat, normalizeTelegramUsername, isValidTelegramUsername } from '@/lib/tgLinks';
 import { AdminPatternLock, ADMIN_PATTERN, ADMIN_UNLOCK_SECRET } from '@/components/AdminPatternLock';
 
@@ -25,6 +26,8 @@ interface User {
   previewFaculty:       string | null;
   previewStartedAt?:    string | null;
   previewConfirmedAt?:  string | null;
+  previewQuotedPrice?:  number | null;
+  receiptClaimedAt?:    string | null;
   previewNeedsConfirm?: boolean;
   previewIsAddon?:       boolean;
   contactUsername?:     string | null;
@@ -68,7 +71,7 @@ const RES_TYPE_OPTS: { id: ResType; label: string; emoji: string }[] = [
 
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo' | 'unpaid';
 type SortBy = 'registered' | 'lastLogin' | 'loginCount';
-type Action = 'block' | 'unblock' | 'reset_demo' | 'confirm_preview' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid' | 'set_contact_username';
+type Action = 'block' | 'unblock' | 'reset_demo' | 'confirm_preview' | 'reopen_preview_vitrine' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid' | 'set_contact_username';
 
 type PreviewModKind = 'questions' | 'tests' | 'tasks';
 type PreviewCatalogSettings = Record<string, {
@@ -480,6 +483,9 @@ function UserCard({
             </button>
             {isTrial    && <Chip bg={T.warnSoft}   color={T.warn}>trial</Chip>}
             {isPreviewKey && <Chip bg={T.purpleSoft} color={T.purple}>пробный</Chip>}
+            {user.receiptClaimedAt && user.previewNeedsConfirm && (
+              <Chip bg={T.purpleSoft} color={T.purple}>чек скинул</Chip>
+            )}
             {user.previewStatus === 'expired' && previewSubjectLabel && (
               <Chip bg={T.purpleSoft} color={T.purple}>→ {previewSubjectLabel}</Chip>
             )}
@@ -547,6 +553,12 @@ function UserCard({
             )}
             {previewRequestLabel && (
               <Meta label="Заявка" value={previewRequestLabel} color={T.purple} />
+            )}
+            {user.previewQuotedPrice != null && (
+              <Meta label="Сумма" value={formatPriceRub(user.previewQuotedPrice)} color={T.purple} />
+            )}
+            {user.receiptClaimedAt && (
+              <Meta label="Чек" value="студент нажал «Скинул»" color={T.purple} />
             )}
             {previewSubjectLabel && !previewModulesLabel && (
               <Meta label="Выбор (пробный)" value={previewSubjectLabel} color={T.purple} />
@@ -754,6 +766,12 @@ function UserCard({
               <ActionBtn variant="success" disabled={busy} fullWidth
                 onClick={() => onAction(user.tgId, 'confirm_preview')}>
                 {busy ? '...' : `✓ Подтвердить${user.previewIsAddon ? ' докупку' : ''}: ${previewRequestLabel || previewSubjectLabel}`}
+              </ActionBtn>
+            )}
+            {user.receiptClaimedAt && user.previewNeedsConfirm && (
+              <ActionBtn variant="warn" disabled={busy} fullWidth
+                onClick={() => onAction(user.tgId, 'reopen_preview_vitrine')}>
+                {busy ? '...' : '↩ Вернуть на витрину (оплаты нет)'}
               </ActionBtn>
             )}
             {user.usedDemo && (
@@ -1937,12 +1955,25 @@ export default function AdminPage() {
                 ? data.previewChosenModules
                 : u.previewChosenModules,
               previewNeedsConfirm: false,
+              receiptClaimedAt: u.receiptClaimedAt,
               paid: data.paid === true,
               activatedKey: u.activatedKey === 'preview' || !u.activatedKey ? 'preview' : u.activatedKey,
               subjects: newSubjects,
               navHidden,
             };
           }
+          case 'reopen_preview_vitrine':
+            return {
+              ...u,
+              previewStatus: 'selecting',
+              previewChosenSubject: null,
+              previewChosenModules: null,
+              previewQuotedPrice: null,
+              receiptClaimedAt: null,
+              previewNeedsConfirm: false,
+              previewStartedAt: null,
+              previewExpiredAt: null,
+            };
           case 'toggle_paid':
             return { ...u, paid: !u.paid };
           case 'set_contact_username': {
@@ -2006,6 +2037,7 @@ export default function AdminPage() {
         case 'unblock':        msg = '✓ Разблокирован'; break;
         case 'reset_demo':     msg = '✓ Пробный доступ сброшен'; break;
         case 'confirm_preview': msg = '✓ Доступ подтверждён'; break;
+        case 'reopen_preview_vitrine': msg = '↩ Студент возвращён на витрину'; break;
         case 'toggle_paid': {
           const nowPaid = !users.find(u => u.tgId === tgId)?.paid;
           msg = nowPaid ? '💲 Отмечено как оплачено' : 'Отметка оплаты снята';

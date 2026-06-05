@@ -172,6 +172,9 @@ export default function Home() {
   const [previewPicking,  setPreviewPicking]   = useState<boolean>(false);
   const [statusChecking,  setStatusChecking]  = useState<boolean>(false);
   const [previewStatusMessage, setPreviewStatusMessage] = useState('');
+  const [previewQuotedPrice, setPreviewQuotedPrice] = useState<number | null>(null);
+  const [receiptClaimedAt, setReceiptClaimedAt] = useState<string | null>(null);
+  const [previewConfirmedAt, setPreviewConfirmedAt] = useState<string | null>(null);
   const [showAccessWelcome, setShowAccessWelcome] = useState(false);
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
   const { toast }    = useToast();
@@ -218,6 +221,9 @@ export default function Home() {
     setNeedsStudyGroup(d?.needsStudyGroup === true);
     setPreviewEndsAt(d?.previewEndsAt ?? null);
     setPreviewStartedAt(d?.previewStartedAt ?? null);
+    setPreviewQuotedPrice(typeof d?.previewQuotedPrice === 'number' ? d.previewQuotedPrice : null);
+    setReceiptClaimedAt(d?.receiptClaimedAt ?? null);
+    setPreviewConfirmedAt(d?.previewConfirmedAt ?? null);
 
     if (Array.isArray(d?.subjectCatalog)) setSubjectCatalog(d.subjectCatalog);
     if (Array.isArray(d?.catalogGrantedSubjects)) {
@@ -250,7 +256,7 @@ export default function Home() {
       && ps !== 'expired'
       && ps !== 'selecting';
 
-    if (pendingSubject && (ps === 'active' || ps === 'expired')) {
+    if (pendingSubject && (ps === 'active' || ps === 'expired' || d?.receiptClaimedAt)) {
       localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
     }
 
@@ -524,7 +530,7 @@ export default function Home() {
   // Опрос: админ подтвердил до конца пробы — сразу приветствие и доступ (вкладка видима)
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (previewStatus !== 'active' && previewStatus !== 'expired') return;
+    if (previewStatus !== 'active' && previewStatus !== 'expired' && !receiptClaimedAt) return;
 
     const awaitingAdmin = () =>
       localStorage.getItem(PREVIEW_AWAITING_CONFIRM_KEY) === '1';
@@ -547,7 +553,7 @@ export default function Home() {
       document.removeEventListener('visibilitychange', onVisible);
       previewPollGen.current += 1;
     };
-  }, [isAuthenticated, previewStatus, pollAccessForAdminConfirm]);
+  }, [isAuthenticated, previewStatus, receiptClaimedAt, pollAccessForAdminConfirm]);
 
   const handleChannelCodeSuccess = useCallback((data: Record<string, unknown>) => {
     accessRequestGen.current += 1;
@@ -663,6 +669,33 @@ export default function Home() {
     }
   }, [applyAccessPayload, toast]);
 
+  const handleClaimReceipt = useCallback(async () => {
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) return;
+    setStatusChecking(true);
+    setPreviewStatusMessage('');
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telegramId: tgId, mode: 'claim_preview_receipt', initData: initDat }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPreviewStatusMessage(data.error || 'Не удалось сохранить. Попробуй ещё раз.');
+        return;
+      }
+      localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
+      applyAccessPayload(data);
+      toast({ title: 'Ждём подтверждения оплаты' });
+    } catch {
+      setPreviewStatusMessage('Ошибка соединения. Проверь интернет и попробуй снова.');
+    } finally {
+      setStatusChecking(false);
+    }
+  }, [applyAccessPayload, toast]);
+
   const handleCheckPreviewStatus = useCallback(async () => {
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
@@ -756,7 +789,7 @@ export default function Home() {
     );
   }
 
-  if (!accessChecked && previewStatus !== 'expired') {
+  if (!accessChecked && previewStatus !== 'expired' && !receiptClaimedAt) {
     return withAccessWelcome(
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -793,17 +826,21 @@ export default function Home() {
   }
 
   const awaitingPendingSubject =
-    previewStatus === 'expired' &&
-    !!previewChosen;
+    !!previewChosen &&
+    !previewConfirmedAt &&
+    (previewStatus === 'expired' || !!receiptClaimedAt);
 
   if (awaitingPendingSubject) {
     return withAccessWelcome(
       <PreviewAwaitingScreen
         chosenSubject={previewChosen}
         chosenModules={previewModules}
+        quotedPrice={previewQuotedPrice}
+        receiptClaimed={!!receiptClaimedAt}
         checking={statusChecking}
         statusMessage={previewStatusMessage}
         onCheckStatus={handleCheckPreviewStatus}
+        onClaimReceipt={handleClaimReceipt}
         onBackToAvailable={
           availableSubjects.some(s => s !== previewChosen)
             ? handleBackFromPendingPreview
@@ -813,7 +850,7 @@ export default function Home() {
     );
   }
 
-  if (availableSubjects.length === 0 && previewStatus !== 'active') {
+  if (availableSubjects.length === 0 && previewStatus !== 'active' && !awaitingPendingSubject) {
     return withAccessWelcome(
       <div className="flex items-center justify-center min-h-screen bg-background p-6">
         <div className="max-w-sm text-center space-y-4">

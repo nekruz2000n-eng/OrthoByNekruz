@@ -7,6 +7,7 @@ import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
 import { isCatalogModuleAlreadyGranted } from '@/lib/catalogBrowse';
 import type { PreviewModule } from '@/lib/previewModules';
 import { PREVIEW_MODULE_LABELS } from '@/lib/previewModules';
+import { calcPreviewPriceRub, formatPriceRub, getPreviewPriceHint } from '@/lib/previewPricing';
 import { Loader2, Check } from 'lucide-react';
 
 interface PreviewOnboardingScreenProps {
@@ -82,6 +83,11 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
   const modulesLabel = selectedModules
     .map(m => PREVIEW_MODULE_LABELS[m])
     .join(', ');
+
+  const quotedPrice = useMemo(() => {
+    if (!selectedId || selectedModules.length === 0) return null;
+    return calcPreviewPriceRub(selectedId, selectedModules);
+  }, [selectedId, selectedModules]);
 
   return (
     <div
@@ -277,6 +283,22 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
                   ? 'Выбери хотя бы один раздел'
                   : `Выбрано: ${modulesLabel}`}
               </p>
+              {quotedPrice != null && (
+                <div
+                  className="rounded-2xl px-4 py-3 text-center"
+                  style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
+                >
+                  <div className="text-[11px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--c-muted)' }}>
+                    К переводу после пробы
+                  </div>
+                  <div className="text-xl font-extrabold" style={{ color: selectedEntry.color }}>
+                    {formatPriceRub(quotedPrice)}
+                  </div>
+                  <div className="text-[11px] mt-1 leading-snug" style={{ color: 'var(--c-muted)' }}>
+                    {getPreviewPriceHint(selectedId ?? '')}
+                  </div>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => selectedModules.length > 0 && setConfirmStep(1)}
@@ -331,6 +353,9 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
             <>
               Предмет: <strong>{selectedEntry.label}</strong><br />
               Разделы: <strong>{modulesLabel}</strong>
+              {quotedPrice != null && (
+                <><br />Сумма: <strong>{formatPriceRub(quotedPrice)}</strong></>
+              )}
             </>
           }
           warn="Проверь выбор. После второго подтверждения изменить нельзя."
@@ -347,6 +372,9 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
             <>
               <strong style={{ color: selectedEntry.color }}>{selectedEntry.label}</strong>
               {' — '}{modulesLabel}
+              {quotedPrice != null && (
+                <><br />К переводу: <strong>{formatPriceRub(quotedPrice)}</strong></>
+              )}
               <br />После подтверждения доступ откроется по выбранным разделам.
             </>
           }

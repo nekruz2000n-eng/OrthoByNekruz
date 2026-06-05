@@ -1,32 +1,41 @@
 "use client";
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { getSubject } from '@/lib/subjects';
 import { formatPreviewModulesList } from '@/lib/previewModules';
-import { Loader2 } from 'lucide-react';
+import { formatPriceRub } from '@/lib/previewPricing';
+import { Loader2, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const SBP_PHONE_DISPLAY = '+7 900 316 66 46';
 const SBP_PHONE_COPY = '+79003166646';
+const RECEIPT_TG_URL = 'https://t.me/evoeidos';
 
 interface PreviewAwaitingScreenProps {
   chosenSubject: string | null;
   chosenModules?: string[];
+  quotedPrice?: number | null;
+  receiptClaimed?: boolean;
   checking?: boolean;
   statusMessage?: string;
   onCheckStatus?: () => void;
+  onClaimReceipt?: () => void;
   onBackToAvailable?: () => void;
 }
 
 export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
   chosenSubject,
   chosenModules = [],
+  quotedPrice = null,
+  receiptClaimed = false,
   checking = false,
   statusMessage,
   onCheckStatus,
+  onClaimReceipt,
   onBackToAvailable,
 }) => {
   const { toast } = useToast();
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const subjectCfg = chosenSubject ? getSubject(chosenSubject) : null;
   const modulesLabel = formatPreviewModulesList(chosenModules);
 
@@ -51,38 +60,63 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
     }
   }, [toast]);
 
+  const handleCheckClick = () => {
+    if (receiptClaimed) {
+      onCheckStatus?.();
+      return;
+    }
+    setReceiptModalOpen(true);
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-6">
       <div className="max-w-sm text-center space-y-5">
-        <div className="text-5xl">⏳</div>
+        <div className="text-5xl">{receiptClaimed ? '📨' : '⏳'}</div>
         <h1 className="text-xl font-bold leading-snug" style={{ color: 'var(--c-text)' }}>
-          Ты уже знаешь что внутри.
+          {receiptClaimed ? 'Чек отправлен — ждём подтверждения' : 'Ты уже знаешь что внутри.'}
         </h1>
         <p className="text-sm leading-relaxed" style={{ color: 'var(--c-muted)' }}>
-          Плата не за доступ —<br />
-          за то, чтобы не потерять то, что уже нашёл.
+          {receiptClaimed
+            ? 'Админ проверит перевод и откроет доступ по твоему выбору.'
+            : <>Плата не за доступ —<br />за то, чтобы не потерять то, что уже нашёл.</>}
         </p>
 
-        <div
-          className="rounded-2xl p-4 text-sm space-y-1"
-          style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
-        >
-          <div style={{ color: 'var(--c-muted)' }}>Т-Банк СБП</div>
-          <button
-            type="button"
-            onClick={() => void copyPhone()}
-            className="text-lg font-bold tracking-wide w-full"
-            style={{ color: 'hsl(var(--primary))' }}
+        {quotedPrice != null && (
+          <div
+            className="rounded-2xl px-4 py-3"
+            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
           >
-            {SBP_PHONE_DISPLAY}
-          </button>
-          <p className="text-[11px]" style={{ color: 'var(--c-muted)', opacity: 0.75 }}>
-            Нажми на номер — скопируется
-          </p>
-          <p className="text-[13px] pt-1" style={{ color: 'var(--c-muted)' }}>
-            Перевёл — напиши. Открою.
-          </p>
-        </div>
+            <div className="text-[11px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--c-muted)' }}>
+              Сумма перевода
+            </div>
+            <div className="text-2xl font-extrabold" style={{ color: subjectCfg?.color ?? 'var(--c-text)' }}>
+              {formatPriceRub(quotedPrice)}
+            </div>
+          </div>
+        )}
+
+        {!receiptClaimed && (
+          <div
+            className="rounded-2xl p-4 text-sm space-y-1"
+            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
+          >
+            <div style={{ color: 'var(--c-muted)' }}>Т-Банк СБП</div>
+            <button
+              type="button"
+              onClick={() => void copyPhone()}
+              className="text-lg font-bold tracking-wide w-full"
+              style={{ color: 'hsl(var(--primary))' }}
+            >
+              {SBP_PHONE_DISPLAY}
+            </button>
+            <p className="text-[11px]" style={{ color: 'var(--c-muted)', opacity: 0.75 }}>
+              Нажми на номер — скопируется
+            </p>
+            <p className="text-[13px] pt-1" style={{ color: 'var(--c-muted)' }}>
+              Перевёл — напиши. Открою.
+            </p>
+          </div>
+        )}
 
         {(subjectCfg || modulesLabel) && (
           <div
@@ -120,7 +154,7 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
         {onCheckStatus && (
           <button
             type="button"
-            onClick={onCheckStatus}
+            onClick={handleCheckClick}
             disabled={checking}
             className="w-full h-12 rounded-2xl text-sm font-semibold inline-flex items-center justify-center gap-2"
             style={{
@@ -153,7 +187,7 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
         <p className="text-[11px]" style={{ color: 'var(--c-muted)', opacity: 0.7 }}>
           Вопросы —{' '}
           <a
-            href="https://t.me/evoeidos"
+            href={RECEIPT_TG_URL}
             target="_blank"
             rel="noreferrer"
             className="underline"
@@ -163,6 +197,63 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
           </a>
         </p>
       </div>
+
+      {receiptModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.55)' }}
+          onClick={() => setReceiptModalOpen(false)}
+        >
+          <div
+            className="max-w-sm w-full rounded-2xl p-5 space-y-4 text-center relative"
+            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="absolute top-3 right-3 p-1 rounded-lg opacity-60"
+              onClick={() => setReceiptModalOpen(false)}
+              aria-label="Закрыть"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="text-4xl pt-1">🧾</div>
+            <h2 className="text-lg font-bold" style={{ color: 'var(--c-text)' }}>
+              Чек на @evoeidos скинул?
+            </h2>
+            {quotedPrice != null && (
+              <p className="text-sm" style={{ color: 'var(--c-muted)' }}>
+                Сумма: <strong style={{ color: 'var(--c-text)' }}>{formatPriceRub(quotedPrice)}</strong>
+              </p>
+            )}
+            <a
+              href={RECEIPT_TG_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="block w-full h-12 rounded-2xl text-sm font-semibold leading-[3rem]"
+              style={{
+                background: 'var(--c-card)',
+                color: 'hsl(var(--primary))',
+                border: '1px solid var(--c-border)',
+              }}
+            >
+              Скинуть чек
+            </a>
+            <button
+              type="button"
+              disabled={checking}
+              onClick={() => {
+                setReceiptModalOpen(false);
+                onClaimReceipt?.();
+              }}
+              className="w-full h-12 rounded-2xl text-sm font-semibold inline-flex items-center justify-center gap-2"
+              style={{ background: 'var(--c-primary)', color: 'var(--c-bg)' }}
+            >
+              {checking ? <><Loader2 className="w-4 h-4 animate-spin" /> Сохраняем...</> : 'Скинул'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

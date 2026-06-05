@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
 import { SUBJECTS, getSubject, getUserAvailableSubjects, migrateUserSubjects } from '@/lib/subjects';
-import { confirmPreviewUser, getEffectiveUserSubjects, clearPreviewTrialLock, previewChoiceNeedsAdminConfirm, previewChoiceIsAddon, hasFinalizedPreviewAccess } from '@/lib/preview';
+import { confirmPreviewUser, getEffectiveUserSubjects, clearPreviewTrialLock, previewChoiceNeedsAdminConfirm, previewChoiceIsAddon, hasFinalizedPreviewAccess, reopenPreviewVitrine } from '@/lib/preview';
 import { clearAuthRateLimitsForTgId } from '@/lib/authRateLimit';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { getAllUserIds, registerUserId, removeUserId } from '@/lib/userIndex';
@@ -71,6 +71,8 @@ function toListUser(
     facultyId:            user.facultyId            ?? null,
     previewFaculty:       user.previewFaculty       ?? null,
     previewConfirmedAt:   user.previewConfirmedAt   ?? null,
+    previewQuotedPrice:   typeof user.previewQuotedPrice === 'number' ? user.previewQuotedPrice : null,
+    receiptClaimedAt:     user.receiptClaimedAt     ?? null,
     previewNeedsConfirm:  previewChoiceNeedsAdminConfirm(user),
     previewIsAddon:       previewChoiceIsAddon(user),
     contactUsername:      user.contactUsername      ?? null,
@@ -113,6 +115,8 @@ function toDetailUser(
     previewFaculty:       user.previewFaculty       ?? null,
     previewStartedAt:     user.previewStartedAt     ?? null,
     previewConfirmedAt:   user.previewConfirmedAt   ?? null,
+    previewQuotedPrice:   typeof user.previewQuotedPrice === 'number' ? user.previewQuotedPrice : null,
+    receiptClaimedAt:     user.receiptClaimedAt     ?? null,
     previewNeedsConfirm:  previewChoiceNeedsAdminConfirm(user),
     previewIsAddon:       previewChoiceIsAddon(user),
     contactUsername:      user.contactUsername      ?? null,
@@ -364,6 +368,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           delete cleaned.previewPickedAt;
           delete cleaned.previewExpiredAt;
           delete cleaned.previewConfirmedAt;
+          delete cleaned.previewQuotedPrice;
+          delete cleaned.receiptClaimedAt;
           const key = cleaned.activatedKey;
           if (key === 'preview' || (key && String(key).startsWith('promo:'))) {
             delete cleaned.activatedKey;
@@ -371,6 +377,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           await saveUser(String(tgId), cleaned);
         }
         return res.status(200).json({ ok: true });
+      }
+
+      if (action === 'reopen_preview_vitrine') {
+        const updated = reopenPreviewVitrine(user);
+        if (!updated) {
+          return res.status(400).json({ error: 'Не удалось вернуть на витрину' });
+        }
+        await saveUser(String(tgId), updated);
+        return res.status(200).json({
+          ok: true,
+          previewStatus: 'selecting',
+          previewChosenSubject: null,
+          previewChosenModules: null,
+          previewQuotedPrice: null,
+          receiptClaimedAt: null,
+          previewNeedsConfirm: false,
+        });
       }
 
       if (action === 'confirm_preview') {
