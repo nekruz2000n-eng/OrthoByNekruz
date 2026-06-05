@@ -88,7 +88,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 2. Проверка доступа к дисциплине
     let user: any = await redis.get(`user_id:${telegramId}`);
     user = await maybeExpirePreviewUser(redis, String(telegramId), user);
-    if (user?.previewStatus === 'active' && isPreviewExpired(user)) {
+    if (user?.previewStatus === 'active' && isPreviewExpired(user, Date.now(), String(telegramId))) {
       return res.status(403).json({ error: 'Preview expired' });
     }
     if (!userHasSubject(user, subjectCfg.id)) {

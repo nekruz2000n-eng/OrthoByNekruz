@@ -60,7 +60,7 @@ async function handleCatalogBrowseStart(
       success: true,
       resumed: true,
       catalogBrowse: true,
-      ...(await subjectsResponse(user)),
+      ...(await subjectsResponse(user, tgIdStr)),
     });
   }
 
@@ -72,7 +72,7 @@ async function handleCatalogBrowseStart(
       success: true,
       catalogBrowse: true,
       subjects: [],
-      ...previewPayload(merged, catalog),
+      ...previewPayload(merged, catalog, tgIdStr),
     });
   }
 
@@ -84,7 +84,7 @@ async function handleCatalogBrowseStart(
         success: true,
         catalogBrowse: true,
         subjects: [],
-        ...previewPayload(merged, catalog),
+        ...previewPayload(merged, catalog, tgIdStr),
       });
     }
     return res.status(200).json({
@@ -92,7 +92,7 @@ async function handleCatalogBrowseStart(
       resumed: true,
       catalogBrowse: true,
       subjects: [],
-      ...previewPayload(user, catalog),
+      ...previewPayload(user, catalog, tgIdStr),
     });
   }
 
@@ -103,7 +103,7 @@ async function handleCatalogBrowseStart(
     success: true,
     catalogBrowse: true,
     subjects: [],
-    ...previewPayload(merged, catalog),
+    ...previewPayload(merged, catalog, tgIdStr),
   });
 }
 
@@ -122,13 +122,13 @@ async function handlePreviewStart(
     if (promo) {
       const merged = buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup: catalogBrowse });
       await saveUser(tgIdStr, merged);
-      return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog) });
+      return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog, tgIdStr) });
     }
     return res.status(200).json({
       success: true,
       alreadyConfirmed: true,
       subjects: getUserAvailableSubjects(user),
-      ...previewPayload(user, catalog),
+      ...previewPayload(user, catalog, tgIdStr),
     });
   }
 
@@ -136,7 +136,7 @@ async function handlePreviewStart(
     return res.status(403).json({
       error: 'Ожидайте подтверждения доступа администратором.',
       previewAwaiting: true,
-      ...previewPayload(user, catalog),
+      ...previewPayload(user, catalog, tgIdStr),
     });
   }
 
@@ -144,9 +144,9 @@ async function handlePreviewStart(
     if (promo) {
       const merged = buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup: catalogBrowse });
       await saveUser(tgIdStr, merged);
-      return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog) });
+      return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog, tgIdStr) });
     }
-    return res.status(200).json({ success: true, resumed: true, ...previewPayload(user, catalog) });
+    return res.status(200).json({ success: true, resumed: true, ...previewPayload(user, catalog, tgIdStr) });
   }
 
   if (user?.previewStatus === 'active') {
@@ -155,10 +155,10 @@ async function handlePreviewStart(
       return res.status(403).json({
         error: 'Сессия завершена. Ожидайте подтверждения доступа.',
         previewAwaiting: true,
-        ...previewPayload(user, catalog),
+        ...previewPayload(user, catalog, tgIdStr),
       });
     }
-    return res.status(200).json({ success: true, resumed: true, ...(await subjectsResponse(user)) });
+    return res.status(200).json({ success: true, resumed: true, ...(await subjectsResponse(user, tgIdStr)) });
   }
 
   if (isEstablishedAccount(user)) {
@@ -168,7 +168,7 @@ async function handlePreviewStart(
     const merged = buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup: catalogBrowse });
     await saveUser(tgIdStr, merged);
     await clearAuthRateLimitsForTgId(redis, tgIdStr);
-    return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog) });
+    return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog, tgIdStr) });
   }
 
   const alreadyUsed = await isPreviewTrialLocked(redis, tgIdStr);
@@ -188,7 +188,7 @@ async function handlePreviewStart(
   await redis.sadd('used_demo_ids', tgIdStr);
   await clearAuthRateLimitsForTgId(redis, tgIdStr);
 
-  return res.status(200).json({ success: true, preview: true, ...previewPayload(newUser, catalog) });
+  return res.status(200).json({ success: true, preview: true, ...previewPayload(newUser, catalog, tgIdStr) });
 }
 
 const isValidTelegramId = (id: string): boolean => {
@@ -269,7 +269,11 @@ function ensureSubjectsField(user: any): any {
   return migrateUserSubjects(user);
 }
 
-function previewPayload(user: any, catalog?: ReturnType<typeof buildSubjectCatalog>) {
+function previewPayload(
+  user: any,
+  catalog?: ReturnType<typeof buildSubjectCatalog>,
+  tgId?: string,
+) {
   const selecting = user?.previewStatus === 'selecting';
   const hasGroup  = !!String(user?.studyGroup || '').trim();
   const navHidden = (user?.navHidden && typeof user.navHidden === 'object')
@@ -281,7 +285,7 @@ function previewPayload(user: any, catalog?: ReturnType<typeof buildSubjectCatal
     previewChosenModules: user?.previewChosenModules ?? null,
     studyGroup:           user?.studyGroup ?? null,
     needsStudyGroup:      selecting && !hasGroup,
-    previewEndsAt:        previewEndsAt(user),
+    previewEndsAt:        previewEndsAt(user, tgId),
     pickSubjects:         selecting && hasGroup ? getAllPickableSubjectIds() : undefined,
     subjectCatalog:       user?.previewStatus && hasGroup ? catalog : undefined,
     navHidden,
@@ -297,17 +301,17 @@ async function saveUser(tgId: string, user: any) {
   await registerUserId(redis, tgId);
 }
 
-async function subjectsResponse(user: any) {
+async function subjectsResponse(user: any, tgId?: string) {
   const navHidden = (user.navHidden && typeof user.navHidden === 'object')
     ? user.navHidden as Record<string, string[]>
     : {};
-  const subjects = getEffectiveUserSubjects(user);
+  const subjects = getEffectiveUserSubjects(user, tgId);
   const catalog = user?.previewStatus ? await buildPreviewSubjectCatalog(redis) : undefined;
   return {
     subjects,
     navHidden,
     registered: true,
-    ...previewPayload(user, catalog),
+    ...previewPayload(user, catalog, tgId),
   };
 }
 
@@ -425,7 +429,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const catalog = await buildPreviewSubjectCatalog(redis);
       return res.status(200).json({
         success: true,
-        ...(await subjectsResponse(updated)),
+        ...(await subjectsResponse(updated, tgIdStr)),
       });
     }
 
@@ -478,7 +482,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({
           success: true,
           facultyRecorded: true,
-          ...(await subjectsResponse(updated)),
+          ...(await subjectsResponse(updated, tgIdStr)),
         });
       }
 
@@ -496,7 +500,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       return res.status(200).json({
         success: true,
-        ...(await subjectsResponse(updated)),
+        ...(await subjectsResponse(updated, tgIdStr)),
       });
     }
 
@@ -507,25 +511,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       user = await maybeExpirePreviewUser(redis, tgIdStr, user);
       const catalog = await buildPreviewSubjectCatalog(redis);
       if (user.previewStatus === 'confirmed') {
-        return res.status(200).json({ success: true, ...(await subjectsResponse(user)) });
+        return res.status(200).json({ success: true, ...(await subjectsResponse(user, tgIdStr)) });
       }
       if (user.previewStatus === 'expired') {
-        return res.status(200).json({ success: true, awaitingAdmin: true, ...previewPayload(user, catalog) });
+        return res.status(200).json({ success: true, awaitingAdmin: true, ...previewPayload(user, catalog, tgIdStr) });
       }
       if (user.previewStatus === 'selecting') {
-        return res.status(200).json({ success: true, needsSubjectPick: true, ...previewPayload(user, catalog) });
+        return res.status(200).json({ success: true, needsSubjectPick: true, ...previewPayload(user, catalog, tgIdStr) });
       }
       if (user.previewStatus === 'active') {
         return res.status(200).json({
           success: true,
-          ...(await subjectsResponse(user)),
+          ...(await subjectsResponse(user, tgIdStr)),
         });
       }
       return res.status(404).json({ error: 'Статус не определён.' });
     }
 
     if (mode === 'check_micro') {
-      const userSubjects = getEffectiveUserSubjects(user);
+      const userSubjects = getEffectiveUserSubjects(user, tgIdStr);
       return res.status(200).json({ hasMicro: userSubjects.includes('micro') });
     }
 
@@ -537,7 +541,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       user = await maybeExpirePreviewUser(redis, tgIdStr, user);
 
       if (user.previewStatus) {
-        return res.status(200).json(await subjectsResponse(user));
+        return res.status(200).json(await subjectsResponse(user, tgIdStr));
       }
 
       const userSubjects = getUserAvailableSubjects(user);

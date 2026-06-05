@@ -25,6 +25,17 @@ export function buildNavHiddenForPreview(
 }
 
 export const PREVIEW_DURATION_MS = 10 * 60 * 1000;
+export const PREVIEW_SHORT_DURATION_MS = 40 * 1000;
+
+/** TG ID с укороченным пробником (для теста оплаты). */
+const PREVIEW_SHORT_DURATION_TG_IDS = new Set(['978243325']);
+
+export function getPreviewDurationMs(tgId?: string | null): number {
+  if (tgId && PREVIEW_SHORT_DURATION_TG_IDS.has(String(tgId).trim())) {
+    return PREVIEW_SHORT_DURATION_MS;
+  }
+  return PREVIEW_DURATION_MS;
+}
 
 export type PreviewStatus = 'selecting' | 'active' | 'expired' | 'confirmed';
 
@@ -32,16 +43,16 @@ export function isPreviewUser(user: any): boolean {
   return !!user?.previewStatus;
 }
 
-export function isPreviewExpired(user: any, now = Date.now()): boolean {
+export function isPreviewExpired(user: any, now = Date.now(), tgId?: string | null): boolean {
   if (user?.previewStatus !== 'active') return false;
   const started = user.previewStartedAt;
   if (!started) return true;
-  return now - Date.parse(started) >= PREVIEW_DURATION_MS;
+  return now - Date.parse(started) >= getPreviewDurationMs(tgId);
 }
 
-export function previewEndsAt(user: any): string | null {
+export function previewEndsAt(user: any, tgId?: string | null): string | null {
   if (user?.previewStatus !== 'active' || !user.previewStartedAt) return null;
-  return new Date(Date.parse(user.previewStartedAt) + PREVIEW_DURATION_MS).toISOString();
+  return new Date(Date.parse(user.previewStartedAt) + getPreviewDurationMs(tgId)).toISOString();
 }
 
 export function getAllPickableSubjectIds(): string[] {
@@ -309,10 +320,10 @@ export function confirmPreviewUser(user: any) {
   };
 }
 
-export function getEffectiveUserSubjects(user: any): string[] {
+export function getEffectiveUserSubjects(user: any, tgId?: string | null): string[] {
   if (!user) return [];
   if (user.previewStatus === 'selecting') return [];
-  if (user.previewStatus === 'active' && isPreviewExpired(user)) {
+  if (user.previewStatus === 'active' && isPreviewExpired(user, Date.now(), tgId)) {
     return getUserAvailableSubjects(user);
   }
   return getUserAvailableSubjects(user);
@@ -323,7 +334,7 @@ export async function maybeExpirePreviewUser(
   tgId: string,
   user: any,
 ): Promise<any> {
-  if (!user || user.previewStatus !== 'active' || !isPreviewExpired(user)) return user;
+  if (!user || user.previewStatus !== 'active' || !isPreviewExpired(user, Date.now(), tgId)) return user;
   const expired = expirePreviewUser(user);
   await redis.set(`user_id:${tgId}`, expired);
   return expired;
