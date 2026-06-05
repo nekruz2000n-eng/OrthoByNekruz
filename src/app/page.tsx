@@ -16,7 +16,7 @@ import { StatsTab }      from '@/components/StatsTab';
 import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
 import { getDefaultSubjectId } from '@/lib/subjects';
-import type { PreviewStatus } from '@/lib/preview';
+import { getPreviewDurationMs, type PreviewStatus } from '@/lib/preview';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
 import { persistFacultyId, USER_FACULTY_ID_KEY } from '@/lib/facultyCodes';
 
@@ -119,13 +119,30 @@ function initTelegramApp(): () => void {
 
 const AUTH_STORAGE_KEYS = [
   'is_authed', 'user_tg_id', 'available_subjects', 'subject_chosen',
-  'has_micro', 'preview_end', 'last_subject', 'welcome_seen',
+  'has_micro', 'preview_end', 'preview_start', 'last_subject', 'welcome_seen',
   PREVIEW_AWAITING_CONFIRM_KEY,
   USER_FACULTY_ID_KEY,
 ];
 
 function clearLocalSession() {
   AUTH_STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
+}
+
+function resolvePreviewEndIso(
+  endsAt: string | null,
+  startedAt: string | null,
+  tgId: string | null,
+): string | null {
+  const id = tgId || localStorage.getItem('user_tg_id');
+  const started = startedAt || localStorage.getItem('preview_start');
+  if (started && id) {
+    const fromStart = Date.parse(started) + getPreviewDurationMs(id);
+    if (endsAt) {
+      return new Date(Math.min(Date.parse(endsAt), fromStart)).toISOString();
+    }
+    return new Date(fromStart).toISOString();
+  }
+  return endsAt || localStorage.getItem('preview_end');
 }
 
 export default function Home() {
@@ -151,6 +168,7 @@ export default function Home() {
   const [subjectCatalog,  setSubjectCatalog]   = useState<SubjectCatalogEntry[]>([]);
   const [catalogGrantedSubjects, setCatalogGrantedSubjects] = useState<string[]>([]);
   const [previewEndsAt,   setPreviewEndsAt]    = useState<string | null>(null);
+  const [previewStartedAt, setPreviewStartedAt] = useState<string | null>(null);
   const [previewPicking,  setPreviewPicking]   = useState<boolean>(false);
   const [statusChecking,  setStatusChecking]  = useState<boolean>(false);
   const [previewStatusMessage, setPreviewStatusMessage] = useState('');
@@ -199,6 +217,7 @@ export default function Home() {
     setPreviewModules(Array.isArray(d?.previewChosenModules) ? d.previewChosenModules : []);
     setNeedsStudyGroup(d?.needsStudyGroup === true);
     setPreviewEndsAt(d?.previewEndsAt ?? null);
+    setPreviewStartedAt(d?.previewStartedAt ?? null);
 
     if (Array.isArray(d?.subjectCatalog)) setSubjectCatalog(d.subjectCatalog);
     if (Array.isArray(d?.catalogGrantedSubjects)) {
@@ -210,10 +229,16 @@ export default function Home() {
 
     if (d?.facultyId) persistFacultyId(String(d.facultyId));
 
-    if (ps === 'active' && d?.previewEndsAt) {
-      localStorage.setItem('preview_end', d.previewEndsAt);
+    if (ps === 'active') {
+      const tgId = localStorage.getItem('user_tg_id');
+      const endIso = resolvePreviewEndIso(d?.previewEndsAt ?? null, d?.previewStartedAt ?? null, tgId);
+      if (endIso) localStorage.setItem('preview_end', endIso);
+      else localStorage.removeItem('preview_end');
+      if (d?.previewStartedAt) localStorage.setItem('preview_start', d.previewStartedAt);
+      else localStorage.removeItem('preview_start');
     } else {
       localStorage.removeItem('preview_end');
+      localStorage.removeItem('preview_start');
     }
 
     if (d?.previewChosenSubject && (ps === 'active' || ps === 'expired')) {
@@ -226,18 +251,11 @@ export default function Home() {
 
     if (ps === 'expired') {
       localStorage.removeItem('preview_end');
+      localStorage.removeItem('preview_start');
       const pending = d?.previewChosenSubject as string | null | undefined;
-      if (pending && list.length > 0) {
-        const others = list.filter(s => s !== pending);
-        const saved = localStorage.getItem('last_subject');
-        const next =
-          (saved && others.includes(saved) ? saved : null)
-          ?? others[0]
-          ?? list[0];
-        if (next && next !== pending) {
-          setSubjectRaw(next);
-          localStorage.setItem('last_subject', next);
-        }
+      if (pending) {
+        setSubjectRaw(pending);
+        localStorage.setItem('last_subject', pending);
       }
     }
 
@@ -450,14 +468,19 @@ export default function Home() {
   // ── Таймер сессии витрины (без отображения пользователю) ─────────────────
   useEffect(() => {
     if (!isAuthenticated || previewStatus !== 'active') return;
-    const endIso = previewEndsAt || localStorage.getItem('preview_end');
+    const tgId = localStorage.getItem('user_tg_id');
+    const endIso = resolvePreviewEndIso(previewEndsAt, previewStartedAt, tgId);
     if (!endIso) return;
 
     const tick = () => {
       if (Date.now() >= Date.parse(endIso)) {
         setPreviewStatus('expired');
         localStorage.removeItem('preview_end');
-        setAvailableSubjects([]);
+        localStorage.removeItem('preview_start');
+        if (previewChosen) {
+          setSubjectRaw(previewChosen);
+          localStorage.setItem('last_subject', previewChosen);
+        }
         fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -477,8 +500,13 @@ export default function Home() {
 
     if (tick()) return;
     const iv = setInterval(() => { if (tick()) clearInterval(iv); }, 1000);
-    return () => clearInterval(iv);
-  }, [isAuthenticated, previewStatus, previewEndsAt, applyAccessPayload]);
+    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [isAuthenticated, previewStatus, previewEndsAt, previewStartedAt, previewChosen, applyAccessPayload, setSubjectRaw]);
 
   // Опрос: админ подтвердил до конца пробы — сразу приветствие и доступ (вкладка видима)
   useEffect(() => {
@@ -751,8 +779,7 @@ export default function Home() {
 
   const awaitingPendingSubject =
     previewStatus === 'expired' &&
-    !!previewChosen &&
-    subject === previewChosen;
+    !!previewChosen;
 
   if (awaitingPendingSubject) {
     return withAccessWelcome(

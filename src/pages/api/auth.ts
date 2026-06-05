@@ -286,6 +286,7 @@ function previewPayload(
     studyGroup:           user?.studyGroup ?? null,
     needsStudyGroup:      selecting && !hasGroup,
     previewEndsAt:        previewEndsAt(user, tgId),
+    previewStartedAt:     user?.previewStatus === 'active' ? (user.previewStartedAt ?? null) : null,
     pickSubjects:         selecting && hasGroup ? getAllPickableSubjectIds() : undefined,
     subjectCatalog:       user?.previewStatus && hasGroup ? catalog : undefined,
     navHidden,
