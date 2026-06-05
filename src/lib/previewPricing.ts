@@ -40,10 +40,21 @@ function calcOrthoPreviewPrice(modules: PreviewModule[]): number {
 export type PaymentModuleOption = {
   id: PreviewModule;
   label: string;
+  shortLabel: string;
   unitPriceRub: number | null;
+  selectable: boolean;
 };
 
 const ALL_PREVIEW_MODULES: PreviewModule[] = ['questions', 'tests', 'tasks'];
+
+/** Порядок кнопок в ряду на экране оплаты. */
+export const PAYMENT_MODULE_ROW_ORDER: PreviewModule[] = ['questions', 'tests', 'tasks'];
+
+const PAYMENT_MODULE_SHORT_LABELS: Record<PreviewModule, string> = {
+  questions: 'Вопросы',
+  tests:     'Тесты',
+  tasks:     'Задачи',
+};
 
 /** Разделы с ценой за единицу — для кнопок на экране оплаты. */
 export function getPaymentModuleOptions(subjectId: string): PaymentModuleOption[] {
@@ -51,21 +62,43 @@ export function getPaymentModuleOptions(subjectId: string): PaymentModuleOption[
     return ALL_PREVIEW_MODULES.map(id => ({
       id,
       label: PREVIEW_MODULE_LABELS[id],
+      shortLabel: PAYMENT_MODULE_SHORT_LABELS[id],
       unitPriceRub: ORTHO_MODULE_PRICES[id],
+      selectable: true,
     }));
   }
   if (subjectId === 'micro') {
     return ALL_PREVIEW_MODULES.map(id => ({
       id,
       label: PREVIEW_MODULE_LABELS[id],
+      shortLabel: PAYMENT_MODULE_SHORT_LABELS[id],
       unitPriceRub: MODULE_PRICE_RUB,
+      selectable: true,
     }));
   }
-  return [{
-    id: 'tests',
-    label: PREVIEW_MODULE_LABELS.tests,
-    unitPriceRub: MODULE_PRICE_RUB,
-  }];
+  return ALL_PREVIEW_MODULES.map(id => ({
+    id,
+    label: PREVIEW_MODULE_LABELS[id],
+    shortLabel: PAYMENT_MODULE_SHORT_LABELS[id],
+    unitPriceRub: id === 'tests' ? MODULE_PRICE_RUB : null,
+    selectable: id === 'tests',
+  }));
+}
+
+/** Всегда три кнопки в ряд; недоступные — неактивны. */
+export function getPaymentModuleRow(subjectId: string): PaymentModuleOption[] {
+  const byId = new Map(getPaymentModuleOptions(subjectId).map(o => [o.id, o]));
+  return PAYMENT_MODULE_ROW_ORDER.map(id => {
+    const found = byId.get(id);
+    if (found) return found;
+    return {
+      id,
+      label: PREVIEW_MODULE_LABELS[id],
+      shortLabel: PAYMENT_MODULE_SHORT_LABELS[id],
+      unitPriceRub: null,
+      selectable: false,
+    };
+  });
 }
 
 export function getModuleUnitPriceRub(subjectId: string, module: PreviewModule): number | null {

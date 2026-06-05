@@ -262,11 +262,19 @@ export default function Home() {
       localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
     }
 
-    if (ps === 'confirmed' || accessJustOpened) {
+    const receiptAccessOpened = !!d?.previewConfirmedAt
+      && !!pendingSubject
+      && list.includes(pendingSubject)
+      && ps !== 'active'
+      && ps !== 'expired'
+      && ps !== 'selecting';
+
+    if (ps === 'confirmed' || accessJustOpened || receiptAccessOpened) {
       triggerAccessWelcomeIfPending();
-      if (accessJustOpened && pendingSubject) {
+      if ((accessJustOpened || receiptAccessOpened) && pendingSubject) {
         setSubjectRaw(pendingSubject);
         localStorage.setItem('last_subject', pendingSubject);
+        localStorage.setItem('subject_chosen', 'true');
       }
     }
 
@@ -701,17 +709,22 @@ export default function Home() {
     }
   }, [applyAccessPayload]);
 
-  const handleClaimReceipt = useCallback(async () => {
+  const handleClaimReceipt = useCallback(async (modules: PreviewModule[]) => {
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
-    if (!tgId) return;
+    if (!tgId || modules.length === 0) return;
     setStatusChecking(true);
     setPreviewStatusMessage('');
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telegramId: tgId, mode: 'claim_preview_receipt', initData: initDat }),
+        body: JSON.stringify({
+          telegramId: tgId,
+          mode: 'claim_preview_receipt',
+          modules,
+          initData: initDat,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -719,8 +732,9 @@ export default function Home() {
         return;
       }
       localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
+      localStorage.setItem('is_authed', 'true');
       applyAccessPayload(data);
-      toast({ title: 'Ждём подтверждения оплаты' });
+      toast({ title: 'Доступ открыт' });
     } catch {
       setPreviewStatusMessage('Ошибка соединения. Проверь интернет и попробуй снова.');
     } finally {

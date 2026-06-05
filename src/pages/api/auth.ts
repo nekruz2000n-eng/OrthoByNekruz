@@ -537,12 +537,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'Заявка не найдена.' });
       }
       user = await maybeExpirePreviewUser(redis, tgIdStr, user);
+      const chosenModules = normalizePreviewModules(modules);
+      if (chosenModules.length > 0) {
+        const withChoice = updatePreviewPaymentChoice(user, chosenModules);
+        if (withChoice) user = withChoice;
+      }
       const updated = claimPreviewReceipt(user);
       if (!updated) return res.status(400).json({ error: 'Не удалось сохранить.' });
       await saveUser(tgIdStr, updated);
       return res.status(200).json({
         success: true,
         receiptClaimed: true,
+        accessGranted: true,
         ...(await subjectsResponse(updated, tgIdStr)),
       });
     }

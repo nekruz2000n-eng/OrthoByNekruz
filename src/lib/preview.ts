@@ -363,22 +363,17 @@ export function updatePreviewPaymentChoice(user: any, modules: PreviewModule[]) 
   };
 }
 
-/** Студент нажал «Скинул чек» — убираем пробник, ждём подтверждения админа. */
+/** Студент нажал «Скинул чек» — доверяем, сразу открываем доступ по выбору. */
 export function claimPreviewReceipt(user: any) {
   const chosen = user?.previewChosenSubject;
   if (!chosen) return null;
-  if (user.receiptClaimedAt) return user;
+  if (hasFinalizedPreviewAccess(user)) return user;
 
-  const updated: Record<string, any> = { ...user, receiptClaimedAt: new Date().toISOString() };
-  if (user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object') {
-    updated.subjects = { ...user._subjectsBeforePreview };
-  }
-  delete updated.previewStatus;
-  delete updated.previewStartedAt;
-  delete updated.previewExpiredAt;
-  delete updated.previewPickedAt;
-  delete updated._subjectsBeforePreview;
-  return updated;
+  const stamped = user.receiptClaimedAt
+    ? user
+    : { ...user, receiptClaimedAt: new Date().toISOString() };
+
+  return confirmPreviewUser(stamped);
 }
 
 /** Админ вернул на витрину — студент выбирает заново. */
