@@ -910,7 +910,53 @@ export default function Home() {
     localStorage.setItem('last_subject', next);
   }, [availableSubjects, previewChosen, canAbandonPending, handleAbandonPendingPreview, setSubject, toast]);
 
+  const inPendingPaymentFlow = !!previewChosen && (
+    previewStatus === 'expired'
+    || (!!receiptClaimedAt && !previewConfirmedAt)
+  );
+
+  /** Не новый гость: до пробы уже были купленные предметы (докупка). */
+  const isEstablishedForStats = paymentGrantedSubjects.length > 0;
+
+  const statsAvailableSubjects = useMemo(() => {
+    if (!previewChosen) return availableSubjects;
+    if (inPendingPaymentFlow && !isEstablishedForStats) {
+      return [previewChosen];
+    }
+    if (isEstablishedForStats) {
+      return [...new Set([...paymentGrantedSubjects, ...availableSubjects, previewChosen])];
+    }
+    if (previewChosen && !availableSubjects.includes(previewChosen)) {
+      return [...availableSubjects, previewChosen];
+    }
+    return availableSubjects;
+  }, [
+    availableSubjects, previewChosen, inPendingPaymentFlow, isEstablishedForStats,
+    paymentGrantedSubjects,
+  ]);
+
   const handleSubjectChangeWithPending = useCallback((s: string) => {
+    const switchingToPurchased = isEstablishedForStats
+      && !!pendingPaymentSubject
+      && s !== pendingPaymentSubject
+      && paymentGrantedSubjects.includes(s);
+
+    if (switchingToPurchased && canAbandonPending) {
+      void handleAbandonPendingPreview(s).then(ok => {
+        if (ok) {
+          toast({ title: 'Докупка отменена', description: 'Вернулся к уже открытым предметам.' });
+        }
+      });
+      return;
+    }
+
+    if (switchingToPurchased) {
+      setSubjectRaw(s);
+      localStorage.setItem('last_subject', s);
+      localStorage.setItem('subject_chosen', 'true');
+      return;
+    }
+
     setSubjectRaw(s);
     localStorage.setItem('last_subject', s);
     localStorage.setItem('subject_chosen', 'true');
@@ -920,7 +966,11 @@ export default function Home() {
       const first = firstPreviewModuleTab(tabs);
       if (first) setActiveTab(first);
     }
-  }, [pendingPaymentSubject, previewChosen, previewModuleStatuses, previewModules, setSubjectRaw]);
+  }, [
+    isEstablishedForStats, pendingPaymentSubject, paymentGrantedSubjects, previewChosen,
+    canAbandonPending, handleAbandonPendingPreview, previewModuleStatuses,
+    previewModules, setSubjectRaw, toast,
+  ]);
 
   const chosenPreviewModules = useMemo(
     () => normalizePreviewModules(previewModules),
@@ -1059,15 +1109,6 @@ export default function Home() {
       />,
     );
   }
-
-  const statsAvailableSubjects = previewChosen && !availableSubjects.includes(previewChosen)
-    ? [...availableSubjects, previewChosen]
-    : availableSubjects;
-
-  const inPendingPaymentFlow = !!previewChosen && (
-    previewStatus === 'expired'
-    || (!!receiptClaimedAt && !previewConfirmedAt)
-  );
 
   if (
     availableSubjects.length === 0
