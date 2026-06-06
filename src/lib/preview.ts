@@ -74,20 +74,39 @@ export function buildNavHiddenForConfirmedPurchase(
 }
 
 export const PREVIEW_DURATION_MS = 10 * 60 * 1000;
-export const PREVIEW_SHORT_DURATION_MS = 40 * 1000;
 
-/** TG ID с укороченным пробником (для теста оплаты; совпадает с ADMIN_TG_ID). */
-const PREVIEW_SHORT_DURATION_TG_IDS = new Set(['978243325']);
+/** Интервал синхронизации таймера пробы с API (каждый раздел — своё значение). */
+export const PREVIEW_SYNC_INTERVAL_MS = 60_000;
+
+/** TG ID тестового аккаунта: 1 сек реального времени = 1 мин пробы (совпадает с ADMIN_TG_ID). */
+const PREVIEW_TEST_TIME_TG_IDS = new Set(['978243325']);
+
+/** Множитель активного времени для тестового аккаунта (1 сек → 1 мин). */
+export const PREVIEW_TEST_ACTIVE_TIME_MULTIPLIER = 60;
 
 export function isPreviewShortDurationAccount(tgId?: string | null): boolean {
-  return !!tgId && PREVIEW_SHORT_DURATION_TG_IDS.has(String(tgId).trim());
+  return !!tgId && PREVIEW_TEST_TIME_TG_IDS.has(String(tgId).trim());
 }
 
-export function getPreviewDurationMs(tgId?: string | null): number {
-  if (isPreviewShortDurationAccount(tgId)) {
-    return PREVIEW_SHORT_DURATION_MS;
-  }
+/** Виртуальная длительность пробы одного раздела (всегда 10 мин). */
+export function getPreviewDurationMs(_tgId?: string | null): number {
   return PREVIEW_DURATION_MS;
+}
+
+/** 1 для обычных пользователей; 60 для тестового TG (1 сек = 1 мин). */
+export function getPreviewActiveTimeMultiplier(tgId?: string | null): number {
+  return isPreviewShortDurationAccount(tgId) ? PREVIEW_TEST_ACTIVE_TIME_MULTIPLIER : 1;
+}
+
+/** Интервал sync с API: тест — каждую секунду, остальные — раз в минуту. */
+export function getPreviewSyncIntervalMs(tgId?: string | null): number {
+  return isPreviewShortDurationAccount(tgId) ? 1_000 : PREVIEW_SYNC_INTERVAL_MS;
+}
+
+function getLegacyVirtualMsConsumed(user: any, tgId?: string | null): number {
+  if (!user?.previewStartedAt) return 0;
+  const elapsedReal = Date.now() - Date.parse(user.previewStartedAt);
+  return elapsedReal * getPreviewActiveTimeMultiplier(tgId);
 }
 
 export type PreviewStatus = 'selecting' | 'active' | 'expired' | 'confirmed';
@@ -205,7 +224,7 @@ export function isPreviewModuleTrialExpired(
   if (consumed > 0) return consumed >= limit;
 
   if (usesLegacySharedTrialClock(user, chosen) && user.previewStartedAt) {
-    return Date.now() - Date.parse(user.previewStartedAt) >= limit;
+    return getLegacyVirtualMsConsumed(user, tgId) >= limit;
   }
   return false;
 }
@@ -220,9 +239,9 @@ export function isPreviewExpired(user: any, _now = Date.now(), tgId?: string | n
   if (trialModules.length === 0) return true;
 
   if (usesLegacySharedTrialClock(user, chosen)) {
-    const started = user.previewStartedAt;
-    if (!started) return true;
-    if (_now - Date.parse(started) >= getPreviewDurationMs(tgId)) return true;
+    if (!user.previewStartedAt) return true;
+    const elapsedReal = _now - Date.parse(user.previewStartedAt);
+    if (elapsedReal * getPreviewActiveTimeMultiplier(tgId) >= getPreviewDurationMs(tgId)) return true;
   }
 
   return trialModules.every(m => isPreviewModuleTrialExpired(user, m, tgId));
@@ -242,8 +261,7 @@ export function previewRemainingMsForModule(
   const consumed = getModuleActiveMsConsumed(user, module, chosen);
   if (consumed > 0) return Math.max(0, limit - consumed);
   if (usesLegacySharedTrialClock(user, chosen) && user.previewStartedAt) {
-    const left = getPreviewDurationMs(tgId) - (Date.now() - Date.parse(user.previewStartedAt));
-    return Math.max(0, left);
+    return Math.max(0, limit - getLegacyVirtualMsConsumed(user, tgId));
   }
   return limit;
 }
@@ -253,6 +271,16 @@ export function previewRemainingMsByModule(user: any, tgId?: string | null): Pre
   const map: PreviewActiveMsMap = {};
   for (const m of chosen) {
     map[m] = previewRemainingMsForModule(user, m, tgId);
+  }
+  return map;
+}
+
+/** Остаток пробы по разделам в целых минутах (обновляется при каждом sync). */
+export function previewRemainingMinByModule(user: any, tgId?: string | null): PreviewActiveMsMap {
+  const ms = previewRemainingMsByModule(user, tgId);
+  const map: PreviewActiveMsMap = {};
+  for (const [key, value] of Object.entries(ms)) {
+    map[key as PreviewModule] = Math.max(0, Math.ceil((value ?? 0) / 60_000));
   }
   return map;
 }
@@ -281,7 +309,8 @@ export function previewEndsAt(user: any, tgId?: string | null): string | null {
   if (anyActiveMs || getPreviewActiveMsConsumed(user) > 0) {
     return new Date(Date.now() + remaining).toISOString();
   }
-  return new Date(Date.parse(user.previewStartedAt) + getPreviewDurationMs(tgId)).toISOString();
+  const realWindowMs = getPreviewDurationMs(tgId) / getPreviewActiveTimeMultiplier(tgId);
+  return new Date(Date.parse(user.previewStartedAt) + realWindowMs).toISOString();
 }
 
 function finalizePreviewExpiry(user: any): any {
@@ -309,7 +338,7 @@ export function applyModuleTrialExpiries(user: any, tgId?: string | null): any {
 
   const legacyShared = usesLegacySharedTrialClock(user, chosen)
     && user.previewStartedAt
-    && Date.now() - Date.parse(user.previewStartedAt) >= getPreviewDurationMs(tgId);
+    && getLegacyVirtualMsConsumed(user, tgId) >= getPreviewDurationMs(tgId);
 
   for (const m of chosen) {
     if (statuses[m] !== 'trial') continue;
@@ -358,7 +387,8 @@ export function syncPreviewActiveMs(
   const limit = getPreviewDurationMs(tgId);
   const cap = limit * 2;
   const prev = msMap[module] ?? 0;
-  const nextVal = Math.min(cap, prev + Math.round(deltaMs));
+  const effectiveDelta = Math.round(deltaMs * getPreviewActiveTimeMultiplier(tgId));
+  const nextVal = Math.min(cap, prev + effectiveDelta);
   const nextMap: PreviewActiveMsMap = { ...msMap, [module]: nextVal };
   const globalMax = Math.max(getPreviewActiveMsConsumed(user), nextVal);
 

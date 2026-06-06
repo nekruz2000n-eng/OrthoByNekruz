@@ -17,7 +17,12 @@ import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
 import { getDefaultSubjectId } from '@/lib/subjects';
 import { bustSubjectModuleCache } from '@/lib/subjectData';
-import { getPreviewDurationMs, type PreviewStatus } from '@/lib/preview';
+import {
+  getPreviewDurationMs,
+  getPreviewSyncIntervalMs,
+  type PreviewActiveMsMap,
+  type PreviewStatus,
+} from '@/lib/preview';
 import { firstPreviewModuleTab, normalizePreviewModules, type PreviewModule } from '@/lib/previewModules';
 import {
   type PreviewModuleStatus,
@@ -191,6 +196,7 @@ export default function Home() {
   const [showAccessWelcome, setShowAccessWelcome] = useState(false);
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
   const [previewModuleStatuses, setPreviewModuleStatuses] = useState<PreviewModuleStatusMap>({});
+  const [previewRemainingMinByModule, setPreviewRemainingMinByModule] = useState<PreviewActiveMsMap>({});
   const [pendingPaymentSubject, setPendingPaymentSubject] = useState<string | null>(null);
   const previewActiveDeltaRef = useRef(0);
   const previewSyncBusyRef    = useRef(false);
@@ -266,6 +272,11 @@ export default function Home() {
     setPaymentGrantedSubjects(
       Array.isArray(d?.paymentGrantedSubjects) ? d.paymentGrantedSubjects : [],
     );
+    if (d?.previewRemainingMinByModule && typeof d.previewRemainingMinByModule === 'object') {
+      setPreviewRemainingMinByModule(d.previewRemainingMinByModule as PreviewActiveMsMap);
+    } else if (ps !== 'active') {
+      setPreviewRemainingMinByModule({});
+    }
     if (d?.previewModuleStatuses && typeof d.previewModuleStatuses === 'object') {
       const nextStatuses = d.previewModuleStatuses as PreviewModuleStatusMap;
       setPreviewModuleStatuses(prev => {
@@ -575,12 +586,13 @@ export default function Home() {
     setIsLoading(false);
   }, []);
 
-  // ── Активный таймер пробы: тикает только в выбранных разделах при видимой вкладке ──
+  // ── Активный таймер пробы: sync с API раз в минуту, у каждого раздела своё значение ──
   const syncPreviewActive = useCallback(async (force = false) => {
     const delta = previewActiveDeltaRef.current;
-    if (!force && delta < 500) return;
-    if (previewSyncBusyRef.current) return;
     const tgId    = localStorage.getItem('user_tg_id');
+    const syncIntervalMs = getPreviewSyncIntervalMs(tgId);
+    if (!force && delta < syncIntervalMs) return;
+    if (previewSyncBusyRef.current) return;
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
     if (!tgId || !initDat) return;
     const activeModule = tabToModule(activeTab);
@@ -609,6 +621,9 @@ export default function Home() {
     const chosen = normalizePreviewModules(previewModules);
     if (chosen.length === 0) return;
 
+    const tgId = localStorage.getItem('user_tg_id');
+    const syncIntervalMs = getPreviewSyncIntervalMs(tgId);
+
     let last = Date.now();
     const isActiveNow = () => {
       if (typeof document !== 'undefined' && document.hidden) return false;
@@ -616,14 +631,17 @@ export default function Home() {
       return mod != null && chosen.includes(mod);
     };
 
-    const iv = setInterval(() => {
+    const tick = () => {
       const now = Date.now();
       if (isActiveNow()) {
         previewActiveDeltaRef.current += now - last;
       }
       last = now;
-      if (previewActiveDeltaRef.current >= 5000) void syncPreviewActive();
-    }, 1000);
+      void syncPreviewActive(true);
+    };
+
+    tick();
+    const iv = setInterval(tick, syncIntervalMs);
 
     const onVisible = () => {
       if (document.visibilityState === 'hidden') void syncPreviewActive(true);

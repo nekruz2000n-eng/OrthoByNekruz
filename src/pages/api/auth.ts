@@ -36,6 +36,7 @@ import {
   getPreviewActiveMsByModule,
   previewRemainingMs,
   previewRemainingMsByModule,
+  previewRemainingMinByModule,
 } from '@/lib/preview';
 import type { PreviewModule } from '@/lib/previewModules';
 import { ensureModuleStatusMap } from '@/lib/previewModuleStatus';
@@ -333,6 +334,7 @@ function previewPayload(
     previewActiveMsByModule: getPreviewActiveMsByModule(user),
     previewRemainingMs: previewRemainingMs(user, tgId),
     previewRemainingMsByModule: previewRemainingMsByModule(user, tgId),
+    previewRemainingMinByModule: previewRemainingMinByModule(user, tgId),
     ...facultyFieldsFromUser(user),
   };
 }
