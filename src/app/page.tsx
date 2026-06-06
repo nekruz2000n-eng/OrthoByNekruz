@@ -203,6 +203,7 @@ export default function Home() {
   const [previewGrantedModules, setPreviewGrantedModules] = useState<string[]>([]);
   const [paymentGrantedSubjects, setPaymentGrantedSubjects] = useState<string[]>([]);
   const [abandonPreviewBusy, setAbandonPreviewBusy] = useState(false);
+  const [paymentModulesUpdating, setPaymentModulesUpdating] = useState(false);
   const [showAccessWelcome, setShowAccessWelcome] = useState(false);
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
   const [previewModuleStatuses, setPreviewModuleStatuses] = useState<PreviewModuleStatusMap>({});
@@ -822,6 +823,43 @@ export default function Home() {
     }
   }, [applyAccessPayload, toast]);
 
+  const handleUpdatePaymentModules = useCallback(async (modules: PreviewModule[]) => {
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId || modules.length === 0) return;
+    setPaymentModulesUpdating(true);
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: tgId,
+          mode: 'update_preview_payment_choice',
+          modules,
+          initData: initDat,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({
+          variant: 'destructive',
+          title: 'Ошибка',
+          description: data.error || 'Не удалось обновить выбор',
+        });
+        return;
+      }
+      applyAccessPayload(data);
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Ошибка',
+        description: 'Проблемы с соединением',
+      });
+    } finally {
+      setPaymentModulesUpdating(false);
+    }
+  }, [applyAccessPayload, toast]);
+
   const handleClaimReceipt = useCallback(async (modules: PreviewModule[]) => {
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
@@ -1016,6 +1054,11 @@ export default function Home() {
     [previewModules],
   );
 
+  const grantedPreviewModules = useMemo(
+    () => normalizePreviewModules(previewGrantedModules),
+    [previewGrantedModules],
+  );
+
   const resolveModuleStatus = useCallback((mod: PreviewModule): PreviewModuleStatus | undefined => {
     const st = previewModuleStatuses[mod];
     if (st) return st;
@@ -1056,8 +1099,12 @@ export default function Home() {
         <PreviewPaymentTabPanel
           subjectId={previewChosen}
           module={mod}
+          chosenModules={chosenPreviewModules}
+          grantedModules={grantedPreviewModules}
           status={st}
           checking={statusChecking}
+          modulesUpdating={paymentModulesUpdating}
+          onUpdateModules={handleUpdatePaymentModules}
           onClaimReceipt={handleClaimReceipt}
           {...paymentExitProps}
         />
@@ -1068,8 +1115,9 @@ export default function Home() {
     if (st && moduleShowsContent(st)) return content;
     return content;
   }, [
-    previewChosen, subject, tabToModule, chosenPreviewModules, resolveModuleStatus,
-    previewStatus, statusChecking, handleClaimReceipt, paymentExitProps,
+    previewChosen, subject, tabToModule, chosenPreviewModules, grantedPreviewModules,
+    resolveModuleStatus, previewStatus, statusChecking, paymentModulesUpdating,
+    handleUpdatePaymentModules, handleClaimReceipt, paymentExitProps,
   ]);
 
   const trustPendingModule = useMemo(() => {

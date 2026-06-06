@@ -886,11 +886,24 @@ export function updatePreviewPaymentChoice(
     : buildNavHiddenForPreview(subject, chosen);
   const navHidden = { ...(user.navHidden || {}), [subject]: hiddenTabs };
 
+  const statuses: PreviewModuleStatusMap = { ...ensureModuleStatusMap(user, subject) };
+  const paymentPhase = user.previewStatus === 'active' ? 'trial' : 'awaiting_payment';
+  for (const m of chosen) {
+    if (statuses[m] === 'confirmed' || statuses[m] === 'receipt_pending') continue;
+    statuses[m] = statuses[m] === 'rejected' ? 'rejected' : paymentPhase;
+  }
+  for (const m of ['questions', 'tests', 'tasks'] as PreviewModule[]) {
+    if (!chosen.includes(m) && statuses[m] !== 'confirmed') {
+      delete statuses[m];
+    }
+  }
+
   return {
     ...user,
     previewChosenSubject: subject,
     previewChosenModules: chosen,
     previewQuotedPrice:   calcPreviewPriceRub(subject, chosen),
+    previewModuleStatuses: statuses,
     navHidden,
   };
 }

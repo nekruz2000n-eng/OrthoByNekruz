@@ -1,9 +1,14 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getSubject } from '@/lib/subjects';
 import { PREVIEW_MODULE_LABELS, type PreviewModule } from '@/lib/previewModules';
-import { describePreviewPrice, formatPriceRub } from '@/lib/previewPricing';
+import {
+  describePreviewPrice,
+  formatPriceRub,
+  getPaymentModuleRow,
+  PAYMENT_MODULE_ROW_ORDER,
+} from '@/lib/previewPricing';
 import { openTgChat } from '@/lib/tgLinks';
 import { Copy, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -13,15 +18,23 @@ const TBANK_PHONE_COPY = '+79003166646';
 const RECEIPT_TG_URL = 'https://t.me/evoeidos';
 const RECEIPT_TG_HANDLE = '@evoeidos';
 
+const MODULE_ROW_LABELS: Record<PreviewModule, string> = {
+  questions: 'Вопросы',
+  tests:     'Тест',
+  tasks:     'Задачи',
+};
+
 interface PreviewPaymentTabPanelProps {
   subjectId: string;
   module: PreviewModule;
+  chosenModules: PreviewModule[];
+  grantedModules?: PreviewModule[];
   status: 'awaiting_payment' | 'rejected' | 'receipt_pending';
   checking?: boolean;
+  modulesUpdating?: boolean;
+  onUpdateModules?: (modules: PreviewModule[]) => void;
   onClaimReceipt?: (modules: PreviewModule[]) => void;
-  /** Докупка: отменить заявку и вернуться к купленным разделам. */
   onBackToPurchased?: () => void;
-  /** Переключиться на другой открытый предмет (или отменить докупку). */
   onBackToAvailable?: () => void;
   backBusy?: boolean;
 }
@@ -29,8 +42,12 @@ interface PreviewPaymentTabPanelProps {
 export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
   subjectId,
   module,
+  chosenModules,
+  grantedModules = [],
   status,
   checking = false,
+  modulesUpdating = false,
+  onUpdateModules,
   onClaimReceipt,
   onBackToPurchased,
   onBackToAvailable,
@@ -39,11 +56,48 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
   const { toast } = useToast();
   const [receiptOpen, setReceiptOpen] = useState(false);
   const subjectCfg = getSubject(subjectId);
-  const priceSummary = useMemo(
-    () => describePreviewPrice(subjectId, [module]),
-    [subjectId, module],
-  );
   const accent = subjectCfg?.color ?? 'hsl(var(--primary))';
+
+  const rowOptions = useMemo(
+    () => getPaymentModuleRow(subjectId, grantedModules),
+    [subjectId, grantedModules],
+  );
+
+  const payableFromServer = useMemo(() => {
+    const granted = new Set(grantedModules);
+    return PAYMENT_MODULE_ROW_ORDER.filter(
+      m => chosenModules.includes(m) && !granted.has(m),
+    );
+  }, [chosenModules, grantedModules]);
+
+  const [selected, setSelected] = useState<PreviewModule[]>(payableFromServer);
+
+  useEffect(() => {
+    setSelected(payableFromServer);
+  }, [payableFromServer.join('|')]);
+
+  const priceSummary = useMemo(
+    () => describePreviewPrice(subjectId, selected),
+    [subjectId, selected],
+  );
+
+  const persistSelection = useCallback((next: PreviewModule[]) => {
+    setSelected(next);
+    onUpdateModules?.(next);
+  }, [onUpdateModules]);
+
+  const toggleModule = useCallback((id: PreviewModule) => {
+    const opt = rowOptions.find(o => o.id === id);
+    if (!opt?.selectable || opt.alreadyOwned || modulesUpdating || checking) return;
+
+    const next = selected.includes(id)
+      ? selected.filter(m => m !== id)
+      : [...selected, id];
+    const ordered = PAYMENT_MODULE_ROW_ORDER.filter(m => next.includes(m));
+    if (ordered.length === 0) return;
+
+    persistSelection(ordered);
+  }, [rowOptions, selected, modulesUpdating, checking, persistSelection]);
 
   const copyPhone = useCallback(async () => {
     try {
@@ -149,18 +203,49 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
           </div>
         </button>
 
+        <div className="flex gap-2 w-full">
+          {rowOptions.map(opt => {
+            const on = selected.includes(opt.id);
+            const disabled = !opt.selectable || opt.alreadyOwned || modulesUpdating || checking;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => toggleModule(opt.id)}
+                className="flex-1 min-w-0 h-11 rounded-xl text-[11px] font-bold leading-tight px-1 transition-all active:scale-[0.98] disabled:opacity-40"
+                style={{
+                  background: on
+                    ? `color-mix(in srgb, ${accent} 18%, var(--c-card))`
+                    : 'var(--c-card)',
+                  border: `1.5px solid ${on ? accent : 'var(--c-border)'}`,
+                  color: on ? accent : 'var(--c-muted)',
+                }}
+              >
+                {opt.alreadyOwned ? '✓' : MODULE_ROW_LABELS[opt.id]}
+              </button>
+            );
+          })}
+        </div>
+
         {priceSummary && (
           <div
             className="rounded-2xl px-4 py-4"
             style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
           >
-            <p className="text-3xl font-bold tabular-nums" style={{ color: accent }}>
-              {formatPriceRub(priceSummary.total)}
-            </p>
+            <div className="flex items-center justify-center gap-2">
+              <p className="text-3xl font-bold tabular-nums" style={{ color: accent }}>
+                {formatPriceRub(priceSummary.total)}
+              </p>
+              {modulesUpdating && (
+                <Loader2 className="w-4 h-4 animate-spin shrink-0" style={{ color: 'var(--c-muted)' }} />
+              )}
+            </div>
             <p className="text-xs mt-1.5" style={{ color: 'var(--c-muted)' }}>
-              {PREVIEW_MODULE_LABELS[module]}
-              {subjectCfg ? ` · ${subjectCfg.label}` : ''}
-              {priceSummary.lines.length > 0 ? ` · ${priceSummary.lines.join(' · ')}` : ''}
+              {subjectCfg ? subjectCfg.label : ''}
+              {priceSummary.lines.length > 0
+                ? `${subjectCfg ? ' · ' : ''}${priceSummary.lines.join(' · ')}`
+                : ''}
             </p>
           </div>
         )}
@@ -178,7 +263,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
           <span style={{ color: 'var(--c-muted)' }}>и</span>
           <button
             type="button"
-            disabled={checking}
+            disabled={checking || modulesUpdating || selected.length === 0}
             onClick={() => setReceiptOpen(true)}
             className="h-9 px-4 rounded-xl text-sm font-bold disabled:opacity-50"
             style={{ background: 'var(--c-primary)', color: 'var(--c-bg)' }}
@@ -223,10 +308,10 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
             </p>
             <button
               type="button"
-              disabled={checking}
+              disabled={checking || selected.length === 0}
               onClick={() => {
                 setReceiptOpen(false);
-                onClaimReceipt?.([module]);
+                onClaimReceipt?.(selected);
               }}
               className="w-full h-11 rounded-xl text-sm font-bold disabled:opacity-50"
               style={{
