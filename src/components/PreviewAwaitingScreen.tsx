@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { getSubject } from '@/lib/subjects';
+import { getSubject, SUBJECTS } from '@/lib/subjects';
+import { getGrantedCatalogModules } from '@/lib/catalogBrowse';
 import { formatPreviewModulesList, normalizePreviewModules, type PreviewModule } from '@/lib/previewModules';
 import {
   describePreviewPrice,
@@ -20,6 +21,8 @@ interface PreviewAwaitingScreenProps {
   chosenModules?: string[];
   /** Уже купленные разделы — не кликабельны на экране докупки. */
   grantedModules?: PreviewModule[];
+  navHidden?: Record<string, string[]>;
+  paymentGrantedSubjects?: string[];
   receiptClaimed?: boolean;
   checking?: boolean;
   savingModules?: boolean;
@@ -27,6 +30,7 @@ interface PreviewAwaitingScreenProps {
   onCheckStatus?: () => void;
   onClaimReceipt?: (modules: PreviewModule[]) => void;
   onModulesChange?: (modules: PreviewModule[]) => void;
+  onSubjectChange?: (subjectId: string) => void;
   onBackToAvailable?: () => void;
   /** Докупка: вернуться к уже оплаченным разделам без подтверждения чека. */
   onBackToPurchased?: () => void;
@@ -37,6 +41,8 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
   chosenSubject,
   chosenModules = [],
   grantedModules = [],
+  navHidden = {},
+  paymentGrantedSubjects = [],
   receiptClaimed = false,
   checking = false,
   savingModules = false,
@@ -44,15 +50,31 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
   onCheckStatus,
   onClaimReceipt,
   onModulesChange,
+  onSubjectChange,
   onBackToAvailable,
   onBackToPurchased,
   backToPurchasedBusy = false,
 }) => {
   const { toast } = useToast();
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [subjectPickerOpen, setSubjectPickerOpen] = useState(false);
+
+  const grantedForSubject = useCallback(
+    (subjectId: string) => {
+      if (!paymentGrantedSubjects.includes(subjectId)) return [] as PreviewModule[];
+      return getGrantedCatalogModules(subjectId, paymentGrantedSubjects, navHidden);
+    },
+    [paymentGrantedSubjects, navHidden],
+  );
+
+  const activeGranted = useMemo(
+    () => (chosenSubject ? grantedForSubject(chosenSubject) : grantedModules),
+    [chosenSubject, grantedForSubject, grantedModules],
+  );
+
   const grantedSet = useMemo(
-    () => new Set(normalizePreviewModules(grantedModules)),
-    [grantedModules],
+    () => new Set(normalizePreviewModules(activeGranted)),
+    [activeGranted],
   );
   const pickPayableModules = useCallback(
     (mods: string[] | PreviewModule[]) =>
@@ -67,10 +89,14 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
     setSelectedModules(pickPayableModules(chosenModules));
   }, [chosenModules, pickPayableModules]);
 
+  useEffect(() => {
+    setSubjectPickerOpen(false);
+  }, [chosenSubject]);
+
   const subjectCfg = chosenSubject ? getSubject(chosenSubject) : null;
   const moduleRow = useMemo(
-    () => (chosenSubject ? getPaymentModuleRow(chosenSubject, grantedModules) : []),
-    [chosenSubject, grantedModules],
+    () => (chosenSubject ? getPaymentModuleRow(chosenSubject, activeGranted) : []),
+    [chosenSubject, activeGranted],
   );
   const hasOwnedModules = grantedSet.size > 0;
 
@@ -137,6 +163,16 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
 
   const canExit = !!(onBackToPurchased || onBackToAvailable);
   const exitLabel = onBackToPurchased ? 'Выйти' : 'Назад';
+  const canPickSubject = !receiptClaimed && !!onSubjectChange;
+
+  const handlePickSubject = (subjectId: string) => {
+    if (subjectId === chosenSubject) {
+      setSubjectPickerOpen(false);
+      return;
+    }
+    onSubjectChange?.(subjectId);
+    setSubjectPickerOpen(false);
+  };
 
   const accent = subjectCfg?.color ?? 'hsl(var(--primary))';
 
@@ -158,9 +194,49 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
             style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
           >
             {subjectCfg && (
-              <div className="text-sm text-center">
-                <span style={{ color: 'var(--c-muted)' }}>Предмет: </span>
-                <strong style={{ color: subjectCfg.color }}>{subjectCfg.label}</strong>
+              <div className="text-center space-y-2">
+                <button
+                  type="button"
+                  disabled={!canPickSubject || savingModules}
+                  onClick={() => canPickSubject && setSubjectPickerOpen(v => !v)}
+                  className="text-sm inline-flex items-center justify-center gap-1 mx-auto disabled:opacity-60"
+                  style={{ color: 'var(--c-text)' }}
+                >
+                  <span style={{ color: 'var(--c-muted)' }}>Предмет:</span>
+                  <strong style={{ color: subjectCfg.color }}>{subjectCfg.label}</strong>
+                  {canPickSubject && (
+                    <span className="text-[10px]" style={{ color: 'var(--c-muted)' }}>
+                      {subjectPickerOpen ? '▴' : '▾'}
+                    </span>
+                  )}
+                </button>
+                {subjectPickerOpen && canPickSubject && (
+                  <div className="flex flex-wrap gap-1 justify-center pt-0.5">
+                    {SUBJECTS.map(s => {
+                      const active = s.id === chosenSubject;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          disabled={savingModules}
+                          onClick={() => handlePickSubject(s.id)}
+                          className="px-2 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-[0.97] disabled:opacity-50"
+                          style={{
+                            background: active
+                              ? `color-mix(in srgb, ${s.color} 18%, var(--c-card))`
+                              : 'var(--c-bg)',
+                            border: active
+                              ? `1.5px solid ${s.color}`
+                              : '1px solid var(--c-border)',
+                            color: active ? s.color : 'var(--c-muted)',
+                          }}
+                        >
+                          {s.shortLabel}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 

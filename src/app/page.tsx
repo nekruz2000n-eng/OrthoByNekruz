@@ -178,7 +178,9 @@ export default function Home() {
   const [receiptClaimedAt, setReceiptClaimedAt] = useState<string | null>(null);
   const [previewConfirmedAt, setPreviewConfirmedAt] = useState<string | null>(null);
   const [canReturnToPurchased, setCanReturnToPurchased] = useState(false);
+  const [canAbandonPending, setCanAbandonPending] = useState(false);
   const [previewGrantedModules, setPreviewGrantedModules] = useState<string[]>([]);
+  const [paymentGrantedSubjects, setPaymentGrantedSubjects] = useState<string[]>([]);
   const [abandonPreviewBusy, setAbandonPreviewBusy] = useState(false);
   const [showAccessWelcome, setShowAccessWelcome] = useState(false);
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
@@ -238,8 +240,12 @@ export default function Home() {
     setReceiptClaimedAt(d?.receiptClaimedAt ?? null);
     setPreviewConfirmedAt(d?.previewConfirmedAt ?? null);
     setCanReturnToPurchased(d?.canReturnToPurchasedAccess === true);
+    setCanAbandonPending(d?.canAbandonPendingPreview === true);
     setPreviewGrantedModules(
       Array.isArray(d?.previewGrantedModules) ? d.previewGrantedModules : [],
+    );
+    setPaymentGrantedSubjects(
+      Array.isArray(d?.paymentGrantedSubjects) ? d.paymentGrantedSubjects : [],
     );
 
     if (Array.isArray(d?.subjectCatalog)) setSubjectCatalog(d.subjectCatalog);
@@ -710,6 +716,36 @@ export default function Home() {
     }
   }, [applyAccessPayload, toast]);
 
+  const handlePaymentSubjectChange = useCallback(async (subjectId: string) => {
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) return;
+    setSavingPaymentModules(true);
+    setPreviewStatusMessage('');
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: tgId,
+          mode: 'update_preview_payment_subject',
+          subjectId,
+          initData: initDat,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPreviewStatusMessage(data.error || 'Не удалось сменить предмет.');
+        return;
+      }
+      applyAccessPayload(data);
+    } catch {
+      setPreviewStatusMessage('Ошибка соединения. Попробуй ещё раз.');
+    } finally {
+      setSavingPaymentModules(false);
+    }
+  }, [applyAccessPayload]);
+
   const handleUpdatePreviewPaymentModules = useCallback(async (modules: PreviewModule[]) => {
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
@@ -844,8 +880,11 @@ export default function Home() {
       localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
       accessRequestGen.current += 1;
       applyAccessPayload(data);
-      const target = switchTo ?? (previewChosen || undefined);
-      if (target && (data.subjects as string[] | undefined)?.includes(target)) {
+      const list = Array.isArray(data.subjects) ? data.subjects as string[] : [];
+      const target = switchTo && list.includes(switchTo)
+        ? switchTo
+        : list.find(s => s !== previewChosen) ?? list[0];
+      if (target && list.includes(target)) {
         setSubjectRaw(target);
         localStorage.setItem('last_subject', target);
         localStorage.setItem('subject_chosen', 'true');
@@ -875,14 +914,17 @@ export default function Home() {
     const others = availableSubjects.filter(s => s !== pending);
     const next = others[0];
     if (!next) return;
-    if (canReturnToPurchased) {
-      await handleAbandonPendingPreview(next);
+    if (canAbandonPending) {
+      const ok = await handleAbandonPendingPreview(next);
+      if (ok) {
+        toast({ title: 'Докупка отменена', description: 'Вернулся к уже открытым предметам.' });
+      }
       return;
     }
     setPreviewStatusMessage('');
     setSubject(next);
     localStorage.setItem('last_subject', next);
-  }, [availableSubjects, previewChosen, canReturnToPurchased, handleAbandonPendingPreview, setSubject]);
+  }, [availableSubjects, previewChosen, canAbandonPending, handleAbandonPendingPreview, setSubject, toast]);
 
   /** Витрина «Все доступные разработки» — только без незакрытой заявки или после подтверждения админом. */
   const canBrowseCatalog = previewStatus == null || previewStatus === 'confirmed';
@@ -979,6 +1021,9 @@ export default function Home() {
         chosenSubject={previewChosen}
         chosenModules={previewModules}
         grantedModules={previewGrantedModules as PreviewModule[]}
+        navHidden={navHidden}
+        paymentGrantedSubjects={paymentGrantedSubjects}
+        onSubjectChange={handlePaymentSubjectChange}
         receiptClaimed={!!receiptClaimedAt}
         checking={statusChecking}
         savingModules={savingPaymentModules}

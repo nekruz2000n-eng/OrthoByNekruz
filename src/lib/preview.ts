@@ -11,7 +11,7 @@ import {
   getGrantedCatalogModules,
   mergeGrantedModulesOnConfirm,
 } from '@/lib/catalogBrowse';
-import { calcPreviewPriceRub } from '@/lib/previewPricing';
+import { calcPreviewPriceRub, getPaymentModuleRow } from '@/lib/previewPricing';
 
 export type { PreviewModule } from '@/lib/previewModules';
 export { PREVIEW_MODULE_LABELS, formatPreviewModulesList, normalizePreviewModules } from '@/lib/previewModules';
@@ -331,7 +331,7 @@ export function buildActivePreviewUser(
     )
     : buildNavHiddenForPreview(subjectId, chosenModules);
   const navHidden = { ...(user.navHidden || {}), [subjectId]: hiddenTabs };
-  const navHiddenBeforePreview = isCatalogAddon
+  const navHiddenBeforePreview = (isCatalogAddon || isAddonPurchase)
     ? { ...(user.navHidden || {}) }
     : user._navHiddenBeforePreview;
   const snapshotBeforeAddon = isAddonPurchase
@@ -362,15 +362,42 @@ export function buildActivePreviewUser(
   };
 }
 
-/** Разделы, уже куплены до текущей заявки на докупку (для экрана оплаты). */
-export function getPreviewPaymentGrantedModules(user: any): PreviewModule[] {
-  const chosen = user?.previewChosenSubject;
-  if (!chosen || !canReturnToPurchasedAccess(user)) return [];
-  const grantedSubjects = getCatalogGrantedSubjects(user);
+/** Предметы, уже открыты до текущей заявки на оплату. */
+export function getPaymentGrantedSubjects(user: any): string[] {
+  const before = user._subjectsBeforePreview;
+  if (before && typeof before === 'object') {
+    return Object.entries(before)
+      .filter(([, v]) => v === true)
+      .map(([id]) => id);
+  }
+  return getCatalogGrantedSubjects(user);
+}
+
+/** Купленные разделы предмета на экране оплаты. */
+export function getGrantedModulesForPaymentSubject(user: any, subjectId: string): PreviewModule[] {
+  const grantedSubjects = getPaymentGrantedSubjects(user);
   const baseNavHidden = (user._navHiddenBeforePreview && typeof user._navHiddenBeforePreview === 'object')
     ? user._navHiddenBeforePreview
     : (user.navHidden || {});
-  return getGrantedCatalogModules(chosen, grantedSubjects, baseNavHidden);
+  return getGrantedCatalogModules(subjectId, grantedSubjects, baseNavHidden);
+}
+
+/** Разделы, уже куплены до текущей заявки на докупку (для экрана оплаты). */
+export function getPreviewPaymentGrantedModules(user: any): PreviewModule[] {
+  const chosen = user?.previewChosenSubject;
+  if (!chosen) return [];
+  return getGrantedModulesForPaymentSubject(user, chosen);
+}
+
+export function defaultPaymentModulesForSubject(
+  subjectId: string,
+  granted: PreviewModule[],
+): PreviewModule[] {
+  const row = getPaymentModuleRow(subjectId, granted);
+  const pickable = row.filter(o => o.selectable && !o.alreadyOwned).map(o => o.id);
+  if (pickable.length === 0) return [];
+  if (pickable.includes('tests')) return ['tests'];
+  return [pickable[0]];
 }
 
 /** Докупка: предмет уже был открыт до пробы — можно вернуться без оплаты. */
@@ -382,21 +409,38 @@ export function canReturnToPurchasedAccess(user: any): boolean {
   return !!(before && typeof before === 'object' && before[chosen] === true);
 }
 
-/** Отменить незавершённую докупку — восстановить ранее купленные разделы. */
-export function abandonPendingCatalogAddon(user: any) {
+/** Можно отменить незавершённую заявку и вернуться к уже открытым предметам. */
+export function canAbandonPendingPreview(user: any): boolean {
+  const chosen = user?.previewChosenSubject;
+  if (!chosen || user.receiptClaimedAt) return false;
+  if (user.previewStatus !== 'expired' && user.previewStatus !== 'active') return false;
+  if (user._previewSnapshotBeforeAddon) return true;
+  const before = user._subjectsBeforePreview;
+  if (before && typeof before === 'object') {
+    return Object.values(before).some(v => v === true);
+  }
+  return false;
+}
+
+/** Отменить незавершённую докупку — восстановить ранее купленные предметы и разделы. */
+export function abandonPendingPreviewPayment(user: any) {
   const chosen = user?.previewChosenSubject;
   if (!chosen || user.receiptClaimedAt) return null;
   if (user.previewStatus !== 'expired' && user.previewStatus !== 'active') return null;
+  if (!canAbandonPendingPreview(user)) return null;
 
   const beforeSubjects = user._subjectsBeforePreview;
-  if (!beforeSubjects || typeof beforeSubjects !== 'object' || beforeSubjects[chosen] !== true) {
-    return null;
-  }
+  const subjects = beforeSubjects && typeof beforeSubjects === 'object'
+    ? { ...beforeSubjects }
+    : createDefaultSubjects();
 
-  const subjects = { ...beforeSubjects };
-  const navHidden = (user._navHiddenBeforePreview && typeof user._navHiddenBeforePreview === 'object')
-    ? { ...user._navHiddenBeforePreview }
-    : { ...(user.navHidden || {}) };
+  let navHidden: Record<string, string[]>;
+  if (user._navHiddenBeforePreview && typeof user._navHiddenBeforePreview === 'object') {
+    navHidden = { ...user._navHiddenBeforePreview };
+  } else {
+    navHidden = { ...(user.navHidden || {}) };
+    delete navHidden[chosen];
+  }
   const snap = user._previewSnapshotBeforeAddon;
 
   const updated: Record<string, any> = {
@@ -428,6 +472,9 @@ export function abandonPendingCatalogAddon(user: any) {
   delete updated._catalogBrowse;
   return updated;
 }
+
+/** @deprecated use abandonPendingPreviewPayment */
+export const abandonPendingCatalogAddon = abandonPendingPreviewPayment;
 
 /** Проба закончилась — ждём оплату на экране previewPricing. */
 export function hasPendingPreviewPayment(user: any): boolean {
@@ -490,12 +537,16 @@ export function inferChosenModulesForConfirm(user: any, subjectId: string): Prev
 }
 
 /** Студент меняет разделы на экране оплаты — пересчёт суммы и заявки. */
-export function updatePreviewPaymentChoice(user: any, modules: PreviewModule[]) {
-  const subject = user?.previewChosenSubject;
+export function updatePreviewPaymentChoice(
+  user: any,
+  modules: PreviewModule[],
+  subjectId?: string,
+) {
+  const subject = subjectId || user?.previewChosenSubject;
   if (!subject) return null;
   if (user.receiptClaimedAt || hasFinalizedPreviewAccess(user)) return null;
 
-  const granted = getPreviewPaymentGrantedModules(user);
+  const granted = getGrantedModulesForPaymentSubject(user, subject);
   const chosen = normalizePreviewModules(modules).filter(m => !granted.includes(m));
   if (chosen.length === 0) return null;
 
@@ -512,10 +563,45 @@ export function updatePreviewPaymentChoice(user: any, modules: PreviewModule[]) 
 
   return {
     ...user,
+    previewChosenSubject: subject,
     previewChosenModules: chosen,
     previewQuotedPrice:   calcPreviewPriceRub(subject, chosen),
     navHidden,
   };
+}
+
+/** Смена предмета на экране оплаты. */
+export function switchPreviewPaymentSubject(
+  user: any,
+  subjectId: string,
+  modules?: PreviewModule[],
+) {
+  if (!user?.previewChosenSubject) return null;
+  if (user.receiptClaimedAt || hasFinalizedPreviewAccess(user)) return null;
+  if (user.previewStatus !== 'expired' && user.previewStatus !== 'active') return null;
+
+  const granted = getGrantedModulesForPaymentSubject(user, subjectId);
+  const chosen = modules && modules.length > 0
+    ? normalizePreviewModules(modules).filter(m => !granted.includes(m))
+    : defaultPaymentModulesForSubject(subjectId, granted);
+  if (chosen.length === 0) return null;
+
+  const navHidden = { ...(user.navHidden || {}) };
+  const oldSubject = user.previewChosenSubject;
+  if (oldSubject && oldSubject !== subjectId) {
+    const base = user._navHiddenBeforePreview;
+    if (base && typeof base === 'object' && Array.isArray(base[oldSubject])) {
+      navHidden[oldSubject] = [...base[oldSubject]];
+    } else {
+      delete navHidden[oldSubject];
+    }
+  }
+
+  return updatePreviewPaymentChoice(
+    { ...user, previewChosenSubject: subjectId, navHidden },
+    chosen,
+    subjectId,
+  );
 }
 
 /** Студент нажал «Скинул чек» — доверяем, сразу открываем доступ по выбору. */

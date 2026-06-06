@@ -16,9 +16,12 @@ import {
   userAlreadyHasSubjectAccess,
   getAllPickableSubjectIds,
   getEffectiveUserSubjects,
-  abandonPendingCatalogAddon,
+  abandonPendingPreviewPayment,
+  canAbandonPendingPreview,
   canReturnToPurchasedAccess,
   getPreviewPaymentGrantedModules,
+  getPaymentGrantedSubjects,
+  switchPreviewPaymentSubject,
   maybeExpirePreviewUser,
   previewEndsAt,
   isPreviewTrialLocked,
@@ -315,7 +318,9 @@ function previewPayload(
       ? getCatalogGrantedSubjects(user)
       : undefined,
     canReturnToPurchasedAccess: canReturnToPurchasedAccess(user),
+    canAbandonPendingPreview: canAbandonPendingPreview(user),
     previewGrantedModules: getPreviewPaymentGrantedModules(user),
+    paymentGrantedSubjects: getPaymentGrantedSubjects(user),
     ...facultyFieldsFromUser(user),
   };
 }
@@ -546,9 +551,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'После отправки чека отменить нельзя.' });
       }
       user = await maybeExpirePreviewUser(redis, tgIdStr, user);
-      const updated = abandonPendingCatalogAddon(user);
+      if (!canAbandonPendingPreview(user)) {
+        return res.status(400).json({ error: 'Нет открытых предметов для возврата.' });
+      }
+      const updated = abandonPendingPreviewPayment(user);
       if (!updated) {
-        return res.status(400).json({ error: 'Вернуться можно только при докупке к уже купленному предмету.' });
+        return res.status(400).json({ error: 'Не удалось отменить заявку.' });
       }
       updated.username   = username ?? updated.username;
       updated.firstName  = firstName ?? updated.firstName;
@@ -559,6 +567,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({
         success: true,
         abandonedPreview: true,
+        ...(await subjectsResponse(updated, tgIdStr)),
+      });
+    }
+
+    if (mode === 'update_preview_payment_subject') {
+      if (!user?.previewChosenSubject) {
+        return res.status(400).json({ error: 'Заявка не найдена.' });
+      }
+      if (user.receiptClaimedAt) {
+        return res.status(400).json({ error: 'После отправки чека предмет изменить нельзя.' });
+      }
+      const nextSubject = String(subjectId || '').trim();
+      if (!getSubject(nextSubject)) {
+        return res.status(400).json({ error: 'Неизвестный предмет.' });
+      }
+      user = await maybeExpirePreviewUser(redis, tgIdStr, user);
+      const moduleList = normalizePreviewModules(modules);
+      const updated = switchPreviewPaymentSubject(
+        user,
+        nextSubject,
+        moduleList.length > 0 ? moduleList : undefined,
+      );
+      if (!updated) {
+        return res.status(400).json({ error: 'Для этого предмета нечего докупить.' });
+      }
+      await saveUser(tgIdStr, updated);
+      return res.status(200).json({
+        success: true,
         ...(await subjectsResponse(updated, tgIdStr)),
       });
     }
