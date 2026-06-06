@@ -33,8 +33,11 @@ import {
   normalizePreviewModules,
   syncPreviewActiveMs,
   getPreviewActiveMsConsumed,
+  getPreviewActiveMsByModule,
   previewRemainingMs,
+  previewRemainingMsByModule,
 } from '@/lib/preview';
+import type { PreviewModule } from '@/lib/previewModules';
 import { ensureModuleStatusMap } from '@/lib/previewModuleStatus';
 import { resolveFacultyPromoCode, facultyFieldsFromUser, getFacultyPromoById } from '@/lib/facultyCodes';
 import { normalizeStudyGroup, buildStudyGroupFromDigits } from '@/lib/studyGroup';
@@ -327,7 +330,9 @@ function previewPayload(
     paymentGrantedSubjects: getPaymentGrantedSubjects(user),
     previewModuleStatuses: ensureModuleStatusMap(user),
     previewActiveMsConsumed: getPreviewActiveMsConsumed(user),
+    previewActiveMsByModule: getPreviewActiveMsByModule(user),
     previewRemainingMs: previewRemainingMs(user, tgId),
+    previewRemainingMsByModule: previewRemainingMsByModule(user, tgId),
     ...facultyFieldsFromUser(user),
   };
 }
@@ -555,10 +560,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: true, ...(await subjectsResponse(user, tgIdStr)) });
       }
       const deltaMs = Number(req.body?.deltaMs);
-      let updated = syncPreviewActiveMs(user, deltaMs, tgIdStr);
-      updated = await maybeExpirePreviewUser(redis, tgIdStr, updated);
+      const moduleRaw = String(req.body?.module || '').trim();
+      const activeModule = (['questions', 'tests', 'tasks'] as PreviewModule[]).includes(moduleRaw as PreviewModule)
+        ? moduleRaw as PreviewModule
+        : null;
+      let updated = syncPreviewActiveMs(user, activeModule, deltaMs, tgIdStr);
       if (updated !== user) {
         await saveUser(tgIdStr, updated);
+      } else {
+        updated = await maybeExpirePreviewUser(redis, tgIdStr, user);
       }
       return res.status(200).json({
         success: true,

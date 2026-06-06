@@ -130,48 +130,245 @@ export function isPreviewUser(user: any): boolean {
   return !!user?.previewStatus;
 }
 
+export type PreviewActiveMsMap = Partial<Record<PreviewModule, number>>;
+
+export function initPreviewActiveMsMap(modules: PreviewModule[]): PreviewActiveMsMap {
+  const map: PreviewActiveMsMap = {};
+  for (const m of modules) map[m] = 0;
+  return map;
+}
+
 export function getPreviewActiveMsConsumed(user: any): number {
   const v = Number(user?.previewActiveMsConsumed);
   return Number.isFinite(v) && v >= 0 ? v : 0;
 }
 
-/** Проба истекла: по накопленному активному времени или (legacy) по wall-clock. */
-export function isPreviewExpired(user: any, _now = Date.now(), tgId?: string | null): boolean {
-  if (user?.previewStatus !== 'active') return false;
-  const limit = getPreviewDurationMs(tgId);
-  const consumed = getPreviewActiveMsConsumed(user);
-  if (consumed > 0) return consumed >= limit;
-  const started = user.previewStartedAt;
-  if (!started) return true;
-  return _now - Date.parse(started) >= limit;
+export function getPreviewActiveMsByModule(user: any): PreviewActiveMsMap {
+  const raw = user?.previewActiveMsByModule;
+  if (raw && typeof raw === 'object') {
+    const map: PreviewActiveMsMap = {};
+    for (const m of ['questions', 'tests', 'tasks'] as PreviewModule[]) {
+      const v = Number(raw[m]);
+      if (Number.isFinite(v) && v >= 0) map[m] = v;
+    }
+    return map;
+  }
+  return {};
 }
 
+function ensurePreviewActiveMsMap(user: any, chosen: PreviewModule[]): PreviewActiveMsMap {
+  const existing = getPreviewActiveMsByModule(user);
+  if (chosen.some(m => existing[m] != null)) return existing;
+  const legacy = getPreviewActiveMsConsumed(user);
+  if (legacy > 0) {
+    const map = initPreviewActiveMsMap(chosen);
+    for (const m of chosen) map[m] = legacy;
+    return map;
+  }
+  return initPreviewActiveMsMap(chosen);
+}
+
+function getModuleActiveMsConsumed(
+  user: any,
+  module: PreviewModule,
+  chosen: PreviewModule[],
+  msMap?: PreviewActiveMsMap,
+): number {
+  const map = msMap ?? ensurePreviewActiveMsMap(user, chosen);
+  const perModule = map[module];
+  if (perModule != null && perModule > 0) return perModule;
+  const anyPerModule = chosen.some(m => (map[m] ?? 0) > 0);
+  if (!anyPerModule) return getPreviewActiveMsConsumed(user);
+  return perModule ?? 0;
+}
+
+function usesLegacySharedTrialClock(user: any, chosen: PreviewModule[]): boolean {
+  const map = getPreviewActiveMsByModule(user);
+  if (chosen.some(m => (map[m] ?? 0) > 0)) return false;
+  return getPreviewActiveMsConsumed(user) <= 0;
+}
+
+/** Истекла проба конкретного раздела. */
+export function isPreviewModuleTrialExpired(
+  user: any,
+  module: PreviewModule,
+  tgId?: string | null,
+): boolean {
+  if (user?.previewStatus !== 'active') return true;
+  const chosen = normalizePreviewModules(user?.previewChosenModules);
+  if (!chosen.includes(module)) return true;
+  const statuses = ensureModuleStatusMap(user, user.previewChosenSubject);
+  if (statuses[module] !== 'trial') return true;
+
+  const limit = getPreviewDurationMs(tgId);
+  const consumed = getModuleActiveMsConsumed(user, module, chosen);
+  if (consumed > 0) return consumed >= limit;
+
+  if (usesLegacySharedTrialClock(user, chosen) && user.previewStartedAt) {
+    return Date.now() - Date.parse(user.previewStartedAt) >= limit;
+  }
+  return false;
+}
+
+/** Проба истекла целиком: не осталось разделов в trial. */
+export function isPreviewExpired(user: any, _now = Date.now(), tgId?: string | null): boolean {
+  if (user?.previewStatus !== 'active') return false;
+  const chosen = normalizePreviewModules(user?.previewChosenModules);
+  if (chosen.length === 0) return true;
+  const statuses = ensureModuleStatusMap(user, user.previewChosenSubject);
+  const trialModules = chosen.filter(m => statuses[m] === 'trial');
+  if (trialModules.length === 0) return true;
+
+  if (usesLegacySharedTrialClock(user, chosen)) {
+    const started = user.previewStartedAt;
+    if (!started) return true;
+    if (_now - Date.parse(started) >= getPreviewDurationMs(tgId)) return true;
+  }
+
+  return trialModules.every(m => isPreviewModuleTrialExpired(user, m, tgId));
+}
+
+export function previewRemainingMsForModule(
+  user: any,
+  module: PreviewModule,
+  tgId?: string | null,
+): number {
+  if (user?.previewStatus !== 'active') return 0;
+  const chosen = normalizePreviewModules(user?.previewChosenModules);
+  if (!chosen.includes(module)) return 0;
+  const statuses = ensureModuleStatusMap(user, user.previewChosenSubject);
+  if (statuses[module] !== 'trial') return 0;
+  const limit = getPreviewDurationMs(tgId);
+  const consumed = getModuleActiveMsConsumed(user, module, chosen);
+  if (consumed > 0) return Math.max(0, limit - consumed);
+  if (usesLegacySharedTrialClock(user, chosen) && user.previewStartedAt) {
+    const left = getPreviewDurationMs(tgId) - (Date.now() - Date.parse(user.previewStartedAt));
+    return Math.max(0, left);
+  }
+  return limit;
+}
+
+export function previewRemainingMsByModule(user: any, tgId?: string | null): PreviewActiveMsMap {
+  const chosen = normalizePreviewModules(user?.previewChosenModules);
+  const map: PreviewActiveMsMap = {};
+  for (const m of chosen) {
+    map[m] = previewRemainingMsForModule(user, m, tgId);
+  }
+  return map;
+}
+
+/** Макс. остаток среди разделов в trial (для обратной совместимости API). */
 export function previewRemainingMs(user: any, tgId?: string | null): number {
   if (user?.previewStatus !== 'active') return 0;
-  return Math.max(0, getPreviewDurationMs(tgId) - getPreviewActiveMsConsumed(user));
+  const byModule = previewRemainingMsByModule(user, tgId);
+  const values = Object.values(byModule);
+  if (values.length === 0) return 0;
+  return Math.max(...values);
 }
 
 export function previewEndsAt(user: any, tgId?: string | null): string | null {
   if (user?.previewStatus !== 'active') return null;
   const remaining = previewRemainingMs(user, tgId);
-  if (remaining <= 0 && getPreviewActiveMsConsumed(user) > 0) {
-    return new Date().toISOString();
+  if (remaining <= 0) {
+    const chosen = normalizePreviewModules(user?.previewChosenModules);
+    const hasConsumed = chosen.some(m => getModuleActiveMsConsumed(user, m, chosen) > 0)
+      || getPreviewActiveMsConsumed(user) > 0;
+    if (hasConsumed) return new Date().toISOString();
   }
   if (!user.previewStartedAt) return null;
-  const consumed = getPreviewActiveMsConsumed(user);
-  if (consumed > 0) {
+  const chosen = normalizePreviewModules(user?.previewChosenModules);
+  const anyActiveMs = chosen.some(m => getModuleActiveMsConsumed(user, m, chosen) > 0);
+  if (anyActiveMs || getPreviewActiveMsConsumed(user) > 0) {
     return new Date(Date.now() + remaining).toISOString();
   }
   return new Date(Date.parse(user.previewStartedAt) + getPreviewDurationMs(tgId)).toISOString();
 }
 
-/** Клиент шлёт дельту активного времени (только когда вкладка видима и открыт выбранный раздел). */
-export function syncPreviewActiveMs(user: any, deltaMs: number, tgId?: string | null): any {
+function finalizePreviewExpiry(user: any): any {
+  const base: Record<string, any> = {
+    ...user,
+    previewStatus:    'expired' as PreviewStatus,
+    previewExpiredAt: new Date().toISOString(),
+  };
+  if (user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object') {
+    return { ...base, subjects: { ...user._subjectsBeforePreview } };
+  }
+  return { ...base, subjects: createDefaultSubjects() };
+}
+
+/** По таймеру переводит разделы из trial в awaiting_payment по одному. */
+export function applyModuleTrialExpiries(user: any, tgId?: string | null): any {
+  if (user?.previewStatus !== 'active') return user;
+  const subject = user.previewChosenSubject;
+  const chosen = normalizePreviewModules(user.previewChosenModules);
+  if (!subject || chosen.length === 0) return user;
+
+  const statuses: PreviewModuleStatusMap = { ...ensureModuleStatusMap(user, subject) };
+  const msMap = ensurePreviewActiveMsMap(user, chosen);
+  let changed = false;
+
+  const legacyShared = usesLegacySharedTrialClock(user, chosen)
+    && user.previewStartedAt
+    && Date.now() - Date.parse(user.previewStartedAt) >= getPreviewDurationMs(tgId);
+
+  for (const m of chosen) {
+    if (statuses[m] !== 'trial') continue;
+    if (legacyShared || isPreviewModuleTrialExpired({ ...user, previewActiveMsByModule: msMap }, m, tgId)) {
+      statuses[m] = 'awaiting_payment';
+      changed = true;
+    }
+  }
+
+  if (!changed) return user;
+
+  const confirmed = chosen.filter(m => statuses[m] === 'confirmed');
+  let next: Record<string, any> = {
+    ...user,
+    previewModuleStatuses: statuses,
+    previewActiveMsByModule: msMap,
+    navHidden: {
+      ...(user.navHidden || {}),
+      [subject]: buildNavHiddenForPaymentTabs(subject, chosen, confirmed),
+    },
+  };
+
+  if (!chosen.some(m => statuses[m] === 'trial')) {
+    next = finalizePreviewExpiry(next);
+  }
+
+  return next;
+}
+
+/** Клиент шлёт дельту активного времени для текущего раздела. */
+export function syncPreviewActiveMs(
+  user: any,
+  module: PreviewModule | null | undefined,
+  deltaMs: number,
+  tgId?: string | null,
+): any {
   if (!user || user.previewStatus !== 'active') return user;
   if (!Number.isFinite(deltaMs) || deltaMs <= 0) return user;
-  const cap = getPreviewDurationMs(tgId) * 2;
-  const next = Math.min(cap, getPreviewActiveMsConsumed(user) + Math.round(deltaMs));
-  return { ...user, previewActiveMsConsumed: next };
+  const chosen = normalizePreviewModules(user.previewChosenModules);
+  if (!module || !chosen.includes(module)) return user;
+
+  const statuses = ensureModuleStatusMap(user, user.previewChosenSubject);
+  if (statuses[module] !== 'trial') return user;
+
+  const msMap = ensurePreviewActiveMsMap(user, chosen);
+  const limit = getPreviewDurationMs(tgId);
+  const cap = limit * 2;
+  const prev = msMap[module] ?? 0;
+  const nextVal = Math.min(cap, prev + Math.round(deltaMs));
+  const nextMap: PreviewActiveMsMap = { ...msMap, [module]: nextVal };
+  const globalMax = Math.max(getPreviewActiveMsConsumed(user), nextVal);
+
+  const updated = {
+    ...user,
+    previewActiveMsByModule: nextMap,
+    previewActiveMsConsumed: globalMax,
+  };
+
+  return applyModuleTrialExpiries(updated, tgId);
 }
 
 export function getAllPickableSubjectIds(): string[] {
@@ -427,6 +624,7 @@ export function buildActivePreviewUser(
     previewExpiredAt:         null,
     receiptClaimedAt:         null,
     previewActiveMsConsumed:  0,
+    previewActiveMsByModule:  initPreviewActiveMsMap(chosenModules),
     previewModuleStatuses:    syncModuleStatusesOnPick(chosenModules),
     ...(isAddonPurchase ? { paid: false } : {}),
     subjects,
@@ -531,12 +729,14 @@ export function abandonPendingPreviewPayment(user: any) {
     previewPickedAt:      null,
     receiptClaimedAt:     null,
     previewActiveMsConsumed: null,
+    previewActiveMsByModule:   null,
     previewModuleStatuses:   null,
     _subjectsBeforePreview:    undefined,
     _navHiddenBeforePreview:   undefined,
     _previewSnapshotBeforeAddon: undefined,
   };
   delete updated.previewActiveMsConsumed;
+  delete updated.previewActiveMsByModule;
   delete updated.previewModuleStatuses;
   if (snap?.previewConfirmedAt) {
     updated.previewConfirmedAt = snap.previewConfirmedAt;
@@ -597,18 +797,11 @@ export function expirePreviewUser(user: any) {
     navHidden = restoreNavHiddenAfterPreviewExpire(user);
   }
 
-  const base: Record<string, any> = {
+  return finalizePreviewExpiry({
     ...user,
-    previewStatus:         'expired' as PreviewStatus,
-    previewExpiredAt:      new Date().toISOString(),
     previewModuleStatuses: statuses,
     navHidden,
-  };
-
-  if (user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object') {
-    return { ...base, subjects: { ...user._subjectsBeforePreview } };
-  }
-  return { ...base, subjects: createDefaultSubjects() };
+  });
 }
 
 /** Разделы из заявки: сначала previewChosenModules, иначе из navHidden активной пробы. */
@@ -749,11 +942,13 @@ export function reopenPreviewVitrine(user: any) {
     previewPickedAt:      null,
     receiptClaimedAt:     null,
     previewActiveMsConsumed: null,
+    previewActiveMsByModule:   null,
     previewModuleStatuses:   null,
     _subjectsBeforePreview: undefined,
   };
   delete updated._catalogBrowse;
   delete updated.previewActiveMsConsumed;
+  delete updated.previewActiveMsByModule;
   delete updated.previewModuleStatuses;
   return updated;
 }
@@ -892,6 +1087,7 @@ export function confirmPreviewUser(user: any) {
   delete updated._previewStatusBeforeCatalog;
   delete updated._catalogBrowse;
   delete updated.previewActiveMsConsumed;
+  delete updated.previewActiveMsByModule;
   updated.previewModuleStatuses = initModuleStatuses(modules, 'confirmed');
 
   return updated;
@@ -911,8 +1107,9 @@ export async function maybeExpirePreviewUser(
   tgId: string,
   user: any,
 ): Promise<any> {
-  if (!user || user.previewStatus !== 'active' || !isPreviewExpired(user, Date.now(), tgId)) return user;
-  const expired = expirePreviewUser(user);
-  await redis.set(`user_id:${tgId}`, expired);
-  return expired;
+  if (!user || user.previewStatus !== 'active') return user;
+  const updated = applyModuleTrialExpiries(user, tgId);
+  if (updated === user) return user;
+  await redis.set(`user_id:${tgId}`, updated);
+  return updated;
 }

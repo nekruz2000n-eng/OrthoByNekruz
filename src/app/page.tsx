@@ -583,6 +583,7 @@ export default function Home() {
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
     if (!tgId || !initDat) return;
+    const activeModule = tabToModule(activeTab);
     previewSyncBusyRef.current = true;
     previewActiveDeltaRef.current = 0;
     try {
@@ -593,6 +594,7 @@ export default function Home() {
           telegramId: tgId,
           mode: 'sync_preview_active',
           deltaMs: delta,
+          module: activeModule,
           initData: initDat,
         }),
       });
@@ -600,7 +602,7 @@ export default function Home() {
       if (res.ok) applyAccessPayload(d);
     } catch { /* повторим позже */ }
     finally { previewSyncBusyRef.current = false; }
-  }, [applyAccessPayload]);
+  }, [applyAccessPayload, activeTab, tabToModule]);
 
   useEffect(() => {
     if (!isAuthenticated || previewStatus !== 'active') return;
