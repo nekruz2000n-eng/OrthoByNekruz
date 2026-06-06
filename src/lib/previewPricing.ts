@@ -12,13 +12,37 @@ const ORTHO_MODULE_PRICES: Record<PreviewModule, number> = {
 /** Вопросы + задачи без теста — пакет. */
 const ORTHO_BUNDLE_NO_TEST_RUB = 1200;
 
+/** Биология: тест + задачи — пакет. */
+const BIO_BUNDLE_TESTS_TASKS_RUB = 800;
+
+const BIO_MODULE_PRICES: Record<PreviewModule, number> = {
+  questions: MODULE_PRICE_RUB,
+  tasks:     MODULE_PRICE_RUB,
+  tests:     MODULE_PRICE_RUB,
+};
+
+const BIO_AVAILABLE_MODULES: PreviewModule[] = ['tests', 'tasks'];
+
 export function calcPreviewPriceRub(subjectId: string, modules: PreviewModule[] = []): number {
   const chosen = modules.filter(Boolean);
   if (chosen.length === 0) return 0;
 
   if (subjectId === 'ortho') return calcOrthoPreviewPrice(chosen);
+  if (subjectId === 'bio')  return calcBioPreviewPrice(chosen);
   if (subjectId === 'micro') return chosen.length * MODULE_PRICE_RUB;
   return MODULE_PRICE_RUB;
+}
+
+function calcBioPreviewPrice(modules: PreviewModule[]): number {
+  const picked = modules.filter(m => BIO_AVAILABLE_MODULES.includes(m));
+  if (picked.length === 0) return 0;
+
+  const hasTasks = picked.includes('tasks');
+  const hasTests = picked.includes('tests');
+
+  if (hasTests && hasTasks) return BIO_BUNDLE_TESTS_TASKS_RUB;
+  if (hasTests) return BIO_MODULE_PRICES.tests;
+  return BIO_MODULE_PRICES.tasks;
 }
 
 function calcOrthoPreviewPrice(modules: PreviewModule[]): number {
@@ -76,6 +100,15 @@ export function getPaymentModuleOptions(subjectId: string): PaymentModuleOption[
       selectable: true,
     }));
   }
+  if (subjectId === 'bio') {
+    return ALL_PREVIEW_MODULES.map(id => ({
+      id,
+      label: PREVIEW_MODULE_LABELS[id],
+      shortLabel: PAYMENT_MODULE_SHORT_LABELS[id],
+      unitPriceRub: BIO_AVAILABLE_MODULES.includes(id) ? BIO_MODULE_PRICES[id] : null,
+      selectable: BIO_AVAILABLE_MODULES.includes(id),
+    }));
+  }
   return ALL_PREVIEW_MODULES.map(id => ({
     id,
     label: PREVIEW_MODULE_LABELS[id],
@@ -111,6 +144,9 @@ export function getPreviewPriceHint(subjectId: string): string {
   }
   if (subjectId === 'micro') {
     return 'Каждый раздел — 500 ₽';
+  }
+  if (subjectId === 'bio') {
+    return 'Тест + задачи = 800 ₽ · по отдельности — 500 ₽';
   }
   return 'Любой тест — 500 ₽';
 }
@@ -158,6 +194,24 @@ export function describePreviewPrice(
       hint: getPreviewPriceHint(subjectId),
       lines: chosen.map(m => PREVIEW_MODULE_LABELS[m]),
     };
+  }
+
+  if (subjectId === 'bio') {
+    const hasTasks = chosen.includes('tasks');
+    const hasTests = chosen.includes('tests');
+
+    if (hasTests && hasTasks) {
+      return {
+        total,
+        hint: getPreviewPriceHint(subjectId),
+        lines: ['Тест + задачи (пакет)'],
+      };
+    }
+
+    const lines: string[] = [];
+    if (hasTests) lines.push(PREVIEW_MODULE_LABELS.tests);
+    if (hasTasks) lines.push(PREVIEW_MODULE_LABELS.tasks);
+    return { total, hint: getPreviewPriceHint(subjectId), lines };
   }
 
   return {
