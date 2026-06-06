@@ -102,9 +102,11 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
             style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
           >
             <p className="text-2xl font-bold" style={{ color: accent }}>
-              {formatPriceRub(priceSummary.totalRub)}
+              {formatPriceRub(priceSummary.total)}
             </p>
-            <p className="text-xs" style={{ color: 'var(--c-muted)' }}>{priceSummary.detail}</p>
+            <p className="text-xs" style={{ color: 'var(--c-muted)' }}>
+              {priceSummary.lines.length > 0 ? priceSummary.lines.join(' · ') : priceSummary.hint}
+            </p>
           </div>
         )}
 
