@@ -97,12 +97,15 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
   return (
     <div className="flex flex-col items-center justify-center h-full p-6">
       <div className="max-w-sm w-full text-center space-y-5">
-        <p
-          className="text-[15px] leading-relaxed font-medium px-1"
-          style={{ color: 'var(--c-text)' }}
-        >
-          Ты уже знаешь что внутри. Плата не за доступ — за то, чтобы не потерять то, что уже нашёл.
-        </p>
+        <div className="text-4xl">{status === 'rejected' ? '↩️' : '⏳'}</div>
+        <div className="space-y-2 px-1">
+          <h2 className="text-lg font-bold leading-snug" style={{ color: 'var(--c-text)' }}>
+            Ты уже знаешь что внутри.
+          </h2>
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--c-muted)' }}>
+            Плата не за доступ — за то, чтобы не потерять то, что уже нашёл.
+          </p>
+        </div>
 
         <button
           type="button"
