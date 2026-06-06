@@ -117,9 +117,12 @@ export const QuestionAiPanel: React.FC<QuestionAiPanelProps> = ({
       </div>
 
       {error && (
-        <p className="text-xs leading-relaxed" style={{ color: 'var(--c-danger)' }}>
+        <div
+          className="rounded-xl px-3 py-2.5 text-xs leading-relaxed"
+          style={{ background: 'var(--c-danger-soft)', color: 'var(--c-danger)' }}
+        >
           {error}
-        </p>
+        </div>
       )}
 
       {result && (
