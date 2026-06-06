@@ -280,9 +280,15 @@ export function isPreviewModuleTrialExpired(
   const consumed = getModuleActiveMsConsumed(user, module, chosen);
   if (consumed > 0) return consumed >= limit;
 
-  if (usesLegacySharedTrialClock(user, chosen) && user.previewStartedAt) {
+  // Один раздел без per-module ms — старый общий таймер
+  if (
+    chosen.length === 1
+    && usesLegacySharedTrialClock(user, chosen)
+    && user.previewStartedAt
+  ) {
     return getLegacyVirtualMsConsumed(user, tgId) >= limit;
   }
+  // Несколько разделов: не посещённый ещё не истёк
   return false;
 }
 
@@ -294,12 +300,6 @@ export function isPreviewExpired(user: any, _now = Date.now(), tgId?: string | n
   const statuses = ensureModuleStatusMap(user, user.previewChosenSubject);
   const trialModules = chosen.filter(m => statuses[m] === 'trial');
   if (trialModules.length === 0) return true;
-
-  if (usesLegacySharedTrialClock(user, chosen)) {
-    if (!user.previewStartedAt) return true;
-    const elapsedReal = _now - Date.parse(user.previewStartedAt);
-    if (elapsedReal * getPreviewActiveTimeMultiplier(tgId) >= getPreviewDurationMs(tgId)) return true;
-  }
 
   return trialModules.every(m => isPreviewModuleTrialExpired(user, m, tgId));
 }
@@ -317,7 +317,11 @@ export function previewRemainingMsForModule(
   const limit = getPreviewDurationMs(tgId);
   const consumed = getModuleActiveMsConsumed(user, module, chosen);
   if (consumed > 0) return Math.max(0, limit - consumed);
-  if (usesLegacySharedTrialClock(user, chosen) && user.previewStartedAt) {
+  if (
+    chosen.length === 1
+    && usesLegacySharedTrialClock(user, chosen)
+    && user.previewStartedAt
+  ) {
     return Math.max(0, limit - getLegacyVirtualMsConsumed(user, tgId));
   }
   return limit;
@@ -342,31 +346,38 @@ export function previewRemainingMinByModule(user: any, tgId?: string | null): Pr
   return map;
 }
 
-/** Макс. остаток среди разделов в trial (для обратной совместимости API). */
+/** Макс. остаток среди разделов, ещё в trial. */
 export function previewRemainingMs(user: any, tgId?: string | null): number {
   if (user?.previewStatus !== 'active') return 0;
-  const byModule = previewRemainingMsByModule(user, tgId);
-  const values = Object.values(byModule);
-  if (values.length === 0) return 0;
-  return Math.max(...values);
+  const chosen = normalizePreviewModules(user?.previewChosenModules);
+  const statuses = ensureModuleStatusMap(user, user.previewChosenSubject);
+  const trialRemaining = chosen
+    .filter(m => statuses[m] === 'trial')
+    .map(m => previewRemainingMsForModule(user, m, tgId));
+  if (trialRemaining.length === 0) return 0;
+  return Math.max(...trialRemaining);
 }
 
 export function previewEndsAt(user: any, tgId?: string | null): string | null {
   if (user?.previewStatus !== 'active') return null;
-  const remaining = previewRemainingMs(user, tgId);
-  if (remaining <= 0) {
-    const chosen = normalizePreviewModules(user?.previewChosenModules);
-    const hasConsumed = chosen.some(m => getModuleActiveMsConsumed(user, m, chosen) > 0)
-      || getPreviewActiveMsConsumed(user) > 0;
-    if (hasConsumed) return new Date().toISOString();
-  }
-  if (!user.previewStartedAt) return null;
   const chosen = normalizePreviewModules(user?.previewChosenModules);
-  const anyActiveMs = chosen.some(m => getModuleActiveMsConsumed(user, m, chosen) > 0);
-  if (anyActiveMs || getPreviewActiveMsConsumed(user) > 0) {
+  const statuses = ensureModuleStatusMap(user, user.previewChosenSubject);
+  const trialMods = chosen.filter(m => statuses[m] === 'trial');
+  if (trialMods.length === 0) return null;
+
+  const remaining = Math.max(
+    ...trialMods.map(m => previewRemainingMsForModule(user, m, tgId)),
+  );
+  if (remaining <= 0) return new Date().toISOString();
+
+  const anyActiveMs = trialMods.some(m => getModuleActiveMsConsumed(user, m, chosen) > 0);
+  if (anyActiveMs) {
     return new Date(Date.now() + remaining).toISOString();
   }
-  return new Date(Date.parse(user.previewStartedAt) + getPreviewRealWindowMs(tgId)).toISOString();
+  if (trialMods.length === 1 && user.previewStartedAt) {
+    return new Date(Date.parse(user.previewStartedAt) + getPreviewRealWindowMs(tgId)).toISOString();
+  }
+  return new Date(Date.now() + remaining).toISOString();
 }
 
 function finalizePreviewExpiry(user: any): any {
@@ -392,13 +403,9 @@ export function applyModuleTrialExpiries(user: any, tgId?: string | null): any {
   const msMap = ensurePreviewActiveMsMap(user, chosen);
   let changed = false;
 
-  const legacyShared = usesLegacySharedTrialClock(user, chosen)
-    && user.previewStartedAt
-    && getLegacyVirtualMsConsumed(user, tgId) >= getPreviewDurationMs(tgId);
-
   for (const m of chosen) {
     if (statuses[m] !== 'trial') continue;
-    if (legacyShared || isPreviewModuleTrialExpired({ ...user, previewActiveMsByModule: msMap }, m, tgId)) {
+    if (isPreviewModuleTrialExpired({ ...user, previewActiveMsByModule: msMap }, m, tgId)) {
       statuses[m] = 'awaiting_payment';
       changed = true;
     }

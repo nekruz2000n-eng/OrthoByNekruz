@@ -208,6 +208,7 @@ export default function Home() {
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
   const [previewModuleStatuses, setPreviewModuleStatuses] = useState<PreviewModuleStatusMap>({});
   const [previewRemainingMinByModule, setPreviewRemainingMinByModule] = useState<PreviewActiveMsMap>({});
+  const [previewRemainingMsByModule, setPreviewRemainingMsByModule] = useState<PreviewActiveMsMap>({});
   const [previewModuleTrustExpiresAt, setPreviewModuleTrustExpiresAt] = useState<Record<string, string>>({});
   const [trustNoticeDismissed, setTrustNoticeDismissed] = useState(false);
   const [pendingPaymentSubject, setPendingPaymentSubject] = useState<string | null>(null);
@@ -284,6 +285,11 @@ export default function Home() {
       setPreviewRemainingMinByModule(d.previewRemainingMinByModule as PreviewActiveMsMap);
     } else if (ps !== 'active') {
       setPreviewRemainingMinByModule({});
+    }
+    if (d?.previewRemainingMsByModule && typeof d.previewRemainingMsByModule === 'object') {
+      setPreviewRemainingMsByModule(d.previewRemainingMsByModule as PreviewActiveMsMap);
+    } else if (ps !== 'active') {
+      setPreviewRemainingMsByModule({});
     }
     if (d?.previewModuleTrustExpiresAt && typeof d.previewModuleTrustExpiresAt === 'object') {
       setPreviewModuleTrustExpiresAt(d.previewModuleTrustExpiresAt as Record<string, string>);
@@ -987,8 +993,25 @@ export default function Home() {
     localStorage.setItem('last_subject', next);
   }, [availableSubjects, previewChosen, canAbandonPending, handleAbandonPendingPreview, setSubject, toast]);
 
+  const chosenPreviewModules = useMemo(
+    () => normalizePreviewModules(previewModules),
+    [previewModules],
+  );
+
+  const modulesNeedingPayment = useMemo(() => {
+    const fromServer = modulesAwaitingPayment(previewModuleStatuses);
+    if (previewStatus !== 'active') return fromServer;
+    const localExpired = chosenPreviewModules.filter(mod => {
+      if (fromServer.includes(mod)) return false;
+      const rem = previewRemainingMsByModule[mod];
+      return rem != null && rem <= 0;
+    });
+    return localExpired.length > 0 ? [...new Set([...fromServer, ...localExpired])] : fromServer;
+  }, [previewModuleStatuses, previewStatus, chosenPreviewModules, previewRemainingMsByModule]);
+
   const inPendingPaymentFlow = !!previewChosen && (
     previewStatus === 'expired'
+    || modulesNeedingPayment.length > 0
     || (!!receiptClaimedAt && !previewConfirmedAt)
   );
 
@@ -1049,33 +1072,83 @@ export default function Home() {
     previewModules, setSubjectRaw, toast,
   ]);
 
-  const chosenPreviewModules = useMemo(
-    () => normalizePreviewModules(previewModules),
-    [previewModules],
-  );
-
   const grantedPreviewModules = useMemo(
     () => normalizePreviewModules(previewGrantedModules),
     [previewGrantedModules],
   );
 
   const resolveModuleStatus = useCallback((mod: PreviewModule): PreviewModuleStatus | undefined => {
-    const st = previewModuleStatuses[mod];
-    if (st) return st;
     if (!previewChosen || !chosenPreviewModules.includes(mod)) return undefined;
     if (previewConfirmedAt) return 'confirmed';
     if (receiptClaimedAt && !previewConfirmedAt) return 'receipt_pending';
+
+    const st = previewModuleStatuses[mod];
+    if (st === 'awaiting_payment' || st === 'rejected' || st === 'confirmed' || st === 'receipt_pending') {
+      return st;
+    }
+
     if (previewStatus === 'expired') return 'awaiting_payment';
-    return undefined;
+
+    if (previewStatus === 'active') {
+      const remMs = previewRemainingMsByModule[mod];
+      if (remMs != null && remMs <= 0) return 'awaiting_payment';
+      return st || 'trial';
+    }
+
+    return st;
   }, [
     previewModuleStatuses, previewChosen, chosenPreviewModules,
-    previewStatus, receiptClaimedAt, previewConfirmedAt,
+    previewStatus, receiptClaimedAt, previewConfirmedAt, previewRemainingMsByModule,
   ]);
 
-  const paymentFlowCacheBust = useMemo(
-    () => shouldBustPaymentFlowCache(subject, previewChosen, previewModuleStatuses, previewStatus),
-    [subject, previewChosen, previewModuleStatuses, previewStatus],
-  );
+  const paymentFlowCacheBust = useMemo(() => {
+    const effectiveStatuses: PreviewModuleStatusMap = { ...previewModuleStatuses };
+    if (previewStatus === 'active') {
+      for (const mod of chosenPreviewModules) {
+        const rem = previewRemainingMsByModule[mod];
+        if (rem != null && rem <= 0 && effectiveStatuses[mod] === 'trial') {
+          effectiveStatuses[mod] = 'awaiting_payment';
+        }
+      }
+    }
+    return shouldBustPaymentFlowCache(subject, previewChosen, effectiveStatuses, previewStatus);
+  }, [
+    subject, previewChosen, previewModuleStatuses, previewStatus,
+    chosenPreviewModules, previewRemainingMsByModule,
+  ]);
+
+  // Локальный отсчёт per-module + мгновенный sync при нуле (до ответа сервера — экран оплаты)
+  useEffect(() => {
+    if (!isAuthenticated || previewStatus !== 'active') return;
+    const mod = tabToModule(activeTab);
+    if (!mod || !chosenPreviewModules.includes(mod)) return;
+    if (resolveModuleStatus(mod) !== 'trial') return;
+
+    const iv = setInterval(() => {
+      setPreviewRemainingMsByModule(prev => {
+        const cur = prev[mod];
+        if (cur == null || cur <= 0) return prev;
+        const nextMs = Math.max(0, cur - 1000);
+        const next = { ...prev, [mod]: nextMs };
+        setPreviewRemainingMinByModule(m => ({
+          ...m,
+          [mod]: Math.max(0, Math.ceil(nextMs / 60_000)),
+        }));
+        if (nextMs === 0) void syncPreviewActive(true);
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [
+    isAuthenticated, previewStatus, chosenPreviewModules, activeTab,
+    tabToModule, resolveModuleStatus, syncPreviewActive,
+  ]);
+
+  // При смене вкладки — сразу sync (фиксируем время прошлого раздела)
+  useEffect(() => {
+    if (!isAuthenticated || previewStatus !== 'active') return;
+    void syncPreviewActive(true);
+  }, [activeTab, isAuthenticated, previewStatus, syncPreviewActive]);
 
   const paymentExitProps = useMemo(() => ({
     onBackToPurchased: canReturnToPurchased ? handleReturnToPurchased : undefined,
@@ -1111,7 +1184,7 @@ export default function Home() {
       );
     }
     if (st === 'receipt_pending') return content;
-    if (previewStatus === 'active' && (!st || moduleShowsContent(st))) return content;
+    if (st === 'trial' || (!st && previewStatus === 'active')) return content;
     if (st && moduleShowsContent(st)) return content;
     return content;
   }, [
