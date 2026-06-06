@@ -12,6 +12,7 @@ import {
   hasFinalizedPreviewAccess,
   reopenPreviewVitrine,
   getPendingAdminModules,
+  adminForcePaymentOnlyScreen,
 } from '@/lib/preview';
 import type { PreviewModule } from '@/lib/previewModules';
 import { clearAuthRateLimitsForTgId } from '@/lib/authRateLimit';
@@ -398,6 +399,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           await saveUser(String(tgId), cleaned);
         }
         return res.status(200).json({ ok: true });
+      }
+
+      if (action === 'force_payment_only') {
+        const updated = adminForcePaymentOnlyScreen(user);
+        if (!updated) {
+          return res.status(400).json({ error: 'Не удалось определить предмет или разделы для оплаты.' });
+        }
+        await saveUser(String(tgId), updated);
+        return res.status(200).json({
+          ok: true,
+          previewStatus: updated.previewStatus ?? null,
+          previewChosenSubject: updated.previewChosenSubject ?? null,
+          previewChosenModules: updated.previewChosenModules ?? null,
+          previewQuotedPrice: updated.previewQuotedPrice ?? null,
+          previewNeedsConfirm: previewChoiceNeedsAdminConfirm(updated),
+          previewPendingModules: getPendingAdminModules(updated),
+          previewConfirmedAt: null,
+          receiptClaimedAt: null,
+          subjects: getUserAvailableSubjects(updated),
+          navHidden: updated.navHidden ?? {},
+          paid: updated.paid === true,
+        });
       }
 
       if (action === 'reopen_preview_vitrine') {

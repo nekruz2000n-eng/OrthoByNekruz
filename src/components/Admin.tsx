@@ -74,7 +74,7 @@ const RES_TYPE_OPTS: { id: ResType; label: string; emoji: string }[] = [
 
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo' | 'unpaid';
 type SortBy = 'registered' | 'lastActivity' | 'loginCount';
-type Action = 'block' | 'unblock' | 'reset_demo' | 'confirm_preview' | 'confirm_preview_module' | 'reject_preview_module' | 'reopen_preview_vitrine' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid' | 'set_contact_username';
+type Action = 'block' | 'unblock' | 'reset_demo' | 'force_payment_only' | 'confirm_preview' | 'confirm_preview_module' | 'reject_preview_module' | 'reopen_preview_vitrine' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid' | 'set_contact_username';
 
 type PreviewModKind = 'questions' | 'tests' | 'tasks';
 type PreviewCatalogSettings = Record<string, {
@@ -796,6 +796,10 @@ function UserCard({
                 {busy ? '...' : 'Сбросить пробный доступ'}
               </ActionBtn>
             )}
+            <ActionBtn variant="warn" disabled={busy} fullWidth
+              onClick={() => onAction(user.tgId, 'force_payment_only')}>
+              {busy ? '...' : '💳 Только оплата'}
+            </ActionBtn>
             <button
               type="button"
               style={{
@@ -1958,6 +1962,31 @@ export default function AdminPage() {
               studyGroup: null,
               subjects: u.subjects.filter(() => false),
             };
+          case 'force_payment_only': {
+            const newSubjects = Array.isArray(data.subjects) ? data.subjects : [];
+            const navHidden = (data.navHidden && typeof data.navHidden === 'object')
+              ? data.navHidden as Record<string, string[]>
+              : u.navHidden;
+            return {
+              ...u,
+              previewStatus: (data.previewStatus as string | null) ?? 'expired',
+              previewChosenSubject: (data.previewChosenSubject as string | null) ?? u.previewChosenSubject,
+              previewChosenModules: Array.isArray(data.previewChosenModules)
+                ? data.previewChosenModules
+                : u.previewChosenModules,
+              previewQuotedPrice: typeof data.previewQuotedPrice === 'number' ? data.previewQuotedPrice : u.previewQuotedPrice,
+              previewConfirmedAt: null,
+              receiptClaimedAt: null,
+              previewNeedsConfirm: data.previewNeedsConfirm === true,
+              previewPendingModules: Array.isArray(data.previewPendingModules)
+                ? data.previewPendingModules
+                : [],
+              previewStartedAt: null,
+              subjects: newSubjects,
+              navHidden,
+              paid: data.paid === true,
+            };
+          }
           case 'confirm_preview':
           case 'confirm_preview_module': {
             const newSubjects = Array.isArray(data.subjects) ? data.subjects : u.subjects;
@@ -2074,6 +2103,7 @@ export default function AdminPage() {
         case 'block':          msg = '🚫 Заблокирован'; break;
         case 'unblock':        msg = '✓ Разблокирован'; break;
         case 'reset_demo':     msg = '✓ Пробный доступ сброшен'; break;
+        case 'force_payment_only': msg = '💳 Только экраны оплаты'; break;
         case 'confirm_preview':
         case 'confirm_preview_module': msg = '✓ Раздел подтверждён'; break;
         case 'reject_preview_module': msg = '↩ Отказ по разделу'; break;

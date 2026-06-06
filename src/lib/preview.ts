@@ -899,6 +899,94 @@ export function expirePreviewUser(user: any) {
   });
 }
 
+/** Админ: сбросить пробу и оставить только экраны оплаты (без доступа к контенту). */
+export function adminForcePaymentOnlyScreen(user: any): any | null {
+  if (!user) return null;
+
+  let subjectId = user.previewChosenSubject as string | null;
+  let chosen = normalizePreviewModules(user.previewChosenModules);
+
+  if (!subjectId) {
+    const available = getUserAvailableSubjects(user);
+    subjectId = available[0] ?? null;
+  }
+  if (!subjectId) return null;
+
+  if (chosen.length === 0) {
+    chosen = inferChosenModulesForConfirm(user, subjectId);
+  }
+  if (chosen.length === 0) {
+    const granted = getGrantedModulesForPaymentSubject(user, subjectId);
+    const row = getPaymentModuleRow(subjectId, granted);
+    chosen = row.filter(o => o.selectable && !o.alreadyOwned).map(o => o.id);
+  }
+  if (chosen.length === 0) {
+    const hidden = new Set(getNavHiddenForSubject(subjectId));
+    chosen = (['questions', 'tests', 'tasks'] as PreviewModule[]).filter(m => !hidden.has(m));
+  }
+  if (chosen.length === 0) return null;
+
+  const limit = PREVIEW_DURATION_MS;
+  const msMap: PreviewActiveMsMap = {};
+  for (const m of chosen) msMap[m] = limit;
+
+  const beforeSubjects = user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object'
+    ? { ...user._subjectsBeforePreview }
+    : snapshotSubjects(user)
+      ?? (user.subjects && typeof user.subjects === 'object' ? { ...user.subjects } : null);
+
+  const navHiddenBefore = user._navHiddenBeforePreview && typeof user._navHiddenBeforePreview === 'object'
+    ? { ...user._navHiddenBeforePreview }
+    : (user.navHidden && typeof user.navHidden === 'object' ? { ...user.navHidden } : {});
+
+  const statuses = setAllModuleStatuses(
+    chosen,
+    'awaiting_payment',
+    ensureModuleStatusMap(user, subjectId),
+  );
+
+  const navHidden = {
+    ...(user.navHidden || {}),
+    [subjectId]: buildNavHiddenForPaymentTabs(subjectId, chosen, []),
+  };
+
+  const now = new Date().toISOString();
+  const snapshotBeforeAddon = user._previewSnapshotBeforeAddon
+    ?? (hasFinalizedPreviewAccess(user) || user.paid === true
+      ? { previewConfirmedAt: user.previewConfirmedAt ?? null, paid: user.paid === true }
+      : undefined);
+
+  const updated: Record<string, any> = {
+    ...user,
+    previewStatus: 'expired' as PreviewStatus,
+    previewExpiredAt: now,
+    previewChosenSubject: subjectId,
+    previewChosenModules: chosen,
+    previewModuleStatuses: statuses,
+    previewActiveMsByModule: msMap,
+    previewActiveMsConsumed: limit,
+    previewQuotedPrice: calcPreviewPriceRub(subjectId, chosen),
+    previewStartedAt: user.previewStartedAt || now,
+    receiptClaimedAt: null,
+    previewConfirmedAt: null,
+    previewModuleTrustExpiresAt: undefined,
+    subjects: createDefaultSubjects(),
+    navHidden,
+    _subjectsBeforePreview: beforeSubjects,
+    _navHiddenBeforePreview: navHiddenBefore,
+    _previewSnapshotBeforeAddon: snapshotBeforeAddon,
+    _migrated_subjects: true,
+    _catalogBrowse: undefined,
+    _previewStatusBeforeCatalog: undefined,
+  };
+
+  if (snapshotBeforeAddon?.paid === true) {
+    updated.paid = false;
+  }
+
+  return updated;
+}
+
 /** Разделы из заявки: сначала previewChosenModules, иначе из navHidden активной пробы. */
 export function inferChosenModulesForConfirm(user: any, subjectId: string): PreviewModule[] {
   const fromField = normalizePreviewModules(user?.previewChosenModules);
