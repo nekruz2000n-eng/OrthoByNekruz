@@ -177,6 +177,8 @@ export default function Home() {
   const [previewQuotedPrice, setPreviewQuotedPrice] = useState<number | null>(null);
   const [receiptClaimedAt, setReceiptClaimedAt] = useState<string | null>(null);
   const [previewConfirmedAt, setPreviewConfirmedAt] = useState<string | null>(null);
+  const [canReturnToPurchased, setCanReturnToPurchased] = useState(false);
+  const [abandonPreviewBusy, setAbandonPreviewBusy] = useState(false);
   const [showAccessWelcome, setShowAccessWelcome] = useState(false);
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
   const { toast }    = useToast();
@@ -234,6 +236,7 @@ export default function Home() {
     setPreviewQuotedPrice(typeof d?.previewQuotedPrice === 'number' ? d.previewQuotedPrice : null);
     setReceiptClaimedAt(d?.receiptClaimedAt ?? null);
     setPreviewConfirmedAt(d?.previewConfirmedAt ?? null);
+    setCanReturnToPurchased(d?.canReturnToPurchasedAccess === true);
 
     if (Array.isArray(d?.subjectCatalog)) setSubjectCatalog(d.subjectCatalog);
     if (Array.isArray(d?.catalogGrantedSubjects)) {
@@ -521,6 +524,7 @@ export default function Home() {
     const tick = () => {
       if (Date.now() >= Date.parse(endIso)) {
         setPreviewStatus('expired');
+        localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
         localStorage.removeItem('preview_end');
         localStorage.removeItem('preview_start');
         if (previewChosen) {
@@ -812,16 +816,69 @@ export default function Home() {
     }
   }, [applyAccessPayload]);
 
-  const handleBackFromPendingPreview = useCallback(() => {
+  const handleAbandonPendingPreview = useCallback(async (switchTo?: string) => {
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) return false;
+    setAbandonPreviewBusy(true);
     setPreviewStatusMessage('');
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: tgId,
+          mode: 'abandon_pending_preview',
+          initData: initDat,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPreviewStatusMessage(data.error || 'Не удалось вернуться к купленному.');
+        return false;
+      }
+      localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
+      accessRequestGen.current += 1;
+      applyAccessPayload(data);
+      const target = switchTo ?? (previewChosen || undefined);
+      if (target && (data.subjects as string[] | undefined)?.includes(target)) {
+        setSubjectRaw(target);
+        localStorage.setItem('last_subject', target);
+        localStorage.setItem('subject_chosen', 'true');
+        const hidden = (data.navHidden as Record<string, string[]> | undefined)?.[target] || [];
+        const tabOrder: TabType[] = ['questions', 'tests', 'tasks', 'stats'];
+        const firstOpen = tabOrder.find(t => t === 'stats' || !hidden.includes(t));
+        if (firstOpen) setActiveTab(firstOpen);
+      }
+      return true;
+    } catch {
+      setPreviewStatusMessage('Ошибка соединения. Попробуй ещё раз.');
+      return false;
+    } finally {
+      setAbandonPreviewBusy(false);
+    }
+  }, [applyAccessPayload, previewChosen, setSubjectRaw]);
+
+  const handleReturnToPurchased = useCallback(async () => {
+    const ok = await handleAbandonPendingPreview();
+    if (ok) {
+      toast({ title: 'Докупка отменена', description: 'Открыты только ранее купленные разделы.' });
+    }
+  }, [handleAbandonPendingPreview, toast]);
+
+  const handleBackFromPendingPreview = useCallback(async () => {
     const pending = previewChosen;
     const others = availableSubjects.filter(s => s !== pending);
-    const next = others[0] ?? availableSubjects.find(s => s !== pending);
-    if (next) {
-      setSubject(next);
-      localStorage.setItem('last_subject', next);
+    const next = others[0];
+    if (!next) return;
+    if (canReturnToPurchased) {
+      await handleAbandonPendingPreview(next);
+      return;
     }
-  }, [availableSubjects, previewChosen, setSubject]);
+    setPreviewStatusMessage('');
+    setSubject(next);
+    localStorage.setItem('last_subject', next);
+  }, [availableSubjects, previewChosen, canReturnToPurchased, handleAbandonPendingPreview, setSubject]);
 
   /** Витрина «Все доступные разработки» — только без незакрытой заявки или после подтверждения админом. */
   const canBrowseCatalog = previewStatus == null || previewStatus === 'confirmed';
@@ -906,9 +963,11 @@ export default function Home() {
   }
 
   const awaitingPendingSubject =
-    !!previewChosen &&
-    !previewConfirmedAt &&
-    (previewStatus === 'expired' || !!receiptClaimedAt);
+    !!previewChosen
+    && (
+      previewStatus === 'expired'
+      || (!!receiptClaimedAt && !previewConfirmedAt)
+    );
 
   if (awaitingPendingSubject) {
     return withAccessWelcome(
@@ -922,6 +981,8 @@ export default function Home() {
         onCheckStatus={handleCheckPreviewStatus}
         onClaimReceipt={handleClaimReceipt}
         onModulesChange={handleUpdatePreviewPaymentModules}
+        onBackToPurchased={canReturnToPurchased ? handleReturnToPurchased : undefined}
+        backToPurchasedBusy={abandonPreviewBusy}
         onBackToAvailable={
           availableSubjects.some(s => s !== previewChosen)
             ? handleBackFromPendingPreview

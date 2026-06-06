@@ -16,6 +16,8 @@ import {
   userAlreadyHasSubjectAccess,
   getAllPickableSubjectIds,
   getEffectiveUserSubjects,
+  abandonPendingCatalogAddon,
+  canReturnToPurchasedAccess,
   maybeExpirePreviewUser,
   previewEndsAt,
   isPreviewTrialLocked,
@@ -70,7 +72,7 @@ async function handleCatalogBrowseStart(
     });
   }
 
-  if (user?.previewStatus === 'expired' && user._catalogBrowse) {
+  if (user?.previewStatus === 'expired' && user._catalogBrowse && !user.previewChosenSubject) {
     const merged = restartCatalogBrowseSelecting(user, profile, promo);
     await saveUser(tgIdStr, merged);
     await clearAuthRateLimitsForTgId(redis, tgIdStr);
@@ -79,6 +81,14 @@ async function handleCatalogBrowseStart(
       catalogBrowse: true,
       subjects: [],
       ...previewPayload(merged, catalog, tgIdStr),
+    });
+  }
+
+  if (user?.previewStatus === 'expired' && user.previewChosenSubject) {
+    return res.status(200).json({
+      success: true,
+      catalogBrowse: !!user._catalogBrowse,
+      ...(await subjectsResponse(user, tgIdStr)),
     });
   }
 
@@ -303,6 +313,7 @@ function previewPayload(
     catalogGrantedSubjects: user?._catalogBrowse && hasGroup
       ? getCatalogGrantedSubjects(user)
       : undefined,
+    canReturnToPurchasedAccess: canReturnToPurchasedAccess(user),
     ...facultyFieldsFromUser(user),
   };
 }
@@ -521,6 +532,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       return res.status(200).json({
         success: true,
+        ...(await subjectsResponse(updated, tgIdStr)),
+      });
+    }
+
+    if (mode === 'abandon_pending_preview') {
+      if (!user?.previewChosenSubject) {
+        return res.status(400).json({ error: 'Нет незавершённой заявки.' });
+      }
+      if (user.receiptClaimedAt) {
+        return res.status(400).json({ error: 'После отправки чека отменить нельзя.' });
+      }
+      user = await maybeExpirePreviewUser(redis, tgIdStr, user);
+      const updated = abandonPendingCatalogAddon(user);
+      if (!updated) {
+        return res.status(400).json({ error: 'Вернуться можно только при докупке к уже купленному предмету.' });
+      }
+      updated.username   = username ?? updated.username;
+      updated.firstName  = firstName ?? updated.firstName;
+      updated.lastName   = lastName ?? updated.lastName;
+      updated.lastLogin  = new Date().toISOString();
+      updated.loginCount = Number(updated.loginCount || 0) + 1;
+      await saveUser(tgIdStr, updated);
+      return res.status(200).json({
+        success: true,
+        abandonedPreview: true,
         ...(await subjectsResponse(updated, tgIdStr)),
       });
     }

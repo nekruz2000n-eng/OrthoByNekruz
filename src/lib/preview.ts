@@ -309,6 +309,9 @@ export function buildActivePreviewUser(
   const navHiddenBeforePreview = isAddon
     ? { ...(user.navHidden || {}) }
     : user._navHiddenBeforePreview;
+  const snapshotBeforeAddon = isAddon
+    ? { previewConfirmedAt: user.previewConfirmedAt ?? null }
+    : user._previewSnapshotBeforeAddon;
 
   return {
     ...user,
@@ -318,23 +321,100 @@ export function buildActivePreviewUser(
     previewQuotedPrice:     calcPreviewPriceRub(subjectId, chosenModules),
     previewStartedAt:       now,
     previewPickedAt:          now,
+    previewConfirmedAt:       null,
+    previewExpiredAt:         null,
     receiptClaimedAt:         null,
     subjects,
     navHidden,
     _subjectsBeforePreview: before,
     _navHiddenBeforePreview: navHiddenBeforePreview,
+    _previewSnapshotBeforeAddon: snapshotBeforeAddon,
     _migrated_subjects:     true,
   };
 }
 
+/** Докупка: предмет уже был открыт до пробы — можно вернуться без оплаты. */
+export function canReturnToPurchasedAccess(user: any): boolean {
+  const chosen = user?.previewChosenSubject;
+  if (!chosen || user.receiptClaimedAt) return false;
+  if (user.previewStatus !== 'expired' && user.previewStatus !== 'active') return false;
+  const before = user._subjectsBeforePreview;
+  return !!(before && typeof before === 'object' && before[chosen] === true);
+}
+
+/** Отменить незавершённую докупку — восстановить ранее купленные разделы. */
+export function abandonPendingCatalogAddon(user: any) {
+  const chosen = user?.previewChosenSubject;
+  if (!chosen || user.receiptClaimedAt) return null;
+  if (user.previewStatus !== 'expired' && user.previewStatus !== 'active') return null;
+
+  const beforeSubjects = user._subjectsBeforePreview;
+  if (!beforeSubjects || typeof beforeSubjects !== 'object' || beforeSubjects[chosen] !== true) {
+    return null;
+  }
+
+  const subjects = { ...beforeSubjects };
+  const navHidden = (user._navHiddenBeforePreview && typeof user._navHiddenBeforePreview === 'object')
+    ? { ...user._navHiddenBeforePreview }
+    : { ...(user.navHidden || {}) };
+  const snap = user._previewSnapshotBeforeAddon;
+
+  const updated: Record<string, any> = {
+    ...user,
+    subjects,
+    navHidden,
+    previewChosenSubject: null,
+    previewChosenModules: null,
+    previewQuotedPrice:   null,
+    previewStartedAt:     null,
+    previewExpiredAt:     null,
+    previewPickedAt:      null,
+    receiptClaimedAt:     null,
+    _subjectsBeforePreview:    undefined,
+    _navHiddenBeforePreview:   undefined,
+    _previewSnapshotBeforeAddon: undefined,
+  };
+  if (snap?.previewConfirmedAt) {
+    updated.previewConfirmedAt = snap.previewConfirmedAt;
+  } else {
+    delete updated.previewConfirmedAt;
+  }
+  delete updated.previewStatus;
+  delete updated._catalogBrowse;
+  return updated;
+}
+
+/** Проба закончилась — ждём оплату на экране previewPricing. */
+export function hasPendingPreviewPayment(user: any): boolean {
+  if (!user?.previewChosenSubject) return false;
+  if (user.previewStatus === 'expired') return true;
+  return !!user.receiptClaimedAt && !user.previewConfirmedAt;
+}
+
+function restoreNavHiddenAfterPreviewExpire(user: any): Record<string, string[]> {
+  const navHidden = { ...(user.navHidden || {}) };
+  const subject = user.previewChosenSubject;
+  const base = (user._navHiddenBeforePreview && typeof user._navHiddenBeforePreview === 'object')
+    ? user._navHiddenBeforePreview
+    : null;
+  if (!subject || !base) return navHidden;
+  if (Array.isArray(base[subject])) {
+    navHidden[subject] = [...base[subject]];
+  } else {
+    delete navHidden[subject];
+  }
+  return navHidden;
+}
+
 export function expirePreviewUser(user: any) {
+  const navHidden = restoreNavHiddenAfterPreviewExpire(user);
   if (user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object') {
     return {
       ...user,
-      previewStatus:          'expired' as PreviewStatus,
-      previewExpiredAt:       new Date().toISOString(),
-      subjects:               { ...user._subjectsBeforePreview },
-      _subjectsBeforePreview: undefined,
+      previewStatus:    'expired' as PreviewStatus,
+      previewExpiredAt: new Date().toISOString(),
+      subjects:         { ...user._subjectsBeforePreview },
+      navHidden,
     };
   }
   const subjects = createDefaultSubjects();
@@ -343,6 +423,7 @@ export function expirePreviewUser(user: any) {
     previewStatus:    'expired' as PreviewStatus,
     previewExpiredAt: new Date().toISOString(),
     subjects,
+    navHidden,
   };
 }
 

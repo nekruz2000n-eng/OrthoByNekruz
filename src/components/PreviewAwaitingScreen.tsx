@@ -26,6 +26,9 @@ interface PreviewAwaitingScreenProps {
   onClaimReceipt?: (modules: PreviewModule[]) => void;
   onModulesChange?: (modules: PreviewModule[]) => void;
   onBackToAvailable?: () => void;
+  /** Докупка: вернуться к уже оплаченным разделам без подтверждения чека. */
+  onBackToPurchased?: () => void;
+  backToPurchasedBusy?: boolean;
 }
 
 export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
@@ -39,6 +42,8 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
   onClaimReceipt,
   onModulesChange,
   onBackToAvailable,
+  onBackToPurchased,
+  backToPurchasedBusy = false,
 }) => {
   const { toast } = useToast();
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
@@ -266,19 +271,43 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
           </button>
         )}
 
-        {onBackToAvailable && (
+        {onBackToPurchased && (
+          <p className="text-[11px] leading-relaxed px-1" style={{ color: 'var(--c-muted)' }}>
+            Без «Скинул — войти» докупка не откроется. Можно вернуться к уже купленным разделам.
+          </p>
+        )}
+
+        {onBackToPurchased && (
           <button
             type="button"
-            onClick={onBackToAvailable}
-            disabled={checking || savingModules}
-            className="w-full h-12 rounded-2xl text-sm font-semibold disabled:opacity-50"
+            onClick={onBackToPurchased}
+            disabled={checking || savingModules || backToPurchasedBusy}
+            className="w-full h-12 rounded-2xl text-sm font-semibold disabled:opacity-50 inline-flex items-center justify-center gap-2"
             style={{
               background: 'var(--c-card)',
               color: 'var(--c-text)',
               border: '1px solid var(--c-border)',
             }}
           >
-            Назад к доступным предметам
+            {backToPurchasedBusy
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Возвращаем...</>
+              : 'Вернуться к купленному'}
+          </button>
+        )}
+
+        {onBackToAvailable && (
+          <button
+            type="button"
+            onClick={onBackToAvailable}
+            disabled={checking || savingModules || backToPurchasedBusy}
+            className="w-full h-12 rounded-2xl text-sm font-semibold disabled:opacity-50"
+            style={{
+              background: 'var(--c-card)',
+              color: 'var(--c-muted)',
+              border: '1px solid var(--c-border)',
+            }}
+          >
+            Другой предмет
           </button>
         )}
 
