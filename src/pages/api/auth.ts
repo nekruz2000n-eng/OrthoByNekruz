@@ -55,6 +55,7 @@ import {
   isCatalogModuleAlreadyGranted,
   restartCatalogBrowseSelecting,
 } from '@/lib/catalogBrowse';
+import { touchUserActivity } from '@/lib/userActivity';
 
 const redis = Redis.fromEnv();
 
@@ -621,15 +622,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       user = await maybeExpirePreviewUser(redis, tgIdStr, user);
       const moduleList = normalizePreviewModules(modules);
-      const updated = switchPreviewPaymentSubject(
+      const switched = switchPreviewPaymentSubject(
         user,
         nextSubject,
         moduleList.length > 0 ? moduleList : undefined,
       );
-      if (!updated) {
+      if (!switched) {
         return res.status(400).json({ error: 'Для этого предмета нечего докупить.' });
       }
-      await saveUser(tgIdStr, updated);
+      await saveUser(tgIdStr, touchUserActivity(switched));
       return res.status(200).json({
         success: true,
         ...(await subjectsResponse(updated, tgIdStr)),
@@ -648,7 +649,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!updated) {
         return res.status(400).json({ error: 'Выбери хотя бы один раздел.' });
       }
-      await saveUser(tgIdStr, updated);
+      await saveUser(tgIdStr, touchUserActivity(updated));
       return res.status(200).json({
         success: true,
         ...(await subjectsResponse(updated, tgIdStr)),
@@ -663,7 +664,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const claimModules = normalizePreviewModules(modules);
       const updated = claimPreviewReceipt(user, claimModules.length > 0 ? claimModules : undefined);
       if (!updated) return res.status(400).json({ error: 'Не удалось сохранить.' });
-      await saveUser(tgIdStr, updated);
+      await saveUser(tgIdStr, touchUserActivity(updated));
       const notifiedModules = claimModules.length > 0
         ? claimModules
         : (['questions', 'tests', 'tasks'] as const).filter(
@@ -868,7 +869,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       _migrated_subjects: true,
     };
 
-    await redis.set(`user_id:${tgIdStr}`, activatedUser);
+    await redis.set(`user_id:${tgIdStr}`, touchUserActivity(activatedUser));
     await registerUserId(redis, tgIdStr);
     await redis.srem('valid_keys', key.trim());
     await clearAuthRateLimitsForTgId(redis, tgIdStr);

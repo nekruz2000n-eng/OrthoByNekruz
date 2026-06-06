@@ -36,8 +36,9 @@ interface User {
   studyGroup?:          string | null;
   activatedKey:  string | null;
   registeredAt:  string | null;
-  lastLogin:     string | null;
-  loginCount:    number;
+  lastLogin:       string | null;
+  lastActivityAt?: string | null;
+  loginCount:      number;
   opensToday:    number;
   suspicious:    boolean;
   navHidden?:    Record<string, string[]>;
@@ -72,7 +73,7 @@ const RES_TYPE_OPTS: { id: ResType; label: string; emoji: string }[] = [
 ];
 
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo' | 'unpaid';
-type SortBy = 'registered' | 'lastLogin' | 'loginCount';
+type SortBy = 'registered' | 'lastActivity' | 'loginCount';
 type Action = 'block' | 'unblock' | 'reset_demo' | 'confirm_preview' | 'confirm_preview_module' | 'reject_preview_module' | 'reopen_preview_vitrine' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid' | 'set_contact_username';
 
 type PreviewModKind = 'questions' | 'tests' | 'tasks';
@@ -537,7 +538,10 @@ function UserCard({
             display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 14px',
           }}>
             <Meta label="Зарегистрирован" value={fmtDate(user.registeredAt)} mono />
-             {user.lastLogin && (
+             {user.lastActivityAt && (
+              <Meta label="Последняя активность" value={fmtDate(user.lastActivityAt)} mono />
+            )}
+            {user.lastLogin && user.lastLogin !== user.lastActivityAt && (
               <Meta label="Последний вход" value={fmtDate(user.lastLogin)} mono />
             )}
             {user.loginCount > 0 && (
@@ -1038,7 +1042,7 @@ export default function AdminPage() {
   const [page,               setPage]               = useState(1);
   const [hasMore,            setHasMore]            = useState(false);
   const [filter,             setFilter]             = useState<Filter>('all');
-  const [sortBy,             setSortBy]             = useState<SortBy>('lastLogin');
+  const [sortBy,             setSortBy]             = useState<SortBy>('lastActivity');
   const [registeredAsc,      setRegisteredAsc]      = useState(false);
   const [search,             setSearch]             = useState('');
   const [debouncedSearch,    setDebouncedSearch]    = useState('');
@@ -3701,7 +3705,7 @@ export default function AdminPage() {
                 ? (registeredAsc ? 'Старые сначала' : 'Новые сначала')
                 : 'Новые сначала',
             },
-            { id: 'lastLogin' as const,  label: 'Последний вход' },
+            { id: 'lastActivity' as const, label: 'Последняя активность' },
             { id: 'loginCount' as const, label: 'Активность сегодня' },
           ]).map(opt => {
             const active = sortBy === opt.id;

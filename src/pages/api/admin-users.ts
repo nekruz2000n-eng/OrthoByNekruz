@@ -18,6 +18,7 @@ import { clearAuthRateLimitsForTgId } from '@/lib/authRateLimit';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { getAllUserIds, registerUserId, removeUserId } from '@/lib/userIndex';
 import { isValidTelegramUsername, normalizeTelegramUsername } from '@/lib/tgLinks';
+import { resolveLastActivityIso } from '@/lib/userActivity';
 
 const redis        = Redis.fromEnv();
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
@@ -26,7 +27,7 @@ const BOT_TOKEN    = process.env.BOT_TOKEN    || '';
 const PAGE_SIZE    = 50;
 
 type ListFilter = 'all' | 'blocked' | 'suspicious' | 'demo' | 'unpaid';
-type ListSort   = 'registered' | 'lastLogin' | 'loginCount';
+type ListSort   = 'registered' | 'lastActivity' | 'lastLogin' | 'loginCount';
 
 function verifyAdmin(initData: string, secret: string): boolean {
   if (!ADMIN_SECRET || secret !== ADMIN_SECRET) return false;
@@ -91,9 +92,10 @@ function toListUser(
     contactUsername:      user.contactUsername      ?? null,
     studyGroup:           user.studyGroup           ?? null,
     activatedKey:  user.activatedKey  ?? null,
-    registeredAt:  user.date          ?? null,
-    lastLogin:     user.lastLogin     ?? null,
-    loginCount:    Number(user.loginCount) || 0,
+    registeredAt:    user.date          ?? null,
+    lastLogin:       user.lastLogin     ?? null,
+    lastActivityAt:  resolveLastActivityIso(user),
+    loginCount:      Number(user.loginCount) || 0,
     opensToday,
     suspicious:    isSuspicious(opensToday),
     navHidden:     (user.navHidden && typeof user.navHidden === 'object') ? user.navHidden : {},
@@ -136,9 +138,10 @@ function toDetailUser(
     contactUsername:      user.contactUsername      ?? null,
     studyGroup:           user.studyGroup           ?? null,
     activatedKey:  user.activatedKey  ?? null,
-    registeredAt:  user.date          ?? null,
-    lastLogin:     user.lastLogin     ?? null,
-    loginCount:    Number(user.loginCount) || 0,
+    registeredAt:    user.date          ?? null,
+    lastLogin:       user.lastLogin     ?? null,
+    lastActivityAt:  resolveLastActivityIso(user),
+    loginCount:      Number(user.loginCount) || 0,
     opensToday,
     suspicious:    isSuspicious(opensToday),
     navHidden:     (user.navHidden && typeof user.navHidden === 'object') ? user.navHidden : {},
@@ -186,9 +189,13 @@ function sortUsers(
       if (diff !== 0) return diff;
       return b.loginCount - a.loginCount;
     }
-    if (sortBy === 'lastLogin') {
-      const ta = a.lastLogin ? Date.parse(a.lastLogin) : (a.registeredAt ? Date.parse(a.registeredAt) : 0);
-      const tb = b.lastLogin ? Date.parse(b.lastLogin) : (b.registeredAt ? Date.parse(b.registeredAt) : 0);
+    if (sortBy === 'lastActivity' || sortBy === 'lastLogin') {
+      const ta = a.lastActivityAt
+        ? Date.parse(a.lastActivityAt)
+        : (a.registeredAt ? Date.parse(a.registeredAt) : 0);
+      const tb = b.lastActivityAt
+        ? Date.parse(b.lastActivityAt)
+        : (b.registeredAt ? Date.parse(b.registeredAt) : 0);
       return tb - ta;
     }
     const ta = a.registeredAt ? Date.parse(a.registeredAt) : 0;
@@ -589,9 +596,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const listFilter = (['all', 'blocked', 'suspicious', 'demo', 'unpaid'].includes(filter)
       ? filter
       : 'all') as ListFilter;
-    const listSort = (['registered', 'lastLogin', 'loginCount'].includes(sortBy)
-      ? sortBy
-      : 'lastLogin') as ListSort;
+    const listSort = (['registered', 'lastActivity', 'lastLogin', 'loginCount'].includes(sortBy)
+      ? (sortBy === 'lastLogin' ? 'lastActivity' : sortBy)
+      : 'lastActivity') as ListSort;
     const listSortDir: 'asc' | 'desc' =
       sortDir === 'asc' && listSort === 'registered' ? 'asc' : 'desc';
     const query = String(q ?? '').trim().toLowerCase();

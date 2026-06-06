@@ -2,6 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis }            from '@upstash/redis';
 import { verifyInitDataId } from '@/lib/verifyInitData';
+import { touchUserActivity } from '@/lib/userActivity';
 
 const redis            = Redis.fromEnv();
 const BOT_TOKEN        = process.env.BOT_TOKEN    || '';
@@ -74,6 +75,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const count = await redis.incr(actKey);
     if (count === 1) await redis.expire(actKey, 48 * 3600);
+
+    if (userData && typeof userData === 'object') {
+      await redis.set(`user_id:${tgId}`, touchUserActivity(userData));
+    }
 
     console.log(`[ping] userId=${tgId} opens=${count} limit=${DAILY_OPEN_LIMIT}`);
 
