@@ -118,3 +118,15 @@ export async function loadSubjectData(
 
   return data;
 }
+
+/** Сброс кэша разделов предмета (после отказа админа — не показывать старые JSON). */
+export async function bustSubjectModuleCache(
+  subject: string,
+  types: SubjectDataType[],
+): Promise<void> {
+  if (typeof caches === 'undefined' || types.length === 0) return;
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    await Promise.all(types.map(t => cache.delete(cacheKey(subject, t))));
+  } catch { /* не критично */ }
+}

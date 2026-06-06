@@ -25,6 +25,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis }                from '@upstash/redis';
 import { getSubject, getAllDataFileNames } from '@/lib/subjects';
 import { isPreviewExpired, maybeExpirePreviewUser } from '@/lib/preview';
+import { userHasModuleDataAccess } from '@/lib/previewModuleStatus';
 import { verifyInitDataId }     from '@/lib/verifyInitData';
 
 const redis     = Redis.fromEnv();
@@ -93,6 +94,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     if (!userHasSubject(user, subjectCfg.id)) {
       return res.status(403).json({ error: 'No access to subject' });
+    }
+
+    const dataType = String(type) as 'questions' | 'tests' | 'tasks' | 'glossary';
+    if (!userHasModuleDataAccess(user, subjectCfg.id, dataType)) {
+      return res.status(403).json({ error: 'No access to module' });
     }
 
     // 3. Выбор файла по type

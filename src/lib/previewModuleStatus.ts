@@ -116,8 +116,36 @@ export function moduleShowsPaymentEmbed(
   return status === 'awaiting_payment' || status === 'rejected';
 }
 
+export function moduleAllowsDataAccess(
+  status: PreviewModuleStatus | undefined,
+): boolean {
+  if (!status) return true;
+  return status === 'trial' || status === 'confirmed' || status === 'receipt_pending';
+}
+
 export function moduleShowsContent(
   status: PreviewModuleStatus | undefined,
 ): boolean {
-  return status === 'trial' || status === 'confirmed';
+  return moduleAllowsDataAccess(status);
+}
+
+/** Доступ к JSON раздела: до отказа админа — отдаём данные при receipt_pending. */
+export function userHasModuleDataAccess(
+  user: any,
+  subjectId: string,
+  dataType: 'questions' | 'tests' | 'tasks' | 'glossary',
+): boolean {
+  const flowSubject = user?.previewChosenSubject;
+  if (!flowSubject || flowSubject !== subjectId) return true;
+
+  const statuses = ensureModuleStatusMap(user, subjectId);
+  if (Object.keys(statuses).length === 0) return true;
+
+  if (dataType === 'glossary') {
+    return (['questions', 'tests', 'tasks'] as PreviewModule[]).some(
+      m => moduleAllowsDataAccess(statuses[m]),
+    );
+  }
+
+  return moduleAllowsDataAccess(statuses[dataType]);
 }

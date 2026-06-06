@@ -16,6 +16,7 @@ import { StatsTab }      from '@/components/StatsTab';
 import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
 import { getDefaultSubjectId } from '@/lib/subjects';
+import { bustSubjectModuleCache } from '@/lib/subjectData';
 import { getPreviewDurationMs, type PreviewStatus } from '@/lib/preview';
 import { firstPreviewModuleTab, normalizePreviewModules, type PreviewModule } from '@/lib/previewModules';
 import {
@@ -266,7 +267,22 @@ export default function Home() {
       Array.isArray(d?.paymentGrantedSubjects) ? d.paymentGrantedSubjects : [],
     );
     if (d?.previewModuleStatuses && typeof d.previewModuleStatuses === 'object') {
-      setPreviewModuleStatuses(d.previewModuleStatuses as PreviewModuleStatusMap);
+      const nextStatuses = d.previewModuleStatuses as PreviewModuleStatusMap;
+      setPreviewModuleStatuses(prev => {
+        const subjectId = (d?.previewChosenSubject as string | null) ?? null;
+        if (subjectId) {
+          const rejected: PreviewModule[] = (['questions', 'tests', 'tasks'] as PreviewModule[]).filter(
+            m => nextStatuses[m] === 'rejected' && prev[m] !== 'rejected',
+          );
+          if (rejected.length > 0) {
+            void bustSubjectModuleCache(subjectId, rejected);
+            if (rejected.some(m => m === 'questions' || m === 'tests' || m === 'tasks')) {
+              void bustSubjectModuleCache(subjectId, ['glossary']);
+            }
+          }
+        }
+        return nextStatuses;
+      });
     } else if (ps !== 'expired' && ps !== 'active' && !d?.receiptClaimedAt) {
       setPreviewModuleStatuses({});
     }
@@ -805,12 +821,8 @@ export default function Home() {
       if (entryTab) setActiveTab(entryTab);
       previewPollGen.current += 1;
       setAccessChecked(true);
-      if (data.accessGranted === true || data.previewConfirmedAt) {
-        localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
-        toast({ title: 'Доступ открыт' });
-      } else {
-        toast({ title: 'Чек отправлен', description: 'Ждём подтверждения по разделам' });
-      }
+      localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
+      toast({ title: 'Доступ открыт', description: 'Можно пользоваться до проверки оплаты' });
     } catch {
       toast({
         variant: 'destructive',
@@ -944,17 +956,7 @@ export default function Home() {
     if (!mod || !chosenPreviewModules.includes(mod)) return content;
 
     const st = resolveModuleStatus(mod);
-    if (st === 'receipt_pending') {
-      return (
-        <PreviewPaymentTabPanel
-          subjectId={previewChosen}
-          module={mod}
-          status="receipt_pending"
-          checking={statusChecking}
-        />
-      );
-    }
-    if (st && moduleShowsPaymentEmbed(st)) {
+    if (st === 'awaiting_payment' || st === 'rejected') {
       return (
         <PreviewPaymentTabPanel
           subjectId={previewChosen}

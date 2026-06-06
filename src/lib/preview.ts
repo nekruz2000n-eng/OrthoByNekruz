@@ -715,17 +715,23 @@ export function claimPreviewReceipt(user: any, modulesToClaim?: PreviewModule[])
     }
   }
 
-  const confirmed = allChosen.filter(m => statuses[m] === 'confirmed');
+  const subjects = user.subjects && typeof user.subjects === 'object'
+    ? { ...user.subjects }
+    : createDefaultSubjects();
+  subjects[chosen] = true;
+
   const navHidden = {
     ...(user.navHidden || {}),
-    [chosen]: buildNavHiddenForPaymentTabs(chosen, allChosen, confirmed),
+    [chosen]: buildNavHiddenForPaymentTabs(chosen, allChosen, allChosen),
   };
 
   return {
     ...user,
+    subjects,
     receiptClaimedAt:      user.receiptClaimedAt ?? new Date().toISOString(),
     previewModuleStatuses: statuses,
     navHidden,
+    previewStatus:         user.previewStatus === 'active' ? 'expired' as PreviewStatus : user.previewStatus,
   };
 }
 
@@ -801,14 +807,28 @@ export function rejectPreviewModule(user: any, module: PreviewModule) {
   if (statuses[module] !== 'receipt_pending') return null;
   statuses[module] = 'rejected';
 
-  const confirmed = allChosen.filter(m => statuses[m] === 'confirmed');
   const navHidden = {
     ...(user.navHidden || {}),
-    [chosen]: buildNavHiddenForPaymentTabs(chosen, allChosen, confirmed),
+    [chosen]: buildNavHiddenForPaymentTabs(chosen, allChosen, allChosen),
   };
+
+  const hasTrustAccess = allChosen.some(
+    m => statuses[m] === 'receipt_pending' || statuses[m] === 'confirmed',
+  );
+  const subjects = user.subjects && typeof user.subjects === 'object'
+    ? { ...user.subjects }
+    : createDefaultSubjects();
+  if (hasTrustAccess) {
+    subjects[chosen] = true;
+  } else if (user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object') {
+    subjects[chosen] = user._subjectsBeforePreview[chosen] === true;
+  } else {
+    subjects[chosen] = false;
+  }
 
   let next = {
     ...user,
+    subjects,
     previewModuleStatuses: statuses,
     navHidden,
     previewStatus: 'expired' as PreviewStatus,

@@ -661,7 +661,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         success: true,
         receiptClaimed: true,
         awaitingAdmin: true,
-        accessGranted: hasFinalizedPreviewAccess(updated),
+        accessGranted: hasFinalizedPreviewAccess(updated)
+          || updated.subjects?.[updated.previewChosenSubject] === true,
         ...(await subjectsResponse(updated, tgIdStr)),
       });
     }
