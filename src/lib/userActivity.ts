@@ -53,3 +53,12 @@ export function touchUserActivity<T extends Record<string, unknown>>(
   const ts = at ?? new Date().toISOString();
   return { ...user, lastActivityAt: ts };
 }
+
+/** Открытие приложения / check_subjects — обновить время без счётчика входов. */
+export function touchUserVisit<T extends Record<string, unknown>>(
+  user: T,
+  at?: string,
+): T & { lastLogin: string; lastActivityAt: string } {
+  const ts = at ?? new Date().toISOString();
+  return { ...user, lastLogin: ts, lastActivityAt: ts };
+}

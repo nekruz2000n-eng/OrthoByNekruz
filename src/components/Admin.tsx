@@ -538,12 +538,11 @@ function UserCard({
             display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 14px',
           }}>
             <Meta label="Зарегистрирован" value={fmtDate(user.registeredAt)} mono />
-             {user.lastActivityAt && (
-              <Meta label="Последняя активность" value={fmtDate(user.lastActivityAt)} mono />
-            )}
-            {user.lastLogin && user.lastLogin !== user.lastActivityAt && (
-              <Meta label="Последний вход" value={fmtDate(user.lastLogin)} mono />
-            )}
+            <Meta
+              label="Последний вход"
+              value={fmtDate(user.lastActivityAt || user.lastLogin)}
+              mono
+            />
             {user.loginCount > 0 && (
               <Meta label="Всего входов" value={String(user.loginCount)} />
             )}

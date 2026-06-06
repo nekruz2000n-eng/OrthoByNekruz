@@ -28,6 +28,7 @@ import {
   isPreviewShortDurationAccount,
   hasFinalizedPreviewAccess,
   healStalePreviewForFinalizedUser,
+  userAlreadyHasAllChosenModules,
   claimPreviewReceipt,
   updatePreviewPaymentChoice,
   normalizePreviewModules,
@@ -55,7 +56,7 @@ import {
   isCatalogModuleAlreadyGranted,
   restartCatalogBrowseSelecting,
 } from '@/lib/catalogBrowse';
-import { touchUserActivity } from '@/lib/userActivity';
+import { touchUserActivity, touchUserVisit } from '@/lib/userActivity';
 
 const redis = Redis.fromEnv();
 
@@ -164,6 +165,15 @@ async function handlePreviewStart(
   }
 
   if (user?.previewStatus === 'expired') {
+    const healedExpired = healStalePreviewForFinalizedUser(user);
+    if (healedExpired !== user) {
+      await saveUser(tgIdStr, touchUserVisit(healedExpired));
+      return res.status(200).json({
+        success: true,
+        alreadyConfirmed: true,
+        ...(await subjectsResponse(healedExpired, tgIdStr)),
+      });
+    }
     return res.status(403).json({
       error: 'Ожидайте подтверждения доступа администратором.',
       previewAwaiting: true,
@@ -195,6 +205,25 @@ async function handlePreviewStart(
   if (isEstablishedAccount(user)) {
     if (!promo) {
       return res.status(400).json({ error: 'Введи код из канала.' });
+    }
+    if (!catalogBrowse) {
+      let refreshed = healStalePreviewForFinalizedUser(user);
+      refreshed = {
+        ...touchUserVisit(refreshed),
+        promoCode:    promo.code,
+        facultyId:    promo.id,
+        previewFaculty: promo.facultyLabel,
+        username:     profile.username ?? refreshed.username,
+        firstName:    profile.firstName ?? refreshed.firstName,
+        lastName:     profile.lastName ?? refreshed.lastName,
+      };
+      await saveUser(tgIdStr, refreshed);
+      await clearAuthRateLimitsForTgId(redis, tgIdStr);
+      return res.status(200).json({
+        success: true,
+        alreadyConfirmed: true,
+        ...(await subjectsResponse(refreshed, tgIdStr)),
+      });
     }
     const merged = buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup: catalogBrowse });
     await saveUser(tgIdStr, merged);
@@ -521,8 +550,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
       } else if (
-        userAlreadyHasSubjectAccess(user, chosen)
-        && !isPreviewShortDurationAccount(tgIdStr)
+        !isPreviewShortDurationAccount(tgIdStr)
+        && userAlreadyHasAllChosenModules(user, chosen, chosenModules)
       ) {
         const updated = recordFacultyChoiceOnly(user, chosen, chosenModules);
         updated.username   = username ?? updated.username;
@@ -732,10 +761,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       user = await maybeExpirePreviewUser(redis, tgIdStr, user);
       const healed = healStalePreviewForFinalizedUser(user);
-      if (healed !== user) {
-        await saveUser(tgIdStr, healed);
-        user = healed;
-      }
+      const visited = touchUserVisit(healed);
+      await saveUser(tgIdStr, visited);
+      user = visited;
 
       return res.status(200).json(await subjectsResponse(user, tgIdStr));
     }

@@ -127,20 +127,7 @@ export function hasFinalizedPreviewAccess(user: any): boolean {
   return !!user.previewConfirmedAt && !user.previewStatus;
 }
 
-/** Оплаченный доступ есть, но в Redis остался старый статус витрины — сбрасываем при обычном входе. */
-export function healStalePreviewForFinalizedUser(user: any): any {
-  if (!user) return user;
-  if (user.receiptClaimedAt && user.previewChosenSubject && !hasFinalizedPreviewAccess(user)) {
-    return user;
-  }
-  if (!hasFinalizedPreviewAccess(user)) return user;
-
-  const inCatalogBrowse = user._catalogBrowse === true;
-  const staleSelecting = user.previewStatus === 'selecting' && !inCatalogBrowse;
-  const staleExpired = user.previewStatus === 'expired' && !inCatalogBrowse;
-  if (!staleSelecting && !staleExpired) return user;
-
-  const healed: Record<string, any> = { ...user };
+function clearStalePreviewFlowFields(healed: Record<string, any>) {
   delete healed.previewStatus;
   delete healed.previewChosenSubject;
   delete healed.previewChosenModules;
@@ -148,9 +135,70 @@ export function healStalePreviewForFinalizedUser(user: any): any {
   delete healed.previewExpiredAt;
   delete healed.previewPickedAt;
   delete healed.previewFacultyRecordedAt;
+  delete healed.previewQuotedPrice;
+  delete healed.receiptClaimedAt;
+  delete healed.previewActiveMsConsumed;
+  delete healed.previewActiveMsByModule;
+  delete healed.previewModuleStatuses;
+  delete healed.previewModuleTrustExpiresAt;
   delete healed._subjectsBeforePreview;
+  delete healed._navHiddenBeforePreview;
+  delete healed._previewSnapshotBeforeAddon;
   delete healed._previewStatusBeforeCatalog;
   delete healed._catalogBrowse;
+}
+
+/** Все выбранные разделы уже открыты — не запускать пробу/оплату повторно. */
+export function userAlreadyHasAllChosenModules(
+  user: any,
+  subjectId: string,
+  modules: PreviewModule[],
+): boolean {
+  if (!userAlreadyHasSubjectAccess(user, subjectId)) return false;
+  const chosen = normalizePreviewModules(modules);
+  if (chosen.length === 0) return false;
+  const hidden = new Set<string>((user.navHidden?.[subjectId] as string[]) || []);
+  return chosen.every(m => !hidden.has(m));
+}
+
+/** Сброс зависшей витрины/оплаты у пользователей с уже выданным доступом. */
+export function healStalePreviewForFinalizedUser(user: any): any {
+  if (!user) return user;
+
+  if (getPendingAdminModules(user).length > 0) return user;
+
+  let shouldHeal = false;
+
+  if (hasFinalizedPreviewAccess(user)) {
+    const inCatalogBrowse = user._catalogBrowse === true;
+    const staleSelecting = user.previewStatus === 'selecting' && !inCatalogBrowse;
+    const staleExpired = user.previewStatus === 'expired' && !inCatalogBrowse;
+    if (staleSelecting || staleExpired) shouldHeal = true;
+  }
+
+  if (!shouldHeal && user.paid === true && getUserAvailableSubjects(user).length > 0) {
+    if (user.previewStatus === 'expired' || user.previewStatus === 'selecting') {
+      shouldHeal = true;
+    }
+  }
+
+  if (!shouldHeal && (user.previewStatus === 'expired' || user.previewStatus === 'selecting')) {
+    const chosen = user.previewChosenSubject;
+    if (chosen && !user.receiptClaimedAt && userAlreadyHasSubjectAccess(user, chosen)) {
+      const mods = normalizePreviewModules(user.previewChosenModules);
+      if (mods.length === 0 || userAlreadyHasAllChosenModules(user, chosen, mods)) {
+        shouldHeal = true;
+      } else {
+        const granted = getGrantedModulesForPaymentSubject(user, chosen);
+        if (!mods.some(m => !granted.includes(m))) shouldHeal = true;
+      }
+    }
+  }
+
+  if (!shouldHeal) return user;
+
+  const healed: Record<string, any> = { ...user };
+  clearStalePreviewFlowFields(healed);
   return healed;
 }
 
