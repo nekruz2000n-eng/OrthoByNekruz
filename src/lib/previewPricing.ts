@@ -67,6 +67,8 @@ export type PaymentModuleOption = {
   shortLabel: string;
   unitPriceRub: number | null;
   selectable: boolean;
+  /** Уже в постоянном доступе — нельзя выбрать на экране докупки. */
+  alreadyOwned?: boolean;
 };
 
 const ALL_PREVIEW_MODULES: PreviewModule[] = ['questions', 'tests', 'tasks'];
@@ -118,19 +120,26 @@ export function getPaymentModuleOptions(subjectId: string): PaymentModuleOption[
   }));
 }
 
-/** Всегда три кнопки в ряд; недоступные — неактивны. */
-export function getPaymentModuleRow(subjectId: string): PaymentModuleOption[] {
+/** Всегда три кнопки в ряд; недоступные и уже купленные — неактивны. */
+export function getPaymentModuleRow(
+  subjectId: string,
+  grantedModules: PreviewModule[] = [],
+): PaymentModuleOption[] {
+  const owned = new Set(grantedModules);
   const byId = new Map(getPaymentModuleOptions(subjectId).map(o => [o.id, o]));
   return PAYMENT_MODULE_ROW_ORDER.map(id => {
     const found = byId.get(id);
-    if (found) return found;
-    return {
+    const base: PaymentModuleOption = found ?? {
       id,
       label: PREVIEW_MODULE_LABELS[id],
       shortLabel: PAYMENT_MODULE_SHORT_LABELS[id],
       unitPriceRub: null,
       selectable: false,
     };
+    if (owned.has(id)) {
+      return { ...base, selectable: false, alreadyOwned: true };
+    }
+    return base;
   });
 }
 

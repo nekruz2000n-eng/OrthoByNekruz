@@ -18,6 +18,8 @@ const RECEIPT_TG_URL = 'https://t.me/evoeidos';
 interface PreviewAwaitingScreenProps {
   chosenSubject: string | null;
   chosenModules?: string[];
+  /** Уже купленные разделы — не кликабельны на экране докупки. */
+  grantedModules?: PreviewModule[];
   receiptClaimed?: boolean;
   checking?: boolean;
   savingModules?: boolean;
@@ -34,6 +36,7 @@ interface PreviewAwaitingScreenProps {
 export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
   chosenSubject,
   chosenModules = [],
+  grantedModules = [],
   receiptClaimed = false,
   checking = false,
   savingModules = false,
@@ -47,19 +50,29 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
 }) => {
   const { toast } = useToast();
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const grantedSet = useMemo(
+    () => new Set(normalizePreviewModules(grantedModules)),
+    [grantedModules],
+  );
+  const pickPayableModules = useCallback(
+    (mods: string[] | PreviewModule[]) =>
+      normalizePreviewModules(mods).filter(m => !grantedSet.has(m)),
+    [grantedSet],
+  );
   const [selectedModules, setSelectedModules] = useState<PreviewModule[]>(
-    () => normalizePreviewModules(chosenModules),
+    () => pickPayableModules(chosenModules),
   );
 
   useEffect(() => {
-    setSelectedModules(normalizePreviewModules(chosenModules));
-  }, [chosenModules]);
+    setSelectedModules(pickPayableModules(chosenModules));
+  }, [chosenModules, pickPayableModules]);
 
   const subjectCfg = chosenSubject ? getSubject(chosenSubject) : null;
   const moduleRow = useMemo(
-    () => (chosenSubject ? getPaymentModuleRow(chosenSubject) : []),
-    [chosenSubject],
+    () => (chosenSubject ? getPaymentModuleRow(chosenSubject, grantedModules) : []),
+    [chosenSubject, grantedModules],
   );
+  const hasOwnedModules = grantedSet.size > 0;
 
   const priceSummary = useMemo(() => {
     if (!chosenSubject || selectedModules.length === 0) return null;
@@ -69,8 +82,8 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
   const modulesLabel = formatPreviewModulesList(selectedModules);
   const canEditModules = !receiptClaimed && moduleRow.some(o => o.selectable);
 
-  const toggleModule = (id: PreviewModule, selectable: boolean) => {
-    if (!canEditModules || !selectable) return;
+  const toggleModule = (id: PreviewModule, selectable: boolean, alreadyOwned?: boolean) => {
+    if (!canEditModules || !selectable || alreadyOwned || grantedSet.has(id)) return;
     setSelectedModules(prev => {
       const next = prev.includes(id)
         ? prev.filter(m => m !== id)
@@ -102,7 +115,7 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
     }
   }, [toast]);
 
-  const handleCheckClick = () => {
+  const handlePurchaseClick = () => {
     if (receiptClaimed) {
       onCheckStatus?.();
       return;
@@ -113,6 +126,17 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
     }
     setReceiptModalOpen(true);
   };
+
+  const handleExitClick = () => {
+    if (onBackToPurchased) {
+      onBackToPurchased();
+      return;
+    }
+    onBackToAvailable?.();
+  };
+
+  const canExit = !!(onBackToPurchased || onBackToAvailable);
+  const exitLabel = onBackToPurchased ? 'Выйти' : 'Назад';
 
   const accent = subjectCfg?.color ?? 'hsl(var(--primary))';
 
@@ -142,37 +166,50 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
 
             {canEditModules && (
               <p className="text-[11px] text-center" style={{ color: 'var(--c-muted)' }}>
-                Выбери разделы — сумма обновится сразу
+                {hasOwnedModules
+                  ? 'Купленные разделы отмечены — выбери только новые для докупки'
+                  : 'Выбери разделы — сумма обновится сразу'}
               </p>
             )}
 
             <div className="flex flex-row items-stretch gap-1.5 w-full">
               {moduleRow.map(opt => {
-                const active = selectedModules.includes(opt.id);
-                const disabled = !canEditModules || savingModules || !opt.selectable;
+                const owned = opt.alreadyOwned === true;
+                const active = !owned && selectedModules.includes(opt.id);
+                const disabled = owned || !canEditModules || savingModules || !opt.selectable;
                 return (
                   <button
                     key={opt.id}
                     type="button"
                     disabled={disabled}
-                    onClick={() => toggleModule(opt.id, opt.selectable)}
-                    className="flex-1 min-w-0 h-9 rounded-lg transition-all active:scale-[0.97] disabled:cursor-not-allowed inline-flex items-center justify-center"
+                    title={owned ? 'Уже куплен' : undefined}
+                    onClick={() => toggleModule(opt.id, opt.selectable, opt.alreadyOwned)}
+                    className="flex-1 min-w-0 h-9 rounded-lg transition-all active:scale-[0.97] disabled:cursor-not-allowed inline-flex flex-col items-center justify-center gap-0.5"
                     style={{
-                      background: active
-                        ? `color-mix(in srgb, ${accent} 18%, var(--c-card))`
-                        : 'var(--c-bg)',
-                      border: active
-                        ? `1.5px solid ${accent}`
-                        : '1px solid var(--c-border)',
-                      opacity: opt.selectable ? (disabled ? 0.55 : 1) : 0.35,
+                      background: owned
+                        ? 'rgba(52, 211, 153, 0.1)'
+                        : active
+                          ? `color-mix(in srgb, ${accent} 18%, var(--c-card))`
+                          : 'var(--c-bg)',
+                      border: owned
+                        ? '1.5px solid rgba(52, 211, 153, 0.35)'
+                        : active
+                          ? `1.5px solid ${accent}`
+                          : '1px solid var(--c-border)',
+                      opacity: owned ? 0.85 : opt.selectable ? (disabled ? 0.55 : 1) : 0.35,
                     }}
                   >
                     <span
                       className="text-[10px] font-bold leading-none whitespace-nowrap"
-                      style={{ color: active ? accent : 'var(--c-muted)' }}
+                      style={{ color: owned ? 'rgb(52, 211, 153)' : active ? accent : 'var(--c-muted)' }}
                     >
                       {opt.shortLabel}
                     </span>
+                    {owned && (
+                      <span className="text-[8px] font-semibold leading-none" style={{ color: 'rgb(52, 211, 153)' }}>
+                        куплен
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -223,24 +260,6 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
           </div>
         )}
 
-        {modulesLabel && (
-          <div
-            className="rounded-2xl p-4 text-left text-sm"
-            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
-          >
-            {subjectCfg && (
-              <div className="mb-1">
-                <span style={{ color: 'var(--c-muted)' }}>Предмет: </span>
-                <strong style={{ color: subjectCfg.color }}>{subjectCfg.label}</strong>
-              </div>
-            )}
-            <div>
-              <span style={{ color: 'var(--c-muted)' }}>Разделы: </span>
-              <strong style={{ color: 'var(--c-text)' }}>{modulesLabel}</strong>
-            </div>
-          </div>
-        )}
-
         {statusMessage && (
           <div
             className="rounded-2xl px-4 py-3 text-sm leading-relaxed text-left"
@@ -254,75 +273,41 @@ export const PreviewAwaitingScreen: React.FC<PreviewAwaitingScreenProps> = ({
           </div>
         )}
 
-        {onCheckStatus && (
-          <button
-            type="button"
-            onClick={handleCheckClick}
-            disabled={checking || savingModules || selectedModules.length === 0}
-            className="w-full h-12 rounded-2xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50"
-            style={{
-              background: 'var(--c-primary)',
-              color: 'var(--c-bg)',
-            }}
-          >
-            {checking
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Проверяем...</>
-              : 'Проверить статус'}
-          </button>
+        {(onCheckStatus || onClaimReceipt) && (
+          <div className={`flex gap-2 w-full ${canExit ? '' : ''}`}>
+            {canExit && (
+              <button
+                type="button"
+                onClick={handleExitClick}
+                disabled={checking || savingModules || backToPurchasedBusy}
+                className="flex-1 h-12 rounded-2xl text-sm font-semibold disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                style={{
+                  background: 'var(--c-card)',
+                  color: 'var(--c-text)',
+                  border: '1px solid var(--c-border)',
+                }}
+              >
+                {backToPurchasedBusy
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> ...</>
+                  : exitLabel}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handlePurchaseClick}
+              disabled={checking || savingModules || (!receiptClaimed && selectedModules.length === 0)}
+              className={`${canExit ? 'flex-1' : 'w-full'} h-12 rounded-2xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50`}
+              style={{
+                background: 'var(--c-primary)',
+                color: 'var(--c-bg)',
+              }}
+            >
+              {checking
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> ...</>
+                : receiptClaimed ? 'Проверить статус' : 'Приобрести'}
+            </button>
+          </div>
         )}
-
-        {onBackToPurchased && (
-          <p className="text-[11px] leading-relaxed px-1" style={{ color: 'var(--c-muted)' }}>
-            Без «Скинул — войти» докупка не откроется. Можно вернуться к уже купленным разделам.
-          </p>
-        )}
-
-        {onBackToPurchased && (
-          <button
-            type="button"
-            onClick={onBackToPurchased}
-            disabled={checking || savingModules || backToPurchasedBusy}
-            className="w-full h-12 rounded-2xl text-sm font-semibold disabled:opacity-50 inline-flex items-center justify-center gap-2"
-            style={{
-              background: 'var(--c-card)',
-              color: 'var(--c-text)',
-              border: '1px solid var(--c-border)',
-            }}
-          >
-            {backToPurchasedBusy
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Возвращаем...</>
-              : 'Вернуться к купленному'}
-          </button>
-        )}
-
-        {onBackToAvailable && (
-          <button
-            type="button"
-            onClick={onBackToAvailable}
-            disabled={checking || savingModules || backToPurchasedBusy}
-            className="w-full h-12 rounded-2xl text-sm font-semibold disabled:opacity-50"
-            style={{
-              background: 'var(--c-card)',
-              color: 'var(--c-muted)',
-              border: '1px solid var(--c-border)',
-            }}
-          >
-            Другой предмет
-          </button>
-        )}
-
-        <p className="text-[11px]" style={{ color: 'var(--c-muted)', opacity: 0.7 }}>
-          Вопросы —{' '}
-          <a
-            href={RECEIPT_TG_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="underline"
-            style={{ color: 'hsl(var(--primary) / 0.85)' }}
-          >
-            @evoeidos
-          </a>
-        </p>
       </div>
 
       {receiptModalOpen && (

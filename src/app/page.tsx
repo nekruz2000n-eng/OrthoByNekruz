@@ -178,6 +178,7 @@ export default function Home() {
   const [receiptClaimedAt, setReceiptClaimedAt] = useState<string | null>(null);
   const [previewConfirmedAt, setPreviewConfirmedAt] = useState<string | null>(null);
   const [canReturnToPurchased, setCanReturnToPurchased] = useState(false);
+  const [previewGrantedModules, setPreviewGrantedModules] = useState<string[]>([]);
   const [abandonPreviewBusy, setAbandonPreviewBusy] = useState(false);
   const [showAccessWelcome, setShowAccessWelcome] = useState(false);
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
@@ -237,6 +238,9 @@ export default function Home() {
     setReceiptClaimedAt(d?.receiptClaimedAt ?? null);
     setPreviewConfirmedAt(d?.previewConfirmedAt ?? null);
     setCanReturnToPurchased(d?.canReturnToPurchasedAccess === true);
+    setPreviewGrantedModules(
+      Array.isArray(d?.previewGrantedModules) ? d.previewGrantedModules : [],
+    );
 
     if (Array.isArray(d?.subjectCatalog)) setSubjectCatalog(d.subjectCatalog);
     if (Array.isArray(d?.catalogGrantedSubjects)) {
@@ -974,6 +978,7 @@ export default function Home() {
       <PreviewAwaitingScreen
         chosenSubject={previewChosen}
         chosenModules={previewModules}
+        grantedModules={previewGrantedModules as PreviewModule[]}
         receiptClaimed={!!receiptClaimedAt}
         checking={statusChecking}
         savingModules={savingPaymentModules}

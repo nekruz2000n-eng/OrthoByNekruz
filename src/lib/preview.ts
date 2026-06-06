@@ -8,6 +8,7 @@ import {
 import {
   buildNavHiddenForCatalogAddonPreview,
   getCatalogGrantedSubjects,
+  getGrantedCatalogModules,
   mergeGrantedModulesOnConfirm,
 } from '@/lib/catalogBrowse';
 import { calcPreviewPriceRub } from '@/lib/previewPricing';
@@ -333,6 +334,17 @@ export function buildActivePreviewUser(
   };
 }
 
+/** Разделы, уже куплены до текущей заявки на докупку (для экрана оплаты). */
+export function getPreviewPaymentGrantedModules(user: any): PreviewModule[] {
+  const chosen = user?.previewChosenSubject;
+  if (!chosen || !canReturnToPurchasedAccess(user)) return [];
+  const grantedSubjects = getCatalogGrantedSubjects(user);
+  const baseNavHidden = (user._navHiddenBeforePreview && typeof user._navHiddenBeforePreview === 'object')
+    ? user._navHiddenBeforePreview
+    : (user.navHidden || {});
+  return getGrantedCatalogModules(chosen, grantedSubjects, baseNavHidden);
+}
+
 /** Докупка: предмет уже был открыт до пробы — можно вернуться без оплаты. */
 export function canReturnToPurchasedAccess(user: any): boolean {
   const chosen = user?.previewChosenSubject;
@@ -450,7 +462,8 @@ export function updatePreviewPaymentChoice(user: any, modules: PreviewModule[]) 
   if (!subject) return null;
   if (user.receiptClaimedAt || hasFinalizedPreviewAccess(user)) return null;
 
-  const chosen = normalizePreviewModules(modules);
+  const granted = getPreviewPaymentGrantedModules(user);
+  const chosen = normalizePreviewModules(modules).filter(m => !granted.includes(m));
   if (chosen.length === 0) return null;
 
   const before = user._subjectsBeforePreview;

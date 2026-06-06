@@ -18,6 +18,7 @@ import {
   getEffectiveUserSubjects,
   abandonPendingCatalogAddon,
   canReturnToPurchasedAccess,
+  getPreviewPaymentGrantedModules,
   maybeExpirePreviewUser,
   previewEndsAt,
   isPreviewTrialLocked,
@@ -314,6 +315,7 @@ function previewPayload(
       ? getCatalogGrantedSubjects(user)
       : undefined,
     canReturnToPurchasedAccess: canReturnToPurchasedAccess(user),
+    previewGrantedModules: getPreviewPaymentGrantedModules(user),
     ...facultyFieldsFromUser(user),
   };
 }
