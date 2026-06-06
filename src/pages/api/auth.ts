@@ -40,6 +40,7 @@ import {
 } from '@/lib/preview';
 import type { PreviewModule } from '@/lib/previewModules';
 import { ensureModuleStatusMap } from '@/lib/previewModuleStatus';
+import { notifyAdminReceiptClaimed } from '@/lib/notifyAdmin';
 import { resolveFacultyPromoCode, facultyFieldsFromUser, getFacultyPromoById } from '@/lib/facultyCodes';
 import { normalizeStudyGroup, buildStudyGroupFromDigits } from '@/lib/studyGroup';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
@@ -335,6 +336,7 @@ function previewPayload(
     previewRemainingMs: previewRemainingMs(user, tgId),
     previewRemainingMsByModule: previewRemainingMsByModule(user, tgId),
     previewRemainingMinByModule: previewRemainingMinByModule(user, tgId),
+    previewModuleTrustExpiresAt: user?.previewModuleTrustExpiresAt ?? undefined,
     ...facultyFieldsFromUser(user),
   };
 }
@@ -662,6 +664,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const updated = claimPreviewReceipt(user, claimModules.length > 0 ? claimModules : undefined);
       if (!updated) return res.status(400).json({ error: 'Не удалось сохранить.' });
       await saveUser(tgIdStr, updated);
+      const notifiedModules = claimModules.length > 0
+        ? claimModules
+        : (['questions', 'tests', 'tasks'] as const).filter(
+            m => updated.previewModuleStatuses?.[m] === 'receipt_pending',
+          );
+      void notifyAdminReceiptClaimed({
+        tgId:       tgIdStr,
+        firstName,
+        lastName,
+        username,
+        subjectId:  String(updated.previewChosenSubject),
+        modules:    notifiedModules,
+      });
       return res.status(200).json({
         success: true,
         receiptClaimed: true,

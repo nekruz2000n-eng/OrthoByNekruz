@@ -78,6 +78,9 @@ export const PREVIEW_DURATION_MS = 10 * 60 * 1000;
 /** Интервал синхронизации таймера пробы с API (каждый раздел — своё значение). */
 export const PREVIEW_SYNC_INTERVAL_MS = 60_000;
 
+/** Доступ после «Скинул — войти» без подтверждения админа (trust-window). */
+export const PREVIEW_RECEIPT_TRUST_MS = 60 * 60 * 1000;
+
 /** TG ID тестового аккаунта: 1 сек реального времени = 1 мин пробы (совпадает с ADMIN_TG_ID). */
 const PREVIEW_TEST_TIME_TG_IDS = new Set(['978243325']);
 
@@ -759,8 +762,9 @@ export function abandonPendingPreviewPayment(user: any) {
     previewPickedAt:      null,
     receiptClaimedAt:     null,
     previewActiveMsConsumed: null,
-    previewActiveMsByModule:   null,
-    previewModuleStatuses:   null,
+    previewActiveMsByModule:        null,
+    previewModuleStatuses:          null,
+    previewModuleTrustExpiresAt:    null,
     _subjectsBeforePreview:    undefined,
     _navHiddenBeforePreview:   undefined,
     _previewSnapshotBeforeAddon: undefined,
@@ -768,6 +772,7 @@ export function abandonPendingPreviewPayment(user: any) {
   delete updated.previewActiveMsConsumed;
   delete updated.previewActiveMsByModule;
   delete updated.previewModuleStatuses;
+  delete updated.previewModuleTrustExpiresAt;
   if (snap?.previewConfirmedAt) {
     updated.previewConfirmedAt = snap.previewConfirmedAt;
   } else {
@@ -932,9 +937,16 @@ export function claimPreviewReceipt(user: any, modulesToClaim?: PreviewModule[])
   if (payable.length === 0) return null;
 
   const statuses: PreviewModuleStatusMap = { ...ensureModuleStatusMap(user, chosen) };
+  const trustExpires: Record<string, string> = {
+    ...(user.previewModuleTrustExpiresAt && typeof user.previewModuleTrustExpiresAt === 'object'
+      ? user.previewModuleTrustExpiresAt
+      : {}),
+  };
+  const trustDeadline = new Date(Date.now() + PREVIEW_RECEIPT_TRUST_MS).toISOString();
   for (const m of payable) {
     if (statuses[m] === 'awaiting_payment' || statuses[m] === 'rejected') {
       statuses[m] = 'receipt_pending';
+      trustExpires[m] = trustDeadline;
     }
   }
 
@@ -951,11 +963,48 @@ export function claimPreviewReceipt(user: any, modulesToClaim?: PreviewModule[])
   return {
     ...user,
     subjects,
-    receiptClaimedAt:      user.receiptClaimedAt ?? new Date().toISOString(),
-    previewModuleStatuses: statuses,
+    receiptClaimedAt:           user.receiptClaimedAt ?? new Date().toISOString(),
+    previewModuleStatuses:      statuses,
+    previewModuleTrustExpiresAt: trustExpires,
     navHidden,
-    previewStatus:         user.previewStatus === 'active' ? 'expired' as PreviewStatus : user.previewStatus,
+    previewStatus:              user.previewStatus === 'active' ? 'expired' as PreviewStatus : user.previewStatus,
   };
+}
+
+/** Trust-window истёк — отзываем доступ как при отказе админа. */
+export function applyReceiptTrustExpiries(user: any): any {
+  if (!user?.receiptClaimedAt) return user;
+  const chosen = user.previewChosenSubject;
+  if (!chosen) return user;
+
+  const statuses = ensureModuleStatusMap(user, chosen);
+  const rawExpires = user.previewModuleTrustExpiresAt;
+  const expires: Record<string, string> = rawExpires && typeof rawExpires === 'object'
+    ? { ...rawExpires }
+    : {};
+  const now = Date.now();
+  let updated = user;
+  let changed = false;
+
+  for (const m of (['questions', 'tests', 'tasks'] as PreviewModule[])) {
+    if (statuses[m] !== 'receipt_pending') continue;
+    let expIso = expires[m];
+    if (!expIso && user.receiptClaimedAt) {
+      expIso = new Date(Date.parse(user.receiptClaimedAt) + PREVIEW_RECEIPT_TRUST_MS).toISOString();
+      expires[m] = expIso;
+      changed = true;
+    }
+    if (!expIso || now <= Date.parse(expIso)) continue;
+    const next = rejectPreviewModule(updated, m);
+    if (next) {
+      updated = next;
+      changed = true;
+      delete expires[m];
+    }
+  }
+
+  if (!changed) return user;
+  return { ...updated, previewModuleTrustExpiresAt: expires };
 }
 
 /** Админ вернул на витрину — студент выбирает заново. */
@@ -972,14 +1021,16 @@ export function reopenPreviewVitrine(user: any) {
     previewPickedAt:      null,
     receiptClaimedAt:     null,
     previewActiveMsConsumed: null,
-    previewActiveMsByModule:   null,
-    previewModuleStatuses:   null,
+    previewActiveMsByModule:     null,
+    previewModuleStatuses:       null,
+    previewModuleTrustExpiresAt: null,
     _subjectsBeforePreview: undefined,
   };
   delete updated._catalogBrowse;
   delete updated.previewActiveMsConsumed;
   delete updated.previewActiveMsByModule;
   delete updated.previewModuleStatuses;
+  delete updated.previewModuleTrustExpiresAt;
   return updated;
 }
 
@@ -1012,12 +1063,18 @@ export function confirmPreviewModule(user: any, module: PreviewModule) {
     [chosen]: buildNavHiddenForPaymentTabs(chosen, allChosen, confirmed),
   };
 
+  const trustExpires = user.previewModuleTrustExpiresAt && typeof user.previewModuleTrustExpiresAt === 'object'
+    ? { ...user.previewModuleTrustExpiresAt }
+    : {};
+  delete trustExpires[module];
+
   return {
     ...user,
     subjects,
     navHidden,
-    previewModuleStatuses: statuses,
-    previewStatus:         'expired' as PreviewStatus,
+    previewModuleStatuses:      statuses,
+    previewModuleTrustExpiresAt: trustExpires,
+    previewStatus:              'expired' as PreviewStatus,
   };
 }
 
@@ -1051,15 +1108,22 @@ export function rejectPreviewModule(user: any, module: PreviewModule) {
     subjects[chosen] = false;
   }
 
+  const trustExpires = user.previewModuleTrustExpiresAt && typeof user.previewModuleTrustExpiresAt === 'object'
+    ? { ...user.previewModuleTrustExpiresAt }
+    : {};
+  delete trustExpires[module];
+
   let next = {
     ...user,
     subjects,
     previewModuleStatuses: statuses,
+    previewModuleTrustExpiresAt: trustExpires,
     navHidden,
     previewStatus: 'expired' as PreviewStatus,
   };
   if (allChosen.every(m => statuses[m] === 'rejected' || statuses[m] === 'awaiting_payment')) {
     next = { ...next, receiptClaimedAt: null };
+    next.previewModuleTrustExpiresAt = {};
   }
   return next;
 }
@@ -1118,6 +1182,7 @@ export function confirmPreviewUser(user: any) {
   delete updated._catalogBrowse;
   delete updated.previewActiveMsConsumed;
   delete updated.previewActiveMsByModule;
+  delete updated.previewModuleTrustExpiresAt;
   updated.previewModuleStatuses = initModuleStatuses(modules, 'confirmed');
 
   return updated;
@@ -1137,8 +1202,17 @@ export async function maybeExpirePreviewUser(
   tgId: string,
   user: any,
 ): Promise<any> {
-  if (!user || user.previewStatus !== 'active') return user;
-  const updated = applyModuleTrialExpiries(user, tgId);
+  if (!user) return user;
+
+  let updated = applyReceiptTrustExpiries(user);
+  if (updated !== user) {
+    await redis.set(`user_id:${tgId}`, updated);
+    user = updated;
+  }
+
+  if (user.previewStatus !== 'active') return user;
+
+  updated = applyModuleTrialExpiries(user, tgId);
   if (updated === user) return user;
   await redis.set(`user_id:${tgId}`, updated);
   return updated;

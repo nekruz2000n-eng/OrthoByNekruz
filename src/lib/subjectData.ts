@@ -79,28 +79,40 @@ async function fetchFromServer(subject: string, type: SubjectDataType): Promise<
  * - Если кэш устарел или отсутствует → загружает с сервера и кэширует.
  * - При новом деплое кэш инвалидируется автоматически через BUILD_ID.
  */
+export type LoadSubjectDataOptions = {
+  /** Сбросить кэш и загрузить с сервера (воронка оплаты). */
+  bustCache?: boolean;
+};
+
 export async function loadSubjectData(
   subject: string,
   type: SubjectDataType,
+  options?: LoadSubjectDataOptions,
 ): Promise<unknown[]> {
   void purgeOldCaches();
   await checkAndBustCache();
 
   const key = cacheKey(subject, type);
 
+  if (options?.bustCache) {
+    await bustSubjectModuleCache(subject, [type]);
+  }
+
   // 1. Проверяем кэш
-  try {
-    if (typeof caches !== 'undefined') {
-      const cache = await caches.open(CACHE_NAME);
-      const hit   = await cache.match(key);
-      if (hit) {
-        const cached = (await hit.json()) as Cached;
-        if (cached && Array.isArray(cached.data) && Date.now() - cached.ts < TTL_MS) {
-          return cached.data;
+  if (!options?.bustCache) {
+    try {
+      if (typeof caches !== 'undefined') {
+        const cache = await caches.open(CACHE_NAME);
+        const hit   = await cache.match(key);
+        if (hit) {
+          const cached = (await hit.json()) as Cached;
+          if (cached && Array.isArray(cached.data) && Date.now() - cached.ts < TTL_MS) {
+            return cached.data;
+          }
         }
       }
-    }
-  } catch { /* приватный режим — идём напрямую */ }
+    } catch { /* приватный режим — идём напрямую */ }
+  }
 
   // 2. Загружаем с сервера
   let data: unknown[] = [];

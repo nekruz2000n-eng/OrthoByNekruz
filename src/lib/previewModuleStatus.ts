@@ -149,3 +149,18 @@ export function userHasModuleDataAccess(
 
   return moduleAllowsDataAccess(statuses[dataType]);
 }
+
+/** В воронке оплаты — всегда тянем JSON с сервера (не из кэша). */
+export function shouldBustPaymentFlowCache(
+  subjectId: string,
+  previewChosen: string | null | undefined,
+  statuses: PreviewModuleStatusMap,
+  previewStatus: string | null | undefined,
+): boolean {
+  if (!previewChosen || subjectId !== previewChosen) return false;
+  if (previewStatus !== 'active' && previewStatus !== 'expired') return false;
+  return (['questions', 'tests', 'tasks'] as PreviewModule[]).some(m => {
+    const st = statuses[m];
+    return st === 'awaiting_payment' || st === 'receipt_pending' || st === 'rejected';
+  });
+}

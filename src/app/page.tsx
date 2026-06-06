@@ -30,6 +30,7 @@ import {
   moduleShowsContent,
   moduleShowsPaymentEmbed,
   modulesAwaitingPayment,
+  shouldBustPaymentFlowCache,
 } from '@/lib/previewModuleStatus';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
 import { persistFacultyId, USER_FACULTY_ID_KEY } from '@/lib/facultyCodes';
@@ -197,6 +198,7 @@ export default function Home() {
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
   const [previewModuleStatuses, setPreviewModuleStatuses] = useState<PreviewModuleStatusMap>({});
   const [previewRemainingMinByModule, setPreviewRemainingMinByModule] = useState<PreviewActiveMsMap>({});
+  const [previewModuleTrustExpiresAt, setPreviewModuleTrustExpiresAt] = useState<Record<string, string>>({});
   const [pendingPaymentSubject, setPendingPaymentSubject] = useState<string | null>(null);
   const previewActiveDeltaRef = useRef(0);
   const previewSyncBusyRef    = useRef(false);
@@ -276,6 +278,11 @@ export default function Home() {
       setPreviewRemainingMinByModule(d.previewRemainingMinByModule as PreviewActiveMsMap);
     } else if (ps !== 'active') {
       setPreviewRemainingMinByModule({});
+    }
+    if (d?.previewModuleTrustExpiresAt && typeof d.previewModuleTrustExpiresAt === 'object') {
+      setPreviewModuleTrustExpiresAt(d.previewModuleTrustExpiresAt as Record<string, string>);
+    } else if (!d?.receiptClaimedAt) {
+      setPreviewModuleTrustExpiresAt({});
     }
     if (d?.previewModuleStatuses && typeof d.previewModuleStatuses === 'object') {
       const nextStatuses = d.previewModuleStatuses as PreviewModuleStatusMap;
@@ -842,7 +849,10 @@ export default function Home() {
       previewPollGen.current += 1;
       setAccessChecked(true);
       localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
-      toast({ title: 'Доступ открыт', description: 'Можно пользоваться до проверки оплаты' });
+      toast({
+        title: 'Доступ открыт',
+        description: 'Можно пользоваться 1 час до проверки оплаты администратором',
+      });
     } catch {
       toast({
         variant: 'destructive',
@@ -1009,6 +1019,11 @@ export default function Home() {
     previewStatus, receiptClaimedAt, previewConfirmedAt,
   ]);
 
+  const paymentFlowCacheBust = useMemo(
+    () => shouldBustPaymentFlowCache(subject, previewChosen, previewModuleStatuses, previewStatus),
+    [subject, previewChosen, previewModuleStatuses, previewStatus],
+  );
+
   const paymentExitProps = useMemo(() => ({
     onBackToPurchased: canReturnToPurchased ? handleReturnToPurchased : undefined,
     onBackToAvailable: (canAbandonPending || availableSubjects.some(s => s !== previewChosen))
@@ -1038,12 +1053,32 @@ export default function Home() {
         />
       );
     }
+    if (st === 'receipt_pending') {
+      const expIso = mod ? previewModuleTrustExpiresAt[mod] : undefined;
+      const expLabel = expIso
+        ? new Date(expIso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+        : null;
+      return (
+        <>
+          {expLabel && (
+            <div
+              className="px-4 py-2 text-center text-xs"
+              style={{ background: 'var(--c-primary-soft)', color: 'var(--c-muted)' }}
+            >
+              Доступ до проверки оплаты — до {expLabel}
+            </div>
+          )}
+          {content}
+        </>
+      );
+    }
     if (previewStatus === 'active' && (!st || moduleShowsContent(st))) return content;
     if (st && moduleShowsContent(st)) return content;
     return content;
   }, [
     previewChosen, subject, tabToModule, chosenPreviewModules, resolveModuleStatus,
     previewStatus, statusChecking, handleClaimReceipt, paymentExitProps,
+    previewModuleTrustExpiresAt,
   ]);
 
   /** Витрина «Все доступные разработки» — только без незакрытой заявки или после подтверждения админом. */
@@ -1187,9 +1222,15 @@ export default function Home() {
   return withAccessWelcome(
     <main className="flex flex-col h-[100dvh] w-full relative overflow-hidden">
       <div className="flex-1 overflow-hidden relative">
-        {activeTab === 'questions' && renderModuleTab('questions', <QuestionsTab subject={subject} />)}
-        {activeTab === 'tests'     && renderModuleTab('tests', <TestsTab subject={subject} onTestModeChange={setTestMode} />)}
-        {activeTab === 'tasks'     && renderModuleTab('tasks', <TasksTab subject={subject} onSecretTap={handleSecretTap} />)}
+        {activeTab === 'questions' && renderModuleTab('questions', (
+          <QuestionsTab subject={subject} bustDataCache={paymentFlowCacheBust} />
+        ))}
+        {activeTab === 'tests'     && renderModuleTab('tests', (
+          <TestsTab subject={subject} onTestModeChange={setTestMode} bustDataCache={paymentFlowCacheBust} />
+        ))}
+        {activeTab === 'tasks'     && renderModuleTab('tasks', (
+          <TasksTab subject={subject} onSecretTap={handleSecretTap} bustDataCache={paymentFlowCacheBust} />
+        ))}
         {activeTab === 'stats'     && (
           <StatsTab
             subject={subject}

@@ -344,7 +344,15 @@ const GlossaryImages: React.FC<{ images: string[]; onZoom: (list: string[], idx:
 };
 
 
-export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?: () => void; subject?: SubjectType }) => {
+export const QuestionsTab = ({
+  onSecretTap,
+  subject = 'ortho',
+  bustDataCache = false,
+}: {
+  onSecretTap?: () => void;
+  subject?: SubjectType;
+  bustDataCache?: boolean;
+}) => {
   const cfg         = getSubject(subject);
   const accentColor = cfg?.color || 'var(--c-primary)';
   const lsKey       = subject === 'ortho' ? 'studiedQuestions'  : `${cfg?.lsPrefix || subject}_studiedQuestions`;
@@ -410,18 +418,18 @@ export const QuestionsTab = ({ onSecretTap, subject = 'ortho' }: { onSecretTap?:
     let cancelled = false;
     setMicroLoading(true);
     setLoadedQuestionsData([]);
-    loadSubjectData(subject, 'questions')
+    loadSubjectData(subject, 'questions', { bustCache: bustDataCache })
       .then(d => { if (!cancelled) setLoadedQuestionsData(d as any[]); })
       .finally(() => { if (!cancelled) setMicroLoading(false); });
     return () => { cancelled = true; };
-  }, [subject]);
+  }, [subject, bustDataCache]);
 
   useEffect(() => {
     let cancelled = false;
-    loadSubjectData(subject, 'glossary')
+    loadSubjectData(subject, 'glossary', { bustCache: bustDataCache })
       .then(d => { if (!cancelled) setDynamicGlossary((d as GlossaryItem[]).flat()); });
     return () => { cancelled = true; };
-  }, [subject]);
+  }, [subject, bustDataCache]);
 
   useEffect(() => {
     if (!isLoaded) return;

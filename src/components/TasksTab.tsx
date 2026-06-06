@@ -21,9 +21,11 @@ import { RichText, GlossaryItem } from '@/components/RichText';
 export const TasksTab = ({
   onSecretTap,
   subject = 'ortho',
+  bustDataCache = false,
 }: {
   onSecretTap?: () => void;
   subject?: SubjectType;
+  bustDataCache?: boolean;
 }) => {
   const cfg         = getSubject(subject);
   const lsTasks     = subject === 'ortho' ? 'resolvedTasks'  : `${cfg?.lsPrefix || subject}_resolvedTasks`;
@@ -55,18 +57,18 @@ export const TasksTab = ({
     let cancelled = false;
     setMicroLoading(true);
     setLoadedTasksData([]);
-    loadSubjectData(subject, 'tasks')
+    loadSubjectData(subject, 'tasks', { bustCache: bustDataCache })
       .then(d => { if (!cancelled) setLoadedTasksData(d as any[]); })
       .finally(() => { if (!cancelled) setMicroLoading(false); });
     return () => { cancelled = true; };
-  }, [subject]);
+  }, [subject, bustDataCache]);
 
   useEffect(() => {
     let cancelled = false;
-    loadSubjectData(subject, 'glossary')
+    loadSubjectData(subject, 'glossary', { bustCache: bustDataCache })
       .then(d => { if (!cancelled) setDynamicGlossary(d as GlossaryItem[]); });
     return () => { cancelled = true; };
-  }, [subject]);
+  }, [subject, bustDataCache]);
 
   useEffect(() => {
     if (!isLoaded) return;

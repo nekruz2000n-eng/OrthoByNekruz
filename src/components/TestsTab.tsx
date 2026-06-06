@@ -302,11 +302,13 @@ export const TestsTab = ({
   onSecretTap,
   subject = 'ortho',
   onTestModeChange,
+  bustDataCache = false,
 }: {
   onSecretTap?: () => void;
   subject?: SubjectType;
   /** Сообщает родителю, что открыт блок теста (чтобы скрыть навигацию) */
   onTestModeChange?: (active: boolean) => void;
+  bustDataCache?: boolean;
 }) => {
   const cfg          = getSubject(subject);
   const accentColor  = cfg?.color || 'var(--c-primary)';
@@ -384,18 +386,18 @@ export const TestsTab = ({
     let cancelled = false;
     setMicroLoading(true);
     setLoadedTestsData([]);
-    loadSubjectData(subject, 'tests')
+    loadSubjectData(subject, 'tests', { bustCache: bustDataCache })
       .then(d => { if (!cancelled) setLoadedTestsData(d as any[]); })
       .finally(() => { if (!cancelled) setMicroLoading(false); });
     return () => { cancelled = true; };
-  }, [subject]);
+  }, [subject, bustDataCache]);
 
   useEffect(() => {
     let cancelled = false;
-    loadSubjectData(subject, 'glossary')
+    loadSubjectData(subject, 'glossary', { bustCache: bustDataCache })
       .then(d => { if (!cancelled) setDynamicGlossary(d as GlossaryItem[]); });
     return () => { cancelled = true; };
-  }, [subject]);
+  }, [subject, bustDataCache]);
 
   // Сообщаем родителю про режим теста (открыт блок) — чтобы скрыть навигацию.
   useEffect(() => {
