@@ -4,11 +4,14 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { getSubject } from '@/lib/subjects';
 import { PREVIEW_MODULE_LABELS, type PreviewModule } from '@/lib/previewModules';
 import { describePreviewPrice, formatPriceRub } from '@/lib/previewPricing';
-import { Loader2 } from 'lucide-react';
+import { openTgChat } from '@/lib/tgLinks';
+import { Copy, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-const SBP_PHONE_DISPLAY = '+7 900 316 66 46';
-const SBP_PHONE_COPY = '+79003166646';
+const TBANK_PHONE_DISPLAY = '+7 900 316 66 46';
+const TBANK_PHONE_COPY = '+79003166646';
+const RECEIPT_TG_URL = 'https://t.me/evoeidos';
+const RECEIPT_TG_HANDLE = '@evoeidos';
 
 interface PreviewPaymentTabPanelProps {
   subjectId: string;
@@ -44,12 +47,19 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
 
   const copyPhone = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(SBP_PHONE_COPY);
-      toast({ title: 'Номер скопирован' });
+      await navigator.clipboard.writeText(TBANK_PHONE_COPY);
+      toast({
+        title: 'Номер скопирован',
+        description: 'Вставь в перевод Т-Банка',
+      });
     } catch {
       toast({ variant: 'destructive', title: 'Не удалось скопировать' });
     }
   }, [toast]);
+
+  const openReceiptChat = useCallback(() => {
+    openTgChat(RECEIPT_TG_URL);
+  }, []);
 
   const canExit = !!(onBackToPurchased || onBackToAvailable);
   const exitLabel = onBackToPurchased ? 'Выйти' : 'Назад';
@@ -86,48 +96,73 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-6">
-      <div className="max-w-sm w-full text-center space-y-4">
-        <div className="text-4xl">{status === 'rejected' ? '↩️' : '⏳'}</div>
-        <h2 className="text-lg font-bold" style={{ color: 'var(--c-text)' }}>
-          {status === 'rejected' ? 'Нужна оплата' : 'Проба закончилась'}
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--c-muted)' }}>
-          {PREVIEW_MODULE_LABELS[module]}
-          {subjectCfg ? ` · ${subjectCfg.label}` : ''}
+      <div className="max-w-sm w-full text-center space-y-5">
+        <p
+          className="text-[15px] leading-relaxed font-medium px-1"
+          style={{ color: 'var(--c-text)' }}
+        >
+          Ты уже знаешь что внутри. Плата не за доступ — за то, чтобы не потерять то, что уже нашёл.
         </p>
-
-        {priceSummary && (
-          <div
-            className="rounded-2xl p-4 space-y-2"
-            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
-          >
-            <p className="text-2xl font-bold" style={{ color: accent }}>
-              {formatPriceRub(priceSummary.total)}
-            </p>
-            <p className="text-xs" style={{ color: 'var(--c-muted)' }}>
-              {priceSummary.lines.length > 0 ? priceSummary.lines.join(' · ') : priceSummary.hint}
-            </p>
-          </div>
-        )}
 
         <button
           type="button"
           onClick={copyPhone}
-          className="w-full h-11 rounded-xl text-sm font-semibold"
-          style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-text)' }}
+          className="w-full rounded-2xl px-4 py-3.5 text-left transition-opacity active:opacity-80"
+          style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
         >
-          СБП: {SBP_PHONE_DISPLAY}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--c-muted)' }}>
+                Т-Банк
+              </p>
+              <p className="text-base font-bold mt-0.5 tabular-nums" style={{ color: 'var(--c-text)' }}>
+                {TBANK_PHONE_DISPLAY}
+              </p>
+              <p className="text-[11px] mt-1" style={{ color: 'var(--c-muted)' }}>
+                Нажми, чтобы скопировать номер
+              </p>
+            </div>
+            <Copy className="w-5 h-5 shrink-0" style={{ color: 'var(--c-primary)' }} />
+          </div>
         </button>
 
-        <button
-          type="button"
-          disabled={checking}
-          onClick={() => setReceiptOpen(true)}
-          className="w-full h-12 rounded-2xl text-sm font-bold disabled:opacity-50"
-          style={{ background: 'var(--c-primary)', color: 'var(--c-bg)' }}
-        >
-          {checking ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Скинул — войти'}
-        </button>
+        {priceSummary && (
+          <div
+            className="rounded-2xl px-4 py-4"
+            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
+          >
+            <p className="text-3xl font-bold tabular-nums" style={{ color: accent }}>
+              {formatPriceRub(priceSummary.total)}
+            </p>
+            <p className="text-xs mt-1.5" style={{ color: 'var(--c-muted)' }}>
+              {PREVIEW_MODULE_LABELS[module]}
+              {subjectCfg ? ` · ${subjectCfg.label}` : ''}
+              {priceSummary.lines.length > 0 ? ` · ${priceSummary.lines.join(' · ')}` : ''}
+            </p>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-2 text-[15px] leading-relaxed px-1">
+          <span style={{ color: 'var(--c-muted)' }}>скинь чек</span>
+          <button
+            type="button"
+            onClick={openReceiptChat}
+            className="font-bold underline underline-offset-2 decoration-primary/40"
+            style={{ color: 'var(--c-primary)' }}
+          >
+            {RECEIPT_TG_HANDLE}
+          </button>
+          <span style={{ color: 'var(--c-muted)' }}>и</span>
+          <button
+            type="button"
+            disabled={checking}
+            onClick={() => setReceiptOpen(true)}
+            className="h-9 px-4 rounded-xl text-sm font-bold disabled:opacity-50"
+            style={{ background: 'var(--c-primary)', color: 'var(--c-bg)' }}
+          >
+            {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : 'войди'}
+          </button>
+        </div>
 
         {exitButton}
       </div>
@@ -143,8 +178,17 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
             style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
             onClick={e => e.stopPropagation()}
           >
-            <p className="text-sm" style={{ color: 'var(--c-text)' }}>
-              Подтверди, что перевёл оплату за «{PREVIEW_MODULE_LABELS[module]}».
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--c-text)' }}>
+              Скинул чек в{' '}
+              <button
+                type="button"
+                onClick={openReceiptChat}
+                className="font-semibold underline"
+                style={{ color: 'var(--c-primary)' }}
+              >
+                {RECEIPT_TG_HANDLE}
+              </button>
+              {' '}и перевёл {formatPriceRub(priceSummary?.total ?? 0)}?
             </p>
             <button
               type="button"
@@ -156,7 +200,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
               className="w-full h-11 rounded-xl text-sm font-bold disabled:opacity-50"
               style={{ background: 'var(--c-primary)', color: 'var(--c-bg)' }}
             >
-              Да, скинул
+              {checking ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Да, войти'}
             </button>
           </div>
         </div>
