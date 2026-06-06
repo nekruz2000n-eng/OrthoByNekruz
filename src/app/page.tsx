@@ -227,16 +227,11 @@ export default function Home() {
     }
   }, []);
 
-  const dismissAccessWelcome = useCallback(() => {
-    setShowAccessWelcome(false);
-    localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
-  }, []);
-
   /** Поздний ответ check_subjects не должен затирать свежий ответ после кода/группы. */
   const accessRequestGen = useRef(0);
   const previewPollGen   = useRef(0);
 
-  const PREVIEW_ADMIN_POLL_MS = 45_000;
+  const PREVIEW_ADMIN_POLL_MS = 5_000;
 
   const logoutLocal = useCallback(() => {
     clearLocalSession();
@@ -367,9 +362,9 @@ export default function Home() {
       && ps !== 'expired'
       && ps !== 'selecting';
 
-    if (ps === 'confirmed' || accessJustOpened || receiptAccessOpened) {
+    if (receiptAccessOpened || accessJustOpened || ps === 'confirmed') {
       triggerAccessWelcomeIfPending();
-      if ((accessJustOpened || receiptAccessOpened) && pendingSubject) {
+      if ((receiptAccessOpened || accessJustOpened) && pendingSubject) {
         setSubjectRaw(pendingSubject);
         localStorage.setItem('last_subject', pendingSubject);
         localStorage.setItem('subject_chosen', 'true');
@@ -475,6 +470,12 @@ export default function Home() {
         if (gen === accessRequestGen.current) setAccessChecked(true);
       });
   }, [applyAccessPayload, logoutLocal]);
+
+  const dismissAccessWelcome = useCallback(() => {
+    setShowAccessWelcome(false);
+    localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
+    void refreshAccess();
+  }, [refreshAccess]);
 
   // Если активный таб админ скрыл — переключаем на первый доступный
   useEffect(() => {
@@ -858,10 +859,9 @@ export default function Home() {
       if (entryTab) setActiveTab(entryTab);
       previewPollGen.current += 1;
       setAccessChecked(true);
-      localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
       toast({
-        title: 'Доступ открыт',
-        description: 'Можно пользоваться 1 час до проверки оплаты администратором',
+        title: 'Временный доступ открыт',
+        description: 'Можно пользоваться 1 час — пока админ проверяет оплату',
       });
     } catch {
       toast({
@@ -1021,8 +1021,9 @@ export default function Home() {
     const st = previewModuleStatuses[mod];
     if (st) return st;
     if (!previewChosen || !chosenPreviewModules.includes(mod)) return undefined;
-    if (previewStatus === 'expired') return 'awaiting_payment';
+    if (previewConfirmedAt) return 'confirmed';
     if (receiptClaimedAt && !previewConfirmedAt) return 'receipt_pending';
+    if (previewStatus === 'expired') return 'awaiting_payment';
     return undefined;
   }, [
     previewModuleStatuses, previewChosen, chosenPreviewModules,
