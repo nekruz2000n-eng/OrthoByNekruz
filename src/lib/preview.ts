@@ -73,7 +73,7 @@ export function buildNavHiddenForConfirmedPurchase(
   return [...hidden];
 }
 
-export const PREVIEW_DURATION_MS = 10 * 60 * 1000;
+export const PREVIEW_DURATION_MS = 5 * 60 * 1000;
 
 /** Интервал синхронизации таймера пробы с API (каждый раздел — своё значение). */
 export const PREVIEW_SYNC_INTERVAL_MS = 60_000;
@@ -91,12 +91,12 @@ export function isPreviewShortDurationAccount(tgId?: string | null): boolean {
   return !!tgId && PREVIEW_TEST_TIME_TG_IDS.has(String(tgId).trim());
 }
 
-/** Виртуальная длительность пробы одного раздела (всегда 10 мин). */
+/** Виртуальная длительность пробы одного раздела (всегда 5 мин). */
 export function getPreviewDurationMs(_tgId?: string | null): number {
   return PREVIEW_DURATION_MS;
 }
 
-/** Реальное «стенное» окно пробы: 10 мин для всех, ~10 сек для тестового TG (×60). */
+/** Реальное «стенное» окно пробы: 5 мин для всех, ~5 сек для тестового TG (×60). */
 export function getPreviewRealWindowMs(tgId?: string | null): number {
   const mult = getPreviewActiveTimeMultiplier(tgId);
   return Math.round(getPreviewDurationMs(tgId) / mult);
