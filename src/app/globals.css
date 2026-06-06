@@ -224,6 +224,21 @@
   100% { transform: translateX(200%); }
 }
 
+@keyframes trustNoticeIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.trust-notice-in {
+  animation: trustNoticeIn 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 img {
   -webkit-user-drag: none;
   user-select: none;

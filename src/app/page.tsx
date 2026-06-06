@@ -5,6 +5,7 @@ import { SubjectSelectScreen } from '@/components/SubjectSelectScreen';
 import { PreviewOnboardingScreen } from '@/components/PreviewOnboardingScreen';
 import { PreviewGroupScreen } from '@/components/PreviewGroupScreen';
 import { PreviewPaymentTabPanel } from '@/components/PreviewPaymentTabPanel';
+import { TrustAccessNotice } from '@/components/TrustAccessNotice';
 import { ChannelCodeEntryScreen } from '@/components/ChannelCodeEntryScreen';
 import { AccessWelcomeOverlay, PREVIEW_AWAITING_CONFIRM_KEY } from '@/components/AccessWelcomeOverlay';
 import { AuthScreen }    from '@/components/AuthScreen';
@@ -207,6 +208,7 @@ export default function Home() {
   const [previewModuleStatuses, setPreviewModuleStatuses] = useState<PreviewModuleStatusMap>({});
   const [previewRemainingMinByModule, setPreviewRemainingMinByModule] = useState<PreviewActiveMsMap>({});
   const [previewModuleTrustExpiresAt, setPreviewModuleTrustExpiresAt] = useState<Record<string, string>>({});
+  const [trustNoticeDismissed, setTrustNoticeDismissed] = useState(false);
   const [pendingPaymentSubject, setPendingPaymentSubject] = useState<string | null>(null);
   const previewActiveDeltaRef = useRef(0);
   const previewSyncBusyRef    = useRef(false);
@@ -859,10 +861,7 @@ export default function Home() {
       if (entryTab) setActiveTab(entryTab);
       previewPollGen.current += 1;
       setAccessChecked(true);
-      toast({
-        title: 'Временный доступ открыт',
-        description: 'Можно пользоваться 1 час — пока админ проверяет оплату',
-      });
+      setTrustNoticeDismissed(false);
     } catch {
       toast({
         variant: 'destructive',
@@ -1064,33 +1063,28 @@ export default function Home() {
         />
       );
     }
-    if (st === 'receipt_pending') {
-      const expIso = mod ? previewModuleTrustExpiresAt[mod] : undefined;
-      const expLabel = expIso
-        ? new Date(expIso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-        : null;
-      return (
-        <>
-          {expLabel && (
-            <div
-              className="px-4 py-2 text-center text-xs"
-              style={{ background: 'var(--c-primary-soft)', color: 'var(--c-muted)' }}
-            >
-              Доступ до проверки оплаты — до {expLabel}
-            </div>
-          )}
-          {content}
-        </>
-      );
-    }
+    if (st === 'receipt_pending') return content;
     if (previewStatus === 'active' && (!st || moduleShowsContent(st))) return content;
     if (st && moduleShowsContent(st)) return content;
     return content;
   }, [
     previewChosen, subject, tabToModule, chosenPreviewModules, resolveModuleStatus,
     previewStatus, statusChecking, handleClaimReceipt, paymentExitProps,
-    previewModuleTrustExpiresAt,
   ]);
+
+  const trustPendingModule = useMemo(() => {
+    if (!previewChosen || subject !== previewChosen) return null;
+    return chosenPreviewModules.find(m => resolveModuleStatus(m) === 'receipt_pending') ?? null;
+  }, [previewChosen, subject, chosenPreviewModules, resolveModuleStatus]);
+
+  const trustExpiresIso = trustPendingModule
+    ? previewModuleTrustExpiresAt[trustPendingModule]
+    : null;
+  const trustNoticeVisible = !trustNoticeDismissed && !!trustPendingModule && !testMode;
+
+  useEffect(() => {
+    setTrustNoticeDismissed(false);
+  }, [trustPendingModule, trustExpiresIso]);
 
   /** Витрина «Все доступные разработки» — только без незакрытой заявки или после подтверждения админом. */
   const canBrowseCatalog = previewStatus == null
@@ -1260,6 +1254,11 @@ export default function Home() {
           />
         )}
       </div>
+      <TrustAccessNotice
+        visible={trustNoticeVisible}
+        expiresAtIso={trustExpiresIso}
+        onDismiss={() => setTrustNoticeDismissed(true)}
+      />
       {/* В режиме решения теста навигация скрыта — она перекрывала панель тогглов */}
       {!testMode && (
         <Navigation
