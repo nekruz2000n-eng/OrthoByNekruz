@@ -103,9 +103,29 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
             Ты уже знаешь что внутри.
           </h2>
           <p className="text-sm leading-relaxed" style={{ color: 'var(--c-muted)' }}>
-            Плата не за доступ — за то, чтобы не потерять то, что уже нашёл.
+            {status === 'rejected'
+              ? 'Оплата не подтверждена — нужен новый перевод.'
+              : 'Плата не за доступ — за то, чтобы не потерять то, что уже нашёл.'}
           </p>
         </div>
+
+        {status === 'rejected' && (
+          <div
+            className="rounded-2xl px-4 py-3.5 text-left"
+            style={{
+              background: 'var(--c-danger-soft)',
+              border: '1px solid hsl(var(--destructive) / 0.35)',
+            }}
+          >
+            <p className="text-[13px] font-bold leading-snug" style={{ color: 'var(--c-danger)' }}>
+              Не оплатил — не входи.
+            </p>
+            <p className="text-[12px] leading-relaxed mt-1.5" style={{ color: 'var(--c-text)' }}>
+              Если нажмёшь «войти» без реального перевода, аккаунт заблокируют{' '}
+              <span className="font-semibold">навсегда</span>. Это не предупреждение на один раз — бан без разблокировки.
+            </p>
+          </div>
+        )}
 
         <button
           type="button"
@@ -181,6 +201,14 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
             style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
             onClick={e => e.stopPropagation()}
           >
+            {status === 'rejected' && (
+              <p
+                className="text-xs leading-relaxed rounded-xl px-3 py-2.5"
+                style={{ background: 'var(--c-danger-soft)', color: 'var(--c-danger)' }}
+              >
+                Вход без оплаты = перманентный бан. Продолжай только если перевод уже был.
+              </p>
+            )}
             <p className="text-sm leading-relaxed" style={{ color: 'var(--c-text)' }}>
               Скинул чек в{' '}
               <button
@@ -201,9 +229,14 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
                 onClaimReceipt?.([module]);
               }}
               className="w-full h-11 rounded-xl text-sm font-bold disabled:opacity-50"
-              style={{ background: 'var(--c-primary)', color: 'var(--c-bg)' }}
+              style={{
+                background: status === 'rejected' ? 'var(--c-danger)' : 'var(--c-primary)',
+                color: 'var(--c-bg)',
+              }}
             >
-              {checking ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Да, войти'}
+              {checking
+                ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                : status === 'rejected' ? 'Да, оплатил — войти' : 'Да, войти'}
             </button>
           </div>
         </div>
