@@ -662,7 +662,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       await saveUser(tgIdStr, touchUserActivity(switched));
       return res.status(200).json({
         success: true,
-        ...(await subjectsResponse(updated, tgIdStr)),
+        ...(await subjectsResponse(switched, tgIdStr)),
       });
     }
 
