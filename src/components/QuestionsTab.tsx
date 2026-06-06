@@ -12,6 +12,7 @@ import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger
 } from '@/components/ui/accordion';
 import { FacultyIcon } from './FacultyIcon';
+import { QuestionAiPanel } from './QuestionAiPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { termRegexSource as _termRegexSource } from '@/lib/glossaryUtils';
@@ -897,7 +898,14 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                 <div className="leading-snug font-normal break-words" style={{ fontSize: `${fontSize}px`, color: 'color-mix(in srgb, var(--c-text) 92%, transparent)' }}>
                   {renderWithGlossary(readingQuestion.answer, readingQuestion.relatedTerms)}
                 </div>
-                
+
+                <QuestionAiPanel
+                  key={readingQuestion.id}
+                  question={readingQuestion.question}
+                  answer={readingQuestion.answer}
+                  accentColor={accentColor}
+                />
+
                 {(() => {
                   const raw = readingQuestion.images || readingQuestion.image;
                   if (!raw) return null;
