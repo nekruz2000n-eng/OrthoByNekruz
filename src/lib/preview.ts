@@ -16,12 +16,27 @@ import { calcPreviewPriceRub, getPaymentModuleRow } from '@/lib/previewPricing';
 export type { PreviewModule } from '@/lib/previewModules';
 export { PREVIEW_MODULE_LABELS, formatPreviewModulesList, normalizePreviewModules } from '@/lib/previewModules';
 
-/** Скрыть всё, что пользователь не выбрал + exam/materials + нет JSON */
+/** Скрыть всё, что пользователь не выбрал + exam/materials + нет JSON (проба / экран оплаты). */
 export function buildNavHiddenForPreview(
   subjectId: string,
   chosenModules: PreviewModule[],
 ): string[] {
   const hidden = new Set<string>(['exam', 'materials']);
+  for (const tab of ['questions', 'tests', 'tasks'] as PreviewModule[]) {
+    if (!chosenModules.includes(tab)) hidden.add(tab);
+  }
+  for (const tab of getNavHiddenForSubject(subjectId)) {
+    hidden.add(tab);
+  }
+  return [...hidden];
+}
+
+/** После оплаты — открыть купленные разделы и полезные материалы. */
+export function buildNavHiddenForConfirmedPurchase(
+  subjectId: string,
+  chosenModules: PreviewModule[],
+): string[] {
+  const hidden = new Set<string>(['exam']);
   for (const tab of ['questions', 'tests', 'tasks'] as PreviewModule[]) {
     if (!chosenModules.includes(tab)) hidden.add(tab);
   }
@@ -660,7 +675,7 @@ export function confirmPreviewUser(user: any) {
     ? mergeGrantedModulesOnConfirm(baseNavHidden, chosen, modules)
     : {
       ...(user.navHidden || {}),
-      [chosen]: buildNavHiddenForPreview(chosen, modules),
+      [chosen]: buildNavHiddenForConfirmedPurchase(chosen, modules),
     };
 
   const updated: Record<string, any> = {

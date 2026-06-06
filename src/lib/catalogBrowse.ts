@@ -98,6 +98,7 @@ export function mergeGrantedModulesOnConfirm(
   const next = { ...navHidden };
   const hidden = new Set<string>(next[subjectId] || []);
   for (const m of newModules) hidden.delete(m);
+  hidden.delete('materials');
   if (hidden.size === 0) delete next[subjectId];
   else next[subjectId] = [...hidden];
   return next;
