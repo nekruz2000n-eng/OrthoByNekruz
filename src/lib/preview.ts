@@ -12,6 +12,16 @@ import {
   mergeGrantedModulesOnConfirm,
 } from '@/lib/catalogBrowse';
 import { calcPreviewPriceRub, getPaymentModuleRow } from '@/lib/previewPricing';
+import {
+  type PreviewModuleStatus,
+  type PreviewModuleStatusMap,
+  allModulesConfirmed,
+  ensureModuleStatusMap,
+  initModuleStatuses,
+  modulesAwaitingPayment,
+  setAllModuleStatuses,
+  syncModuleStatusesOnPick,
+} from '@/lib/previewModuleStatus';
 
 export type { PreviewModule } from '@/lib/previewModules';
 export { PREVIEW_MODULE_LABELS, formatPreviewModulesList, normalizePreviewModules } from '@/lib/previewModules';
@@ -28,6 +38,23 @@ export function buildNavHiddenForPreview(
   for (const tab of getNavHiddenForSubject(subjectId)) {
     hidden.add(tab);
   }
+  return [...hidden];
+}
+
+/** После пробы / при частичной оплате — все выбранные разделы в навигации (оплата внутри вкладки). */
+export function buildNavHiddenForPaymentTabs(
+  subjectId: string,
+  chosenModules: PreviewModule[],
+  confirmedModules: PreviewModule[] = [],
+): string[] {
+  const hidden = new Set<string>(['exam', 'materials']);
+  for (const tab of ['questions', 'tests', 'tasks'] as PreviewModule[]) {
+    if (!chosenModules.includes(tab)) hidden.add(tab);
+  }
+  for (const tab of getNavHiddenForSubject(subjectId)) {
+    if (!chosenModules.includes(tab as PreviewModule)) hidden.add(tab);
+  }
+  void confirmedModules;
   return [...hidden];
 }
 
@@ -103,16 +130,48 @@ export function isPreviewUser(user: any): boolean {
   return !!user?.previewStatus;
 }
 
-export function isPreviewExpired(user: any, now = Date.now(), tgId?: string | null): boolean {
+export function getPreviewActiveMsConsumed(user: any): number {
+  const v = Number(user?.previewActiveMsConsumed);
+  return Number.isFinite(v) && v >= 0 ? v : 0;
+}
+
+/** Проба истекла: по накопленному активному времени или (legacy) по wall-clock. */
+export function isPreviewExpired(user: any, _now = Date.now(), tgId?: string | null): boolean {
   if (user?.previewStatus !== 'active') return false;
+  const limit = getPreviewDurationMs(tgId);
+  const consumed = getPreviewActiveMsConsumed(user);
+  if (consumed > 0) return consumed >= limit;
   const started = user.previewStartedAt;
   if (!started) return true;
-  return now - Date.parse(started) >= getPreviewDurationMs(tgId);
+  return _now - Date.parse(started) >= limit;
+}
+
+export function previewRemainingMs(user: any, tgId?: string | null): number {
+  if (user?.previewStatus !== 'active') return 0;
+  return Math.max(0, getPreviewDurationMs(tgId) - getPreviewActiveMsConsumed(user));
 }
 
 export function previewEndsAt(user: any, tgId?: string | null): string | null {
-  if (user?.previewStatus !== 'active' || !user.previewStartedAt) return null;
+  if (user?.previewStatus !== 'active') return null;
+  const remaining = previewRemainingMs(user, tgId);
+  if (remaining <= 0 && getPreviewActiveMsConsumed(user) > 0) {
+    return new Date().toISOString();
+  }
+  if (!user.previewStartedAt) return null;
+  const consumed = getPreviewActiveMsConsumed(user);
+  if (consumed > 0) {
+    return new Date(Date.now() + remaining).toISOString();
+  }
   return new Date(Date.parse(user.previewStartedAt) + getPreviewDurationMs(tgId)).toISOString();
+}
+
+/** Клиент шлёт дельту активного времени (только когда вкладка видима и открыт выбранный раздел). */
+export function syncPreviewActiveMs(user: any, deltaMs: number, tgId?: string | null): any {
+  if (!user || user.previewStatus !== 'active') return user;
+  if (!Number.isFinite(deltaMs) || deltaMs <= 0) return user;
+  const cap = getPreviewDurationMs(tgId) * 2;
+  const next = Math.min(cap, getPreviewActiveMsConsumed(user) + Math.round(deltaMs));
+  return { ...user, previewActiveMsConsumed: next };
 }
 
 export function getAllPickableSubjectIds(): string[] {
@@ -150,27 +209,27 @@ function snapshotSubjects(user: any): Record<string, boolean> | null {
   return snap;
 }
 
-/** Новый предмет в заявке — нужно подтверждение админа (докупка или первый доступ). */
+/** Есть ли хотя бы один раздел, ожидающий действия админа. */
 export function previewChoiceNeedsAdminConfirm(user: any): boolean {
+  return getPendingAdminModules(user).length > 0;
+}
+
+/** Разделы, по которым админу показываются кнопки ✓ / отказ (после «Скинул — войти»). */
+export function getPendingAdminModules(user: any): PreviewModule[] {
   const chosen = user?.previewChosenSubject;
-  if (!chosen) return false;
-  if (hasFinalizedPreviewAccess(user)) return false;
-  if (user.receiptClaimedAt) return true;
-  if (user.previewStatus !== 'active' && user.previewStatus !== 'expired') return false;
-  if (user.previewFacultyRecordedAt && !user.previewStartedAt) return false;
+  if (!chosen) return [];
+  if (hasFinalizedPreviewAccess(user)) return [];
 
-  // Во время active в user.subjects уже стоит временный доступ к chosen — сравниваем только снимок до пробы
-  if (user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object') {
-    return user._subjectsBeforePreview[chosen] !== true;
+  const allChosen = normalizePreviewModules(user?.previewChosenModules);
+  const statuses = ensureModuleStatusMap(user, chosen);
+  const pending = allChosen.filter(m => statuses[m] === 'receipt_pending');
+  if (pending.length > 0) return pending;
+
+  // Legacy: один блок подтверждения без previewModuleStatuses
+  if (user.receiptClaimedAt && !user.previewModuleStatuses) {
+    return allChosen;
   }
-
-  if (user.previewStatus === 'active') {
-    return true;
-  }
-
-  const grants = user.subjects && typeof user.subjects === 'object' ? user.subjects : null;
-  if (grants) return grants[chosen] !== true;
-  return true;
+  return [];
 }
 
 /** Докупка: предмет или разделы уже были до текущей заявки. */
@@ -367,6 +426,8 @@ export function buildActivePreviewUser(
     previewConfirmedAt:       null,
     previewExpiredAt:         null,
     receiptClaimedAt:         null,
+    previewActiveMsConsumed:  0,
+    previewModuleStatuses:    syncModuleStatusesOnPick(chosenModules),
     ...(isAddonPurchase ? { paid: false } : {}),
     subjects,
     navHidden,
@@ -469,10 +530,14 @@ export function abandonPendingPreviewPayment(user: any) {
     previewExpiredAt:     null,
     previewPickedAt:      null,
     receiptClaimedAt:     null,
+    previewActiveMsConsumed: null,
+    previewModuleStatuses:   null,
     _subjectsBeforePreview:    undefined,
     _navHiddenBeforePreview:   undefined,
     _previewSnapshotBeforeAddon: undefined,
   };
+  delete updated.previewActiveMsConsumed;
+  delete updated.previewModuleStatuses;
   if (snap?.previewConfirmedAt) {
     updated.previewConfirmedAt = snap.previewConfirmedAt;
   } else {
@@ -514,24 +579,36 @@ function restoreNavHiddenAfterPreviewExpire(user: any): Record<string, string[]>
 }
 
 export function expirePreviewUser(user: any) {
-  const navHidden = restoreNavHiddenAfterPreviewExpire(user);
-  if (user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object') {
-    return {
-      ...user,
-      previewStatus:    'expired' as PreviewStatus,
-      previewExpiredAt: new Date().toISOString(),
-      subjects:         { ...user._subjectsBeforePreview },
-      navHidden,
+  const chosen = normalizePreviewModules(user?.previewChosenModules);
+  const subject = user?.previewChosenSubject;
+  const statuses = setAllModuleStatuses(
+    chosen,
+    'awaiting_payment',
+    ensureModuleStatusMap(user, subject),
+  );
+  const confirmed = chosen.filter(m => statuses[m] === 'confirmed');
+  let navHidden = { ...(user.navHidden || {}) };
+  if (subject && chosen.length > 0) {
+    navHidden = {
+      ...navHidden,
+      [subject]: buildNavHiddenForPaymentTabs(subject, chosen, confirmed),
     };
+  } else {
+    navHidden = restoreNavHiddenAfterPreviewExpire(user);
   }
-  const subjects = createDefaultSubjects();
-  return {
+
+  const base: Record<string, any> = {
     ...user,
-    previewStatus:    'expired' as PreviewStatus,
-    previewExpiredAt: new Date().toISOString(),
-    subjects,
+    previewStatus:         'expired' as PreviewStatus,
+    previewExpiredAt:      new Date().toISOString(),
+    previewModuleStatuses: statuses,
     navHidden,
   };
+
+  if (user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object') {
+    return { ...base, subjects: { ...user._subjectsBeforePreview } };
+  }
+  return { ...base, subjects: createDefaultSubjects() };
 }
 
 /** Разделы из заявки: сначала previewChosenModules, иначе из navHidden активной пробы. */
@@ -619,17 +696,37 @@ export function switchPreviewPaymentSubject(
   );
 }
 
-/** Студент нажал «Скинул чек» — доверяем, сразу открываем доступ по выбору. */
-export function claimPreviewReceipt(user: any) {
+/** Студент нажал «Скинул чек» — ждём поэтапного подтверждения админа по разделам. */
+export function claimPreviewReceipt(user: any, modulesToClaim?: PreviewModule[]) {
   const chosen = user?.previewChosenSubject;
   if (!chosen) return null;
   if (hasFinalizedPreviewAccess(user)) return user;
 
-  const stamped = user.receiptClaimedAt
-    ? user
-    : { ...user, receiptClaimedAt: new Date().toISOString() };
+  const allChosen = normalizePreviewModules(user?.previewChosenModules);
+  const payable = modulesToClaim && modulesToClaim.length > 0
+    ? normalizePreviewModules(modulesToClaim).filter(m => allChosen.includes(m))
+    : modulesAwaitingPayment(ensureModuleStatusMap(user, chosen));
+  if (payable.length === 0) return null;
 
-  return confirmPreviewUser(stamped);
+  const statuses: PreviewModuleStatusMap = { ...ensureModuleStatusMap(user, chosen) };
+  for (const m of payable) {
+    if (statuses[m] === 'awaiting_payment' || statuses[m] === 'rejected') {
+      statuses[m] = 'receipt_pending';
+    }
+  }
+
+  const confirmed = allChosen.filter(m => statuses[m] === 'confirmed');
+  const navHidden = {
+    ...(user.navHidden || {}),
+    [chosen]: buildNavHiddenForPaymentTabs(chosen, allChosen, confirmed),
+  };
+
+  return {
+    ...user,
+    receiptClaimedAt:      user.receiptClaimedAt ?? new Date().toISOString(),
+    previewModuleStatuses: statuses,
+    navHidden,
+  };
 }
 
 /** Админ вернул на витрину — студент выбирает заново. */
@@ -645,10 +742,81 @@ export function reopenPreviewVitrine(user: any) {
     previewExpiredAt:     null,
     previewPickedAt:      null,
     receiptClaimedAt:     null,
+    previewActiveMsConsumed: null,
+    previewModuleStatuses:   null,
     _subjectsBeforePreview: undefined,
   };
   delete updated._catalogBrowse;
+  delete updated.previewActiveMsConsumed;
+  delete updated.previewModuleStatuses;
   return updated;
+}
+
+/** Админ подтвердил один раздел — частичный доступ. */
+export function confirmPreviewModule(user: any, module: PreviewModule) {
+  const chosen = user?.previewChosenSubject;
+  if (!chosen) return null;
+  const allChosen = normalizePreviewModules(user?.previewChosenModules);
+  if (!allChosen.includes(module)) return null;
+
+  const statuses: PreviewModuleStatusMap = { ...ensureModuleStatusMap(user, chosen) };
+  if (statuses[module] !== 'receipt_pending') {
+    if (statuses[module] === 'confirmed') return user;
+    return null;
+  }
+  statuses[module] = 'confirmed';
+
+  const confirmed = allChosen.filter(m => statuses[m] === 'confirmed');
+  if (allModulesConfirmed(allChosen, statuses)) {
+    return confirmPreviewUser({ ...user, previewModuleStatuses: statuses });
+  }
+
+  const subjects = user.subjects && typeof user.subjects === 'object'
+    ? { ...user.subjects }
+    : createDefaultSubjects();
+  subjects[chosen] = true;
+
+  const navHidden = {
+    ...(user.navHidden || {}),
+    [chosen]: buildNavHiddenForPaymentTabs(chosen, allChosen, confirmed),
+  };
+
+  return {
+    ...user,
+    subjects,
+    navHidden,
+    previewModuleStatuses: statuses,
+    previewStatus:         'expired' as PreviewStatus,
+  };
+}
+
+/** Админ отказал в подтверждении раздела — вкладка остаётся, внутри оплата. */
+export function rejectPreviewModule(user: any, module: PreviewModule) {
+  const chosen = user?.previewChosenSubject;
+  if (!chosen) return null;
+  const allChosen = normalizePreviewModules(user?.previewChosenModules);
+  if (!allChosen.includes(module)) return null;
+
+  const statuses: PreviewModuleStatusMap = { ...ensureModuleStatusMap(user, chosen) };
+  if (statuses[module] !== 'receipt_pending') return null;
+  statuses[module] = 'rejected';
+
+  const confirmed = allChosen.filter(m => statuses[m] === 'confirmed');
+  const navHidden = {
+    ...(user.navHidden || {}),
+    [chosen]: buildNavHiddenForPaymentTabs(chosen, allChosen, confirmed),
+  };
+
+  let next = {
+    ...user,
+    previewModuleStatuses: statuses,
+    navHidden,
+    previewStatus: 'expired' as PreviewStatus,
+  };
+  if (allChosen.every(m => statuses[m] === 'rejected' || statuses[m] === 'awaiting_payment')) {
+    next = { ...next, receiptClaimedAt: null };
+  }
+  return next;
 }
 
 export function confirmPreviewUser(user: any) {
@@ -703,6 +871,8 @@ export function confirmPreviewUser(user: any) {
   delete updated.previewFacultyRecordedAt;
   delete updated._previewStatusBeforeCatalog;
   delete updated._catalogBrowse;
+  delete updated.previewActiveMsConsumed;
+  updated.previewModuleStatuses = initModuleStatuses(modules, 'confirmed');
 
   return updated;
 }

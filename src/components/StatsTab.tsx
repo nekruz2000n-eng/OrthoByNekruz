@@ -67,6 +67,7 @@ interface SubjectSheetProps {
   onClose:           () => void;
   hasMicro?:         boolean;
   availableSubjects?: string[];
+  pendingPaymentSubject?: string | null;
   onBrowseCatalog?:  () => void;
   browseCatalogBusy?: boolean;
 }
@@ -75,6 +76,7 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
   currentSubject, onSelect, onClose,
   hasMicro = false,
   availableSubjects,
+  pendingPaymentSubject = null,
   onBrowseCatalog,
   browseCatalogBusy = false,
 }) => {
@@ -160,6 +162,10 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
                         <span className="text-[8.5px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0"
                           style={{ background: item.dimVar, color: item.color }}>Сейчас</span>
                       )}
+                      {pendingPaymentSubject === item.id && (
+                        <span className="text-[8.5px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                          style={{ background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24' }}>Оплата</span>
+                      )}
                     </div>
                     <span className="text-[10.5px] block whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: 'var(--c-muted)' }}>
                       {item.sub}
@@ -232,6 +238,7 @@ interface StatsTabProps {
   hasMicro?:         boolean;
   onMicroUnlocked?:  () => void;
   availableSubjects?: string[];
+  pendingPaymentSubject?: string | null;
   onBrowseCatalog?:  () => void;
   browseCatalogBusy?: boolean;
   /** Скрыть блок «Проверка готовности» (управляется из админки per-user) */
@@ -244,6 +251,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   subject, onSubjectChange,
   hasMicro = false, onMicroUnlocked,
   availableSubjects,
+  pendingPaymentSubject = null,
   onBrowseCatalog,
   browseCatalogBusy = false,
   examHidden      = false,
@@ -805,6 +813,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             onClose={() => setShowSubjectSheet(false)}
             hasMicro={hasMicro}
             availableSubjects={availableSubjects}
+            pendingPaymentSubject={pendingPaymentSubject}
             onBrowseCatalog={onBrowseCatalog}
             browseCatalogBusy={browseCatalogBusy}
           />

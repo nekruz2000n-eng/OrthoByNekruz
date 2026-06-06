@@ -2,7 +2,8 @@
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import Script from 'next/script';
-import { PREVIEW_MODULE_LABELS } from '@/lib/previewModules';
+import { PREVIEW_MODULE_LABELS, type PreviewModule } from '@/lib/previewModules';
+import { formatAdminModuleLabel } from '@/lib/previewModuleStatus';
 import { formatPriceRub } from '@/lib/previewPricing';
 import { getTgChatHref, formatTgChatLabel, openTgChat, normalizeTelegramUsername, isValidTelegramUsername } from '@/lib/tgLinks';
 import { AdminPatternLock, ADMIN_PATTERN, ADMIN_UNLOCK_SECRET } from '@/components/AdminPatternLock';
@@ -29,6 +30,7 @@ interface User {
   previewQuotedPrice?:  number | null;
   receiptClaimedAt?:    string | null;
   previewNeedsConfirm?: boolean;
+  previewPendingModules?: PreviewModule[];
   previewIsAddon?:       boolean;
   contactUsername?:     string | null;
   studyGroup?:          string | null;
@@ -71,7 +73,7 @@ const RES_TYPE_OPTS: { id: ResType; label: string; emoji: string }[] = [
 
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo' | 'unpaid';
 type SortBy = 'registered' | 'lastLogin' | 'loginCount';
-type Action = 'block' | 'unblock' | 'reset_demo' | 'confirm_preview' | 'reopen_preview_vitrine' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid' | 'set_contact_username';
+type Action = 'block' | 'unblock' | 'reset_demo' | 'confirm_preview' | 'confirm_preview_module' | 'reject_preview_module' | 'reopen_preview_vitrine' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid' | 'set_contact_username';
 
 type PreviewModKind = 'questions' | 'tests' | 'tasks';
 type PreviewCatalogSettings = Record<string, {
@@ -763,10 +765,21 @@ function UserCard({
               </ActionBtn>
             )}
             {user.previewNeedsConfirm && user.previewChosenSubject && (
-              <ActionBtn variant="success" disabled={busy} fullWidth
-                onClick={() => onAction(user.tgId, 'confirm_preview')}>
-                {busy ? '...' : `✓ Подтвердить${user.previewIsAddon ? ' докупку' : ''}: ${previewRequestLabel || previewSubjectLabel}`}
-              </ActionBtn>
+              (user.previewPendingModules && user.previewPendingModules.length > 0
+                ? user.previewPendingModules
+                : (user.previewChosenModules || []) as PreviewModule[]
+              ).map(mod => (
+                <React.Fragment key={mod}>
+                  <ActionBtn variant="success" disabled={busy} fullWidth
+                    onClick={() => onAction(user.tgId, 'confirm_preview_module', undefined, undefined, undefined, mod)}>
+                    {busy ? '...' : `✓ ${formatAdminModuleLabel(user.previewChosenSubject!, mod)}`}
+                  </ActionBtn>
+                  <ActionBtn variant="danger" disabled={busy} fullWidth
+                    onClick={() => onAction(user.tgId, 'reject_preview_module', undefined, undefined, undefined, mod)}>
+                    {busy ? '...' : `✕ ${formatAdminModuleLabel(user.previewChosenSubject!, mod)}`}
+                  </ActionBtn>
+                </React.Fragment>
+              ))
             )}
             {user.receiptClaimedAt && user.previewNeedsConfirm && (
               <ActionBtn variant="warn" disabled={busy} fullWidth
@@ -1892,6 +1905,9 @@ export default function AdminPage() {
       if (action === 'set_contact_username') {
         body.contactUsername = reason ?? '';
       }
+      if ((action === 'confirm_preview_module' || action === 'reject_preview_module') && section) {
+        body.module = section;
+      }
 
       const r = await fetch('/api/admin-users', {
         method:  'POST',
@@ -1939,26 +1955,45 @@ export default function AdminPage() {
               studyGroup: null,
               subjects: u.subjects.filter(() => false),
             };
-          case 'confirm_preview': {
+          case 'confirm_preview':
+          case 'confirm_preview_module': {
             const newSubjects = Array.isArray(data.subjects) ? data.subjects : u.subjects;
             const navHidden = (data.navHidden && typeof data.navHidden === 'object')
               ? data.navHidden as Record<string, string[]>
               : u.navHidden;
             return {
               ...u,
-              previewStatus: null,
+              previewStatus: (data.previewStatus as string | null) ?? null,
               previewStartedAt: null,
               previewExpiredAt: null,
-              previewConfirmedAt: (data.previewConfirmedAt as string | null) ?? new Date().toISOString(),
+              previewConfirmedAt: (data.previewConfirmedAt as string | null) ?? u.previewConfirmedAt,
               previewChosenSubject: (data.previewChosenSubject as string | null) ?? u.previewChosenSubject,
               previewChosenModules: Array.isArray(data.previewChosenModules)
                 ? data.previewChosenModules
                 : u.previewChosenModules,
-              previewNeedsConfirm: false,
+              previewNeedsConfirm: data.previewNeedsConfirm === true,
+              previewPendingModules: Array.isArray(data.previewPendingModules)
+                ? data.previewPendingModules
+                : [],
               receiptClaimedAt: u.receiptClaimedAt,
               paid: data.paid === true,
               activatedKey: u.activatedKey === 'preview' || !u.activatedKey ? 'preview' : u.activatedKey,
               subjects: newSubjects,
+              navHidden,
+            };
+          }
+          case 'reject_preview_module': {
+            const navHidden = (data.navHidden && typeof data.navHidden === 'object')
+              ? data.navHidden as Record<string, string[]>
+              : u.navHidden;
+            return {
+              ...u,
+              previewStatus: (data.previewStatus as string | null) ?? u.previewStatus,
+              previewNeedsConfirm: data.previewNeedsConfirm === true,
+              previewPendingModules: Array.isArray(data.previewPendingModules)
+                ? data.previewPendingModules
+                : [],
+              receiptClaimedAt: (data.receiptClaimedAt as string | null) ?? u.receiptClaimedAt,
               navHidden,
             };
           }
@@ -2021,7 +2056,7 @@ export default function AdminPage() {
         return next;
       });
 
-      if (action === 'confirm_preview') {
+      if (action === 'confirm_preview' || action === 'confirm_preview_module' || action === 'reject_preview_module') {
         void fetchUserDetail(secret, tgId);
       }
 
@@ -2036,7 +2071,9 @@ export default function AdminPage() {
         case 'block':          msg = '🚫 Заблокирован'; break;
         case 'unblock':        msg = '✓ Разблокирован'; break;
         case 'reset_demo':     msg = '✓ Пробный доступ сброшен'; break;
-        case 'confirm_preview': msg = '✓ Доступ подтверждён'; break;
+        case 'confirm_preview':
+        case 'confirm_preview_module': msg = '✓ Раздел подтверждён'; break;
+        case 'reject_preview_module': msg = '↩ Отказ по разделу'; break;
         case 'reopen_preview_vitrine': msg = '↩ Студент возвращён на витрину'; break;
         case 'toggle_paid': {
           const nowPaid = !users.find(u => u.tgId === tgId)?.paid;

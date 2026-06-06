@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { SubjectSelectScreen } from '@/components/SubjectSelectScreen';
 import { PreviewOnboardingScreen } from '@/components/PreviewOnboardingScreen';
 import { PreviewGroupScreen } from '@/components/PreviewGroupScreen';
-import { PreviewAwaitingScreen } from '@/components/PreviewAwaitingScreen';
+import { PreviewPaymentTabPanel } from '@/components/PreviewPaymentTabPanel';
 import { ChannelCodeEntryScreen } from '@/components/ChannelCodeEntryScreen';
 import { AccessWelcomeOverlay, PREVIEW_AWAITING_CONFIRM_KEY } from '@/components/AccessWelcomeOverlay';
 import { AuthScreen }    from '@/components/AuthScreen';
@@ -17,7 +17,14 @@ import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
 import { getDefaultSubjectId } from '@/lib/subjects';
 import { getPreviewDurationMs, type PreviewStatus } from '@/lib/preview';
-import { firstPreviewModuleTab, type PreviewModule } from '@/lib/previewModules';
+import { firstPreviewModuleTab, normalizePreviewModules, type PreviewModule } from '@/lib/previewModules';
+import {
+  type PreviewModuleStatus,
+  type PreviewModuleStatusMap,
+  moduleShowsContent,
+  moduleShowsPaymentEmbed,
+  modulesAwaitingPayment,
+} from '@/lib/previewModuleStatus';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
 import { persistFacultyId, USER_FACULTY_ID_KEY } from '@/lib/facultyCodes';
 
@@ -172,8 +179,6 @@ export default function Home() {
   const [previewStartedAt, setPreviewStartedAt] = useState<string | null>(null);
   const [previewPicking,  setPreviewPicking]   = useState<boolean>(false);
   const [statusChecking,  setStatusChecking]  = useState<boolean>(false);
-  const [savingPaymentModules, setSavingPaymentModules] = useState<boolean>(false);
-  const [previewStatusMessage, setPreviewStatusMessage] = useState('');
   const [previewQuotedPrice, setPreviewQuotedPrice] = useState<number | null>(null);
   const [receiptClaimedAt, setReceiptClaimedAt] = useState<string | null>(null);
   const [previewConfirmedAt, setPreviewConfirmedAt] = useState<string | null>(null);
@@ -184,7 +189,20 @@ export default function Home() {
   const [abandonPreviewBusy, setAbandonPreviewBusy] = useState(false);
   const [showAccessWelcome, setShowAccessWelcome] = useState(false);
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
+  const [previewModuleStatuses, setPreviewModuleStatuses] = useState<PreviewModuleStatusMap>({});
+  const [pendingPaymentSubject, setPendingPaymentSubject] = useState<string | null>(null);
+  const previewActiveDeltaRef = useRef(0);
+  const previewSyncBusyRef    = useRef(false);
   const { toast }    = useToast();
+
+  const PENDING_PAYMENT_SUBJECT_KEY = 'pending_payment_subject';
+
+  const tabToModule = useCallback((tab: TabType): PreviewModule | null => {
+    if (tab === 'questions') return 'questions';
+    if (tab === 'tests') return 'tests';
+    if (tab === 'tasks') return 'tasks';
+    return null;
+  }, []);
 
   const triggerAccessWelcomeIfPending = useCallback(() => {
     if (localStorage.getItem(PREVIEW_AWAITING_CONFIRM_KEY) === '1') {
@@ -247,6 +265,21 @@ export default function Home() {
     setPaymentGrantedSubjects(
       Array.isArray(d?.paymentGrantedSubjects) ? d.paymentGrantedSubjects : [],
     );
+    if (d?.previewModuleStatuses && typeof d.previewModuleStatuses === 'object') {
+      setPreviewModuleStatuses(d.previewModuleStatuses as PreviewModuleStatusMap);
+    } else if (ps !== 'expired' && ps !== 'active' && !d?.receiptClaimedAt) {
+      setPreviewModuleStatuses({});
+    }
+
+    if (pendingSubjectEarly && (ps === 'expired' || ps === 'active' || d?.receiptClaimedAt)) {
+      const psid = String(pendingSubjectEarly);
+      localStorage.setItem(PENDING_PAYMENT_SUBJECT_KEY, psid);
+      setPendingPaymentSubject(psid);
+    }
+    if (d?.previewConfirmedAt || d?.previewStatus === 'confirmed') {
+      localStorage.removeItem(PENDING_PAYMENT_SUBJECT_KEY);
+      setPendingPaymentSubject(null);
+    }
 
     if (Array.isArray(d?.subjectCatalog)) setSubjectCatalog(d.subjectCatalog);
     if (Array.isArray(d?.catalogGrantedSubjects)) {
@@ -503,6 +536,8 @@ export default function Home() {
   useEffect(() => {
     const saved = localStorage.getItem('last_subject');
     if (saved) setSubjectRaw(saved);
+    const pending = localStorage.getItem(PENDING_PAYMENT_SUBJECT_KEY);
+    if (pending) setPendingPaymentSubject(pending);
   }, []);
 
   // ── Авторизация ───────────────────────────────────────────────────────────
@@ -524,49 +559,64 @@ export default function Home() {
     setIsLoading(false);
   }, []);
 
-  // ── Таймер сессии витрины (без отображения пользователю) ─────────────────
+  // ── Активный таймер пробы: тикает только в выбранных разделах при видимой вкладке ──
+  const syncPreviewActive = useCallback(async (force = false) => {
+    const delta = previewActiveDeltaRef.current;
+    if (!force && delta < 500) return;
+    if (previewSyncBusyRef.current) return;
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId || !initDat) return;
+    previewSyncBusyRef.current = true;
+    previewActiveDeltaRef.current = 0;
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: tgId,
+          mode: 'sync_preview_active',
+          deltaMs: delta,
+          initData: initDat,
+        }),
+      });
+      const d = await res.json();
+      if (res.ok) applyAccessPayload(d);
+    } catch { /* повторим позже */ }
+    finally { previewSyncBusyRef.current = false; }
+  }, [applyAccessPayload]);
+
   useEffect(() => {
     if (!isAuthenticated || previewStatus !== 'active') return;
-    const tgId = localStorage.getItem('user_tg_id');
-    const endIso = resolvePreviewEndIso(previewEndsAt, previewStartedAt, tgId);
-    if (!endIso) return;
+    const chosen = normalizePreviewModules(previewModules);
+    if (chosen.length === 0) return;
 
-    const tick = () => {
-      if (Date.now() >= Date.parse(endIso)) {
-        setPreviewStatus('expired');
-        localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
-        localStorage.removeItem('preview_end');
-        localStorage.removeItem('preview_start');
-        if (previewChosen) {
-          setSubjectRaw(previewChosen);
-          localStorage.setItem('last_subject', previewChosen);
-        }
-        fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            telegramId: localStorage.getItem('user_tg_id'),
-            mode: 'check_subjects',
-            initData: (window as any).Telegram?.WebApp?.initData || '',
-          }),
-        })
-          .then(r => r.json())
-          .then(d => applyAccessPayload(d))
-          .catch(() => {});
-        return true;
-      }
-      return false;
+    let last = Date.now();
+    const isActiveNow = () => {
+      if (typeof document !== 'undefined' && document.hidden) return false;
+      const mod = tabToModule(activeTab);
+      return mod != null && chosen.includes(mod);
     };
 
-    if (tick()) return;
-    const iv = setInterval(() => { if (tick()) clearInterval(iv); }, 1000);
-    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    const iv = setInterval(() => {
+      const now = Date.now();
+      if (isActiveNow()) {
+        previewActiveDeltaRef.current += now - last;
+      }
+      last = now;
+      if (previewActiveDeltaRef.current >= 5000) void syncPreviewActive();
+    }, 1000);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'hidden') void syncPreviewActive(true);
+    };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       clearInterval(iv);
       document.removeEventListener('visibilitychange', onVisible);
+      void syncPreviewActive(true);
     };
-  }, [isAuthenticated, previewStatus, previewEndsAt, previewStartedAt, previewChosen, applyAccessPayload, setSubjectRaw]);
+  }, [isAuthenticated, previewStatus, previewModules, activeTab, tabToModule, syncPreviewActive]);
 
   // Опрос: админ подтвердил до конца пробы — сразу приветствие и доступ (вкладка видима)
   useEffect(() => {
@@ -716,72 +766,11 @@ export default function Home() {
     }
   }, [applyAccessPayload, toast]);
 
-  const handlePaymentSubjectChange = useCallback(async (subjectId: string) => {
-    const tgId    = localStorage.getItem('user_tg_id');
-    const initDat = (window as any).Telegram?.WebApp?.initData || '';
-    if (!tgId) return;
-    setSavingPaymentModules(true);
-    setPreviewStatusMessage('');
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          telegramId: tgId,
-          mode: 'update_preview_payment_subject',
-          subjectId,
-          initData: initDat,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setPreviewStatusMessage(data.error || 'Не удалось сменить предмет.');
-        return;
-      }
-      applyAccessPayload(data);
-    } catch {
-      setPreviewStatusMessage('Ошибка соединения. Попробуй ещё раз.');
-    } finally {
-      setSavingPaymentModules(false);
-    }
-  }, [applyAccessPayload]);
-
-  const handleUpdatePreviewPaymentModules = useCallback(async (modules: PreviewModule[]) => {
-    const tgId    = localStorage.getItem('user_tg_id');
-    const initDat = (window as any).Telegram?.WebApp?.initData || '';
-    if (!tgId) return;
-    setSavingPaymentModules(true);
-    setPreviewStatusMessage('');
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          telegramId: tgId,
-          mode: 'update_preview_payment_choice',
-          modules,
-          initData: initDat,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setPreviewStatusMessage(data.error || 'Не удалось сохранить выбор.');
-        return;
-      }
-      applyAccessPayload(data);
-    } catch {
-      setPreviewStatusMessage('Ошибка соединения. Попробуй ещё раз.');
-    } finally {
-      setSavingPaymentModules(false);
-    }
-  }, [applyAccessPayload]);
-
   const handleClaimReceipt = useCallback(async (modules: PreviewModule[]) => {
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
     if (!tgId || modules.length === 0) return;
     setStatusChecking(true);
-    setPreviewStatusMessage('');
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
@@ -795,7 +784,11 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setPreviewStatusMessage(data.error || 'Не удалось сохранить. Попробуй ещё раз.');
+        toast({
+          variant: 'destructive',
+          title: 'Ошибка',
+          description: data.error || 'Не удалось сохранить. Попробуй ещё раз.',
+        });
         return;
       }
       localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
@@ -806,62 +799,34 @@ export default function Home() {
         setSubjectRaw(grantedSubject);
         localStorage.setItem('last_subject', grantedSubject);
         localStorage.setItem('subject_chosen', 'true');
+        localStorage.setItem(PENDING_PAYMENT_SUBJECT_KEY, grantedSubject);
       }
       const entryTab = firstPreviewModuleTab(modules);
       if (entryTab) setActiveTab(entryTab);
       previewPollGen.current += 1;
       setAccessChecked(true);
-      localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
-      toast({ title: 'Доступ открыт' });
+      if (data.accessGranted === true || data.previewConfirmedAt) {
+        localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
+        toast({ title: 'Доступ открыт' });
+      } else {
+        toast({ title: 'Чек отправлен', description: 'Ждём подтверждения по разделам' });
+      }
     } catch {
-      setPreviewStatusMessage('Ошибка соединения. Проверь интернет и попробуй снова.');
+      toast({
+        variant: 'destructive',
+        title: 'Ошибка',
+        description: 'Проблемы с соединением. Проверь интернет и попробуй снова.',
+      });
     } finally {
       setStatusChecking(false);
     }
   }, [applyAccessPayload, previewChosen, toast]);
-
-  const handleCheckPreviewStatus = useCallback(async () => {
-    const tgId    = localStorage.getItem('user_tg_id');
-    const initDat = (window as any).Telegram?.WebApp?.initData || '';
-    if (!tgId) return;
-    setStatusChecking(true);
-    setPreviewStatusMessage('');
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telegramId: tgId, mode: 'check_preview_status', initData: initDat }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setPreviewStatusMessage(data.error || 'Не удалось проверить статус. Попробуй ещё раз.');
-        return;
-      }
-      const confirmed = data.previewStatus === 'confirmed'
-        || (data.previewConfirmedAt && !data.previewStatus);
-      if (confirmed) {
-        localStorage.setItem('is_authed', 'true');
-        setPreviewStatusMessage('');
-        applyAccessPayload(data);
-        return;
-      }
-      applyAccessPayload(data);
-      setPreviewStatusMessage(
-        'Администратор пока не открыл доступ к этому предмету. Напиши в Telegram — подтвердим вручную.',
-      );
-    } catch {
-      setPreviewStatusMessage('Ошибка соединения. Проверь интернет и попробуй снова.');
-    } finally {
-      setStatusChecking(false);
-    }
-  }, [applyAccessPayload]);
 
   const handleAbandonPendingPreview = useCallback(async (switchTo?: string) => {
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
     if (!tgId) return false;
     setAbandonPreviewBusy(true);
-    setPreviewStatusMessage('');
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
@@ -874,7 +839,11 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setPreviewStatusMessage(data.error || 'Не удалось вернуться к купленному.');
+        toast({
+          variant: 'destructive',
+          title: 'Ошибка',
+          description: data.error || 'Не удалось вернуться к купленному.',
+        });
         return false;
       }
       localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
@@ -895,12 +864,16 @@ export default function Home() {
       }
       return true;
     } catch {
-      setPreviewStatusMessage('Ошибка соединения. Попробуй ещё раз.');
+      toast({
+        variant: 'destructive',
+        title: 'Ошибка',
+        description: 'Проблемы с соединением. Попробуй ещё раз.',
+      });
       return false;
     } finally {
       setAbandonPreviewBusy(false);
     }
-  }, [applyAccessPayload, previewChosen, setSubjectRaw]);
+  }, [applyAccessPayload, previewChosen, setSubjectRaw, toast]);
 
   const handleReturnToPurchased = useCallback(async () => {
     const ok = await handleAbandonPendingPreview();
@@ -921,13 +894,90 @@ export default function Home() {
       }
       return;
     }
-    setPreviewStatusMessage('');
     setSubject(next);
     localStorage.setItem('last_subject', next);
   }, [availableSubjects, previewChosen, canAbandonPending, handleAbandonPendingPreview, setSubject, toast]);
 
+  const handleSubjectChangeWithPending = useCallback((s: string) => {
+    setSubjectRaw(s);
+    localStorage.setItem('last_subject', s);
+    localStorage.setItem('subject_chosen', 'true');
+    if (pendingPaymentSubject && s === pendingPaymentSubject && previewChosen === s) {
+      const unpaid = modulesAwaitingPayment(previewModuleStatuses);
+      const tabs = unpaid.length > 0 ? unpaid : normalizePreviewModules(previewModules);
+      const first = firstPreviewModuleTab(tabs);
+      if (first) setActiveTab(first);
+    }
+  }, [pendingPaymentSubject, previewChosen, previewModuleStatuses, previewModules, setSubjectRaw]);
+
+  const chosenPreviewModules = useMemo(
+    () => normalizePreviewModules(previewModules),
+    [previewModules],
+  );
+
+  const resolveModuleStatus = useCallback((mod: PreviewModule): PreviewModuleStatus | undefined => {
+    const st = previewModuleStatuses[mod];
+    if (st) return st;
+    if (!previewChosen || !chosenPreviewModules.includes(mod)) return undefined;
+    if (previewStatus === 'expired') return 'awaiting_payment';
+    if (receiptClaimedAt && !previewConfirmedAt) return 'receipt_pending';
+    return undefined;
+  }, [
+    previewModuleStatuses, previewChosen, chosenPreviewModules,
+    previewStatus, receiptClaimedAt, previewConfirmedAt,
+  ]);
+
+  const paymentExitProps = useMemo(() => ({
+    onBackToPurchased: canReturnToPurchased ? handleReturnToPurchased : undefined,
+    onBackToAvailable: (canAbandonPending || availableSubjects.some(s => s !== previewChosen))
+      ? handleBackFromPendingPreview
+      : undefined,
+    backBusy: abandonPreviewBusy,
+  }), [
+    canReturnToPurchased, handleReturnToPurchased, canAbandonPending,
+    availableSubjects, previewChosen, handleBackFromPendingPreview, abandonPreviewBusy,
+  ]);
+
+  const renderModuleTab = useCallback((tab: TabType, content: React.ReactNode) => {
+    if (!previewChosen || subject !== previewChosen) return content;
+    const mod = tabToModule(tab);
+    if (!mod || !chosenPreviewModules.includes(mod)) return content;
+
+    const st = resolveModuleStatus(mod);
+    if (st === 'receipt_pending') {
+      return (
+        <PreviewPaymentTabPanel
+          subjectId={previewChosen}
+          module={mod}
+          status="receipt_pending"
+          checking={statusChecking}
+        />
+      );
+    }
+    if (st && moduleShowsPaymentEmbed(st)) {
+      return (
+        <PreviewPaymentTabPanel
+          subjectId={previewChosen}
+          module={mod}
+          status={st}
+          checking={statusChecking}
+          onClaimReceipt={handleClaimReceipt}
+          {...paymentExitProps}
+        />
+      );
+    }
+    if (previewStatus === 'active' && (!st || moduleShowsContent(st))) return content;
+    if (st && moduleShowsContent(st)) return content;
+    return content;
+  }, [
+    previewChosen, subject, tabToModule, chosenPreviewModules, resolveModuleStatus,
+    previewStatus, statusChecking, handleClaimReceipt, paymentExitProps,
+  ]);
+
   /** Витрина «Все доступные разработки» — только без незакрытой заявки или после подтверждения админом. */
-  const canBrowseCatalog = previewStatus == null || previewStatus === 'confirmed';
+  const canBrowseCatalog = previewStatus == null
+    || previewStatus === 'confirmed'
+    || (previewStatus === 'expired' && canAbandonPending);
 
   // ── Сброс (6 быстрых тапов) ───────────────────────────────────────────────
   const handleSecretTap = useCallback(() => {
@@ -1008,45 +1058,21 @@ export default function Home() {
     );
   }
 
-  const awaitingPendingSubject =
-    !!previewChosen
-    && (
-      previewStatus === 'expired'
-      || (!!receiptClaimedAt && !previewConfirmedAt)
-    );
+  const statsAvailableSubjects = previewChosen && !availableSubjects.includes(previewChosen)
+    ? [...availableSubjects, previewChosen]
+    : availableSubjects;
 
-  if (awaitingPendingSubject) {
-    return withAccessWelcome(
-      <PreviewAwaitingScreen
-        chosenSubject={previewChosen}
-        chosenModules={previewModules}
-        grantedModules={previewGrantedModules as PreviewModule[]}
-        navHidden={navHidden}
-        paymentGrantedSubjects={paymentGrantedSubjects}
-        onSubjectChange={handlePaymentSubjectChange}
-        receiptClaimed={!!receiptClaimedAt}
-        checking={statusChecking}
-        savingModules={savingPaymentModules}
-        statusMessage={previewStatusMessage}
-        onCheckStatus={handleCheckPreviewStatus}
-        onClaimReceipt={handleClaimReceipt}
-        onModulesChange={handleUpdatePreviewPaymentModules}
-        onBackToPurchased={canReturnToPurchased ? handleReturnToPurchased : undefined}
-        backToPurchasedBusy={abandonPreviewBusy}
-        onBackToAvailable={
-          availableSubjects.some(s => s !== previewChosen)
-            ? handleBackFromPendingPreview
-            : undefined
-        }
-      />,
-    );
-  }
+  const inPendingPaymentFlow = !!previewChosen && (
+    previewStatus === 'expired'
+    || (!!receiptClaimedAt && !previewConfirmedAt)
+  );
 
   if (
     availableSubjects.length === 0
     && previewStatus !== 'active'
+    && previewStatus !== 'expired'
     && !previewConfirmedAt
-    && !awaitingPendingSubject
+    && !inPendingPaymentFlow
   ) {
     return withAccessWelcome(
       <div className="flex items-center justify-center min-h-screen bg-background p-6">
@@ -1098,14 +1124,15 @@ export default function Home() {
   return withAccessWelcome(
     <main className="flex flex-col h-[100dvh] w-full relative overflow-hidden">
       <div className="flex-1 overflow-hidden relative">
-        {activeTab === 'questions' && <QuestionsTab subject={subject} />}
-        {activeTab === 'tests'     && <TestsTab     subject={subject} onTestModeChange={setTestMode} />}
-        {activeTab === 'tasks'     && <TasksTab     subject={subject} onSecretTap={handleSecretTap} />}
+        {activeTab === 'questions' && renderModuleTab('questions', <QuestionsTab subject={subject} />)}
+        {activeTab === 'tests'     && renderModuleTab('tests', <TestsTab subject={subject} onTestModeChange={setTestMode} />)}
+        {activeTab === 'tasks'     && renderModuleTab('tasks', <TasksTab subject={subject} onSecretTap={handleSecretTap} />)}
         {activeTab === 'stats'     && (
           <StatsTab
             subject={subject}
-            onSubjectChange={setSubject}
-            availableSubjects={availableSubjects}
+            onSubjectChange={handleSubjectChangeWithPending}
+            availableSubjects={statsAvailableSubjects}
+            pendingPaymentSubject={pendingPaymentSubject}
             hasMicro={hasMicro}
             onBrowseCatalog={canBrowseCatalog ? handleBrowseCatalog : undefined}
             browseCatalogBusy={catalogBrowseLoading}

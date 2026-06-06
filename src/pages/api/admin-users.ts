@@ -1,7 +1,19 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
 import { SUBJECTS, getSubject, getUserAvailableSubjects, migrateUserSubjects } from '@/lib/subjects';
-import { confirmPreviewUser, getEffectiveUserSubjects, clearPreviewTrialLock, previewChoiceNeedsAdminConfirm, previewChoiceIsAddon, hasFinalizedPreviewAccess, reopenPreviewVitrine } from '@/lib/preview';
+import {
+  confirmPreviewUser,
+  confirmPreviewModule,
+  rejectPreviewModule,
+  getEffectiveUserSubjects,
+  clearPreviewTrialLock,
+  previewChoiceNeedsAdminConfirm,
+  previewChoiceIsAddon,
+  hasFinalizedPreviewAccess,
+  reopenPreviewVitrine,
+  getPendingAdminModules,
+} from '@/lib/preview';
+import type { PreviewModule } from '@/lib/previewModules';
 import { clearAuthRateLimitsForTgId } from '@/lib/authRateLimit';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { getAllUserIds, registerUserId, removeUserId } from '@/lib/userIndex';
@@ -74,6 +86,7 @@ function toListUser(
     previewQuotedPrice:   typeof user.previewQuotedPrice === 'number' ? user.previewQuotedPrice : null,
     receiptClaimedAt:     user.receiptClaimedAt     ?? null,
     previewNeedsConfirm:  previewChoiceNeedsAdminConfirm(user),
+    previewPendingModules: getPendingAdminModules(user),
     previewIsAddon:       previewChoiceIsAddon(user),
     contactUsername:      user.contactUsername      ?? null,
     studyGroup:           user.studyGroup           ?? null,
@@ -118,6 +131,7 @@ function toDetailUser(
     previewQuotedPrice:   typeof user.previewQuotedPrice === 'number' ? user.previewQuotedPrice : null,
     receiptClaimedAt:     user.receiptClaimedAt     ?? null,
     previewNeedsConfirm:  previewChoiceNeedsAdminConfirm(user),
+    previewPendingModules: getPendingAdminModules(user),
     previewIsAddon:       previewChoiceIsAddon(user),
     contactUsername:      user.contactUsername      ?? null,
     studyGroup:           user.studyGroup           ?? null,
@@ -396,6 +410,61 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
 
+      if (action === 'confirm_preview_module') {
+        const mod = String(req.body?.module || '').trim() as PreviewModule;
+        if (!['questions', 'tests', 'tasks'].includes(mod)) {
+          return res.status(400).json({ error: 'Неизвестный раздел.' });
+        }
+        if (!user?.previewChosenSubject) {
+          return res.status(400).json({ error: 'Предмет не выбран' });
+        }
+        const updated = confirmPreviewModule(user, mod);
+        if (!updated) {
+          return res.status(400).json({ error: 'Нельзя подтвердить этот раздел сейчас.' });
+        }
+        await saveUser(String(tgId), updated);
+        return res.status(200).json({
+          ok: true,
+          subjects: getUserAvailableSubjects(updated),
+          navHidden: updated.navHidden ?? {},
+          previewStatus: updated.previewStatus ?? null,
+          previewConfirmedAt: updated.previewConfirmedAt ?? null,
+          previewChosenSubject: updated.previewChosenSubject ?? null,
+          previewChosenModules: updated.previewChosenModules ?? null,
+          previewPendingModules: getPendingAdminModules(updated),
+          previewNeedsConfirm: previewChoiceNeedsAdminConfirm(updated),
+          paid: updated.paid === true,
+        });
+      }
+
+      if (action === 'reject_preview_module') {
+        const mod = String(req.body?.module || '').trim() as PreviewModule;
+        if (!['questions', 'tests', 'tasks'].includes(mod)) {
+          return res.status(400).json({ error: 'Неизвестный раздел.' });
+        }
+        if (!user?.previewChosenSubject) {
+          return res.status(400).json({ error: 'Предмет не выбран' });
+        }
+        const updated = rejectPreviewModule(user, mod);
+        if (!updated) {
+          return res.status(400).json({ error: 'Нельзя отказать по этому разделу сейчас.' });
+        }
+        await saveUser(String(tgId), updated);
+        return res.status(200).json({
+          ok: true,
+          subjects: getUserAvailableSubjects(updated),
+          navHidden: updated.navHidden ?? {},
+          previewStatus: updated.previewStatus ?? null,
+          previewConfirmedAt: updated.previewConfirmedAt ?? null,
+          previewChosenSubject: updated.previewChosenSubject ?? null,
+          previewChosenModules: updated.previewChosenModules ?? null,
+          previewPendingModules: getPendingAdminModules(updated),
+          previewNeedsConfirm: previewChoiceNeedsAdminConfirm(updated),
+          receiptClaimedAt: updated.receiptClaimedAt ?? null,
+          paid: updated.paid === true,
+        });
+      }
+
       if (action === 'confirm_preview') {
         if (!user?.previewChosenSubject) {
           return res.status(400).json({ error: 'Предмет не выбран' });
@@ -407,6 +476,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             navHidden: user.navHidden ?? {},
             previewConfirmedAt: user.previewConfirmedAt ?? null,
           });
+        }
+        const pending = getPendingAdminModules(user);
+        if (pending.length === 1) {
+          const updated = confirmPreviewModule(user, pending[0]);
+          if (updated) {
+            await saveUser(String(tgId), updated);
+            return res.status(200).json({
+              ok: true,
+              subjects: getUserAvailableSubjects(updated),
+              navHidden: updated.navHidden ?? {},
+              previewStatus: updated.previewStatus ?? null,
+              previewConfirmedAt: updated.previewConfirmedAt ?? null,
+              previewChosenSubject: updated.previewChosenSubject ?? null,
+              previewChosenModules: updated.previewChosenModules ?? null,
+              previewPendingModules: getPendingAdminModules(updated),
+              previewNeedsConfirm: previewChoiceNeedsAdminConfirm(updated),
+              paid: updated.paid === true,
+            });
+          }
         }
         const updated = confirmPreviewUser(user);
         if (!updated) {

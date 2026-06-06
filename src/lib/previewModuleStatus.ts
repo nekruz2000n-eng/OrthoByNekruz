@@ -1,0 +1,123 @@
+import { getSubject } from '@/lib/subjects';
+import type { PreviewModule } from '@/lib/previewModules';
+import { normalizePreviewModules } from '@/lib/previewModules';
+
+/** Статус одного раздела в воронке пробы → оплаты → подтверждения. */
+export type PreviewModuleStatus =
+  | 'trial'            // идёт проба (таймер тикает только в этом разделе)
+  | 'awaiting_payment' // проба кончилась — нужна оплата
+  | 'receipt_pending'  // студент нажал «Скинул — войти», ждёт админа
+  | 'confirmed'        // админ подтвердил — полный доступ
+  | 'rejected';        // админ отказал — вкладка видна, внутри оплата
+
+export type PreviewModuleStatusMap = Partial<Record<PreviewModule, PreviewModuleStatus>>;
+
+/** Короткие буквы для админки: bio — Т */
+export const ADMIN_MODULE_LETTER: Record<PreviewModule, string> = {
+  questions: 'В',
+  tests:     'Т',
+  tasks:     'З',
+};
+
+export function formatAdminModuleLabel(subjectId: string, module: PreviewModule): string {
+  const cfg = getSubject(subjectId);
+  const short = cfg?.shortLabel || subjectId;
+  return `${short} — ${ADMIN_MODULE_LETTER[module]}`;
+}
+
+export function initModuleStatuses(
+  modules: PreviewModule[],
+  status: PreviewModuleStatus = 'trial',
+): PreviewModuleStatusMap {
+  const map: PreviewModuleStatusMap = {};
+  for (const m of modules) map[m] = status;
+  return map;
+}
+
+export function getChosenModulesFromStatuses(
+  map: PreviewModuleStatusMap | null | undefined,
+): PreviewModule[] {
+  if (!map || typeof map !== 'object') return [];
+  return (['questions', 'tests', 'tasks'] as PreviewModule[]).filter(m => map[m] != null);
+}
+
+export function modulesNeedingAdminAction(
+  map: PreviewModuleStatusMap | null | undefined,
+): PreviewModule[] {
+  if (!map) return [];
+  return (['questions', 'tests', 'tasks'] as PreviewModule[]).filter(
+    m => map[m] === 'receipt_pending' || map[m] === 'trial',
+  );
+}
+
+export function modulesAwaitingPayment(
+  map: PreviewModuleStatusMap | null | undefined,
+): PreviewModule[] {
+  if (!map) return [];
+  return (['questions', 'tests', 'tasks'] as PreviewModule[]).filter(
+    m => map[m] === 'awaiting_payment' || map[m] === 'rejected',
+  );
+}
+
+export function allModulesConfirmed(
+  chosen: PreviewModule[],
+  map: PreviewModuleStatusMap | null | undefined,
+): boolean {
+  if (chosen.length === 0) return false;
+  return chosen.every(m => map?.[m] === 'confirmed');
+}
+
+export function syncModuleStatusesOnPick(
+  chosen: PreviewModule[],
+  existing?: PreviewModuleStatusMap | null,
+): PreviewModuleStatusMap {
+  const map: PreviewModuleStatusMap = {};
+  for (const m of chosen) {
+    map[m] = existing?.[m] === 'confirmed' ? 'confirmed' : 'trial';
+  }
+  return map;
+}
+
+export function setAllModuleStatuses(
+  chosen: PreviewModule[],
+  status: PreviewModuleStatus,
+  existing?: PreviewModuleStatusMap | null,
+): PreviewModuleStatusMap {
+  const map: PreviewModuleStatusMap = { ...(existing || {}) };
+  for (const m of chosen) {
+    if (map[m] !== 'confirmed') map[m] = status;
+  }
+  return map;
+}
+
+export function ensureModuleStatusMap(
+  user: any,
+  subjectId?: string,
+): PreviewModuleStatusMap {
+  const existing = user?.previewModuleStatuses;
+  if (existing && typeof existing === 'object' && Object.keys(existing).length > 0) {
+    return existing as PreviewModuleStatusMap;
+  }
+  const chosen = normalizePreviewModules(user?.previewChosenModules);
+  const subject = subjectId || user?.previewChosenSubject;
+  if (chosen.length === 0 || !subject) return {};
+
+  let defaultStatus: PreviewModuleStatus = 'awaiting_payment';
+  if (user?.previewStatus === 'active') defaultStatus = 'trial';
+  else if (user?.receiptClaimedAt) {
+    defaultStatus = 'receipt_pending';
+  }
+  return initModuleStatuses(chosen, defaultStatus);
+}
+
+export function moduleShowsPaymentEmbed(
+  status: PreviewModuleStatus | undefined,
+): boolean {
+  return status === 'awaiting_payment' || status === 'rejected';
+}
+
+export function moduleShowsContent(
+  status: PreviewModuleStatus | undefined,
+): boolean {
+  return status === 'trial' || status === 'confirmed';
+}

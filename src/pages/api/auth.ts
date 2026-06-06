@@ -31,7 +31,11 @@ import {
   claimPreviewReceipt,
   updatePreviewPaymentChoice,
   normalizePreviewModules,
+  syncPreviewActiveMs,
+  getPreviewActiveMsConsumed,
+  previewRemainingMs,
 } from '@/lib/preview';
+import { ensureModuleStatusMap } from '@/lib/previewModuleStatus';
 import { resolveFacultyPromoCode, facultyFieldsFromUser, getFacultyPromoById } from '@/lib/facultyCodes';
 import { normalizeStudyGroup, buildStudyGroupFromDigits } from '@/lib/studyGroup';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
@@ -321,6 +325,9 @@ function previewPayload(
     canAbandonPendingPreview: canAbandonPendingPreview(user),
     previewGrantedModules: getPreviewPaymentGrantedModules(user),
     paymentGrantedSubjects: getPaymentGrantedSubjects(user),
+    previewModuleStatuses: ensureModuleStatusMap(user),
+    previewActiveMsConsumed: getPreviewActiveMsConsumed(user),
+    previewRemainingMs: previewRemainingMs(user, tgId),
     ...facultyFieldsFromUser(user),
   };
 }
@@ -543,6 +550,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    if (mode === 'sync_preview_active') {
+      if (!user || user.previewStatus !== 'active') {
+        return res.status(200).json({ success: true, ...(await subjectsResponse(user, tgIdStr)) });
+      }
+      const deltaMs = Number(req.body?.deltaMs);
+      let updated = syncPreviewActiveMs(user, deltaMs, tgIdStr);
+      updated = await maybeExpirePreviewUser(redis, tgIdStr, updated);
+      if (updated !== user) {
+        await saveUser(tgIdStr, updated);
+      }
+      return res.status(200).json({
+        success: true,
+        previewActiveMsConsumed: getPreviewActiveMsConsumed(updated),
+        previewRemainingMs: previewRemainingMs(updated, tgIdStr),
+        ...(await subjectsResponse(updated, tgIdStr)),
+      });
+    }
+
     if (mode === 'abandon_pending_preview') {
       if (!user?.previewChosenSubject) {
         return res.status(400).json({ error: 'Нет незавершённой заявки.' });
@@ -628,13 +653,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const withChoice = updatePreviewPaymentChoice(user, chosenModules);
         if (withChoice) user = withChoice;
       }
-      const updated = claimPreviewReceipt(user);
+      const claimModules = normalizePreviewModules(modules);
+      const updated = claimPreviewReceipt(user, claimModules.length > 0 ? claimModules : undefined);
       if (!updated) return res.status(400).json({ error: 'Не удалось сохранить.' });
       await saveUser(tgIdStr, updated);
       return res.status(200).json({
         success: true,
         receiptClaimed: true,
-        accessGranted: true,
+        awaitingAdmin: true,
+        accessGranted: hasFinalizedPreviewAccess(updated),
         ...(await subjectsResponse(updated, tgIdStr)),
       });
     }
