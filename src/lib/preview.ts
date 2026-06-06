@@ -158,15 +158,38 @@ export function previewChoiceNeedsAdminConfirm(user: any): boolean {
   return true;
 }
 
+/** Докупка: предмет или разделы уже были до текущей заявки. */
+export function isAddonPreviewPurchase(
+  user: any,
+  subjectId: string,
+  before: Record<string, boolean> | null,
+  options?: { catalogAddon?: boolean },
+): boolean {
+  if (options?.catalogAddon === true && userAlreadyHasSubjectAccess(user, subjectId)) {
+    return true;
+  }
+  if (!before) return false;
+  if (before[subjectId] === true) return true;
+  return Object.entries(before).some(([id, v]) => v === true && id !== subjectId);
+}
+
 /** У пользователя уже были другие предметы — заявка на докупку. */
 export function previewChoiceIsAddon(user: any): boolean {
-  if (!previewChoiceNeedsAdminConfirm(user)) return false;
-  const chosen = user.previewChosenSubject;
-  const grants = user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object'
-    ? user._subjectsBeforePreview
-    : user.subjects && typeof user.subjects === 'object'
-      ? user.subjects
-      : null;
+  const chosen = user?.previewChosenSubject;
+  if (!chosen) return false;
+  const inFlow = user.previewStatus === 'active'
+    || user.previewStatus === 'expired'
+    || !!user.receiptClaimedAt;
+  if (!inFlow) return false;
+
+  const before = user._subjectsBeforePreview;
+  if (before && typeof before === 'object') {
+    if (before[chosen] === true) return true;
+    return Object.entries(before).some(([id, v]) => v === true && id !== chosen);
+  }
+  if (user._previewSnapshotBeforeAddon) return true;
+
+  const grants = user.subjects && typeof user.subjects === 'object' ? user.subjects : null;
   if (grants) {
     return Object.entries(grants).some(([id, v]) => v === true && id !== chosen);
   }
@@ -296,9 +319,10 @@ export function buildActivePreviewUser(
   subjects[subjectId] = true;
   const now = new Date().toISOString();
   const granted = getCatalogGrantedSubjects(user);
-  const isAddon = options?.catalogAddon === true
+  const isCatalogAddon = options?.catalogAddon === true
     && userAlreadyHasSubjectAccess(user, subjectId);
-  const hiddenTabs = isAddon
+  const isAddonPurchase = isAddonPreviewPurchase(user, subjectId, before, options);
+  const hiddenTabs = isCatalogAddon
     ? buildNavHiddenForCatalogAddonPreview(
       subjectId,
       chosenModules,
@@ -307,11 +331,14 @@ export function buildActivePreviewUser(
     )
     : buildNavHiddenForPreview(subjectId, chosenModules);
   const navHidden = { ...(user.navHidden || {}), [subjectId]: hiddenTabs };
-  const navHiddenBeforePreview = isAddon
+  const navHiddenBeforePreview = isCatalogAddon
     ? { ...(user.navHidden || {}) }
     : user._navHiddenBeforePreview;
-  const snapshotBeforeAddon = isAddon
-    ? { previewConfirmedAt: user.previewConfirmedAt ?? null }
+  const snapshotBeforeAddon = isAddonPurchase
+    ? {
+      previewConfirmedAt: user.previewConfirmedAt ?? null,
+      paid:               user.paid === true,
+    }
     : user._previewSnapshotBeforeAddon;
 
   return {
@@ -325,6 +352,7 @@ export function buildActivePreviewUser(
     previewConfirmedAt:       null,
     previewExpiredAt:         null,
     receiptClaimedAt:         null,
+    ...(isAddonPurchase ? { paid: false } : {}),
     subjects,
     navHidden,
     _subjectsBeforePreview: before,
@@ -390,6 +418,11 @@ export function abandonPendingCatalogAddon(user: any) {
     updated.previewConfirmedAt = snap.previewConfirmedAt;
   } else {
     delete updated.previewConfirmedAt;
+  }
+  if (snap?.paid === true) {
+    updated.paid = true;
+  } else {
+    delete updated.paid;
   }
   delete updated.previewStatus;
   delete updated._catalogBrowse;
