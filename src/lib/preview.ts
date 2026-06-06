@@ -96,6 +96,12 @@ export function getPreviewDurationMs(_tgId?: string | null): number {
   return PREVIEW_DURATION_MS;
 }
 
+/** Реальное «стенное» окно пробы: 10 мин для всех, ~10 сек для тестового TG (×60). */
+export function getPreviewRealWindowMs(tgId?: string | null): number {
+  const mult = getPreviewActiveTimeMultiplier(tgId);
+  return Math.round(getPreviewDurationMs(tgId) / mult);
+}
+
 /** 1 для обычных пользователей; 60 для тестового TG (1 сек = 1 мин). */
 export function getPreviewActiveTimeMultiplier(tgId?: string | null): number {
   return isPreviewShortDurationAccount(tgId) ? PREVIEW_TEST_ACTIVE_TIME_MULTIPLIER : 1;
@@ -312,8 +318,7 @@ export function previewEndsAt(user: any, tgId?: string | null): string | null {
   if (anyActiveMs || getPreviewActiveMsConsumed(user) > 0) {
     return new Date(Date.now() + remaining).toISOString();
   }
-  const realWindowMs = getPreviewDurationMs(tgId) / getPreviewActiveTimeMultiplier(tgId);
-  return new Date(Date.parse(user.previewStartedAt) + realWindowMs).toISOString();
+  return new Date(Date.parse(user.previewStartedAt) + getPreviewRealWindowMs(tgId)).toISOString();
 }
 
 function finalizePreviewExpiry(user: any): any {

@@ -18,8 +18,9 @@ import { useToast }      from '@/hooks/use-toast';
 import { getDefaultSubjectId } from '@/lib/subjects';
 import { bustSubjectModuleCache } from '@/lib/subjectData';
 import {
-  getPreviewDurationMs,
+  getPreviewRealWindowMs,
   getPreviewSyncIntervalMs,
+  isPreviewShortDurationAccount,
   type PreviewActiveMsMap,
   type PreviewStatus,
 } from '@/lib/preview';
@@ -143,15 +144,22 @@ function clearLocalSession() {
   AUTH_STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
 }
 
+function getTgId(): string | null {
+  const fromLs = localStorage.getItem('user_tg_id');
+  if (fromLs) return fromLs.trim();
+  const fromTg = (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id;
+  return fromTg != null ? String(fromTg).trim() : null;
+}
+
 function resolvePreviewEndIso(
   endsAt: string | null,
   startedAt: string | null,
   tgId: string | null,
 ): string | null {
-  const id = tgId || localStorage.getItem('user_tg_id');
+  const id = tgId || getTgId();
   const started = startedAt || localStorage.getItem('preview_start');
   if (started && id) {
-    const fromStart = Date.parse(started) + getPreviewDurationMs(id);
+    const fromStart = Date.parse(started) + getPreviewRealWindowMs(id);
     if (endsAt) {
       return new Date(Math.min(Date.parse(endsAt), fromStart)).toISOString();
     }
@@ -326,8 +334,7 @@ export default function Home() {
     if (d?.facultyId) persistFacultyId(String(d.facultyId));
 
     if (ps === 'active') {
-      const tgId = localStorage.getItem('user_tg_id');
-      const endIso = resolvePreviewEndIso(d?.previewEndsAt ?? null, d?.previewStartedAt ?? null, tgId);
+      const endIso = resolvePreviewEndIso(d?.previewEndsAt ?? null, d?.previewStartedAt ?? null, getTgId());
       if (endIso) localStorage.setItem('preview_end', endIso);
       else localStorage.removeItem('preview_end');
       if (d?.previewStartedAt) localStorage.setItem('preview_start', d.previewStartedAt);
@@ -593,15 +600,16 @@ export default function Home() {
     setIsLoading(false);
   }, []);
 
-  // ── Активный таймер пробы: sync с API раз в минуту, у каждого раздела своё значение ──
+  // ── Активный таймер пробы: sync с API (тест — каждую сек, остальные — раз в минуту) ──
   const syncPreviewActive = useCallback(async (force = false) => {
     const delta = previewActiveDeltaRef.current;
-    const tgId    = localStorage.getItem('user_tg_id');
+    const tgId = getTgId();
     const syncIntervalMs = getPreviewSyncIntervalMs(tgId);
     if (!force && delta < syncIntervalMs) return;
     if (previewSyncBusyRef.current) return;
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
-    if (!tgId || !initDat) return;
+    const testAccount = isPreviewShortDurationAccount(tgId);
+    if (!tgId || (!initDat && !testAccount)) return;
     const activeModule = tabToModule(activeTab);
     previewSyncBusyRef.current = true;
     previewActiveDeltaRef.current = 0;
@@ -628,12 +636,13 @@ export default function Home() {
     const chosen = normalizePreviewModules(previewModules);
     if (chosen.length === 0) return;
 
-    const tgId = localStorage.getItem('user_tg_id');
+    const tgId = getTgId();
     const syncIntervalMs = getPreviewSyncIntervalMs(tgId);
+    const testAccount = isPreviewShortDurationAccount(tgId);
 
     let last = Date.now();
     const isActiveNow = () => {
-      if (typeof document !== 'undefined' && document.hidden) return false;
+      if (!testAccount && typeof document !== 'undefined' && document.hidden) return false;
       const mod = tabToModule(activeTab);
       return mod != null && chosen.includes(mod);
     };
@@ -652,6 +661,7 @@ export default function Home() {
 
     const onVisible = () => {
       if (document.visibilityState === 'hidden') void syncPreviewActive(true);
+      else last = Date.now();
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => {

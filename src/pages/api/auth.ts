@@ -378,7 +378,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (!initData) {
     const inWL = await redis.sismember('sub_whitelist', tgIdStr);
-    if (!inWL) {
+    if (!inWL && !isPreviewShortDurationAccount(tgIdStr)) {
       return res.status(403).json({ error: 'Открой приложение через бота в Telegram.', noInitData: true });
     }
     skipSubscriptionCheck = true;
