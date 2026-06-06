@@ -4,7 +4,11 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { FacultyIcon } from '@/components/FacultyIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
-import { isCatalogModuleAlreadyGranted } from '@/lib/catalogBrowse';
+import {
+  countPickableCatalogModules,
+  isCatalogModuleAlreadyGranted,
+  isSubjectFullyOwnedInCatalog,
+} from '@/lib/catalogBrowse';
 import type { PreviewModule } from '@/lib/previewModules';
 import { PREVIEW_MODULE_LABELS } from '@/lib/previewModules';
 import { Loader2, Check } from 'lucide-react';
@@ -45,8 +49,14 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
 
   const isCatalogBrowse = catalogGrantedSubjects.length > 0;
 
-  const isSubjectAlreadyOwned = (subjectId: string) =>
-    isCatalogBrowse && catalogGrantedSubjects.includes(subjectId);
+  const isSubjectFullyOwned = (subjectId: string, item: SubjectCatalogEntry) =>
+    isCatalogBrowse
+    && isSubjectFullyOwnedInCatalog(subjectId, item.modules, catalogGrantedSubjects, navHidden);
+
+  const hasPartialAccess = (subjectId: string, item: SubjectCatalogEntry) =>
+    isCatalogBrowse
+    && catalogGrantedSubjects.includes(subjectId)
+    && !isSubjectFullyOwned(subjectId, item);
 
   const pickableModules = useMemo(
     () => selectedEntry?.modules.filter(m => m.available && !isModuleGranted(selectedEntry.id, m.id)) ?? [],
@@ -59,8 +69,8 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
     }
   }, [step, pickableModules]);
 
-  const openSubject = (id: string) => {
-    if (isSubjectAlreadyOwned(id)) return;
+  const openSubject = (id: string, item: SubjectCatalogEntry) => {
+    if (isSubjectFullyOwned(id, item)) return;
     setSelectedId(id);
     setSelectedModules([]);
     setStep('modules');
@@ -107,7 +117,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
         <p className="text-sm leading-relaxed max-w-xs" style={{ color: 'var(--c-muted)' }}>
           {step === 'subject'
             ? (isCatalogBrowse
-              ? 'Выбери другой предмет — уже купленные отмечены'
+              ? 'Можно докупить разделы — полностью купленные предметы отмечены'
               : 'Посмотри все предметы и разделы — для пробы отметь только то, что нужно')
             : (isCatalogBrowse
               ? 'Отметь разделы для докупки — админ увидит заявку'
@@ -143,25 +153,30 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
               {subjectCatalog.map((item, i) => {
                 const readyCount = item.modules.filter(m => m.available).length;
                 const inDev = readyCount === 0;
-                const alreadyOwned = isSubjectAlreadyOwned(item.id);
+                const fullyOwned = isSubjectFullyOwned(item.id, item);
+                const partialAccess = hasPartialAccess(item.id, item);
+                const pickableCount = countPickableCatalogModules(
+                  item.id, item.modules, catalogGrantedSubjects, navHidden,
+                );
                 return (
                   <motion.button
                     key={item.id}
                     type="button"
-                    disabled={alreadyOwned}
+                    disabled={fullyOwned}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: Math.min(0.04 * i, 0.35) }}
-                    onClick={() => openSubject(item.id)}
+                    onClick={() => openSubject(item.id, item)}
                     className="flex items-center gap-3 rounded-[20px] p-4 transition-all duration-200 text-left"
                     style={{
-                      opacity: alreadyOwned ? 0.62 : inDev ? 0.55 : 1,
+                      opacity: fullyOwned ? 0.62 : inDev ? 0.55 : 1,
                       background: 'var(--c-card)',
                       border: `1.5px solid ${
-                        alreadyOwned ? 'rgba(52, 211, 153, 0.35)'
+                        fullyOwned ? 'rgba(52, 211, 153, 0.35)'
+                          : partialAccess ? 'rgba(52, 211, 153, 0.28)'
                           : inDev ? 'var(--c-border)' : item.borderColor
                       }`,
-                      cursor: alreadyOwned ? 'not-allowed' : 'pointer',
+                      cursor: fullyOwned ? 'not-allowed' : 'pointer',
                     }}
                   >
                     <div className="flex-1 min-w-0">
@@ -172,8 +187,10 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
                         {item.label}
                       </div>
                       <div className="text-[11px]" style={{ color: 'var(--c-muted)' }}>
-                        {alreadyOwned
-                          ? 'Уже куплен — выбери другой предмет'
+                        {fullyOwned
+                          ? 'Все разделы куплены'
+                          : partialAccess
+                            ? `Докупить разделы · доступно ${pickableCount}`
                           : inDev
                             ? 'В разработке · можно посмотреть разделы'
                             : `${readyCount} из ${item.modules.length} разделов готовы`}
@@ -248,7 +265,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
                             background: alreadyYours ? 'rgba(52, 211, 153, 0.15)' : 'var(--c-border)',
                             color: alreadyYours ? 'rgb(52, 211, 153)' : 'var(--c-muted)',
                           }}>
-                          {alreadyYours ? 'тебе доступно' : 'в разработке'}
+                          {alreadyYours ? 'Уже куплен' : 'в разработке'}
                         </span>
                       )}
                     </div>

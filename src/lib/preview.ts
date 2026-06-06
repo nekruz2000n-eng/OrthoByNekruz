@@ -5,6 +5,11 @@ import {
   type PreviewModule,
   normalizePreviewModules,
 } from '@/lib/previewModules';
+import {
+  buildNavHiddenForCatalogAddonPreview,
+  getCatalogGrantedSubjects,
+  mergeGrantedModulesOnConfirm,
+} from '@/lib/catalogBrowse';
 import { calcPreviewPriceRub } from '@/lib/previewPricing';
 
 export type { PreviewModule } from '@/lib/previewModules';
@@ -283,13 +288,27 @@ export function buildActivePreviewUser(
   user: any,
   subjectId: string,
   chosenModules: PreviewModule[],
+  options?: { catalogAddon?: boolean },
 ) {
   const before = snapshotSubjects(user);
   const subjects = before ? { ...before } : createDefaultSubjects();
   subjects[subjectId] = true;
   const now = new Date().toISOString();
-  const hiddenTabs = buildNavHiddenForPreview(subjectId, chosenModules);
+  const granted = getCatalogGrantedSubjects(user);
+  const isAddon = options?.catalogAddon === true
+    && userAlreadyHasSubjectAccess(user, subjectId);
+  const hiddenTabs = isAddon
+    ? buildNavHiddenForCatalogAddonPreview(
+      subjectId,
+      chosenModules,
+      granted,
+      user.navHidden || {},
+    )
+    : buildNavHiddenForPreview(subjectId, chosenModules);
   const navHidden = { ...(user.navHidden || {}), [subjectId]: hiddenTabs };
+  const navHiddenBeforePreview = isAddon
+    ? { ...(user.navHidden || {}) }
+    : user._navHiddenBeforePreview;
 
   return {
     ...user,
@@ -303,6 +322,7 @@ export function buildActivePreviewUser(
     subjects,
     navHidden,
     _subjectsBeforePreview: before,
+    _navHiddenBeforePreview: navHiddenBeforePreview,
     _migrated_subjects:     true,
   };
 }
@@ -352,7 +372,15 @@ export function updatePreviewPaymentChoice(user: any, modules: PreviewModule[]) 
   const chosen = normalizePreviewModules(modules);
   if (chosen.length === 0) return null;
 
-  const hiddenTabs = buildNavHiddenForPreview(subject, chosen);
+  const before = user._subjectsBeforePreview;
+  const isAddon = before && typeof before === 'object' && before[subject] === true;
+  const grantedSubjects = isAddon ? getCatalogGrantedSubjects(user) : [];
+  const baseNavHidden = (user._navHiddenBeforePreview && typeof user._navHiddenBeforePreview === 'object')
+    ? user._navHiddenBeforePreview
+    : (user.navHidden || {});
+  const hiddenTabs = isAddon
+    ? buildNavHiddenForCatalogAddonPreview(subject, chosen, grantedSubjects, baseNavHidden)
+    : buildNavHiddenForPreview(subject, chosen);
   const navHidden = { ...(user.navHidden || {}), [subject]: hiddenTabs };
 
   return {
@@ -409,8 +437,18 @@ export function confirmPreviewUser(user: any) {
       : createDefaultSubjects();
   subjects[chosen] = true;
   const now = new Date().toISOString();
-  const hiddenTabs = buildNavHiddenForPreview(chosen, modules);
-  const navHidden = { ...(user.navHidden || {}), [chosen]: hiddenTabs };
+  const hadSubjectBefore = user._subjectsBeforePreview
+    && typeof user._subjectsBeforePreview === 'object'
+    && user._subjectsBeforePreview[chosen] === true;
+  const baseNavHidden = (user._navHiddenBeforePreview && typeof user._navHiddenBeforePreview === 'object')
+    ? user._navHiddenBeforePreview
+    : (user.navHidden || {});
+  const navHidden = hadSubjectBefore
+    ? mergeGrantedModulesOnConfirm(baseNavHidden, chosen, modules)
+    : {
+      ...(user.navHidden || {}),
+      [chosen]: buildNavHiddenForPreview(chosen, modules),
+    };
 
   const updated: Record<string, any> = {
     ...user,
@@ -425,8 +463,9 @@ export function confirmPreviewUser(user: any) {
       ? user.activatedKey
       : (user.activatedKey || 'preview'),
     [`${chosen}_grantedAt`]: now,
-    _subjectsBeforePreview:  undefined,
-    _migrated_subjects:      true,
+    _subjectsBeforePreview:    undefined,
+    _navHiddenBeforePreview:   undefined,
+    _migrated_subjects:        true,
   };
 
   delete updated.previewStatus;

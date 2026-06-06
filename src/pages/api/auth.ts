@@ -37,6 +37,7 @@ import { clearAuthRateLimitsForTgId, checkCatalogBrowseLimit } from '@/lib/authR
 import {
   buildCatalogSelectingUser,
   getCatalogGrantedSubjects,
+  isCatalogModuleAlreadyGranted,
   restartCatalogBrowseSelecting,
 } from '@/lib/catalogBrowse';
 
@@ -473,10 +474,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (user._catalogBrowse) {
-        if (userAlreadyHasSubjectAccess(user, chosen)) {
-          return res.status(400).json({
-            error: 'Этот предмет уже открыт. Выбери другой.',
-          });
+        const granted = getCatalogGrantedSubjects(user);
+        const navHiddenMap = (user.navHidden && typeof user.navHidden === 'object')
+          ? user.navHidden as Record<string, string[]>
+          : {};
+        for (const modId of chosenModules) {
+          if (isCatalogModuleAlreadyGranted(chosen, modId, granted, navHiddenMap)) {
+            return res.status(400).json({
+              error: 'Этот раздел уже открыт. Выбери другой для докупки.',
+            });
+          }
         }
       } else if (
         userAlreadyHasSubjectAccess(user, chosen)
@@ -496,7 +503,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
 
-      const updated = buildActivePreviewUser(user, chosen, chosenModules);
+      const isCatalogAddon = user._catalogBrowse === true
+        && userAlreadyHasSubjectAccess(user, chosen);
+      const updated = buildActivePreviewUser(user, chosen, chosenModules, {
+        catalogAddon: isCatalogAddon,
+      });
       if (user._catalogBrowse) {
         updated._catalogBrowse = true;
       }
