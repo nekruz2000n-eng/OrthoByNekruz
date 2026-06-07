@@ -36,6 +36,20 @@ const LETTERS = ['А', 'Б', 'В', 'Г', 'Д', 'Е'];
 
 const LONG_PRESS_MS = 500;
 
+/** Сравнение ответа с ключом: «2) Э. Геккель» = «Э. Геккель». */
+function normalizeTestOptionText(s: string): string {
+  return s
+    .replace(/^[0-9]+\)\s*/u, '')
+    .replace(/^[a-zа-я]\.\s*/iu, '')
+    .trim()
+    .toLowerCase();
+}
+
+function isCorrectTestOption(option: string, correct: string): boolean {
+  if (option === correct) return true;
+  return normalizeTestOptionText(option) === normalizeTestOptionText(correct);
+}
+
 // ─── Block button (shared between flat and themed grids) ──────────────────────
 const BlockButton = ({
   b, onSelect, onStudySelect,
@@ -411,7 +425,10 @@ export const TestsTab = ({
   const TOTAL_BLOCKS = Math.ceil(TOTAL_TESTS / TESTS_PER_BLOCK);
 
   const processed = useMemo(() =>
-    testsData.map(t => ({ ...t, correctIndex: t.options.findIndex((o: string) => o === t.correct) })),
+    testsData.map(t => ({
+      ...t,
+      correctIndex: t.options.findIndex((o: string) => isCorrectTestOption(o, t.correct)),
+    })),
     [testsData]);
 
   const hasThemes = useMemo(() => processed.some((t: any) => t.theme), [processed]);
@@ -594,7 +611,7 @@ export const TestsTab = ({
 
   const use5050Hint = () => {
     if (!currentTest || showResultRef.current || studyMode || !hintsEnabled || hintLevel >= 1) return;
-    const wrong = currentTest.options.filter((o: string) => o !== currentTest.correct);
+    const wrong = currentTest.options.filter((o: string) => !isCorrectTestOption(o, currentTest.correct));
     const toHide = [...wrong].sort(() => Math.random() - 0.5).slice(0, Math.min(2, wrong.length));
     setHidden5050(toHide);
     setHintLevel(1);
@@ -717,7 +734,7 @@ export const TestsTab = ({
   };
 
   const handleSelect = (opt: string) => {
-    const correct = opt === currentTest.correct;
+    const correct = isCorrectTestOption(opt, currentTest.correct);
     const alreadyScored = scoredAnswers[currentTestIndex] !== undefined;
 
     if (alreadyScored) {
@@ -1353,7 +1370,7 @@ export const TestsTab = ({
           {/* Варианты */}
           <div className="flex flex-col gap-2">
             {visibleOptions.map((opt: string, idx: number) => {
-              const correct        = opt === currentTest.correct;
+              const correct        = isCorrectTestOption(opt, currentTest.correct);
               const selected       = selectedOption === opt;
               const questionLocked = scoredAnswers[currentTestIndex] !== undefined;
               const isWrong        = showResult && questionLocked && selected && !correct;
