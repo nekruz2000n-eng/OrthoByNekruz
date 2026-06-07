@@ -87,7 +87,7 @@ async function handleCatalogBrowseStart(
     });
   }
 
-  if (user?.previewStatus === 'expired' && user._catalogBrowse && !user.previewChosenSubject) {
+  if (user?.previewStatus === 'expired') {
     const merged = restartCatalogBrowseSelecting(user, profile, promo);
     await saveUser(tgIdStr, merged);
     await clearAuthRateLimitsForTgId(redis, tgIdStr);
@@ -96,14 +96,6 @@ async function handleCatalogBrowseStart(
       catalogBrowse: true,
       subjects: [],
       ...previewPayload(merged, catalog, tgIdStr),
-    });
-  }
-
-  if (user?.previewStatus === 'expired' && user.previewChosenSubject) {
-    return res.status(200).json({
-      success: true,
-      catalogBrowse: !!user._catalogBrowse,
-      ...(await subjectsResponse(user, tgIdStr)),
     });
   }
 
@@ -165,6 +157,18 @@ async function handlePreviewStart(
   }
 
   if (user?.previewStatus === 'expired') {
+    if (catalogBrowse && promo) {
+      const merged = restartCatalogBrowseSelecting(user, profile, promo);
+      await saveUser(tgIdStr, merged);
+      await clearAuthRateLimitsForTgId(redis, tgIdStr);
+      return res.status(200).json({
+        success: true,
+        preview: true,
+        catalogBrowse: true,
+        subjects: [],
+        ...previewPayload(merged, catalog, tgIdStr),
+      });
+    }
     const healedExpired = healStalePreviewForFinalizedUser(user);
     if (healedExpired !== user) {
       await saveUser(tgIdStr, touchUserVisit(healedExpired));

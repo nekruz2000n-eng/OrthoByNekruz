@@ -123,7 +123,7 @@ export function buildCatalogSelectingUser(
   };
 }
 
-/** После окончания просмотра — снова витрина, можно выбрать другой предмет. */
+/** После окончания просмотра / входа по коду — снова витрина (группа → выбор предмета). */
 export function restartCatalogBrowseSelecting(
   user: any,
   profile: {
@@ -133,13 +133,25 @@ export function restartCatalogBrowseSelecting(
   },
   promo: FacultyPromo,
 ) {
-  return {
+  const updated: Record<string, unknown> = {
     ...buildCatalogSelectingUser(user, profile, promo),
     previewStatus:           'selecting' as PreviewStatus,
     previewChosenSubject:    null,
     previewChosenModules:    null,
     previewStartedAt:        null,
     previewExpiredAt:        null,
+    previewQuotedPrice:      null,
+    receiptClaimedAt:        null,
+    previewModuleStatuses:   null,
+    previewActiveMsByModule: null,
+    previewActiveMsConsumed: null,
+    previewModuleTrustExpiresAt: null,
     _catalogBrowse:          true,
   };
+  delete updated._adminPaymentOnlyLock;
+  delete updated.previewActiveMsByModule;
+  delete updated.previewActiveMsConsumed;
+  delete updated.previewModuleStatuses;
+  delete updated.previewModuleTrustExpiresAt;
+  return updated;
 }
