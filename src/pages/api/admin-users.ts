@@ -392,6 +392,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           delete cleaned.previewConfirmedAt;
           delete cleaned.previewQuotedPrice;
           delete cleaned.receiptClaimedAt;
+          delete cleaned._adminPaymentOnlyLock;
           const key = cleaned.activatedKey;
           if (key === 'preview' || (key && String(key).startsWith('promo:'))) {
             delete cleaned.activatedKey;

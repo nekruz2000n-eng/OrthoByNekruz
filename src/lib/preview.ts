@@ -729,8 +729,14 @@ export function buildActivePreviewUser(
   };
 }
 
+/** Админ принудительно оставил только экраны оплаты — без выхода и восстановления пробы. */
+export function isAdminPaymentOnlyLocked(user: any): boolean {
+  return user?._adminPaymentOnlyLock === true;
+}
+
 /** Предметы, уже открыты до текущей заявки на оплату. */
 export function getPaymentGrantedSubjects(user: any): string[] {
+  if (isAdminPaymentOnlyLocked(user)) return [];
   const before = user._subjectsBeforePreview;
   if (before && typeof before === 'object') {
     return Object.entries(before)
@@ -769,6 +775,7 @@ export function defaultPaymentModulesForSubject(
 
 /** Докупка: предмет уже был открыт до пробы — можно вернуться без оплаты. */
 export function canReturnToPurchasedAccess(user: any): boolean {
+  if (isAdminPaymentOnlyLocked(user)) return false;
   const chosen = user?.previewChosenSubject;
   if (!chosen || user.receiptClaimedAt) return false;
   if (user.previewStatus !== 'expired' && user.previewStatus !== 'active') return false;
@@ -778,6 +785,7 @@ export function canReturnToPurchasedAccess(user: any): boolean {
 
 /** Можно отменить незавершённую заявку и вернуться к уже открытым предметам. */
 export function canAbandonPendingPreview(user: any): boolean {
+  if (isAdminPaymentOnlyLocked(user)) return false;
   const chosen = user?.previewChosenSubject;
   if (!chosen || user.receiptClaimedAt) return false;
   if (user.previewStatus !== 'expired' && user.previewStatus !== 'active') return false;
@@ -791,6 +799,7 @@ export function canAbandonPendingPreview(user: any): boolean {
 
 /** Отменить незавершённую докупку — восстановить ранее купленные предметы и разделы. */
 export function abandonPendingPreviewPayment(user: any) {
+  if (isAdminPaymentOnlyLocked(user)) return null;
   const chosen = user?.previewChosenSubject;
   if (!chosen || user.receiptClaimedAt) return null;
   if (user.previewStatus !== 'expired' && user.previewStatus !== 'active') return null;
@@ -930,15 +939,6 @@ export function adminForcePaymentOnlyScreen(user: any): any | null {
   const msMap: PreviewActiveMsMap = {};
   for (const m of chosen) msMap[m] = limit;
 
-  const beforeSubjects = user._subjectsBeforePreview && typeof user._subjectsBeforePreview === 'object'
-    ? { ...user._subjectsBeforePreview }
-    : snapshotSubjects(user)
-      ?? (user.subjects && typeof user.subjects === 'object' ? { ...user.subjects } : null);
-
-  const navHiddenBefore = user._navHiddenBeforePreview && typeof user._navHiddenBeforePreview === 'object'
-    ? { ...user._navHiddenBeforePreview }
-    : (user.navHidden && typeof user.navHidden === 'object' ? { ...user.navHidden } : {});
-
   const statuses = setAllModuleStatuses(
     chosen,
     'awaiting_payment',
@@ -951,10 +951,6 @@ export function adminForcePaymentOnlyScreen(user: any): any | null {
   };
 
   const now = new Date().toISOString();
-  const snapshotBeforeAddon = user._previewSnapshotBeforeAddon
-    ?? (hasFinalizedPreviewAccess(user) || user.paid === true
-      ? { previewConfirmedAt: user.previewConfirmedAt ?? null, paid: user.paid === true }
-      : undefined);
 
   const updated: Record<string, any> = {
     ...user,
@@ -972,17 +968,16 @@ export function adminForcePaymentOnlyScreen(user: any): any | null {
     previewModuleTrustExpiresAt: undefined,
     subjects: createDefaultSubjects(),
     navHidden,
-    _subjectsBeforePreview: beforeSubjects,
-    _navHiddenBeforePreview: navHiddenBefore,
-    _previewSnapshotBeforeAddon: snapshotBeforeAddon,
+    _adminPaymentOnlyLock: true,
     _migrated_subjects: true,
     _catalogBrowse: undefined,
     _previewStatusBeforeCatalog: undefined,
+    paid: false,
   };
 
-  if (snapshotBeforeAddon?.paid === true) {
-    updated.paid = false;
-  }
+  delete updated._subjectsBeforePreview;
+  delete updated._navHiddenBeforePreview;
+  delete updated._previewSnapshotBeforeAddon;
 
   return updated;
 }
@@ -1188,6 +1183,7 @@ export function reopenPreviewVitrine(user: any) {
     _subjectsBeforePreview: undefined,
   };
   delete updated._catalogBrowse;
+  delete updated._adminPaymentOnlyLock;
   delete updated.previewActiveMsConsumed;
   delete updated.previewActiveMsByModule;
   delete updated.previewModuleStatuses;
@@ -1341,6 +1337,7 @@ export function confirmPreviewUser(user: any) {
   delete updated.previewFacultyRecordedAt;
   delete updated._previewStatusBeforeCatalog;
   delete updated._catalogBrowse;
+  delete updated._adminPaymentOnlyLock;
   delete updated.previewActiveMsConsumed;
   delete updated.previewActiveMsByModule;
   delete updated.previewModuleTrustExpiresAt;
