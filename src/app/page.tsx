@@ -247,6 +247,16 @@ export default function Home() {
   }, []);
 
   const applyAccessPayload = useCallback((d: any) => {
+    if (d?.degraded === true) {
+      try {
+        const cached = JSON.parse(localStorage.getItem('available_subjects') || '[]');
+        if (Array.isArray(cached) && cached.length) {
+          setAvailableSubjects(cached);
+          setHasMicro(cached.includes('micro'));
+        }
+      } catch { /* оставляем текущее состояние */ }
+      return;
+    }
     const pendingSubjectEarly = d?.previewChosenSubject as string | null | undefined;
     let list: string[] = Array.isArray(d?.subjects) ? d.subjects : [];
     if (
@@ -469,6 +479,10 @@ export default function Home() {
       })
       .then(d => {
         if (!d || gen !== accessRequestGen.current) return;
+        if (d.degraded === true) {
+          applyAccessPayload(d);
+          return;
+        }
         if (d.registered === false) {
           logoutLocal();
           return;
@@ -570,6 +584,11 @@ export default function Home() {
       })
       .then(d => {
         if (!d || gen !== accessRequestGen.current) return;
+        if (d.degraded === true) {
+          applyAccessPayload(d);
+          setAccessChecked(true);
+          return;
+        }
         if (d.registered === false) {
           logoutLocal();
           setAccessChecked(true);

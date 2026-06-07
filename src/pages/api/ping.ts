@@ -62,48 +62,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ ok: true, opens: 0 });
     }
 
-    // ── ПРОВЕРКА БЛОКИРОВКИ ──────────────────────────────────────────────────
-    const userData: any = await redis.get(`user_id:${tgId}`);
-    if (userData?.blocked === true) {
-      console.log(`[ping] blocked user: ${tgId}`);
-      return res.status(200).json({ ok: true, blocked: true });
-    }
-
-    const today = new Date().toISOString().slice(0, 10);
-    const actKey      = `opens:${tgId}:${today}`;
-    const notifiedKey = `opens_notified:${tgId}:${today}`;
-
-    const count = await redis.incr(actKey);
-    if (count === 1) await redis.expire(actKey, 48 * 3600);
-
-    if (userData && typeof userData === 'object') {
-      await redis.set(`user_id:${tgId}`, touchUserVisit(userData));
-    }
-
-    console.log(`[ping] userId=${tgId} opens=${count} limit=${DAILY_OPEN_LIMIT}`);
-
-    if (count >= DAILY_OPEN_LIMIT) {
-      const alreadyNotified = await redis.exists(notifiedKey);
-      if (!alreadyNotified) {
-        await redis.set(notifiedKey, '1', { ex: 48 * 3600 });
-
-        const user: any = await redis.get(`user_id:${tgId}`);
-        if (user && typeof user === 'object') {
-          await redis.set(`user_id:${tgId}`, {
-            ...user,
-            blocked:       true,
-            blockedReason: 'activity',
-            blockedAt:     new Date().toISOString(),
-          });
-        }
-
-        await notifyAdmin(tgId, count);
-      } else {
-        console.log('[ping] уже уведомляли сегодня, пропускаем');
+    // При лимите Redis — пропускаем учёт открытий, не ломаем вход
+    try {
+      const userData: any = await redis.get(`user_id:${tgId}`);
+      if (userData?.blocked === true) {
+        console.log(`[ping] blocked user: ${tgId}`);
+        return res.status(200).json({ ok: true, blocked: true });
       }
-    }
 
-    return res.status(200).json({ ok: true, opens: count });
+      const today = new Date().toISOString().slice(0, 10);
+      const actKey      = `opens:${tgId}:${today}`;
+      const notifiedKey = `opens_notified:${tgId}:${today}`;
+
+      const count = await redis.incr(actKey);
+      if (count === 1) await redis.expire(actKey, 48 * 3600);
+
+      if (userData && typeof userData === 'object') {
+        await redis.set(`user_id:${tgId}`, touchUserVisit(userData));
+      }
+
+      console.log(`[ping] userId=${tgId} opens=${count} limit=${DAILY_OPEN_LIMIT}`);
+
+      if (count >= DAILY_OPEN_LIMIT) {
+        const alreadyNotified = await redis.exists(notifiedKey);
+        if (!alreadyNotified) {
+          await redis.set(notifiedKey, '1', { ex: 48 * 3600 });
+
+          const user: any = await redis.get(`user_id:${tgId}`);
+          if (user && typeof user === 'object') {
+            await redis.set(`user_id:${tgId}`, {
+              ...user,
+              blocked:       true,
+              blockedReason: 'activity',
+              blockedAt:     new Date().toISOString(),
+            });
+          }
+
+          await notifyAdmin(tgId, count);
+        } else {
+          console.log('[ping] уже уведомляли сегодня, пропускаем');
+        }
+      }
+
+      return res.status(200).json({ ok: true, opens: count });
+    } catch (redisErr) {
+      console.warn('[ping] redis unavailable, skipping:', redisErr);
+      return res.status(200).json({ ok: true, opens: 0, degraded: true });
+    }
 
   } catch (err) {
     console.error('[ping] error:', err);

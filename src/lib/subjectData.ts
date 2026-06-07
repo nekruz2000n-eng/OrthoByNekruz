@@ -17,26 +17,9 @@ const CACHE_PREFIX = 'subject-data-';
 // prod: 24 часа — раз в сутки проверяем сервер
 const TTL_MS = BUILD_ID === 'dev' ? 5 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
-// Как часто проверяем версию кэша у сервера (не чаще раза в 24 часа)
-const VERSION_CHECK_TTL = 24 * 60 * 60 * 1000;
-
-// Проверяет, не сбросил ли админ кэш. Если версия изменилась — удаляет Cache API.
-async function checkAndBustCache(): Promise<void> {
-  if (typeof window === 'undefined' || typeof caches === 'undefined') return;
-  try {
-    const lastCheck = Number(localStorage.getItem('cv_ts') || '0');
-    if (Date.now() - lastCheck < VERSION_CHECK_TTL) return;
-    localStorage.setItem('cv_ts', String(Date.now()));
-    const r = await fetch('/api/cache-version');
-    if (!r.ok) return;
-    const { version } = await r.json();
-    const local = localStorage.getItem('cv');
-    if (String(version) !== local) {
-      localStorage.setItem('cv', String(version));
-      await caches.delete(CACHE_NAME);
-    }
-  } catch { /* не критично */ }
-}
+// Проверка cache-version отключена — каждый вызов бил Redis (лимит Upstash).
+// Инвалидация идёт через BUILD_ID при деплое и admin-cache-bust после него.
+async function checkAndBustCache(): Promise<void> { /* noop */ }
 
 export type SubjectDataType = 'questions' | 'tasks' | 'tests' | 'glossary';
 
@@ -60,17 +43,38 @@ function cacheKey(subject: string, type: SubjectDataType): string {
   return `https://cache.local/subject-data/${subject}/${type}`;
 }
 
-async function fetchFromServer(subject: string, type: SubjectDataType): Promise<unknown[]> {
+/** null = сервер недоступен / Redis — использовать устаревший кэш */
+async function fetchFromServer(subject: string, type: SubjectDataType): Promise<unknown[] | null> {
   const tgId    = localStorage.getItem('user_tg_id') || '';
   const initDat = (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initData) || '';
-  const r = await fetch('/api/subject-data', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ subject, type, telegramId: tgId, initData: initDat }),
-  });
-  if (!r.ok) return [];
-  const j = await r.json();
-  return Array.isArray(j.data) ? j.data : [];
+  try {
+    const r = await fetch('/api/subject-data', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ subject, type, telegramId: tgId, initData: initDat }),
+    });
+    if (r.status === 503) return null;
+    if (!r.ok) return [];
+    const j = await r.json();
+    return Array.isArray(j.data) ? j.data : [];
+  } catch {
+    return null;
+  }
+}
+
+async function readCacheEntry(key: string, ignoreTtl = false): Promise<unknown[] | null> {
+  try {
+    if (typeof caches === 'undefined') return null;
+    const cache = await caches.open(CACHE_NAME);
+    const hit   = await cache.match(key);
+    if (!hit) return null;
+    const cached = (await hit.json()) as Cached;
+    if (!cached?.data || !Array.isArray(cached.data)) return null;
+    if (!ignoreTtl && Date.now() - cached.ts >= TTL_MS) return null;
+    return cached.data;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -98,29 +102,23 @@ export async function loadSubjectData(
     await bustSubjectModuleCache(subject, [type]);
   }
 
-  // 1. Проверяем кэш
+  // 1. Свежий кэш (< TTL)
   if (!options?.bustCache) {
-    try {
-      if (typeof caches !== 'undefined') {
-        const cache = await caches.open(CACHE_NAME);
-        const hit   = await cache.match(key);
-        if (hit) {
-          const cached = (await hit.json()) as Cached;
-          if (cached && Array.isArray(cached.data) && Date.now() - cached.ts < TTL_MS) {
-            return cached.data;
-          }
-        }
-      }
-    } catch { /* приватный режим — идём напрямую */ }
+    const fresh = await readCacheEntry(key, false);
+    if (fresh) return fresh;
   }
 
   // 2. Загружаем с сервера
-  let data: unknown[] = [];
-  try {
-    data = await fetchFromServer(subject, type);
-  } catch { /* нет сети — вернём пустой */ }
+  const fetched = await fetchFromServer(subject, type);
+  let data: unknown[] = fetched ?? [];
 
-  // 3. Кэшируем на 24 часа
+  // 3. Redis/сеть недоступны — устаревший кэш лучше пустого экрана
+  if (fetched === null) {
+    const stale = await readCacheEntry(key, true);
+    if (stale?.length) return stale;
+  }
+
+  // 4. Кэшируем на 24 часа
   try {
     if (typeof caches !== 'undefined' && data.length) {
       const cache = await caches.open(CACHE_NAME);

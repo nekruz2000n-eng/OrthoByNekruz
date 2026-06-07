@@ -27,6 +27,7 @@ import { getSubject, getAllDataFileNames } from '@/lib/subjects';
 import { isPreviewExpired, maybeExpirePreviewUser } from '@/lib/preview';
 import { userHasModuleDataAccess } from '@/lib/previewModuleStatus';
 import { verifyInitDataId }     from '@/lib/verifyInitData';
+import { isRedisUnavailableError } from '@/lib/redisDegraded';
 
 const redis     = Redis.fromEnv();
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
@@ -87,8 +88,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 2. Проверка доступа к дисциплине
-    let user: any = await redis.get(`user_id:${telegramId}`);
-    user = await maybeExpirePreviewUser(redis, String(telegramId), user);
+    let user: any;
+    try {
+      user = await redis.get(`user_id:${telegramId}`);
+      user = await maybeExpirePreviewUser(redis, String(telegramId), user);
+    } catch (err) {
+      if (isRedisUnavailableError(err)) {
+        return res.status(503).json({ error: 'Service temporarily unavailable', degraded: true });
+      }
+      throw err;
+    }
     if (user?.previewStatus === 'active' && isPreviewExpired(user, Date.now(), String(telegramId))) {
       return res.status(403).json({ error: 'Preview expired' });
     }

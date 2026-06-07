@@ -57,6 +57,7 @@ import {
   restartCatalogBrowseSelecting,
 } from '@/lib/catalogBrowse';
 import { touchUserActivity, touchUserVisit } from '@/lib/userActivity';
+import { isRedisUnavailableError } from '@/lib/redisDegraded';
 
 const redis = Redis.fromEnv();
 
@@ -428,8 +429,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const ip = getIp(req);
 
+  let redisOk = true;
   try {
-    let user: any = await redis.get(`user_id:${tgIdStr}`);
+    let user: any = null;
+    try {
+      user = await redis.get(`user_id:${tgIdStr}`);
+    } catch (err) {
+      redisOk = false;
+      if (!isRedisUnavailableError(err)) throw err;
+      if (mode === 'check_subjects') {
+        return res.status(200).json({ degraded: true, registered: true });
+      }
+    }
     if (typeof user === 'string') {
       try { user = JSON.parse(user); } catch { user = null; }
     }
@@ -760,14 +771,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (mode === 'check_subjects') {
       if (!user) {
+        if (!redisOk) {
+          return res.status(200).json({ degraded: true, registered: true });
+        }
         return res.status(200).json({ subjects: [], navHidden: {}, registered: false });
       }
 
-      user = await maybeExpirePreviewUser(redis, tgIdStr, user);
-      const healed = healStalePreviewForFinalizedUser(user);
-      const visited = touchUserVisit(healed);
-      await saveUser(tgIdStr, visited);
-      user = visited;
+      if (redisOk) {
+        user = await maybeExpirePreviewUser(redis, tgIdStr, user);
+      }
+      user = healStalePreviewForFinalizedUser(user);
 
       return res.status(200).json(await subjectsResponse(user, tgIdStr));
     }
@@ -915,6 +928,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   } catch (error) {
     console.error('API Error:', error);
+    if (mode === 'check_subjects' && isRedisUnavailableError(error)) {
+      return res.status(200).json({ degraded: true, registered: true });
+    }
     return res.status(500).json({ error: 'Ошибка сервера.' });
   }
 }
