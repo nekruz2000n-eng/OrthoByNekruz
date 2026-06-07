@@ -45,6 +45,7 @@ export const TasksTab = ({
 
   const initialDistance = useRef<number | null>(null);
   const initialFontSize = useRef(16);
+  const readingScrollRef = useRef<HTMLDivElement>(null);
 
   // ── Загрузка ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -96,6 +97,11 @@ export const TasksTab = ({
     () => (tasksData.length ? (resolvedIds.size / tasksData.length) * 100 : 0),
     [resolvedIds, tasksData],
   );
+
+  useEffect(() => {
+    if (!readingTask) return;
+    readingScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [readingTask?.id]);
 
   // ── Pinch-to-zoom (размер шрифта в режиме чтения) ────────────────────────
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -424,6 +430,7 @@ export const TasksTab = ({
 
             {/* content */}
             <div
+              ref={readingScrollRef}
               className="flex-1 overflow-y-auto px-5 scroll-container"
               onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
             >
