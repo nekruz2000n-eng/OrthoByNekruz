@@ -1140,6 +1140,7 @@ export default function AdminPage() {
   const [isPaidKeysLoading, setIsPaidKeysLoading] = useState(false);
   const [demoResetTgId, setDemoResetTgId] = useState('');
   const [demoResetLoading, setDemoResetLoading] = useState(false);
+  const [giftBioTasksLoading, setGiftBioTasksLoading] = useState(false);
 
   const [previewCatalogExpanded, setPreviewCatalogExpanded] = useState(false);
   const [previewCatalog, setPreviewCatalog] = useState<PreviewCatalogSettings>({});
@@ -1326,6 +1327,36 @@ export default function AdminPage() {
       showToast('Ошибка сети');
     } finally {
       setDemoResetLoading(false);
+    }
+  };
+
+  const giftBioTasksToAll = async () => {
+    const initData = getTelegramInitData();
+    if (!initData) { showToast('Нет доступа: не в Telegram'); return; }
+    if (!window.confirm(
+      'Открыть «Задачи» по биологии всем, у кого уже есть тест?\n\n'
+      + 'У кого задачи уже открыты — не затронуты.',
+    )) return;
+
+    setGiftBioTasksLoading(true);
+    try {
+      const r = await fetch('/api/admin-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'gift_bio_tasks', secret, initData }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok) {
+        showToast(`🎁 Задачи bio: обновлено ${data.updated ?? 0} из ${data.total ?? '?'}`);
+      } else if (r.status === 403) {
+        showToast('Нет прав — открой админку через Telegram');
+      } else {
+        showToast((data as { error?: string }).error || 'Ошибка раздачи');
+      }
+    } catch {
+      showToast('Ошибка сети');
+    } finally {
+      setGiftBioTasksLoading(false);
     }
   };
 
@@ -2446,6 +2477,40 @@ export default function AdminPage() {
             <div style={{ fontSize: 10.5, color: T.textFaint, marginTop: 6, lineHeight: 1.4 }}>
               Снимает «уже использовано» и «слишком много попыток» — даже если аккаунта нет в списке.
             </div>
+          </div>
+        </div>
+
+        {/* подарок: задачи bio */}
+        <div style={{
+          background: T.surface, border: `1px solid ${T.border}`,
+          borderRadius: 14, padding: '13px 14px', marginBottom: 14,
+          display: 'flex', alignItems: 'flex-start', gap: 12,
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10, background: T.successSoft,
+            color: T.success, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 700, fontSize: 15, flexShrink: 0,
+          }}>🎁</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, marginBottom: 4 }}>
+              Подарок: задачи по биологии
+            </div>
+            <div style={{ fontSize: 11.5, color: T.textMuted, lineHeight: 1.5 }}>
+              Одной кнопкой откроет раздел «Задачи» всем, у кого уже выдан bio и включён тест.
+              Вопросы и экзамен не трогает. После — объяви в канале и попроси перезайти в приложение.
+            </div>
+            <button
+              onClick={giftBioTasksToAll}
+              disabled={giftBioTasksLoading}
+              style={{
+                marginTop: 10, height: 36, padding: '0 14px', borderRadius: 10, border: 'none',
+                background: T.successSoft, color: T.success,
+                fontSize: 12.5, fontWeight: 600, cursor: giftBioTasksLoading ? 'default' : 'pointer',
+                opacity: giftBioTasksLoading ? 0.6 : 1,
+              }}
+            >
+              {giftBioTasksLoading ? '...' : '🎁 Выдать задачи bio всем с тестом'}
+            </button>
           </div>
         </div>
 

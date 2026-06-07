@@ -370,6 +370,30 @@ export function migrateUserSubjects(user: any): any {
   return { ...user, subjects, _migrated_subjects: true };
 }
 
+const BIO_SUBJECT_ID = 'bio';
+
+/** Есть bio и открыт тест, но задачи ещё скрыты — можно подарить. */
+export function userEligibleForBioTasksGift(user: any): boolean {
+  if (!user) return false;
+  const migrated = migrateUserSubjects(user);
+  if (!getUserAvailableSubjects(migrated).includes(BIO_SUBJECT_ID)) return false;
+  const hidden = new Set<string>((migrated.navHidden?.[BIO_SUBJECT_ID] as string[]) || []);
+  if (hidden.has('tests')) return false;
+  if (!hidden.has('tasks')) return false;
+  return true;
+}
+
+/** Открыть раздел «Задачи» по биологии (тест уже был доступен). */
+export function applyBioTasksGift(user: any): any | null {
+  if (!userEligibleForBioTasksGift(user)) return null;
+  const hidden = new Set<string>((user.navHidden?.[BIO_SUBJECT_ID] as string[]) || []);
+  hidden.delete('tasks');
+  const navHidden: Record<string, string[]> = { ...(user.navHidden || {}) };
+  if (hidden.size === 0) delete navHidden[BIO_SUBJECT_ID];
+  else navHidden[BIO_SUBJECT_ID] = [...hidden];
+  return { ...user, navHidden };
+}
+
 /** Получить список ID открытых дисциплин у пользователя. */
 export function getUserAvailableSubjects(user: any): string[] {
   if (!user) return [];

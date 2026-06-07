@@ -1,6 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
-import { SUBJECTS, getSubject, getUserAvailableSubjects, migrateUserSubjects } from '@/lib/subjects';
+import {
+  SUBJECTS, getSubject, getUserAvailableSubjects, migrateUserSubjects, applyBioTasksGift,
+} from '@/lib/subjects';
 import {
   confirmPreviewUser,
   confirmPreviewModule,
@@ -250,6 +252,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    if (action === 'gift_bio_tasks') {
+      const ids = await getAllUserIds(redis);
+      let updated = 0;
+      let skipped = 0;
+      for (const id of ids) {
+        const raw: any = await redis.get(`user_id:${id}`);
+        if (!raw) continue;
+        const user = ensureSubjects(raw);
+        const gifted = applyBioTasksGift(user);
+        if (!gifted) {
+          skipped++;
+          continue;
+        }
+        await saveUser(id, gifted);
+        updated++;
+      }
+      return res.status(200).json({
+        ok: true,
+        updated,
+        skipped,
+        total: ids.length,
+      });
+    }
+
     if (action === 'get_user' && tgId) {
       const id = String(tgId);
       const user: any = await redis.get(`user_id:${id}`);
