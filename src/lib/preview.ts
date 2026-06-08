@@ -487,7 +487,7 @@ export function userAlreadyHasSubjectAccess(user: any, subjectId: string): boole
   return getUserAvailableSubjects(user).includes(subjectId);
 }
 
-function snapshotSubjects(user: any): Record<string, boolean> | null {
+export function snapshotSubjects(user: any): Record<string, boolean> | null {
   if (user?.subjects && typeof user.subjects === 'object') {
     const snap = { ...user.subjects };
     if (Object.values(snap).some(v => v === true)) return snap;

@@ -60,10 +60,10 @@ export const ChannelCodeEntryScreen: React.FC<ChannelCodeEntryScreenProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          mode: 'start_catalog_browse',
           key: key.trim(),
           telegramId: tgId,
           initData,
-          catalogBrowse: true,
         }),
       });
       const data = await res.json();

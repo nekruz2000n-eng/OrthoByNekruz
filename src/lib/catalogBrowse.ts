@@ -1,6 +1,6 @@
 import type { FacultyPromo } from '@/lib/facultyCodes';
 import { getNavHiddenForSubject } from '@/lib/subjectCatalog';
-import { buildSelectingPreviewUserFromExisting } from '@/lib/preview';
+import { buildSelectingPreviewUserFromExisting, snapshotSubjects } from '@/lib/preview';
 import type { PreviewStatus } from '@/lib/preview';
 import type { PreviewModule } from '@/lib/previewModules';
 
@@ -117,9 +117,11 @@ export function buildCatalogSelectingUser(
   const hasGroup = !!String(user?.studyGroup || '').trim();
   const sameFaculty = !user?.facultyId || user.facultyId === promo.id;
   const forceNewGroup = !(hasGroup && sameFaculty);
+  const before = snapshotSubjects(user);
   return {
     ...buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup }),
     _catalogBrowse: true,
+    ...(before ? { _subjectsBeforePreview: before } : {}),
   };
 }
 

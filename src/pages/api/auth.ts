@@ -79,53 +79,33 @@ async function handleCatalogBrowseStart(
   const catalog = await buildPreviewSubjectCatalog(redis);
   user = user ? await maybeExpirePreviewUser(redis, tgIdStr, user) : user;
 
-  if (user?.previewStatus === 'active') {
-    return res.status(200).json({
-      success: true,
-      resumed: true,
-      catalogBrowse: true,
-      ...(await subjectsResponse(user, tgIdStr)),
-    });
-  }
-
-  if (user?.previewStatus === 'expired') {
-    const merged = restartCatalogBrowseSelecting(user, profile, promo);
-    await saveUser(tgIdStr, merged);
-    await clearAuthRateLimitsForTgId(redis, tgIdStr);
-    return res.status(200).json({
-      success: true,
-      catalogBrowse: true,
-      subjects: [],
-      ...previewPayload(merged, catalog, tgIdStr),
-    });
-  }
-
-  if (user?.previewStatus === 'selecting' && user._catalogBrowse) {
-    if (promo) {
-      const merged = buildCatalogSelectingUser(user, profile, promo);
-      await saveUser(tgIdStr, merged);
-      return res.status(200).json({
-        success: true,
-        catalogBrowse: true,
-        subjects: [],
-        ...previewPayload(merged, catalog, tgIdStr),
-      });
-    }
-    return res.status(200).json({
-      success: true,
-      resumed: true,
-      catalogBrowse: true,
-      subjects: [],
+  if (
+    user?.previewStatus === 'expired'
+    && user.receiptClaimedAt
+    && !user.previewConfirmedAt
+    && !canAbandonPendingPreview(user)
+  ) {
+    return res.status(403).json({
+      error: 'Ожидайте подтверждения доступа администратором.',
+      previewAwaiting: true,
       ...previewPayload(user, catalog, tgIdStr),
     });
   }
 
-  const merged = buildCatalogSelectingUser(user, profile, promo);
+  const needsRestart = user?.previewStatus === 'active'
+    || user?.previewStatus === 'expired'
+    || user?.previewStatus === 'selecting';
+
+  const merged = needsRestart
+    ? restartCatalogBrowseSelecting(user, profile, promo)
+    : buildCatalogSelectingUser(user, profile, promo);
+
   await saveUser(tgIdStr, merged);
   await clearAuthRateLimitsForTgId(redis, tgIdStr);
   return res.status(200).json({
     success: true,
     catalogBrowse: true,
+    preview: true,
     subjects: [],
     ...previewPayload(merged, catalog, tgIdStr),
   });
@@ -188,7 +168,9 @@ async function handlePreviewStart(
 
   if (user?.previewStatus === 'selecting') {
     if (promo) {
-      const merged = buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup: catalogBrowse });
+      const merged = catalogBrowse
+        ? buildCatalogSelectingUser(user, profile, promo)
+        : buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup: catalogBrowse });
       await saveUser(tgIdStr, merged);
       return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog, tgIdStr) });
     }
@@ -230,10 +212,10 @@ async function handlePreviewStart(
         ...(await subjectsResponse(refreshed, tgIdStr)),
       });
     }
-    const merged = buildSelectingPreviewUserFromExisting(user, profile, promo, { forceNewGroup: catalogBrowse });
+    const merged = buildCatalogSelectingUser(user, profile, promo);
     await saveUser(tgIdStr, merged);
     await clearAuthRateLimitsForTgId(redis, tgIdStr);
-    return res.status(200).json({ success: true, preview: true, ...previewPayload(merged, catalog, tgIdStr) });
+    return res.status(200).json({ success: true, preview: true, catalogBrowse: true, subjects: [], ...previewPayload(merged, catalog, tgIdStr) });
   }
 
   const alreadyUsed = await isPreviewTrialLocked(redis, tgIdStr);
@@ -475,7 +457,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!isEstablishedAccount(user)) {
         return res.status(403).json({ error: 'Каталог доступен после регистрации.' });
       }
-      const promo = getFacultyPromoById(user.facultyId);
+      let promo = getFacultyPromoById(user.facultyId);
+      if (!promo && key) {
+        promo = resolveFacultyPromoCode(String(key).trim());
+      }
       if (!promo) {
         return res.status(400).json({
           error: 'Код факультета не сохранён. Введи его из канала.',

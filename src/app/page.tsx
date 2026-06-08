@@ -749,6 +749,7 @@ export default function Home() {
   const handleChannelCodeSuccess = useCallback((data: Record<string, unknown>) => {
     accessRequestGen.current += 1;
     setShowChannelCode(false);
+    setShowSubjectSelect(false);
     applyAccessPayload(data);
     setAccessChecked(true);
     if (data.alreadyConfirmed) {
