@@ -27,7 +27,23 @@ def norm(s: str) -> str:
 
 
 def strip_prefix(s: str) -> str:
-    return re.sub(r"^[\da-z]+\)\s*", "", s, flags=re.I).strip()
+    return re.sub(r"^[\da-z]+[\).]\s*", "", s, flags=re.I).strip()
+
+
+def norm_loose(s: str) -> str:
+    s = norm(strip_prefix(s))
+    s = s.replace(",", ".")
+    s = re.sub(r"\s+", " ", s)
+    return s.rstrip(".")
+
+
+def answers_match(a: str, b: str) -> bool:
+    na, nb = norm_loose(a), norm_loose(b)
+    if na == nb:
+        return True
+    if len(na) >= 24 and len(nb) >= 24 and (na.startswith(nb) or nb.startswith(na)):
+        return True
+    return False
 
 
 def parse_pdf(path: str) -> list[dict]:
@@ -167,7 +183,7 @@ def main(apply: bool = False) -> None:
             not_matched.append(t["id"])
             continue
 
-        if norm(strip_prefix(t["correct"])) == norm(strip_prefix(pdf_correct)):
+        if answers_match(t["correct"], pdf_correct):
             continue
 
         fix_opt = find_option(t["options"], pdf_correct)
