@@ -13,6 +13,7 @@ import {
   buildSessionDeck,
   computeTopicStats,
   flashcardMember,
+  GLOSSARY_TOPIC_ID,
 } from '@/lib/flashcards';
 import {
   fetchWeakFlashcards,
@@ -155,7 +156,7 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
   const [phase, setPhase]           = useState<Phase>('loading');
   const [allCards, setAllCards]     = useState<FlashcardItem[]>([]);
   const [weakSet, setWeakSet]       = useState<Set<string>>(new Set());
-  const [topicFilter, setTopicFilter] = useState<string | null>(null);
+  const [topicFilter, setTopicFilter] = useState<string | null>(GLOSSARY_TOPIC_ID);
   const [topicModalOpen, setTopicModalOpen] = useState(false);
   const [queue, setQueue]           = useState<FlashcardItem[]>([]);
   const [flipped, setFlipped]       = useState(false);
@@ -217,7 +218,8 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
       );
       setAllCards(cards);
       setWeakSet(weak);
-      startSession(cards, weak, null);
+      setTopicFilter(GLOSSARY_TOPIC_ID);
+      startSession(cards, weak, GLOSSARY_TOPIC_ID);
     })();
     return () => { cancelled = true; };
   }, [subject, bustDataCache, startSession]);
