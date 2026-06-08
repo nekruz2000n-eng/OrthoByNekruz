@@ -390,17 +390,23 @@ export default function Home() {
       }
     }
 
+    const savedSubject = localStorage.getItem('last_subject');
+    const userKeptOtherSubject = (previewId: string) =>
+      !!savedSubject && list.includes(savedSubject) && savedSubject !== previewId;
+
     if (ps === 'active' && pendingSubject) {
-      setSubjectRaw(pendingSubject);
-      localStorage.setItem('last_subject', pendingSubject);
-      localStorage.setItem('subject_chosen', 'true');
+      if (!userKeptOtherSubject(pendingSubject)) {
+        setSubjectRaw(pendingSubject);
+        localStorage.setItem('last_subject', pendingSubject);
+        localStorage.setItem('subject_chosen', 'true');
+      }
     }
 
     if (ps === 'expired') {
       localStorage.removeItem('preview_end');
       localStorage.removeItem('preview_start');
       const pending = d?.previewChosenSubject as string | null | undefined;
-      if (pending) {
+      if (pending && !userKeptOtherSubject(pending)) {
         setSubjectRaw(pending);
         localStorage.setItem('last_subject', pending);
       }
@@ -411,8 +417,7 @@ export default function Home() {
     if (list.length === 0) return;
 
     const alreadyChosen = localStorage.getItem('subject_chosen') === 'true';
-    const saved = localStorage.getItem('last_subject');
-    const preferred = (saved && list.includes(saved)) ? saved : list[0];
+    const preferred = (savedSubject && list.includes(savedSubject)) ? savedSubject : list[0];
 
     if (!alreadyChosen && list.length >= 2 && ps !== 'active' && ps !== 'confirmed') {
       setShowSubjectSelect(true);
@@ -422,6 +427,9 @@ export default function Home() {
     setShowSubjectSelect(false);
     localStorage.setItem('subject_chosen', 'true');
     setSubjectRaw(current => {
+      if (savedSubject && list.includes(savedSubject)) {
+        return savedSubject;
+      }
       const next = list.includes(current) ? current : preferred;
       localStorage.setItem('last_subject', next);
       return next;
@@ -1070,14 +1078,12 @@ export default function Home() {
     }
 
     if (switchingToPurchased) {
-      setSubjectRaw(s);
-      localStorage.setItem('last_subject', s);
+      setSubject(s);
       localStorage.setItem('subject_chosen', 'true');
       return;
     }
 
-    setSubjectRaw(s);
-    localStorage.setItem('last_subject', s);
+    setSubject(s);
     localStorage.setItem('subject_chosen', 'true');
     if (pendingPaymentSubject && s === pendingPaymentSubject && previewChosen === s) {
       const unpaid = modulesAwaitingPayment(previewModuleStatuses);
@@ -1088,7 +1094,7 @@ export default function Home() {
   }, [
     isEstablishedForStats, pendingPaymentSubject, paymentGrantedSubjects, previewChosen,
     canAbandonPending, handleAbandonPendingPreview, previewModuleStatuses,
-    previewModules, setSubjectRaw, toast,
+    previewModules, setSubject, toast,
   ]);
 
   const grantedPreviewModules = useMemo(
