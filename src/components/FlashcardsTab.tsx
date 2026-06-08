@@ -1,15 +1,17 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, RotateCcw } from 'lucide-react';
+import { ChevronDown, Loader2, RotateCcw, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { loadSubjectData } from '@/lib/subjectData';
 import {
   type BioQuestionFlash,
   type FlashcardItem,
-  BIO_TOPIC_LABELS,
+  type TopicStats,
   topicLabel,
-  expandQuestionsToCards,
+  expandAllFlashcards,
   buildSessionDeck,
+  computeTopicStats,
   flashcardMember,
 } from '@/lib/flashcards';
 import {
@@ -26,6 +28,125 @@ interface FlashcardsTabProps {
 
 type Phase = 'loading' | 'play' | 'summary';
 
+function TopicPickerModal({
+  onClose,
+  topicFilter,
+  topicStats,
+  allTotal,
+  allWeak,
+  accentColor,
+  onSelect,
+}: {
+  onClose: () => void;
+  topicFilter: string | null;
+  topicStats: TopicStats[];
+  allTotal: number;
+  allWeak: number;
+  accentColor: string;
+  onSelect: (topicId: string | null) => void;
+}) {
+  const rows: { id: string | null; label: string; total: number; weak: number }[] = [
+    { id: null, label: 'Все темы', total: allTotal, weak: allWeak },
+    ...topicStats.map(t => ({ id: t.topicId, label: t.label, total: t.total, weak: t.weak })),
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-4"
+      style={{ background: 'hsl(0 0% 0% / 0.45)' }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 24 }}
+        transition={{ duration: 0.22 }}
+        className="w-full max-w-md max-h-[min(78vh,560px)] flex flex-col rounded-[22px] overflow-hidden"
+        style={{ background: 'var(--c-bg)', border: '1px solid var(--c-border)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div
+          className="flex items-center justify-between px-5 py-4 flex-shrink-0"
+          style={{ borderBottom: '1px solid var(--c-border)' }}
+        >
+          <h3 className="text-base font-bold" style={{ color: 'var(--c-text)' }}>Выбор темы</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-9 h-9 rounded-full flex items-center justify-center"
+            style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
+            aria-label="Закрыть"
+          >
+            <X className="w-4 h-4" style={{ color: 'var(--c-muted)' }} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 space-y-2">
+          {rows.map(row => {
+            const selected = topicFilter === row.id;
+            const strong = row.total - row.weak;
+            const pct = row.total > 0 ? Math.round((strong / row.total) * 100) : 0;
+            return (
+              <button
+                key={row.id ?? '__all__'}
+                type="button"
+                onClick={() => { onSelect(row.id); onClose(); }}
+                className="w-full text-left rounded-[16px] p-4 transition-all active:scale-[0.98]"
+                style={{
+                  background: selected
+                    ? 'var(--c-primary-soft)'
+                    : 'var(--c-card)',
+                  border: selected
+                    ? `1.5px solid var(--c-primary-br)`
+                    : '1px solid var(--c-border)',
+                }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[14px] font-bold leading-snug" style={{ color: 'var(--c-text)' }}>
+                      {row.label}
+                    </div>
+                    <div className="text-[12px] mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5" style={{ color: 'var(--c-muted)' }}>
+                      <span>{row.total} {row.total === 1 ? 'карточка' : row.total < 5 ? 'карточки' : 'карточек'}</span>
+                      <span>·</span>
+                      <span style={{ color: row.weak > 0 ? 'var(--c-danger)' : 'var(--c-muted)' }}>
+                        {row.weak} слабых
+                      </span>
+                      <span>·</span>
+                      <span style={{ color: 'var(--c-primary)' }}>{pct}% знаю</span>
+                    </div>
+                  </div>
+                  {selected && (
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full flex-shrink-0"
+                      style={{ background: accentColor, color: 'var(--c-bg)' }}
+                    >
+                      Сейчас
+                    </span>
+                  )}
+                </div>
+                <div
+                  className="mt-3 h-1.5 rounded-full overflow-hidden"
+                  style={{ background: 'var(--c-border)' }}
+                >
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${pct}%`, background: accentColor }}
+                  />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
   subject = 'bio',
   accentColor = 'var(--c-primary)',
@@ -35,18 +156,27 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
   const [allCards, setAllCards]     = useState<FlashcardItem[]>([]);
   const [weakSet, setWeakSet]       = useState<Set<string>>(new Set());
   const [topicFilter, setTopicFilter] = useState<string | null>(null);
+  const [topicModalOpen, setTopicModalOpen] = useState(false);
   const [queue, setQueue]           = useState<FlashcardItem[]>([]);
   const [flipped, setFlipped]       = useState(false);
   const [knownCount, setKnownCount] = useState(0);
   const [unknownCount, setUnknownCount] = useState(0);
   const [sessionWeak, setSessionWeak] = useState<FlashcardItem[]>([]);
 
-  const topics = useMemo(() => {
-    const ids = [...new Set(allCards.map(c => c.topic))].sort(
-      (a, b) => topicLabel(a).localeCompare(topicLabel(b), 'ru'),
-    );
-    return ids;
-  }, [allCards]);
+  const topicStats = useMemo(
+    () => computeTopicStats(allCards, weakSet),
+    [allCards, weakSet],
+  );
+
+  const allTotal = allCards.length;
+  const allWeak = useMemo(
+    () => allCards.filter(c => weakSet.has(flashcardMember(c.questionId, c.factIndex))).length,
+    [allCards, weakSet],
+  );
+
+  const currentTopicLabel = topicFilter === null
+    ? 'Все темы'
+    : topicLabel(topicFilter);
 
   const startSession = useCallback((
     cards: FlashcardItem[],
@@ -75,12 +205,16 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
     let cancelled = false;
     setPhase('loading');
     (async () => {
-      const [questions, weak] = await Promise.all([
+      const [questions, glossary, weak] = await Promise.all([
         loadSubjectData(subject, 'questions', { bustCache: bustDataCache }),
+        loadSubjectData(subject, 'glossary', { bustCache: bustDataCache }),
         fetchWeakFlashcards(subject),
       ]);
       if (cancelled) return;
-      const cards = expandQuestionsToCards(questions as BioQuestionFlash[]);
+      const cards = expandAllFlashcards(
+        questions as BioQuestionFlash[],
+        glossary as { term?: string; definition?: string }[],
+      );
       setAllCards(cards);
       setWeakSet(weak);
       startSession(cards, weak, null);
@@ -161,6 +295,26 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
     startSession(allCards, weakSet, topicFilter);
   };
 
+  const topicPickerButton = (
+    <button
+      type="button"
+      onClick={() => setTopicModalOpen(true)}
+      className="flex items-center justify-center gap-1.5 mx-auto max-w-full px-4 py-2 rounded-full transition-all active:scale-[0.97]"
+      style={{
+        background: 'var(--c-card)',
+        border: '1px solid var(--c-border)',
+      }}
+    >
+      <span
+        className="text-[13px] font-bold truncate"
+        style={{ color: accentColor }}
+      >
+        {currentTopicLabel}
+      </span>
+      <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-muted)' }} />
+    </button>
+  );
+
   if (phase === 'loading') {
     return (
       <div className="flex flex-col items-center justify-center flex-1 py-24" style={{ color: accentColor }}>
@@ -183,36 +337,8 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      {/* Фильтр по теме */}
-      <div
-        className="flex-shrink-0 px-3 pb-2 overflow-x-auto"
-        style={{ scrollbarWidth: 'none' }}
-      >
-        <div className="flex gap-1.5 min-w-min">
-          <button
-            type="button"
-            onClick={() => applyTopicFilter(null)}
-            className="px-3 h-8 rounded-full text-[12px] font-bold whitespace-nowrap transition-all active:scale-95"
-            style={topicFilter === null
-              ? { background: accentColor, color: '#fff' }
-              : { background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}
-          >
-            Все темы
-          </button>
-          {topics.map(id => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => applyTopicFilter(id)}
-              className="px-3 h-8 rounded-full text-[12px] font-bold whitespace-nowrap transition-all active:scale-95"
-              style={topicFilter === id
-                ? { background: accentColor, color: '#fff' }
-                : { background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}
-            >
-              {BIO_TOPIC_LABELS[id] ?? topicLabel(id)}
-            </button>
-          ))}
-        </div>
+      <div className="flex-shrink-0 px-4 pb-3 pt-1">
+        {topicPickerButton}
       </div>
 
       {phase === 'summary' ? (
@@ -223,6 +349,9 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
               Сессия завершена
             </h2>
             <p className="text-sm leading-relaxed" style={{ color: 'var(--c-muted)' }}>
+              {currentTopicLabel}
+            </p>
+            <p className="text-sm leading-relaxed mt-2" style={{ color: 'var(--c-muted)' }}>
               Знал: <strong style={{ color: 'var(--c-primary)' }}>{knownCount}</strong>
               {' · '}
               Не знал: <strong style={{ color: 'var(--c-danger)' }}>{unknownCount}</strong>
@@ -290,7 +419,7 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
                         className="text-[10px] font-bold uppercase tracking-widest mb-3"
                         style={{ color: accentColor }}
                       >
-                        {topicLabel(current.topic)}
+                        {current.source === 'glossary' ? 'Глоссарий' : topicLabel(current.topic)}
                       </span>
                       <p
                         className="text-lg font-bold leading-snug"
@@ -361,6 +490,20 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
           </div>
         </>
       )}
+
+      <AnimatePresence>
+        {topicModalOpen && (
+          <TopicPickerModal
+            onClose={() => setTopicModalOpen(false)}
+            topicFilter={topicFilter}
+            topicStats={topicStats}
+            allTotal={allTotal}
+            allWeak={allWeak}
+            accentColor={accentColor}
+            onSelect={applyTopicFilter}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

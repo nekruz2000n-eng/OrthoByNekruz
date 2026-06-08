@@ -15,9 +15,14 @@ export interface FlashcardItem {
   topic:      string;
   subtopic:   string;
   fact:       string;
+  /** Источник карточки — для отображения */
+  source?:    'question' | 'glossary';
 }
 
+export const GLOSSARY_TOPIC_ID = 'glossary';
+
 export const BIO_TOPIC_LABELS: Record<string, string> = {
+  [GLOSSARY_TOPIC_ID]: 'Глоссарий',
   cell_biology:       'Клеточная биология',
   cell_division:      'Деление клетки',
   molecular_genetics: 'Молекулярная генетика',
@@ -68,10 +73,43 @@ export function expandQuestionsToCards(questions: BioQuestionFlash[]): Flashcard
         topic,
         subtopic,
         fact:       text,
+        source:     'question',
       });
     });
   }
   return cards;
+}
+
+export interface GlossaryFlashEntry {
+  term?:       string;
+  definition?: string;
+}
+
+/** Одна запись глоссария = одна карточка (термин → определение). */
+export function expandGlossaryToCards(entries: GlossaryFlashEntry[]): FlashcardItem[] {
+  const cards: FlashcardItem[] = [];
+  entries.forEach((entry, idx) => {
+    const term = String(entry.term || '').trim();
+    const definition = String(entry.definition || '').trim();
+    if (!term || !definition) return;
+    cards.push({
+      questionId: -(idx + 1),
+      factIndex:  0,
+      topic:      GLOSSARY_TOPIC_ID,
+      subtopic:   term,
+      fact:       definition,
+      source:     'glossary',
+    });
+  });
+  return cards;
+}
+
+/** Вопросы + глоссарий в единую колоду. */
+export function expandAllFlashcards(
+  questions: BioQuestionFlash[],
+  glossary: GlossaryFlashEntry[],
+): FlashcardItem[] {
+  return [...expandQuestionsToCards(questions), ...expandGlossaryToCards(glossary)];
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -105,4 +143,37 @@ export function buildSessionDeck(
 
 export function weakSetFromList(members: string[]): Set<string> {
   return new Set(members.filter(Boolean));
+}
+
+export interface TopicStats {
+  topicId: string;
+  label:   string;
+  total:   number;
+  weak:    number;
+}
+
+/** Статистика по темам для модального выбора. */
+export function computeTopicStats(
+  cards: FlashcardItem[],
+  weakMembers: Set<string>,
+): TopicStats[] {
+  const map = new Map<string, { total: number; weak: number }>();
+  for (const c of cards) {
+    const entry = map.get(c.topic) ?? { total: 0, weak: 0 };
+    entry.total += 1;
+    if (weakMembers.has(flashcardMember(c.questionId, c.factIndex))) entry.weak += 1;
+    map.set(c.topic, entry);
+  }
+  return [...map.entries()]
+    .map(([topicId, { total, weak }]) => ({
+      topicId,
+      label: topicLabel(topicId),
+      total,
+      weak,
+    }))
+    .sort((a, b) => {
+      if (a.topicId === GLOSSARY_TOPIC_ID) return -1;
+      if (b.topicId === GLOSSARY_TOPIC_ID) return 1;
+      return a.label.localeCompare(b.label, 'ru');
+    });
 }
