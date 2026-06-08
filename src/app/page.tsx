@@ -234,14 +234,13 @@ export default function Home() {
     if (tab === 'questions') setBioQuestionsSection('list');
   }, []);
 
-  const handleQuestionsLongPress = useCallback(() => {
+  const handleBioModeCycle = useCallback(() => {
     setActiveTab('questions');
-    setBioQuestionsSection(prev => (prev === 'flashcards' ? 'list' : 'flashcards'));
-  }, []);
-
-  const handleQuestionsTrueFalseLongPress = useCallback(() => {
-    setActiveTab('questions');
-    setBioQuestionsSection('true_false');
+    setBioQuestionsSection(prev => {
+      if (prev === 'list') return 'flashcards';
+      if (prev === 'flashcards') return 'true_false';
+      return 'list';
+    });
   }, []);
 
   useEffect(() => {
@@ -1530,8 +1529,7 @@ export default function Home() {
           onTabChange={handleNavTabChange}
           hiddenTabs={(navHidden[subject] || []) as TabType[]}
           subject={subject}
-          onQuestionsLongPress={subject === 'bio' ? handleQuestionsLongPress : undefined}
-          onQuestionsTrueFalseLongPress={subject === 'bio' ? handleQuestionsTrueFalseLongPress : undefined}
+          onBioModeCycle={subject === 'bio' ? handleBioModeCycle : undefined}
           bioGameMode={subject === 'bio' ? bioQuestionsSection : 'list'}
         />
       )}

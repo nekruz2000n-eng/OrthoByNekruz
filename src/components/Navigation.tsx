@@ -12,16 +12,12 @@ interface NavigationProps {
   onTabChange: (tab: TabType) => void;
   hiddenTabs?: TabType[];
   subject?: string;
-  /** Удержание ~500 ms → флэшкарты (bio) */
-  onQuestionsLongPress?: () => void;
-  /** Удержание ~800 ms → Верно/Неверно (bio) */
-  onQuestionsTrueFalseLongPress?: () => void;
+  /** Удержание ~550 ms → следующий режим: список → карты → В/Н → список */
+  onBioModeCycle?: () => void;
   bioGameMode?: BioGameMode;
 }
 
-const FLASH_PRESS_MS   = 500;
-const TRUE_FALSE_MS    = 800;
-const FEEDBACK_MS      = 280;
+const LONG_PRESS_MS = 550;
 
 const ALL_TABS: { id: TabType; label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'questions', label: 'Вопросы',    Icon: BookOpen      },
@@ -30,13 +26,37 @@ const ALL_TABS: { id: TabType; label: string; Icon: React.ComponentType<{ classN
   { id: 'stats',     label: 'Статистика', Icon: BarChart3     },
 ];
 
+const BIO_CYCLE: BioGameMode[] = ['list', 'flashcards', 'true_false'];
+
+const MODE_META: Record<BioGameMode, {
+  Icon: React.ComponentType<{ className?: string }>;
+  ring: string;
+  emoji: string;
+  navLabel: string;
+}> = {
+  list:        { Icon: BookOpen, ring: 'hsl(210 90% 58% / 0.9)',  emoji: '📋', navLabel: 'Вопросы' },
+  flashcards:  { Icon: Layers,   ring: 'hsl(142 71% 45% / 0.85)', emoji: '🎴', navLabel: 'Карты'   },
+  true_false:  { Icon: Scale,    ring: 'hsl(270 65% 58% / 0.9)',  emoji: '⚖️', navLabel: 'В/Н'     },
+};
+
+export function getNextBioMode(mode: BioGameMode): BioGameMode {
+  const i = BIO_CYCLE.indexOf(mode);
+  return BIO_CYCLE[(i + 1) % BIO_CYCLE.length];
+}
+
+function hapticTap() {
+  try {
+    (window as { Telegram?: { WebApp?: { HapticFeedback?: { impactOccurred: (s: string) => void } } } })
+      .Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+  } catch { /* ignore */ }
+}
+
 export const Navigation: React.FC<NavigationProps> = ({
   activeTab,
   onTabChange,
   hiddenTabs,
   subject,
-  onQuestionsLongPress,
-  onQuestionsTrueFalseLongPress,
+  onBioModeCycle,
   bioGameMode = 'list',
 }) => {
   const tabs = hiddenTabs && hiddenTabs.length
@@ -44,85 +64,65 @@ export const Navigation: React.FC<NavigationProps> = ({
     : ALL_TABS;
   if (tabs.length === 0) return null;
 
-  const flashTimer     = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const trueFalseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cycleTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafId        = useRef<number | null>(null);
+  const pressStartAt = useRef(0);
   const longPressFired = useRef(false);
   const pressActive    = useRef(false);
-  const flashReady     = useRef(false);
-  const trueFalseFired = useRef(false);
 
-  const [hintMode, setHintMode] = useState<'none' | 'flashcards' | 'true_false'>('none');
+  const [holdProgress, setHoldProgress] = useState(0);
+  const [hintMode, setHintMode] = useState<BioGameMode | 'none'>('none');
 
-  const clearFlashTimer = useCallback(() => {
-    if (flashTimer.current) {
-      clearTimeout(flashTimer.current);
-      flashTimer.current = null;
+  const clearPressAnim = useCallback(() => {
+    if (cycleTimer.current) {
+      clearTimeout(cycleTimer.current);
+      cycleTimer.current = null;
+    }
+    if (rafId.current != null) {
+      cancelAnimationFrame(rafId.current);
+      rafId.current = null;
     }
   }, []);
 
-  const clearTrueFalseTimer = useCallback(() => {
-    if (trueFalseTimer.current) {
-      clearTimeout(trueFalseTimer.current);
-      trueFalseTimer.current = null;
-    }
+  const resetPressVisuals = useCallback(() => {
+    setHoldProgress(0);
+    setHintMode('none');
   }, []);
-
-  const clearAllTimers = useCallback(() => {
-    clearFlashTimer();
-    clearTrueFalseTimer();
-  }, [clearFlashTimer, clearTrueFalseTimer]);
 
   const handlePressStart = useCallback((tabId: TabType) => {
-    const isBioQuestions = tabId === 'questions' && subject === 'bio'
-      && (onQuestionsLongPress || onQuestionsTrueFalseLongPress);
+    const isBioQuestions = tabId === 'questions' && subject === 'bio' && !!onBioModeCycle;
     if (!isBioQuestions) return;
 
     longPressFired.current = false;
-    flashReady.current = false;
-    trueFalseFired.current = false;
     pressActive.current = true;
-    setHintMode('none');
-    clearAllTimers();
+    pressStartAt.current = performance.now();
+    setHintMode(getNextBioMode(bioGameMode));
+    setHoldProgress(0);
+    clearPressAnim();
 
-    flashTimer.current = setTimeout(() => {
+    const animate = () => {
       if (!pressActive.current) return;
-      flashReady.current = true;
-      setHintMode('flashcards');
-    }, FLASH_PRESS_MS);
+      const p = Math.min(1, (performance.now() - pressStartAt.current) / LONG_PRESS_MS);
+      setHoldProgress(p);
+      if (p < 1) rafId.current = requestAnimationFrame(animate);
+    };
+    rafId.current = requestAnimationFrame(animate);
 
-    trueFalseTimer.current = setTimeout(() => {
-      if (!pressActive.current) return;
-      flashReady.current = false;
-      trueFalseFired.current = true;
+    cycleTimer.current = setTimeout(() => {
+      if (!pressActive.current || longPressFired.current) return;
       longPressFired.current = true;
-      setHintMode('true_false');
-      setTimeout(() => {
-        setHintMode('none');
-        onQuestionsTrueFalseLongPress?.();
-      }, FEEDBACK_MS);
-    }, TRUE_FALSE_MS);
-  }, [subject, onQuestionsLongPress, onQuestionsTrueFalseLongPress, clearAllTimers]);
+      hapticTap();
+      onBioModeCycle?.();
+      resetPressVisuals();
+    }, LONG_PRESS_MS);
+  }, [subject, onBioModeCycle, bioGameMode, clearPressAnim, resetPressVisuals]);
 
   const handlePressEnd = useCallback(() => {
     if (!pressActive.current) return;
     pressActive.current = false;
-    clearAllTimers();
-
-    if (trueFalseFired.current) {
-      setHintMode('none');
-      return;
-    }
-
-    if (flashReady.current && onQuestionsLongPress) {
-      longPressFired.current = true;
-      flashReady.current = false;
-      setHintMode('none');
-      onQuestionsLongPress();
-      return;
-    }
-
-    setHintMode('none');
-  }, [onQuestionsLongPress, clearAllTimers]);
+    clearPressAnim();
+    if (!longPressFired.current) resetPressVisuals();
+  }, [clearPressAnim, resetPressVisuals]);
 
   const handleTabClick = useCallback((tabId: TabType) => {
     if (longPressFired.current) {
@@ -134,8 +134,8 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   useEffect(() => () => {
     pressActive.current = false;
-    clearAllTimers();
-  }, [clearAllTimers]);
+    clearPressAnim();
+  }, [clearPressAnim]);
 
   return (
     <div
@@ -155,25 +155,28 @@ export const Navigation: React.FC<NavigationProps> = ({
         {tabs.map(tab => {
           const isActive = activeTab === tab.id;
           const Icon = tab.Icon;
-          const isBioQuestions = tab.id === 'questions' && subject === 'bio'
-            && (!!onQuestionsLongPress || !!onQuestionsTrueFalseLongPress);
+          const isBioQuestions = tab.id === 'questions' && subject === 'bio' && !!onBioModeCycle;
 
-          const toFlashcards = hintMode === 'flashcards' && bioGameMode !== 'flashcards';
-          const toList = hintMode === 'flashcards' && bioGameMode === 'flashcards';
-          const toTrueFalse = hintMode === 'true_false';
+          const displayMode: BioGameMode = hintMode !== 'none' ? hintMode : bioGameMode;
+          const showBioModeIcon = isBioQuestions && (bioGameMode !== 'list' || hintMode !== 'none');
+          const ModeIcon = showBioModeIcon ? MODE_META[displayMode].Icon : Icon;
 
-          const showFlashIcon = isBioQuestions && (
-            toFlashcards
-            || (bioGameMode === 'flashcards' && isActive && hintMode === 'none')
-          );
-          const showTrueFalseIcon = isBioQuestions && (
-            toTrueFalse
-            || (bioGameMode === 'true_false' && isActive && hintMode === 'none')
-          );
-          const showListHint = isBioQuestions && toList;
+          const ringMode: BioGameMode = hintMode !== 'none' ? hintMode : bioGameMode;
+          const ringColor = isBioQuestions && (holdProgress > 0 || hintMode !== 'none')
+            ? MODE_META[ringMode].ring
+            : null;
 
-          const flashRing = hintMode === 'flashcards' && isBioQuestions;
-          const tfRing = hintMode === 'true_false' && isBioQuestions;
+          let ringGlow: string | undefined;
+          if (ringColor) {
+            const base = ringColor.replace(/\/\s*[\d.]+\)/, '/ 0.35)');
+            ringGlow = holdProgress > 0
+              ? `0 0 0 ${1.5 + holdProgress * 2.5}px ${ringColor}, 0 0 ${8 + holdProgress * 14}px ${base}`
+              : `0 0 0 2px ${ringColor}, 0 0 14px ${base}`;
+          }
+
+          const navLabel = isBioQuestions && isActive && bioGameMode !== 'list'
+            ? MODE_META[bioGameMode].navLabel
+            : tab.label;
 
           return (
             <button
@@ -186,55 +189,49 @@ export const Navigation: React.FC<NavigationProps> = ({
               onTouchStart={() => handlePressStart(tab.id)}
               onTouchEnd={handlePressEnd}
               onTouchCancel={handlePressEnd}
-              className="relative flex items-center gap-1.5 rounded-full transition-all duration-200 select-none"
+              className="relative flex flex-col items-center gap-0.5 rounded-full transition-all duration-200 select-none"
               style={{
-                padding: isActive ? '9px 15px 9px 12px' : '10px 12px',
+                padding: isActive ? '9px 15px 7px 12px' : '10px 12px',
                 background: isActive ? 'var(--c-primary)' : 'transparent',
                 color: isActive ? 'var(--c-bg)' : 'var(--c-muted)',
                 WebkitTouchCallout: 'none',
-                boxShadow: flashRing
-                  ? '0 0 0 2px hsl(142 71% 45% / 0.85), 0 0 16px hsl(142 71% 45% / 0.35)'
-                  : tfRing
-                    ? '0 0 0 2px hsl(270 65% 58% / 0.9), 0 0 18px hsl(270 65% 58% / 0.4)'
-                    : undefined,
+                boxShadow: ringGlow,
               }}
             >
-              {showListHint ? (
-                <BookOpen className="w-[18px] h-[18px] animate-in zoom-in duration-200" />
-              ) : showTrueFalseIcon ? (
-                <Scale className="w-[18px] h-[18px] animate-in zoom-in duration-200" />
-              ) : showFlashIcon ? (
-                <Layers className="w-[18px] h-[18px] animate-in zoom-in duration-200" />
-              ) : (
-                <Icon className="w-[18px] h-[18px]" />
-              )}
-              {toFlashcards && (
-                <span
-                  className="absolute -top-1 -right-0.5 text-[10px] leading-none animate-in zoom-in duration-150"
-                  aria-hidden
-                >
-                  🎴
-                </span>
-              )}
-              {toTrueFalse && (
-                <span
-                  className="absolute -top-1 -right-0.5 text-[10px] leading-none animate-in zoom-in duration-150"
-                  aria-hidden
-                >
-                  ⚖️
-                </span>
-              )}
-              {toList && (
-                <span
-                  className="absolute -top-1 -right-0.5 text-[10px] leading-none animate-in zoom-in duration-150"
-                  aria-hidden
-                >
-                  📋
-                </span>
-              )}
-              {isActive && (
-                <span className="text-[12.5px] font-bold whitespace-nowrap animate-in fade-in slide-in-from-left-1 duration-200">
-                  {tab.label}
+              <span className="relative flex items-center gap-1.5">
+                <ModeIcon className={`w-[18px] h-[18px] ${hintMode !== 'none' ? 'animate-in zoom-in duration-200' : ''}`} />
+                {hintMode !== 'none' && isBioQuestions && (
+                  <span
+                    className="absolute -top-1.5 -right-2 text-[10px] leading-none animate-in zoom-in duration-150"
+                    aria-hidden
+                  >
+                    {MODE_META[hintMode].emoji}
+                  </span>
+                )}
+                {isActive && (
+                  <span className="text-[12.5px] font-bold whitespace-nowrap animate-in fade-in slide-in-from-left-1 duration-200">
+                    {navLabel}
+                  </span>
+                )}
+              </span>
+
+              {isBioQuestions && isActive && (
+                <span className="flex items-center gap-[3px]" aria-hidden>
+                  {BIO_CYCLE.map(mode => (
+                    <span
+                      key={mode}
+                      className="rounded-full transition-all duration-200"
+                      style={{
+                        width: bioGameMode === mode ? 5 : 3,
+                        height: bioGameMode === mode ? 5 : 3,
+                        background: bioGameMode === mode
+                          ? 'var(--c-bg)'
+                          : 'var(--c-bg)',
+                        opacity: bioGameMode === mode ? 1 : holdProgress > 0 && hintMode === mode ? 0.85 : 0.35,
+                        transform: holdProgress > 0 && hintMode === mode ? 'scale(1.25)' : undefined,
+                      }}
+                    />
+                  ))}
                 </span>
               )}
             </button>
