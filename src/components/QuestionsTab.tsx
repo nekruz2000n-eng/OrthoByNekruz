@@ -14,6 +14,8 @@ import {
 import { FacultyIcon } from './FacultyIcon';
 import { QuestionAiPanel } from './QuestionAiPanel';
 import { FlashcardsTab } from './FlashcardsTab';
+import { TrueFalseTab } from './TrueFalseTab';
+import type { BioGameMode } from './Navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { termRegexSource as _termRegexSource } from '@/lib/glossaryUtils';
@@ -356,8 +358,8 @@ export const QuestionsTab = ({
   onSecretTap?: () => void;
   subject?: SubjectType;
   bustDataCache?: boolean;
-  bioSection?: 'list' | 'flashcards';
-  onBioSectionChange?: (section: 'list' | 'flashcards') => void;
+  bioSection?: BioGameMode;
+  onBioSectionChange?: (section: BioGameMode) => void;
 }) => {
   const cfg         = getSubject(subject);
   const accentColor = cfg?.color || 'var(--c-primary)';
@@ -376,7 +378,7 @@ export const QuestionsTab = ({
   const [userNotes, setUserNotes] = useState<Record<number, string>>({});
   const [isLoaded, setIsLoaded] = useState(false);
   const [readingQuestion, setReadingQuestion] = useState<any | null>(null);
-  const [bioSectionLocal, setBioSectionLocal] = useState<'list' | 'flashcards'>('list');
+  const [bioSectionLocal, setBioSectionLocal] = useState<BioGameMode>('list');
   const bioSection = bioSectionProp ?? bioSectionLocal;
   const setBioSection = onBioSectionChange ?? setBioSectionLocal;
 
@@ -732,11 +734,13 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                     <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5 text-center" style={{ color: accentColor }}>
                       {bioSection === 'flashcards' && subject === 'bio'
                         ? 'Флэшкарты · bio'
-                        : `Вопросы · ${cfg?.label || subject}`}
+                        : bioSection === 'true_false' && subject === 'bio'
+                          ? 'Верно/Неверно · bio'
+                          : `Вопросы · ${cfg?.label || subject}`}
                     </p>
 
                     {/* Полоска прогресса (w-full заполнит ровно ширину текста выше) */}
-                    {!(subject === 'bio' && bioSection === 'flashcards') && (
+                    {!(subject === 'bio' && (bioSection === 'flashcards' || bioSection === 'true_false')) && (
                     <div className="w-full h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
                       <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
                     </div>
@@ -748,7 +752,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
   <div className="w-[75px] flex-shrink-0" />
 </div>
 
-        {!(subject === 'bio' && bioSection === 'flashcards') && (
+        {!(subject === 'bio' && (bioSection === 'flashcards' || bioSection === 'true_false')) && (
         <>
         <div className="relative mt-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--c-muted)' }} />
@@ -789,6 +793,10 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
       {subject === 'bio' && bioSection === 'flashcards' ? (
         <div className="flex-1 flex flex-col min-h-0" style={{ paddingBottom: 'var(--scroll-pb)' }}>
           <FlashcardsTab subject={subject} accentColor={accentColor} bustDataCache={bustDataCache} />
+        </div>
+      ) : subject === 'bio' && bioSection === 'true_false' ? (
+        <div className="flex-1 flex flex-col min-h-0" style={{ paddingBottom: 'var(--scroll-pb)' }}>
+          <TrueFalseTab subject={subject} accentColor={accentColor} bustDataCache={bustDataCache} />
         </div>
       ) : (
       <ScrollArea className="flex-1 scroll-container">

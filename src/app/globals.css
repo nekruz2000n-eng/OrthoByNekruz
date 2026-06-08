@@ -286,3 +286,16 @@ img {
 .flashcard-back {
   transform: rotateY(180deg);
 }
+
+/* ─── Верно/Неверно: свайп карточки ─── */
+.tf-card {
+  transition: border-color 200ms ease, background 200ms ease;
+}
+
+.tf-card-correct {
+  background: color-mix(in srgb, hsl(142 71% 45%) 12%, var(--c-card)) !important;
+}
+
+.tf-card-wrong {
+  background: color-mix(in srgb, hsl(var(--destructive)) 10%, var(--c-card)) !important;
+}

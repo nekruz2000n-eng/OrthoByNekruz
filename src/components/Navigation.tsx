@@ -1,25 +1,27 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { BookOpen, ClipboardList, PenTool, BarChart3, Layers } from 'lucide-react';
+import { BookOpen, ClipboardList, PenTool, BarChart3, Layers, Scale } from 'lucide-react';
 
 export type TabType = 'questions' | 'tests' | 'tasks' | 'stats';
+
+export type BioGameMode = 'list' | 'flashcards' | 'true_false';
 
 interface NavigationProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
-  /** ID табов, которые надо скрыть (управляется из админки per-user) */
   hiddenTabs?: TabType[];
-  /** Текущий предмет — long press на «Вопросы» только для bio */
   subject?: string;
-  /** Удержание на «Вопросы» → переключение список ↔ флэшкарты (bio) */
+  /** Удержание ~500 ms → флэшкарты (bio) */
   onQuestionsLongPress?: () => void;
-  /** Активен режим флэшкарт через long press */
-  questionsFlashcardsActive?: boolean;
+  /** Удержание ~800 ms → Верно/Неверно (bio) */
+  onQuestionsTrueFalseLongPress?: () => void;
+  bioGameMode?: BioGameMode;
 }
 
-const LONG_PRESS_MS = 500;
-const FEEDBACK_MS   = 300;
+const FLASH_PRESS_MS   = 500;
+const TRUE_FALSE_MS    = 800;
+const FEEDBACK_MS      = 280;
 
 const ALL_TABS: { id: TabType; label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'questions', label: 'Вопросы',    Icon: BookOpen      },
@@ -34,50 +36,93 @@ export const Navigation: React.FC<NavigationProps> = ({
   hiddenTabs,
   subject,
   onQuestionsLongPress,
-  questionsFlashcardsActive = false,
+  onQuestionsTrueFalseLongPress,
+  bioGameMode = 'list',
 }) => {
   const tabs = hiddenTabs && hiddenTabs.length
     ? ALL_TABS.filter(t => !hiddenTabs.includes(t.id))
     : ALL_TABS;
   if (tabs.length === 0) return null;
 
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const feedbackTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashTimer     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const trueFalseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
-  const [cardHint, setCardHint] = useState(false);
+  const pressActive    = useRef(false);
+  const flashReady     = useRef(false);
+  const trueFalseFired = useRef(false);
 
-  const clearLongPress = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
+  const [hintMode, setHintMode] = useState<'none' | 'flashcards' | 'true_false'>('none');
+
+  const clearFlashTimer = useCallback(() => {
+    if (flashTimer.current) {
+      clearTimeout(flashTimer.current);
+      flashTimer.current = null;
     }
   }, []);
 
-  const clearFeedback = useCallback(() => {
-    if (feedbackTimer.current) {
-      clearTimeout(feedbackTimer.current);
-      feedbackTimer.current = null;
+  const clearTrueFalseTimer = useCallback(() => {
+    if (trueFalseTimer.current) {
+      clearTimeout(trueFalseTimer.current);
+      trueFalseTimer.current = null;
     }
   }, []);
+
+  const clearAllTimers = useCallback(() => {
+    clearFlashTimer();
+    clearTrueFalseTimer();
+  }, [clearFlashTimer, clearTrueFalseTimer]);
 
   const handlePressStart = useCallback((tabId: TabType) => {
-    if (tabId !== 'questions' || subject !== 'bio' || !onQuestionsLongPress) return;
+    const isBioQuestions = tabId === 'questions' && subject === 'bio'
+      && (onQuestionsLongPress || onQuestionsTrueFalseLongPress);
+    if (!isBioQuestions) return;
+
     longPressFired.current = false;
-    clearLongPress();
-    longPressTimer.current = setTimeout(() => {
+    flashReady.current = false;
+    trueFalseFired.current = false;
+    pressActive.current = true;
+    setHintMode('none');
+    clearAllTimers();
+
+    flashTimer.current = setTimeout(() => {
+      if (!pressActive.current) return;
+      flashReady.current = true;
+      setHintMode('flashcards');
+    }, FLASH_PRESS_MS);
+
+    trueFalseTimer.current = setTimeout(() => {
+      if (!pressActive.current) return;
+      flashReady.current = false;
+      trueFalseFired.current = true;
       longPressFired.current = true;
-      setCardHint(true);
-      feedbackTimer.current = setTimeout(() => {
-        setCardHint(false);
-        onQuestionsLongPress();
-        feedbackTimer.current = null;
+      setHintMode('true_false');
+      setTimeout(() => {
+        setHintMode('none');
+        onQuestionsTrueFalseLongPress?.();
       }, FEEDBACK_MS);
-    }, LONG_PRESS_MS);
-  }, [subject, onQuestionsLongPress, clearLongPress]);
+    }, TRUE_FALSE_MS);
+  }, [subject, onQuestionsLongPress, onQuestionsTrueFalseLongPress, clearAllTimers]);
 
   const handlePressEnd = useCallback(() => {
-    clearLongPress();
-  }, [clearLongPress]);
+    if (!pressActive.current) return;
+    pressActive.current = false;
+    clearAllTimers();
+
+    if (trueFalseFired.current) {
+      setHintMode('none');
+      return;
+    }
+
+    if (flashReady.current && onQuestionsLongPress) {
+      longPressFired.current = true;
+      flashReady.current = false;
+      setHintMode('none');
+      onQuestionsLongPress();
+      return;
+    }
+
+    setHintMode('none');
+  }, [onQuestionsLongPress, clearAllTimers]);
 
   const handleTabClick = useCallback((tabId: TabType) => {
     if (longPressFired.current) {
@@ -88,9 +133,9 @@ export const Navigation: React.FC<NavigationProps> = ({
   }, [onTabChange]);
 
   useEffect(() => () => {
-    clearLongPress();
-    clearFeedback();
-  }, [clearLongPress, clearFeedback]);
+    pressActive.current = false;
+    clearAllTimers();
+  }, [clearAllTimers]);
 
   return (
     <div
@@ -110,11 +155,25 @@ export const Navigation: React.FC<NavigationProps> = ({
         {tabs.map(tab => {
           const isActive = activeTab === tab.id;
           const Icon = tab.Icon;
-          const isBioQuestions = tab.id === 'questions' && subject === 'bio' && !!onQuestionsLongPress;
-          const toFlashcards = cardHint && !questionsFlashcardsActive;
-          const toList = cardHint && questionsFlashcardsActive;
-          const showFlashIcon = isBioQuestions && (toFlashcards || (questionsFlashcardsActive && isActive && !cardHint));
+          const isBioQuestions = tab.id === 'questions' && subject === 'bio'
+            && (!!onQuestionsLongPress || !!onQuestionsTrueFalseLongPress);
+
+          const toFlashcards = hintMode === 'flashcards' && bioGameMode !== 'flashcards';
+          const toList = hintMode === 'flashcards' && bioGameMode === 'flashcards';
+          const toTrueFalse = hintMode === 'true_false';
+
+          const showFlashIcon = isBioQuestions && (
+            toFlashcards
+            || (bioGameMode === 'flashcards' && isActive && hintMode === 'none')
+          );
+          const showTrueFalseIcon = isBioQuestions && (
+            toTrueFalse
+            || (bioGameMode === 'true_false' && isActive && hintMode === 'none')
+          );
           const showListHint = isBioQuestions && toList;
+
+          const flashRing = hintMode === 'flashcards' && isBioQuestions;
+          const tfRing = hintMode === 'true_false' && isBioQuestions;
 
           return (
             <button
@@ -133,10 +192,17 @@ export const Navigation: React.FC<NavigationProps> = ({
                 background: isActive ? 'var(--c-primary)' : 'transparent',
                 color: isActive ? 'var(--c-bg)' : 'var(--c-muted)',
                 WebkitTouchCallout: 'none',
+                boxShadow: flashRing
+                  ? '0 0 0 2px hsl(142 71% 45% / 0.85), 0 0 16px hsl(142 71% 45% / 0.35)'
+                  : tfRing
+                    ? '0 0 0 2px hsl(270 65% 58% / 0.9), 0 0 18px hsl(270 65% 58% / 0.4)'
+                    : undefined,
               }}
             >
               {showListHint ? (
                 <BookOpen className="w-[18px] h-[18px] animate-in zoom-in duration-200" />
+              ) : showTrueFalseIcon ? (
+                <Scale className="w-[18px] h-[18px] animate-in zoom-in duration-200" />
               ) : showFlashIcon ? (
                 <Layers className="w-[18px] h-[18px] animate-in zoom-in duration-200" />
               ) : (
@@ -148,6 +214,14 @@ export const Navigation: React.FC<NavigationProps> = ({
                   aria-hidden
                 >
                   🎴
+                </span>
+              )}
+              {toTrueFalse && (
+                <span
+                  className="absolute -top-1 -right-0.5 text-[10px] leading-none animate-in zoom-in duration-150"
+                  aria-hidden
+                >
+                  ⚖️
                 </span>
               )}
               {toList && (

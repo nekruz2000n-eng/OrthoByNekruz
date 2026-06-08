@@ -9,7 +9,7 @@ import { TrustAccessNotice } from '@/components/TrustAccessNotice';
 import { ChannelCodeEntryScreen } from '@/components/ChannelCodeEntryScreen';
 import { AccessWelcomeOverlay, PREVIEW_AWAITING_CONFIRM_KEY } from '@/components/AccessWelcomeOverlay';
 import { AuthScreen }    from '@/components/AuthScreen';
-import { Navigation, TabType } from '@/components/Navigation';
+import { Navigation, TabType, type BioGameMode } from '@/components/Navigation';
 import { QuestionsTab }  from '@/components/QuestionsTab';
 import { TestsTab }      from '@/components/TestsTab';
 import { TasksTab }      from '@/components/TasksTab';
@@ -180,7 +180,7 @@ export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading,       setIsLoading]       = useState<boolean>(true);
   const [activeTab,       setActiveTab]       = useState<TabType>('questions');
-  const [bioQuestionsSection, setBioQuestionsSection] = useState<'list' | 'flashcards'>('list');
+  const [bioQuestionsSection, setBioQuestionsSection] = useState<BioGameMode>('list');
   const [testMode,        setTestMode]        = useState<boolean>(false);
   const [previewStatus,   setPreviewStatus]   = useState<PreviewStatus | null>(null);
   const [pickSubjects,    setPickSubjects]     = useState<string[]>([]);
@@ -237,6 +237,11 @@ export default function Home() {
   const handleQuestionsLongPress = useCallback(() => {
     setActiveTab('questions');
     setBioQuestionsSection(prev => (prev === 'flashcards' ? 'list' : 'flashcards'));
+  }, []);
+
+  const handleQuestionsTrueFalseLongPress = useCallback(() => {
+    setActiveTab('questions');
+    setBioQuestionsSection('true_false');
   }, []);
 
   useEffect(() => {
@@ -1526,7 +1531,8 @@ export default function Home() {
           hiddenTabs={(navHidden[subject] || []) as TabType[]}
           subject={subject}
           onQuestionsLongPress={subject === 'bio' ? handleQuestionsLongPress : undefined}
-          questionsFlashcardsActive={subject === 'bio' && bioQuestionsSection === 'flashcards'}
+          onQuestionsTrueFalseLongPress={subject === 'bio' ? handleQuestionsTrueFalseLongPress : undefined}
+          bioGameMode={subject === 'bio' ? bioQuestionsSection : 'list'}
         />
       )}
     </main>
