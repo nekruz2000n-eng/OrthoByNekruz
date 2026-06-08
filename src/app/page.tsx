@@ -236,7 +236,7 @@ export default function Home() {
 
   const handleQuestionsLongPress = useCallback(() => {
     setActiveTab('questions');
-    setBioQuestionsSection('flashcards');
+    setBioQuestionsSection(prev => (prev === 'flashcards' ? 'list' : 'flashcards'));
   }, []);
 
   useEffect(() => {

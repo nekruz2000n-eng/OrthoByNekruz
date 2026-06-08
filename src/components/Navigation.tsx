@@ -12,7 +12,7 @@ interface NavigationProps {
   hiddenTabs?: TabType[];
   /** Текущий предмет — long press на «Вопросы» только для bio */
   subject?: string;
-  /** Удержание на «Вопросы» → флэшкарты (bio) */
+  /** Удержание на «Вопросы» → переключение список ↔ флэшкарты (bio) */
   onQuestionsLongPress?: () => void;
   /** Активен режим флэшкарт через long press */
   questionsFlashcardsActive?: boolean;
@@ -111,7 +111,10 @@ export const Navigation: React.FC<NavigationProps> = ({
           const isActive = activeTab === tab.id;
           const Icon = tab.Icon;
           const isBioQuestions = tab.id === 'questions' && subject === 'bio' && !!onQuestionsLongPress;
-          const showFlashIcon = isBioQuestions && (cardHint || (questionsFlashcardsActive && isActive));
+          const toFlashcards = cardHint && !questionsFlashcardsActive;
+          const toList = cardHint && questionsFlashcardsActive;
+          const showFlashIcon = isBioQuestions && (toFlashcards || (questionsFlashcardsActive && isActive && !cardHint));
+          const showListHint = isBioQuestions && toList;
 
           return (
             <button
@@ -132,17 +135,27 @@ export const Navigation: React.FC<NavigationProps> = ({
                 WebkitTouchCallout: 'none',
               }}
             >
-              {showFlashIcon ? (
+              {showListHint ? (
+                <BookOpen className="w-[18px] h-[18px] animate-in zoom-in duration-200" />
+              ) : showFlashIcon ? (
                 <Layers className="w-[18px] h-[18px] animate-in zoom-in duration-200" />
               ) : (
                 <Icon className="w-[18px] h-[18px]" />
               )}
-              {cardHint && isBioQuestions && (
+              {toFlashcards && (
                 <span
                   className="absolute -top-1 -right-0.5 text-[10px] leading-none animate-in zoom-in duration-150"
                   aria-hidden
                 >
                   🎴
+                </span>
+              )}
+              {toList && (
+                <span
+                  className="absolute -top-1 -right-0.5 text-[10px] leading-none animate-in zoom-in duration-150"
+                  aria-hidden
+                >
+                  📋
                 </span>
               )}
               {isActive && (
