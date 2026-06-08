@@ -1,14 +1,20 @@
-/** Верно/Неверно — типы и генерация утверждений (биология). */
+/** Верно/Неверно — умная генерация утверждений. */
 
 import {
   type BioQuestionFlash,
   topicLabel,
   BIO_TOPIC_LABELS,
 } from '@/lib/flashcards';
+import {
+  type StudyWeightedQuestion,
+  areFactsTooSimilar,
+  pickFalseDonor,
+  pickWeighted,
+  questionStudyWeight,
+  topicSessionBoost,
+} from '@/lib/studyEngine';
 
-export interface BioQuestionTF extends BioQuestionFlash {
-  difficulty?: string;
-}
+export interface BioQuestionTF extends BioQuestionFlash, StudyWeightedQuestion {}
 
 export interface TrueFalseStatement {
   questionId: number;
@@ -17,13 +23,14 @@ export interface TrueFalseStatement {
   subtopic:   string;
   statement:  string;
   isTrue:     boolean;
-  /** Верный факт из этого вопроса — показываем при ошибке */
   correctFact: string;
+  donorSubtopic?: string;
 }
 
 export type DifficultyFilter = 'all' | 'easy' | 'medium' | 'hard';
 
 export const SESSION_SIZE = 20;
+export const TRUE_STATEMENT_RATIO = 0.7;
 
 export const DIFFICULTY_LABELS: Record<DifficultyFilter, string> = {
   all:    'Все',
@@ -33,7 +40,11 @@ export const DIFFICULTY_LABELS: Record<DifficultyFilter, string> = {
 };
 
 export function statementKey(s: TrueFalseStatement): string {
-  return `${s.questionId}:${s.factIndex}`;
+  return `${s.questionId}:${s.factIndex}:${normalizeStmt(s.statement)}`;
+}
+
+function normalizeStmt(s: string): string {
+  return s.trim().toLowerCase().slice(0, 48);
 }
 
 export function isTrueFalseQuestion(q: BioQuestionTF): boolean {
@@ -50,11 +61,6 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function pickRandom<T>(arr: T[]): T | null {
-  if (arr.length === 0) return null;
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
 function filterQuestions(
   questions: BioQuestionTF[],
   topicFilter: string | null,
@@ -68,7 +74,6 @@ function filterQuestions(
   });
 }
 
-/** Список topic id для чипов фильтра. */
 export function listTopics(
   questions: BioQuestionTF[],
   subjectId?: string,
@@ -84,10 +89,32 @@ export function listTopics(
     .sort((a, b) => a.label.localeCompare(b.label, 'ru'));
 }
 
-function makeTrueStatement(q: BioQuestionTF): TrueFalseStatement | null {
+/** Выбрать факт, который реже попадался в сессии */
+function pickFactIndex(
+  q: BioQuestionTF,
+  usedFactKeys: Set<string>,
+): number | null {
   const facts = (q.key_facts ?? []).map(f => String(f).trim()).filter(Boolean);
   if (facts.length === 0) return null;
-  const factIndex = Math.floor(Math.random() * facts.length);
+
+  const candidates = facts
+    .map((fact, idx) => ({ idx, fact, used: usedFactKeys.has(`${q.id}:${idx}`) }))
+    .sort((a, b) => (a.used === b.used ? 0 : a.used ? 1 : -1));
+
+  const fresh = candidates.filter(c => !c.used);
+  const pool = fresh.length > 0 ? fresh : candidates;
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  return pick.idx;
+}
+
+function makeTrueStatement(
+  q: BioQuestionTF,
+  usedFactKeys: Set<string>,
+): TrueFalseStatement | null {
+  const facts = (q.key_facts ?? []).map(f => String(f).trim()).filter(Boolean);
+  const factIndex = pickFactIndex(q, usedFactKeys);
+  if (factIndex === null) return null;
+
   const topic = String(q.topic || 'other');
   return {
     questionId: q.id,
@@ -100,33 +127,44 @@ function makeTrueStatement(q: BioQuestionTF): TrueFalseStatement | null {
   };
 }
 
-function makeFalseStatement(q: BioQuestionTF, sameTopicPool: BioQuestionTF[]): TrueFalseStatement | null {
+function makeFalseStatement(
+  q: BioQuestionTF,
+  topicPool: BioQuestionTF[],
+  usedFactKeys: Set<string>,
+): TrueFalseStatement | null {
   const facts = (q.key_facts ?? []).map(f => String(f).trim()).filter(Boolean);
   if (facts.length === 0) return null;
 
-  const others = sameTopicPool.filter(o => o.id !== q.id);
-  const donor = pickRandom(others);
-  if (!donor) return null;
+  const pick = pickFalseDonor(q, topicPool);
+  if (!pick) return null;
 
-  const donorFacts = (donor.key_facts ?? []).map(f => String(f).trim()).filter(Boolean);
-  const donorFact = pickRandom(donorFacts);
-  if (!donorFact) return null;
-
-  const factIndex = Math.floor(Math.random() * facts.length);
+  const factIndex = pickFactIndex(q, usedFactKeys) ?? 0;
   const topic = String(q.topic || 'other');
+
+  if (areFactsTooSimilar(facts[factIndex], pick.donorFact)) return null;
 
   return {
     questionId: q.id,
     factIndex,
     topic,
     subtopic: String(q.subtopic || topicLabel(topic)),
-    statement: donorFact,
+    statement: pick.donorFact,
     isTrue: false,
     correctFact: facts[factIndex],
+    donorSubtopic: String(pick.donor.subtopic || topicLabel(topic)),
   };
 }
 
-/** Сгенерировать сессию из count утверждений. */
+function pickQuestionForSession(
+  pool: BioQuestionTF[],
+  weakTopics: Set<string>,
+): BioQuestionTF | null {
+  return pickWeighted(pool, q => {
+    const topic = String(q.topic || 'other');
+    return questionStudyWeight(q) * topicSessionBoost(topic, weakTopics, pool);
+  });
+}
+
 export function buildTrueFalseSession(
   questions: BioQuestionTF[],
   options: {
@@ -134,6 +172,7 @@ export function buildTrueFalseSession(
     difficulty?: DifficultyFilter;
     count?: number;
     onlyKeys?: Set<string>;
+    weakTopics?: Set<string>;
   } = {},
 ): TrueFalseStatement[] {
   const {
@@ -141,43 +180,55 @@ export function buildTrueFalseSession(
     difficulty = 'all',
     count = SESSION_SIZE,
     onlyKeys,
+    weakTopics = new Set(),
   } = options;
 
   const pool = filterQuestions(questions, topicFilter, difficulty);
   if (pool.length === 0) return [];
 
-  const byTopic = new Map<string, BioQuestionTF[]>();
-  for (const q of pool) {
-    const topic = String(q.topic || 'other');
-    const list = byTopic.get(topic) ?? [];
-    list.push(q);
-    byTopic.set(topic, list);
-  }
+  const targetTrue = Math.max(1, Math.round(count * TRUE_STATEMENT_RATIO));
+  const targetFalse = Math.max(0, count - targetTrue);
 
-  const statements: TrueFalseStatement[] = [];
-  const maxAttempts = count * 8;
+  const tryAdd = (
+    list: TrueFalseStatement[],
+    stmt: TrueFalseStatement | null,
+    seen: Set<string>,
+    usedFacts: Set<string>,
+  ): boolean => {
+    if (!stmt) return false;
+    const key = statementKey(stmt);
+    if (onlyKeys && !onlyKeys.has(key)) return false;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    usedFacts.add(`${stmt.questionId}:${stmt.factIndex}`);
+    list.push(stmt);
+    return true;
+  };
+
+  const seen = new Set<string>();
+  const usedFacts = new Set<string>();
+  const trueStmts: TrueFalseStatement[] = [];
+  const falseStmts: TrueFalseStatement[] = [];
+  const maxAttempts = count * 12;
   let attempts = 0;
 
-  while (statements.length < count && attempts < maxAttempts) {
+  while (
+    (trueStmts.length < targetTrue || falseStmts.length < targetFalse)
+    && attempts < maxAttempts
+  ) {
     attempts += 1;
-    const q = pickRandom(pool);
+    const q = pickQuestionForSession(pool, weakTopics);
     if (!q) break;
 
-    const topic = String(q.topic || 'other');
-    const topicPool = byTopic.get(topic) ?? [q];
-    const isTrue = Math.random() < 0.5;
-
-    const stmt = isTrue
-      ? makeTrueStatement(q)
-      : makeFalseStatement(q, topicPool);
-
-    if (!stmt) continue;
-    if (onlyKeys && !onlyKeys.has(statementKey(stmt))) continue;
-
-    statements.push(stmt);
+    if (trueStmts.length < targetTrue) {
+      tryAdd(trueStmts, makeTrueStatement(q, usedFacts), seen, usedFacts);
+    }
+    if (falseStmts.length < targetFalse) {
+      tryAdd(falseStmts, makeFalseStatement(q, pool, usedFacts), seen, usedFacts);
+    }
   }
 
-  return shuffle(statements).slice(0, count);
+  return shuffle([...trueStmts, ...falseStmts]).slice(0, count);
 }
 
 export interface TopicSessionResult {

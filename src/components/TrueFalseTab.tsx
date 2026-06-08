@@ -16,7 +16,7 @@ import {
   statementKey,
   topicLabel,
 } from '@/lib/trueFalse';
-import { saveTrueFalseSession } from '@/lib/trueFalseApi';
+import { fetchWeakTrueFalseTopics, saveTrueFalseSession } from '@/lib/trueFalseApi';
 
 interface TrueFalseTabProps {
   subject?: string;
@@ -47,6 +47,7 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
 }) => {
   const [phase, setPhase]               = useState<Phase>('loading');
   const [allQuestions, setAllQuestions] = useState<BioQuestionTF[]>([]);
+  const [weakTopics, setWeakTopics]       = useState<Set<string>>(new Set());
   const [topicFilter, setTopicFilter]   = useState<string | null>(null);
   const [difficulty, setDifficulty]     = useState<DifficultyFilter>('all');
   const [queue, setQueue]               = useState<TrueFalseStatement[]>([]);
@@ -75,6 +76,7 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
     diff: DifficultyFilter,
     errorsOnly = false,
     errorStmts: TrueFalseStatement[] = [],
+    weakTopicSet: Set<string> = weakTopics,
   ) => {
     clearAdvanceTimer();
     setFeedback('none');
@@ -93,6 +95,7 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
         difficulty: diff,
         count: SESSION_SIZE,
         onlyKeys,
+        weakTopics: weakTopicSet,
       });
     }
 
@@ -110,17 +113,21 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
     if (!errorsOnly) setSessionErrors([]);
     setAnswers([]);
     setPhase('play');
-  }, [clearAdvanceTimer]);
+  }, [clearAdvanceTimer, weakTopics]);
 
   useEffect(() => {
     let cancelled = false;
     setPhase('loading');
     (async () => {
-      const questions = await loadSubjectData(subject, 'questions', { bustCache: bustDataCache });
+      const [questions, weak] = await Promise.all([
+        loadSubjectData(subject, 'questions', { bustCache: bustDataCache }),
+        fetchWeakTrueFalseTopics(subject),
+      ]);
       if (cancelled) return;
       const qs = questions as BioQuestionTF[];
       setAllQuestions(qs);
-      startSession(qs, null, 'all');
+      setWeakTopics(weak);
+      startSession(qs, null, 'all', false, [], weak);
     })();
     return () => { cancelled = true; };
   }, [subject, bustDataCache, startSession]);
@@ -348,7 +355,7 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
                   }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: swipeDir ? 0.35 : 0.2 }}
-                  className={`tf-card w-full max-w-sm flex-1 max-h-[min(52vh,420px)] min-h-[220px] mb-4 rounded-[20px] flex flex-col items-center justify-center p-6 text-center ${
+                  className={`tf-card w-full max-w-sm flex-1 max-h-[min(58vh,460px)] min-h-[260px] mb-4 rounded-[20px] flex flex-col items-stretch justify-center p-5 text-left ${
                     feedback === 'correct' ? 'tf-card-correct' : feedback === 'wrong' ? 'tf-card-wrong' : ''
                   }`}
                   style={{
@@ -361,40 +368,100 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
                         : '1px solid var(--c-border)',
                   }}
                 >
-                  <span
-                    className="text-[10px] font-bold uppercase tracking-widest mb-3"
-                    style={{ color: accentColor }}
-                  >
-                    {topicLabel(current.topic, subject)}
-                  </span>
                   <p
-                    className="text-[11px] font-semibold mb-4"
+                    className="text-[10px] font-bold uppercase tracking-widest text-center mb-3"
                     style={{ color: 'var(--c-muted)' }}
                   >
-                    {current.subtopic}
+                    Соответствие подтеме
                   </p>
-                  <p
-                    className="text-[16px] leading-relaxed font-medium"
-                    style={{ color: 'var(--c-text)' }}
-                  >
-                    {current.statement}
-                  </p>
+
+                  <div className="tf-context-block">
+                    <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: accentColor }}>
+                      Подтема
+                    </p>
+                    <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: 'var(--c-muted)' }}>
+                      {topicLabel(current.topic, subject)}
+                    </p>
+                    <p className="text-[15px] font-bold leading-snug" style={{ color: 'var(--c-text)' }}>
+                      {current.subtopic}
+                    </p>
+                  </div>
+
+                  <div className="tf-match-arrow" aria-hidden>
+                    утверждение
+                  </div>
+
+                  <div className="tf-statement-block">
+                    <p className="text-[9px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--c-muted)' }}>
+                      Утверждение
+                    </p>
+                    <p className="text-[15px] leading-relaxed font-medium" style={{ color: 'var(--c-text)' }}>
+                      «{current.statement}»
+                    </p>
+                  </div>
+
+                  {feedback === 'none' && (
+                    <p className="text-[12px] text-center leading-snug mt-4" style={{ color: 'var(--c-muted)' }}>
+                      Это утверждение относится к подтеме выше?
+                    </p>
+                  )}
+
+                  {feedback === 'correct' && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-[12px] text-center font-semibold mt-4"
+                      style={{ color: 'var(--c-primary)' }}
+                    >
+                      {current.isTrue ? 'Верно — утверждение соответствует подтеме' : 'Верно — утверждение не относится к этой подтеме'}
+                    </motion.p>
+                  )}
 
                   {feedback === 'wrong' && (
                     <motion.div
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="mt-5 pt-4 w-full"
-                      style={{ borderTop: '1px solid var(--c-border)' }}
+                      className="mt-4 space-y-2 w-full"
                     >
-                      <p className="text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: 'var(--c-danger)' }}>
-                        Правильный ответ
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-center" style={{ color: 'var(--c-danger)' }}>
+                        Неверно
                       </p>
-                      <p className="text-[13px] leading-relaxed" style={{ color: 'var(--c-muted)' }}>
-                        {current.isTrue
-                          ? `Утверждение верно: «${current.correctFact}»`
-                          : `Утверждение неверно. Верный факт: «${current.correctFact}»`}
-                      </p>
+                      <div className="tf-correspondence-row">
+                        <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--c-muted)' }}>
+                          Подтема
+                        </span>
+                        <span className="text-[13px] font-semibold" style={{ color: 'var(--c-text)' }}>
+                          {current.subtopic}
+                        </span>
+                      </div>
+                      <div className="tf-correspondence-row">
+                        <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--c-muted)' }}>
+                          Утверждение
+                        </span>
+                        <span className="text-[13px] leading-relaxed" style={{ color: 'var(--c-text)' }}>
+                          «{current.statement}»
+                        </span>
+                      </div>
+                      {!current.isTrue && current.donorSubtopic && current.donorSubtopic !== current.subtopic && (
+                        <div className="tf-correspondence-row" style={{ borderColor: 'color-mix(in srgb, var(--c-danger) 35%, var(--c-border))' }}>
+                          <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--c-danger)' }}>
+                            Факт из другой подтемы
+                          </span>
+                          <span className="text-[13px] font-semibold" style={{ color: 'var(--c-text)' }}>
+                            {current.donorSubtopic}
+                          </span>
+                        </div>
+                      )}
+                      <div className="tf-correspondence-row" style={{ borderColor: 'color-mix(in srgb, var(--c-primary) 35%, var(--c-border))' }}>
+                        <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--c-primary)' }}>
+                          {current.isTrue ? 'Верный ответ' : 'Факт для этой подтемы'}
+                        </span>
+                        <span className="text-[13px] leading-relaxed" style={{ color: 'var(--c-text)' }}>
+                          {current.isTrue
+                            ? 'Да — утверждение соответствует подтеме'
+                            : `Нет — верный факт: «${current.correctFact}»`}
+                        </span>
+                      </div>
                     </motion.div>
                   )}
                 </motion.div>
@@ -413,7 +480,7 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
                   color: 'var(--c-text)',
                 }}
               >
-                ✅ ВЕРНО
+                ✅ Соответствует
               </button>
               <button
                 type="button"
@@ -426,7 +493,7 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
                   color: 'var(--c-text)',
                 }}
               >
-                ❌ НЕВЕРНО
+                ❌ Не соответствует
               </button>
             </div>
           </div>

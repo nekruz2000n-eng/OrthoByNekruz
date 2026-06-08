@@ -1,10 +1,8 @@
 /** Флэшкарты — типы и утилиты. */
 
-export interface BioQuestionFlash {
-  id: number;
-  topic?: string;
-  subtopic?: string;
-  key_facts?: string[];
+import { type StudyWeightedQuestion, pickWeighted, questionStudyWeight } from '@/lib/studyEngine';
+
+export interface BioQuestionFlash extends StudyWeightedQuestion {
   game_modes?: string[];
   visible?: boolean;
 }
@@ -15,6 +13,8 @@ export interface FlashcardItem {
   topic:      string;
   subtopic:   string;
   fact:       string;
+  /** Приоритет для умной колоды */
+  weight?:    number;
   /** Источник карточки — для отображения */
   source?:    'question' | 'glossary';
 }
@@ -94,6 +94,7 @@ export function expandQuestionsToCards(questions: BioQuestionFlash[]): Flashcard
         topic,
         subtopic,
         fact:       text,
+        weight:     questionStudyWeight(q),
         source:     'question',
       });
     });
@@ -133,22 +134,25 @@ export function expandAllFlashcards(
   return [...expandQuestionsToCards(questions), ...expandGlossaryToCards(glossary)];
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+function weightedDeckOrder(cards: FlashcardItem[]): FlashcardItem[] {
+  const remaining = [...cards];
+  const ordered: FlashcardItem[] = [];
+  while (remaining.length > 0) {
+    const pick = pickWeighted(remaining, c => c.weight ?? 1);
+    if (!pick) break;
+    ordered.push(pick);
+    remaining.splice(remaining.indexOf(pick), 1);
   }
-  return a;
+  return ordered;
 }
 
-/** Слабые карточки первыми, остальные перемешаны. */
+/** Слабые карточки первыми (по весу), остальные — умный подбор по exam_weight. */
 export function buildSessionDeck(
   allCards: FlashcardItem[],
   weakMembers: Set<string>,
   topicFilter: string | null,
 ): FlashcardItem[] {
-  let pool = topicFilter
+  const pool = topicFilter
     ? allCards.filter(c => c.topic === topicFilter)
     : allCards;
 
@@ -159,7 +163,7 @@ export function buildSessionDeck(
     if (weakMembers.has(key)) weak.push(c);
     else rest.push(c);
   }
-  return [...shuffle(weak), ...shuffle(rest)];
+  return [...weightedDeckOrder(weak), ...weightedDeckOrder(rest)];
 }
 
 export function weakSetFromList(members: string[]): Set<string> {

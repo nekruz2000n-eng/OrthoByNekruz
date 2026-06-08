@@ -41,8 +41,8 @@ function normalizeTestOptionText(s: string): string {
   return s
     .replace(/^[0-9]+\)\s*/u, '')
     .replace(/^[a-zа-я]\.\s*/iu, '')
-    .trim()
-    .toLowerCase();
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function isCorrectTestOption(option: string, correct: string): boolean {
