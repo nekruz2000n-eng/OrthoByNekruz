@@ -1,4 +1,4 @@
-/** Флэшкарты — типы и утилиты (биология). */
+/** Флэшкарты — типы и утилиты. */
 
 export interface BioQuestionFlash {
   id: number;
@@ -37,8 +37,29 @@ export const BIO_TOPIC_LABELS: Record<string, string> = {
   parasitology:       'Паразитология',
 };
 
-export function topicLabel(topicId: string): string {
-  return BIO_TOPIC_LABELS[topicId] ?? topicId.replace(/_/g, ' ');
+export const ORTHO_TOPIC_LABELS: Record<string, string> = {
+  [GLOSSARY_TOPIC_ID]: 'Глоссарий',
+  anatomy_occlusion:   'Анатомия и окклюзия',
+  clasp_prosthetics:   'Бюгельное протезирование',
+  fixed_prosthetics:   'Несъёмное протезирование',
+  removable_prosthetics: 'Съёмное протезирование',
+  organization:        'Организация кабинета',
+  lab_equipment:       'Лабораторное оборудование',
+};
+
+const SUBJECT_TOPIC_LABELS: Record<string, Record<string, string>> = {
+  bio:   BIO_TOPIC_LABELS,
+  ortho: ORTHO_TOPIC_LABELS,
+};
+
+export function topicLabel(topicId: string, subjectId?: string): string {
+  if (topicId === GLOSSARY_TOPIC_ID) return 'Глоссарий';
+  const scoped = subjectId ? SUBJECT_TOPIC_LABELS[subjectId]?.[topicId] : undefined;
+  if (scoped) return scoped;
+  for (const labels of Object.values(SUBJECT_TOPIC_LABELS)) {
+    if (labels[topicId]) return labels[topicId];
+  }
+  return topicId.replace(/_/g, ' ');
 }
 
 export function flashcardMember(questionId: number, factIndex: number): string {
@@ -156,6 +177,7 @@ export interface TopicStats {
 export function computeTopicStats(
   cards: FlashcardItem[],
   weakMembers: Set<string>,
+  subjectId?: string,
 ): TopicStats[] {
   const map = new Map<string, { total: number; weak: number }>();
   for (const c of cards) {
@@ -167,7 +189,7 @@ export function computeTopicStats(
   return [...map.entries()]
     .map(([topicId, { total, weak }]) => ({
       topicId,
-      label: topicLabel(topicId),
+      label: topicLabel(topicId, subjectId),
       total,
       weak,
     }))

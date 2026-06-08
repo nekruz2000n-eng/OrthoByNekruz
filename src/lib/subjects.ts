@@ -69,6 +69,9 @@ export interface SubjectConfig {
 
   /** Доступна ли в демо-режиме? Только основная дисциплина — true. */
   availableInDemo: boolean;
+
+  /** Цикл режимов в «Вопросах»: список → флэшкарты → В/Н */
+  questionGameModes?: boolean;
 }
 
 // ─── Список всех дисциплин ─────────────────────────────────────────────────
@@ -92,6 +95,7 @@ export const SUBJECTS: SubjectConfig[] = [
     lsPrefix:       'ortho',
     freeWithKey:    false,
     availableInDemo: true,
+    questionGameModes: true,
   },
 
   // ═════════════════════════ МИКРОБИОЛОГИЯ ════════════════════════════════
@@ -134,6 +138,7 @@ export const SUBJECTS: SubjectConfig[] = [
     lsPrefix:       'bio',
     freeWithKey:    false,
     availableInDemo: false,
+    questionGameModes: true,
   },
 
   // ═════════════════════════ ФИЗИОЛОГИЯ ═══════════════════════════════════
@@ -312,6 +317,11 @@ export type SubjectId = string;
 /** Получить конфиг дисциплины по ID. Возвращает undefined если не найдена. */
 export function getSubject(id: string): SubjectConfig | undefined {
   return SUBJECTS.find(s => s.id === id);
+}
+
+/** Флэшкарты и В/Н в разделе «Вопросы». */
+export function subjectHasQuestionGameModes(id: string): boolean {
+  return getSubject(id)?.questionGameModes === true;
 }
 
 /** Получить конфиг или выбросить ошибку (для критических мест) */

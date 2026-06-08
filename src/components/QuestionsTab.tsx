@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { SubjectType } from '@/components/SubjectSelectScreen';
-import { getSubject, APP_BRAND_NAME } from '@/lib/subjects';
+import { getSubject, APP_BRAND_NAME, subjectHasQuestionGameModes } from '@/lib/subjects';
 import { loadSubjectData } from '@/lib/subjectData';
 import { CachedImage } from '@/components/CachedImage';
 import { Input } from '@/components/ui/input';
@@ -363,6 +363,7 @@ export const QuestionsTab = ({
 }) => {
   const cfg         = getSubject(subject);
   const accentColor = cfg?.color || 'var(--c-primary)';
+  const gameModes   = subjectHasQuestionGameModes(subject);
   const lsKey       = subject === 'ortho' ? 'studiedQuestions'  : `${cfg?.lsPrefix || subject}_studiedQuestions`;
   const lsNoteKey   = subject === 'ortho' ? 'userQuestionNotes' : `${cfg?.lsPrefix || subject}_userQuestionNotes`;
   const [loadedQuestionsData, setLoadedQuestionsData] = useState<any[]>([]);
@@ -732,15 +733,15 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                   {/* Обертка w-fit, которая "обтягивает" текст, а полоска растягивается на 100% от этой ширины */}
                   <div className="flex flex-col items-stretch w-fit mt-1">
                     <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5 text-center" style={{ color: accentColor }}>
-                      {bioSection === 'flashcards' && subject === 'bio'
-                        ? 'Флэшкарты · bio'
-                        : bioSection === 'true_false' && subject === 'bio'
-                          ? 'Верно/Неверно · bio'
+                      {bioSection === 'flashcards' && gameModes
+                        ? `Флэшкарты · ${cfg?.shortLabel || subject}`
+                        : bioSection === 'true_false' && gameModes
+                          ? `Верно/Неверно · ${cfg?.shortLabel || subject}`
                           : `Вопросы · ${cfg?.label || subject}`}
                     </p>
 
                     {/* Полоска прогресса (w-full заполнит ровно ширину текста выше) */}
-                    {!(subject === 'bio' && (bioSection === 'flashcards' || bioSection === 'true_false')) && (
+                    {!(gameModes && (bioSection === 'flashcards' || bioSection === 'true_false')) && (
                     <div className="w-full h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
                       <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
                     </div>
@@ -752,7 +753,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
   <div className="w-[75px] flex-shrink-0" />
 </div>
 
-        {!(subject === 'bio' && (bioSection === 'flashcards' || bioSection === 'true_false')) && (
+        {!(gameModes && (bioSection === 'flashcards' || bioSection === 'true_false')) && (
         <>
         <div className="relative mt-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--c-muted)' }} />
@@ -790,11 +791,11 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
         )}
       </div>
 
-      {subject === 'bio' && bioSection === 'flashcards' ? (
+      {gameModes && bioSection === 'flashcards' ? (
         <div className="flex-1 flex flex-col min-h-0" style={{ paddingBottom: 'var(--scroll-pb)' }}>
           <FlashcardsTab subject={subject} accentColor={accentColor} bustDataCache={bustDataCache} />
         </div>
-      ) : subject === 'bio' && bioSection === 'true_false' ? (
+      ) : gameModes && bioSection === 'true_false' ? (
         <div className="flex-1 flex flex-col min-h-0" style={{ paddingBottom: 'var(--scroll-pb)' }}>
           <TrueFalseTab subject={subject} accentColor={accentColor} bustDataCache={bustDataCache} />
         </div>

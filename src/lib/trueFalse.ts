@@ -69,7 +69,10 @@ function filterQuestions(
 }
 
 /** Список topic id для чипов фильтра. */
-export function listTopics(questions: BioQuestionTF[]): { id: string; label: string; count: number }[] {
+export function listTopics(
+  questions: BioQuestionTF[],
+  subjectId?: string,
+): { id: string; label: string; count: number }[] {
   const map = new Map<string, number>();
   for (const q of questions) {
     if (!isTrueFalseQuestion(q)) continue;
@@ -77,7 +80,7 @@ export function listTopics(questions: BioQuestionTF[]): { id: string; label: str
     map.set(topic, (map.get(topic) ?? 0) + 1);
   }
   return [...map.entries()]
-    .map(([id, count]) => ({ id, label: topicLabel(id), count }))
+    .map(([id, count]) => ({ id, label: topicLabel(id, subjectId), count }))
     .sort((a, b) => a.label.localeCompare(b.label, 'ru'));
 }
 

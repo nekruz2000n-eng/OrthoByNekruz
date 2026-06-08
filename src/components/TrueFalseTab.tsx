@@ -60,7 +60,7 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
   const [locked, setLocked]             = useState(false);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const topics = useMemo(() => listTopics(allQuestions), [allQuestions]);
+  const topics = useMemo(() => listTopics(allQuestions, subject), [allQuestions, subject]);
 
   const clearAdvanceTimer = useCallback(() => {
     if (advanceTimer.current) {
@@ -365,7 +365,7 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
                     className="text-[10px] font-bold uppercase tracking-widest mb-3"
                     style={{ color: accentColor }}
                   >
-                    {topicLabel(current.topic)}
+                    {topicLabel(current.topic, subject)}
                   </span>
                   <p
                     className="text-[11px] font-semibold mb-4"

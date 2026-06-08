@@ -16,7 +16,7 @@ import { TasksTab }      from '@/components/TasksTab';
 import { StatsTab }      from '@/components/StatsTab';
 import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
-import { getDefaultSubjectId } from '@/lib/subjects';
+import { getDefaultSubjectId, subjectHasQuestionGameModes } from '@/lib/subjects';
 import { bustSubjectModuleCache, setOnSubjectDataUnavailable } from '@/lib/subjectData';
 import {
   getPreviewRealWindowMs,
@@ -244,7 +244,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (subject !== 'bio') setBioQuestionsSection('list');
+    if (!subjectHasQuestionGameModes(subject)) setBioQuestionsSection('list');
   }, [subject]);
 
   const triggerAccessWelcomeIfPending = useCallback(() => {
@@ -1485,8 +1485,8 @@ export default function Home() {
           <QuestionsTab
             subject={subject}
             bustDataCache={paymentFlowCacheBust}
-            bioSection={subject === 'bio' ? bioQuestionsSection : undefined}
-            onBioSectionChange={subject === 'bio' ? setBioQuestionsSection : undefined}
+            bioSection={subjectHasQuestionGameModes(subject) ? bioQuestionsSection : undefined}
+            onBioSectionChange={subjectHasQuestionGameModes(subject) ? setBioQuestionsSection : undefined}
           />
         ))}
         {activeTab === 'tests'     && renderModuleTab('tests', (
@@ -1529,8 +1529,9 @@ export default function Home() {
           onTabChange={handleNavTabChange}
           hiddenTabs={(navHidden[subject] || []) as TabType[]}
           subject={subject}
-          onBioModeCycle={subject === 'bio' ? handleBioModeCycle : undefined}
-          bioGameMode={subject === 'bio' ? bioQuestionsSection : 'list'}
+          onBioModeCycle={subjectHasQuestionGameModes(subject) ? handleBioModeCycle : undefined}
+          bioGameMode={subjectHasQuestionGameModes(subject) ? bioQuestionsSection : 'list'}
+          gameModesSubject={subjectHasQuestionGameModes(subject) ? subject : undefined}
         />
       )}
     </main>

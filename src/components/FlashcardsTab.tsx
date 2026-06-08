@@ -164,8 +164,8 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
   const [sessionWeak, setSessionWeak] = useState<FlashcardItem[]>([]);
 
   const topicStats = useMemo(
-    () => computeTopicStats(allCards, weakSet),
-    [allCards, weakSet],
+    () => computeTopicStats(allCards, weakSet, subject),
+    [allCards, weakSet, subject],
   );
 
   const allTotal = allCards.length;
@@ -176,7 +176,7 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
 
   const currentTopicLabel = topicFilter === null
     ? 'Все темы'
-    : topicLabel(topicFilter);
+    : topicLabel(topicFilter, subject);
 
   const startSession = useCallback((
     cards: FlashcardItem[],
@@ -419,7 +419,7 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
                         className="text-[10px] font-bold uppercase tracking-widest mb-3"
                         style={{ color: accentColor }}
                       >
-                        {current.source === 'glossary' ? 'Глоссарий' : topicLabel(current.topic)}
+                        {current.source === 'glossary' ? 'Глоссарий' : topicLabel(current.topic, subject)}
                       </span>
                       <p
                         className="text-lg font-bold leading-snug"

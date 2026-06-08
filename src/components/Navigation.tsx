@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BookOpen, ClipboardList, PenTool, BarChart3, Layers, Scale } from 'lucide-react';
+import { subjectHasQuestionGameModes } from '@/lib/subjects';
 
 export type TabType = 'questions' | 'tests' | 'tasks' | 'stats';
 
@@ -15,6 +16,8 @@ interface NavigationProps {
   /** Удержание ~550 ms → следующий режим: список → карты → В/Н → список */
   onBioModeCycle?: () => void;
   bioGameMode?: BioGameMode;
+  /** Предмет с game_modes в questions (bio, ortho, …) */
+  gameModesSubject?: string;
 }
 
 const LONG_PRESS_MS = 550;
@@ -58,6 +61,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   subject,
   onBioModeCycle,
   bioGameMode = 'list',
+  gameModesSubject,
 }) => {
   const tabs = hiddenTabs && hiddenTabs.length
     ? ALL_TABS.filter(t => !hiddenTabs.includes(t.id))
@@ -90,8 +94,11 @@ export const Navigation: React.FC<NavigationProps> = ({
   }, []);
 
   const handlePressStart = useCallback((tabId: TabType) => {
-    const isBioQuestions = tabId === 'questions' && subject === 'bio' && !!onBioModeCycle;
-    if (!isBioQuestions) return;
+    const isGameQuestions = tabId === 'questions'
+      && !!gameModesSubject
+      && subjectHasQuestionGameModes(gameModesSubject)
+      && !!onBioModeCycle;
+    if (!isGameQuestions) return;
 
     longPressFired.current = false;
     pressActive.current = true;
@@ -115,7 +122,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       onBioModeCycle?.();
       resetPressVisuals();
     }, LONG_PRESS_MS);
-  }, [subject, onBioModeCycle, bioGameMode, clearPressAnim, resetPressVisuals]);
+  }, [gameModesSubject, onBioModeCycle, bioGameMode, clearPressAnim, resetPressVisuals]);
 
   const handlePressEnd = useCallback(() => {
     if (!pressActive.current) return;
@@ -155,14 +162,17 @@ export const Navigation: React.FC<NavigationProps> = ({
         {tabs.map(tab => {
           const isActive = activeTab === tab.id;
           const Icon = tab.Icon;
-          const isBioQuestions = tab.id === 'questions' && subject === 'bio' && !!onBioModeCycle;
+          const isGameQuestions = tab.id === 'questions'
+            && !!gameModesSubject
+            && subjectHasQuestionGameModes(gameModesSubject)
+            && !!onBioModeCycle;
 
           const displayMode: BioGameMode = hintMode !== 'none' ? hintMode : bioGameMode;
-          const showBioModeIcon = isBioQuestions && (bioGameMode !== 'list' || hintMode !== 'none');
+          const showBioModeIcon = isGameQuestions && (bioGameMode !== 'list' || hintMode !== 'none');
           const ModeIcon = showBioModeIcon ? MODE_META[displayMode].Icon : Icon;
 
           const ringMode: BioGameMode = hintMode !== 'none' ? hintMode : bioGameMode;
-          const ringColor = isBioQuestions && (holdProgress > 0 || hintMode !== 'none')
+          const ringColor = isGameQuestions && (holdProgress > 0 || hintMode !== 'none')
             ? MODE_META[ringMode].ring
             : null;
 
@@ -174,7 +184,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               : `0 0 0 2px ${ringColor}, 0 0 14px ${base}`;
           }
 
-          const navLabel = isBioQuestions && isActive && bioGameMode !== 'list'
+          const navLabel = isGameQuestions && isActive && bioGameMode !== 'list'
             ? MODE_META[bioGameMode].navLabel
             : tab.label;
 
@@ -200,7 +210,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             >
               <span className="relative flex items-center gap-1.5">
                 <ModeIcon className={`w-[18px] h-[18px] ${hintMode !== 'none' ? 'animate-in zoom-in duration-200' : ''}`} />
-                {hintMode !== 'none' && isBioQuestions && (
+                {hintMode !== 'none' && isGameQuestions && (
                   <span
                     className="absolute -top-1.5 -right-2 text-[10px] leading-none animate-in zoom-in duration-150"
                     aria-hidden
@@ -215,7 +225,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 )}
               </span>
 
-              {isBioQuestions && isActive && (
+              {isGameQuestions && isActive && (
                 <span className="flex items-center gap-[3px]" aria-hidden>
                   {BIO_CYCLE.map(mode => (
                     <span
