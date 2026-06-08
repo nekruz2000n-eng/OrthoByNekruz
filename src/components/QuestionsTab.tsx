@@ -350,10 +350,14 @@ export const QuestionsTab = ({
   onSecretTap,
   subject = 'ortho',
   bustDataCache = false,
+  bioSection: bioSectionProp,
+  onBioSectionChange,
 }: {
   onSecretTap?: () => void;
   subject?: SubjectType;
   bustDataCache?: boolean;
+  bioSection?: 'list' | 'flashcards';
+  onBioSectionChange?: (section: 'list' | 'flashcards') => void;
 }) => {
   const cfg         = getSubject(subject);
   const accentColor = cfg?.color || 'var(--c-primary)';
@@ -372,7 +376,9 @@ export const QuestionsTab = ({
   const [userNotes, setUserNotes] = useState<Record<number, string>>({});
   const [isLoaded, setIsLoaded] = useState(false);
   const [readingQuestion, setReadingQuestion] = useState<any | null>(null);
-  const [bioSection, setBioSection] = useState<'list' | 'flashcards'>('list');
+  const [bioSectionLocal, setBioSectionLocal] = useState<'list' | 'flashcards'>('list');
+  const bioSection = bioSectionProp ?? bioSectionLocal;
+  const setBioSection = onBioSectionChange ?? setBioSectionLocal;
 
   const [termDefStack, setTermDefStack] = useState<string[]>([]);
   const activeTermDef = termDefStack.length > 0 ? termDefStack[termDefStack.length - 1] : null;
@@ -412,8 +418,8 @@ export const QuestionsTab = ({
   const tooltipStartPos = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
-    setBioSection('list');
-  }, [subject]);
+    if (bioSectionProp === undefined) setBioSectionLocal('list');
+  }, [subject, bioSectionProp]);
 
   useEffect(() => {
     try { setStudiedIds(new Set(JSON.parse(localStorage.getItem(lsKey) || '[]'))); } catch {}

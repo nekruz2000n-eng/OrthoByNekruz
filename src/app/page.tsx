@@ -180,6 +180,7 @@ export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading,       setIsLoading]       = useState<boolean>(true);
   const [activeTab,       setActiveTab]       = useState<TabType>('questions');
+  const [bioQuestionsSection, setBioQuestionsSection] = useState<'list' | 'flashcards'>('list');
   const [testMode,        setTestMode]        = useState<boolean>(false);
   const [previewStatus,   setPreviewStatus]   = useState<PreviewStatus | null>(null);
   const [pickSubjects,    setPickSubjects]     = useState<string[]>([]);
@@ -227,6 +228,20 @@ export default function Home() {
     if (tab === 'tasks') return 'tasks';
     return null;
   }, []);
+
+  const handleNavTabChange = useCallback((tab: TabType) => {
+    setActiveTab(tab);
+    if (tab === 'questions') setBioQuestionsSection('list');
+  }, []);
+
+  const handleQuestionsLongPress = useCallback(() => {
+    setActiveTab('questions');
+    setBioQuestionsSection('flashcards');
+  }, []);
+
+  useEffect(() => {
+    if (subject !== 'bio') setBioQuestionsSection('list');
+  }, [subject]);
 
   const triggerAccessWelcomeIfPending = useCallback(() => {
     if (localStorage.getItem(PREVIEW_AWAITING_CONFIRM_KEY) === '1') {
@@ -1463,7 +1478,12 @@ export default function Home() {
       )}
       <div className="flex-1 overflow-hidden relative">
         {activeTab === 'questions' && renderModuleTab('questions', (
-          <QuestionsTab subject={subject} bustDataCache={paymentFlowCacheBust} />
+          <QuestionsTab
+            subject={subject}
+            bustDataCache={paymentFlowCacheBust}
+            bioSection={subject === 'bio' ? bioQuestionsSection : undefined}
+            onBioSectionChange={subject === 'bio' ? setBioQuestionsSection : undefined}
+          />
         ))}
         {activeTab === 'tests'     && renderModuleTab('tests', (
           <TestsTab subject={subject} onTestModeChange={setTestMode} bustDataCache={paymentFlowCacheBust} />
@@ -1502,8 +1522,11 @@ export default function Home() {
       {!testMode && (
         <Navigation
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleNavTabChange}
           hiddenTabs={(navHidden[subject] || []) as TabType[]}
+          subject={subject}
+          onQuestionsLongPress={subject === 'bio' ? handleQuestionsLongPress : undefined}
+          questionsFlashcardsActive={subject === 'bio' && bioQuestionsSection === 'flashcards'}
         />
       )}
     </main>
