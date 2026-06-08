@@ -232,8 +232,8 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
   };
 
   const handleFlip = () => {
-    if (!current || flipped) return;
-    setFlipped(true);
+    if (!current) return;
+    setFlipped(f => !f);
   };
 
   const handleKnown = () => {
@@ -404,7 +404,7 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
                   type="button"
                   onClick={handleFlip}
                   className="flashcard-scene w-full max-w-sm flex-1 max-h-[min(52vh,420px)] min-h-[240px] mb-4"
-                  aria-label={flipped ? 'Факт на обратной стороне' : 'Нажми, чтобы перевернуть'}
+                  aria-label={flipped ? 'Нажми, чтобы вернуть вопрос' : 'Нажми, чтобы перевернуть'}
                 >
                   <div className={`flashcard-inner w-full h-full ${flipped ? 'flashcard-flipped' : ''}`}>
                     <div
@@ -444,6 +444,9 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
                         style={{ color: 'var(--c-text)' }}
                       >
                         {current.fact}
+                      </p>
+                      <p className="text-xs mt-6" style={{ color: 'var(--c-muted)' }}>
+                        Ещё раз — вернуть вопрос
                       </p>
                     </div>
                   </div>
