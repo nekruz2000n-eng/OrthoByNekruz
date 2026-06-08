@@ -70,6 +70,8 @@ interface SubjectSheetProps {
   pendingPaymentSubject?: string | null;
   onBrowseCatalog?:  () => void;
   browseCatalogBusy?: boolean;
+  sheetTitle?:       string;
+  showCatalogAction?: boolean;
 }
 
 const SubjectSheet: React.FC<SubjectSheetProps> = ({
@@ -79,6 +81,8 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
   pendingPaymentSubject = null,
   onBrowseCatalog,
   browseCatalogBusy = false,
+  sheetTitle = 'Мои предметы',
+  showCatalogAction = false,
 }) => {
   const [selected, setSelected] = useState<SubjectType>(currentSubject);
   const userSubjects: string[] = availableSubjects
@@ -123,11 +127,13 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
           <div className="w-10 h-1 rounded-full" style={{ background: 'var(--c-border)' }} />
         </div>
         <div className="text-center px-5 pb-3 pt-1 flex-shrink-0">
-          <h3 className="text-base font-bold" style={{ color: 'var(--c-text)' }}>Сменить дисциплину</h3>
+          <h3 className="text-base font-bold" style={{ color: 'var(--c-text)' }}>{sheetTitle}</h3>
           <p className="text-xs mt-1" style={{ color: 'var(--c-muted)' }}>
             {items.length === 0
               ? 'Нет открытых дисциплин'
-              : `Доступно: ${items.length} ${items.length === 1 ? 'предмет' : items.length < 5 ? 'предмета' : 'предметов'}`}
+              : sheetTitle === 'Мои предметы'
+                ? `Открыто: ${items.length} ${items.length === 1 ? 'предмет' : items.length < 5 ? 'предмета' : 'предметов'}`
+                : `Доступно: ${items.length} ${items.length === 1 ? 'предмет' : items.length < 5 ? 'предмета' : 'предметов'}`}
           </p>
         </div>
         <div className="flex-1 overflow-y-auto overscroll-contain px-5" style={{ WebkitOverflowScrolling: 'touch' as any }}>
@@ -193,7 +199,7 @@ const SubjectSheet: React.FC<SubjectSheetProps> = ({
             borderTop: '1px solid color-mix(in srgb, var(--c-border) 50%, transparent)',
           }}
         >
-          {onBrowseCatalog && (
+          {showCatalogAction && onBrowseCatalog && (
             <button
               type="button"
               disabled={browseCatalogBusy}
@@ -241,6 +247,8 @@ interface StatsTabProps {
   pendingPaymentSubject?: string | null;
   onBrowseCatalog?:  () => void;
   browseCatalogBusy?: boolean;
+  onCheckPaymentStatus?: () => void;
+  checkPaymentBusy?: boolean;
   /** Скрыть блок «Проверка готовности» (управляется из админки per-user) */
   examHidden?:      boolean;
   /** Скрыть раздел «Полезные материалы» (управляется из админки per-user) */
@@ -254,6 +262,8 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   pendingPaymentSubject = null,
   onBrowseCatalog,
   browseCatalogBusy = false,
+  onCheckPaymentStatus,
+  checkPaymentBusy = false,
   examHidden      = false,
   materialsHidden = false,
 }) => {
@@ -764,7 +774,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
               <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
             </button>}
 
-            {/* ─── СМЕНИТЬ ДИСЦИПЛИНУ ─── */}
+            {/* ─── МОИ ПРЕДМЕТЫ ─── */}
             <button
               onClick={() => setShowSubjectSheet(true)}
               className="w-full rounded-[18px] p-4 flex items-center gap-3.5 transition-all duration-200 active:scale-[0.98]"
@@ -781,13 +791,59 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                 </svg>
               </div>
               <div className="flex-1 text-left min-w-0">
-                <div className="text-[14px] font-bold" style={{ color: 'var(--c-text)' }}>Сменить дисциплину</div>
+                <div className="text-[14px] font-bold" style={{ color: 'var(--c-text)' }}>Мои предметы</div>
                 <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--c-muted)' }}>
                   Сейчас: <span style={{ color: 'var(--c-text)', fontWeight: 600 }}>{subjectLabel}</span>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
             </button>
+
+            {onBrowseCatalog && (
+              <button
+                onClick={() => { if (!browseCatalogBusy) onBrowseCatalog(); }}
+                disabled={browseCatalogBusy}
+                className="w-full rounded-[18px] p-4 flex items-center gap-3.5 transition-all duration-200 active:scale-[0.98] disabled:opacity-50"
+                style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
+              >
+                <div
+                  className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-[20px]"
+                  style={{ background: `color-mix(in srgb, ${accentColor} 12%, transparent)` }}
+                >
+                  ✨
+                </div>
+                <div className="flex-1 text-left min-w-0">
+                  <div className="text-[14px] font-bold" style={{ color: 'var(--c-text)' }}>Докупить другой предмет</div>
+                  <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--c-muted)' }}>
+                    Витрина — пробный доступ к новым разработкам
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
+              </button>
+            )}
+
+            {onCheckPaymentStatus && (
+              <button
+                onClick={() => { if (!checkPaymentBusy) onCheckPaymentStatus(); }}
+                disabled={checkPaymentBusy}
+                className="w-full rounded-[18px] p-4 flex items-center gap-3.5 transition-all duration-200 active:scale-[0.98] disabled:opacity-50"
+                style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
+              >
+                <div
+                  className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(251, 191, 36, 0.12)', border: '1px solid rgba(251, 191, 36, 0.25)' }}
+                >
+                  <span className="text-[18px]">⏳</span>
+                </div>
+                <div className="flex-1 text-left min-w-0">
+                  <div className="text-[14px] font-bold" style={{ color: 'var(--c-text)' }}>Проверить статус оплаты</div>
+                  <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--c-muted)' }}>
+                    Обновить — подтвердил ли админ доступ
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: '#fbbf24' }} />
+              </button>
+            )}
 
           </div>
         </ScrollArea>
@@ -814,8 +870,8 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             hasMicro={hasMicro}
             availableSubjects={availableSubjects}
             pendingPaymentSubject={pendingPaymentSubject}
-            onBrowseCatalog={onBrowseCatalog}
-            browseCatalogBusy={browseCatalogBusy}
+            sheetTitle="Мои предметы"
+            showCatalogAction={false}
           />
         )}
       </AnimatePresence>

@@ -90,7 +90,7 @@ export const ChannelCodeEntryScreen: React.FC<ChannelCodeEntryScreenProps> = ({
           Введи код факультета
         </h1>
         <p className="text-sm text-center mb-8 max-w-xs leading-relaxed" style={{ color: 'var(--c-muted)' }}>
-          Код → группа → выбор другого предмета. Используй бесплатно — как только время пройдёт, напишешь админу в Telegram.
+          Код → витрина → пробный доступ к другому предмету. Группу спросим при оплате.
         </p>
 
         <div

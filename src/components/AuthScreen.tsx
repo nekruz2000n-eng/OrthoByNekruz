@@ -444,6 +444,12 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         localStorage.setItem('is_authed', 'true');
         localStorage.setItem('user_tg_id', String(inputTgId));
         syncFacultyAfterAuth(data, inputKey);
+        if (data.alreadyConfirmed) {
+          toast({
+            title: 'Доступ уже открыт',
+            description: 'Код факультета сохранён — можно продолжать.',
+          });
+        }
         if (data.previewStatus || data.preview) {
           onAuthenticated();
           return;

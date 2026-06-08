@@ -9,6 +9,13 @@
 //  удаляется и данные сразу подтягиваются с сервера у всех студентов.
 // ════════════════════════════════════════════════════════════════════════════
 
+let onSubjectDataUnavailable: (() => void) | null = null;
+
+/** Регистрирует колбэк при 503 / сбое Redis на subject-data. */
+export function setOnSubjectDataUnavailable(fn: (() => void) | null) {
+  onSubjectDataUnavailable = fn;
+}
+
 const BUILD_ID     = process.env.NEXT_PUBLIC_BUILD_ID || 'dev';
 const CACHE_NAME   = `subject-data-${BUILD_ID}`;
 const CACHE_PREFIX = 'subject-data-';
@@ -53,7 +60,10 @@ async function fetchFromServer(subject: string, type: SubjectDataType): Promise<
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ subject, type, telegramId: tgId, initData: initDat }),
     });
-    if (r.status === 503) return null;
+    if (r.status === 503) {
+      onSubjectDataUnavailable?.();
+      return null;
+    }
     if (!r.ok) return [];
     const j = await r.json();
     return Array.isArray(j.data) ? j.data : [];

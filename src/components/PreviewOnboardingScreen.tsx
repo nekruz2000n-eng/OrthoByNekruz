@@ -34,7 +34,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
   const [step, setStep] = useState<Step>('subject');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedModules, setSelectedModules] = useState<PreviewModule[]>([]);
-  const [confirmStep, setConfirmStep] = useState<0 | 1 | 2>(0);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const selectedEntry = useMemo(
     () => subjectCatalog.find(s => s.id === selectedId) ?? null,
@@ -74,12 +74,12 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
     setSelectedId(id);
     setSelectedModules([]);
     setStep('modules');
-    setConfirmStep(0);
+    setConfirmOpen(false);
   };
 
   const goBack = () => {
     setStep('subject');
-    setConfirmStep(0);
+    setConfirmOpen(false);
     setSelectedModules([]);
   };
 
@@ -296,7 +296,7 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
               </p>
               <button
                 type="button"
-                onClick={() => selectedModules.length > 0 && setConfirmStep(1)}
+                onClick={() => selectedModules.length > 0 && setConfirmOpen(true)}
                 disabled={loading || selectedModules.length === 0}
                 className="w-full h-[52px] rounded-2xl text-[15px] font-bold transition-all active:scale-[0.98] disabled:opacity-50"
                 style={{
@@ -341,38 +341,22 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
         </div>
       )}
 
-      {confirmStep === 1 && selectedEntry && (
+      {confirmOpen && selectedEntry && (
         <ConfirmModal
-          title="Первое подтверждение"
+          title="Подтвердить выбор"
           body={
             <>
               Предмет: <strong>{selectedEntry.label}</strong><br />
               Разделы: <strong>{modulesLabel}</strong>
+              <br />После подтверждения откроется пробный доступ по выбранным разделам.
             </>
           }
-          warn="Проверь выбор. После второго подтверждения изменить нельзя."
-          primaryLabel="Да, всё верно"
-          onBack={() => setConfirmStep(0)}
-          onPrimary={() => setConfirmStep(2)}
-        />
-      )}
-
-      {confirmStep === 2 && selectedEntry && (
-        <ConfirmModal
-          title="Последнее подтверждение"
-          body={
-            <>
-              <strong style={{ color: selectedEntry.color }}>{selectedEntry.label}</strong>
-              {' — '}{modulesLabel}
-              <br />После подтверждения доступ откроется по выбранным разделам.
-            </>
-          }
-          warn="Это финальный шаг. Поменять выбор после этого нельзя."
-          primaryLabel="Открыть доступ"
+          warn="Проверь выбор — изменить его после этого нельзя."
+          primaryLabel="Открыть пробу"
           loading={loading}
-          onBack={() => setConfirmStep(1)}
+          onBack={() => setConfirmOpen(false)}
           onPrimary={() => {
-            setConfirmStep(0);
+            setConfirmOpen(false);
             onConfirm(selectedEntry.id, selectedModules);
           }}
         />

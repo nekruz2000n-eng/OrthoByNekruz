@@ -17,7 +17,7 @@ import { StatsTab }      from '@/components/StatsTab';
 import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
 import { getDefaultSubjectId } from '@/lib/subjects';
-import { bustSubjectModuleCache } from '@/lib/subjectData';
+import { bustSubjectModuleCache, setOnSubjectDataUnavailable } from '@/lib/subjectData';
 import {
   getPreviewRealWindowMs,
   getPreviewSyncIntervalMs,
@@ -185,7 +185,6 @@ export default function Home() {
   const [pickSubjects,    setPickSubjects]     = useState<string[]>([]);
   const [previewChosen,   setPreviewChosen]    = useState<string | null>(null);
   const [previewModules,  setPreviewModules]     = useState<string[]>([]);
-  const [needsStudyGroup, setNeedsStudyGroup]   = useState<boolean>(false);
   const [groupSaving,     setGroupSaving]       = useState<boolean>(false);
   const [showChannelCode, setShowChannelCode]   = useState<boolean>(false);
   const [catalogBrowseLoading, setCatalogBrowseLoading] = useState(false);
@@ -212,6 +211,10 @@ export default function Home() {
   const [previewModuleTrustExpiresAt, setPreviewModuleTrustExpiresAt] = useState<Record<string, string>>({});
   const [trustNoticeDismissed, setTrustNoticeDismissed] = useState(false);
   const [pendingPaymentSubject, setPendingPaymentSubject] = useState<string | null>(null);
+  const [serviceDegraded, setServiceDegraded] = useState(false);
+  const [showGroupForReceipt, setShowGroupForReceipt] = useState(false);
+  const [retryClaimAfterGroup, setRetryClaimAfterGroup] = useState<PreviewModule[] | null>(null);
+  const pendingReceiptModulesRef = useRef<PreviewModule[] | null>(null);
   const previewActiveDeltaRef = useRef(0);
   const previewSyncBusyRef    = useRef(false);
   const { toast }    = useToast();
@@ -255,8 +258,10 @@ export default function Home() {
           setHasMicro(cached.includes('micro'));
         }
       } catch { /* оставляем текущее состояние */ }
+      setServiceDegraded(true);
       return;
     }
+    setServiceDegraded(false);
     const pendingSubjectEarly = d?.previewChosenSubject as string | null | undefined;
     let list: string[] = Array.isArray(d?.subjects) ? d.subjects : [];
     if (
@@ -277,7 +282,6 @@ export default function Home() {
     setPreviewStatus(ps);
     setPreviewChosen(d?.previewChosenSubject ?? null);
     setPreviewModules(Array.isArray(d?.previewChosenModules) ? d.previewChosenModules : []);
-    setNeedsStudyGroup(d?.needsStudyGroup === true);
     setPreviewEndsAt(d?.previewEndsAt ?? null);
     setPreviewStartedAt(d?.previewStartedAt ?? null);
     setPreviewQuotedPrice(typeof d?.previewQuotedPrice === 'number' ? d.previewQuotedPrice : null);
@@ -529,6 +533,11 @@ export default function Home() {
   // ── TG: СТРОГО ОДИН РАЗ при монтировании ─────────────────────────────────
   useEffect(() => initTelegramApp(), []);
 
+  useEffect(() => {
+    setOnSubjectDataUnavailable(() => setServiceDegraded(true));
+    return () => setOnSubjectDataUnavailable(null);
+  }, []);
+
   // ── Ping: считаем открытия приложения ────────────────────────────────────
   //    Запускается после авторизации — к этому моменту initData точно готова.
   //    Помогает выявить аккаунты которые шарят несколько человек.
@@ -742,12 +751,60 @@ export default function Home() {
     setShowChannelCode(false);
     applyAccessPayload(data);
     setAccessChecked(true);
-  }, [applyAccessPayload]);
+    if (data.alreadyConfirmed) {
+      toast({
+        title: 'Доступ уже открыт',
+        description: 'Код факультета сохранён — продолжай в приложении.',
+      });
+    }
+  }, [applyAccessPayload, toast]);
+
+  const hasFinalizedFromPayload = (d: any) =>
+    !!d?.previewConfirmedAt && !d?.previewStatus;
+
+  const handleCheckPaymentStatus = useCallback(async () => {
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) return;
+    setStatusChecking(true);
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telegramId: tgId, mode: 'check_preview_status', initData: initDat }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        accessRequestGen.current += 1;
+        applyAccessPayload(data);
+        setAccessChecked(true);
+        if (data.previewConfirmedAt || data.previewStatus === 'confirmed' || hasFinalizedFromPayload(data)) {
+          toast({ title: 'Доступ открыт', description: 'Админ подтвердил оплату — можно пользоваться.' });
+        } else if (data.receiptClaimedAt || data.awaitingAdmin) {
+          toast({ title: 'Заявка на проверке', description: 'Админ ещё не подтвердил — напиши в Telegram, если ждёшь долго.' });
+        } else {
+          toast({ title: 'Статус обновлён', description: 'Данные синхронизированы с сервером.' });
+        }
+      } else {
+        toast({ variant: 'destructive', title: 'Статус', description: data.error || 'Заявка не найдена' });
+      }
+    } catch {
+      toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
+    } finally {
+      setStatusChecking(false);
+    }
+  }, [applyAccessPayload, toast]);
 
   const handleBrowseCatalog = useCallback(async () => {
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
     if (!tgId) return;
+    if (previewStatus === 'active' && paymentGrantedSubjects.length > 0) {
+      toast({
+        title: 'Проба идёт',
+        description: 'Переключись на купленный предмет в «Мои предметы» или дождись окончания пробы.',
+      });
+    }
     setCatalogBrowseLoading(true);
     try {
       const res = await fetch('/api/auth', {
@@ -781,7 +838,7 @@ export default function Home() {
     } finally {
       setCatalogBrowseLoading(false);
     }
-  }, [applyAccessPayload, toast]);
+  }, [applyAccessPayload, toast, previewStatus, paymentGrantedSubjects]);
 
   const handleSetStudyGroup = useCallback(async (group: string) => {
     const tgId    = localStorage.getItem('user_tg_id');
@@ -806,6 +863,11 @@ export default function Home() {
       }
       accessRequestGen.current += 1;
       applyAccessPayload(data);
+      if (pendingReceiptModulesRef.current?.length) {
+        setRetryClaimAfterGroup([...pendingReceiptModulesRef.current]);
+        pendingReceiptModulesRef.current = null;
+        setShowGroupForReceipt(false);
+      }
     } catch {
       toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
     } finally {
@@ -911,6 +973,11 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (data.needsStudyGroup) {
+          pendingReceiptModulesRef.current = modules;
+          setShowGroupForReceipt(true);
+          return;
+        }
         toast({
           variant: 'destructive',
           title: 'Ошибка',
@@ -943,6 +1010,13 @@ export default function Home() {
       setStatusChecking(false);
     }
   }, [applyAccessPayload, previewChosen, toast]);
+
+  useEffect(() => {
+    if (!retryClaimAfterGroup?.length) return;
+    const mods = retryClaimAfterGroup;
+    setRetryClaimAfterGroup(null);
+    void handleClaimReceipt(mods);
+  }, [retryClaimAfterGroup, handleClaimReceipt]);
 
   const handleAbandonPendingPreview = useCallback(async (switchTo?: string) => {
     const tgId    = localStorage.getItem('user_tg_id');
@@ -1232,10 +1306,11 @@ export default function Home() {
     setTrustNoticeDismissed(false);
   }, [trustPendingModule, trustExpiresIso]);
 
-  /** Витрина «Все доступные разработки» — только без незакрытой заявки или после подтверждения админом. */
+  /** Витрина: купленные аккаунты — и при активной пробе; expired без чека — выбор другого предмета. */
   const canBrowseCatalog = previewStatus == null
     || previewStatus === 'confirmed'
-    || (previewStatus === 'expired' && canAbandonPending);
+    || (previewStatus === 'active' && isEstablishedForStats)
+    || (previewStatus === 'expired' && (!receiptClaimedAt || canAbandonPending));
 
   // ── Сброс (6 быстрых тапов) ───────────────────────────────────────────────
   const handleSecretTap = useCallback(() => {
@@ -1285,15 +1360,6 @@ export default function Home() {
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
       </div>,
-    );
-  }
-
-  if (previewStatus === 'selecting' && needsStudyGroup) {
-    return withAccessWelcome(
-      <PreviewGroupScreen
-        loading={groupSaving}
-        onSubmit={handleSetStudyGroup}
-      />,
     );
   }
 
@@ -1371,7 +1437,29 @@ export default function Home() {
   }
 
   return withAccessWelcome(
+    <>
+    {showGroupForReceipt && (
+      <div className="fixed inset-0 z-[200]">
+        <PreviewGroupScreen
+          loading={groupSaving}
+          onSubmit={handleSetStudyGroup}
+          context="payment"
+        />
+      </div>
+    )}
     <main className="flex flex-col h-[100dvh] w-full relative overflow-hidden">
+      {serviceDegraded && (
+        <div
+          className="flex-shrink-0 px-4 py-2.5 text-center text-[12px] font-medium leading-snug"
+          style={{
+            background: 'color-mix(in srgb, #f59e0b 18%, var(--c-card))',
+            color: 'var(--c-text)',
+            borderBottom: '1px solid color-mix(in srgb, #f59e0b 35%, var(--c-border))',
+          }}
+        >
+          Временные проблемы с сервером — показываем сохранённые данные. Попробуй обновить через минуту.
+        </div>
+      )}
       <div className="flex-1 overflow-hidden relative">
         {activeTab === 'questions' && renderModuleTab('questions', (
           <QuestionsTab subject={subject} bustDataCache={paymentFlowCacheBust} />
@@ -1391,6 +1479,10 @@ export default function Home() {
             hasMicro={hasMicro}
             onBrowseCatalog={canBrowseCatalog ? handleBrowseCatalog : undefined}
             browseCatalogBusy={catalogBrowseLoading}
+            onCheckPaymentStatus={
+              (previewStatus === 'expired' || receiptClaimedAt) ? handleCheckPaymentStatus : undefined
+            }
+            checkPaymentBusy={statusChecking}
             examHidden={(navHidden[subject] || []).includes('exam')}
             materialsHidden={(navHidden[subject] || []).includes('materials')}
             onMicroUnlocked={() => {
@@ -1413,6 +1505,7 @@ export default function Home() {
           hiddenTabs={(navHidden[subject] || []) as TabType[]}
         />
       )}
-    </main>,
+    </main>
+    </>,
   );
 }

@@ -8,11 +8,14 @@ import { STUDY_GROUP_DIGITS_PLACEHOLDER } from '@/lib/studyGroup';
 interface PreviewGroupScreenProps {
   loading?: boolean;
   onSubmit: (groupDigits: string) => void;
+  /** Контекст показа — подпись под заголовком */
+  context?: 'payment' | 'default';
 }
 
 export const PreviewGroupScreen: React.FC<PreviewGroupScreenProps> = ({
   loading = false,
   onSubmit,
+  context = 'default',
 }) => {
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
@@ -51,7 +54,9 @@ export const PreviewGroupScreen: React.FC<PreviewGroupScreenProps> = ({
             Твоя группа
           </h1>
           <p className="text-sm leading-relaxed max-w-xs" style={{ color: 'var(--c-muted)' }}>
-            Только цифры — номер группы
+            {context === 'payment'
+              ? 'Нужна для чека после оплаты — только цифры номера группы'
+              : 'Только цифры — номер группы'}
           </p>
         </div>
 

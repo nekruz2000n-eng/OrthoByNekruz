@@ -349,16 +349,16 @@ function previewPayload(
     previewChosenSubject: user?.previewChosenSubject ?? null,
     previewChosenModules: user?.previewChosenModules ?? null,
     studyGroup:           user?.studyGroup ?? null,
-    needsStudyGroup:      selecting && !hasGroup,
+    needsStudyGroup:      false,
     previewEndsAt:        previewEndsAt(user, tgId),
     previewStartedAt:     user?.previewStatus === 'active' ? (user.previewStartedAt ?? null) : null,
     previewConfirmedAt:   user?.previewConfirmedAt ?? null,
     previewQuotedPrice:   user?.previewQuotedPrice ?? null,
     receiptClaimedAt:     user?.receiptClaimedAt ?? null,
-    pickSubjects:         selecting && hasGroup ? getAllPickableSubjectIds() : undefined,
-    subjectCatalog:       user?.previewStatus && hasGroup ? catalog : undefined,
+    pickSubjects:         selecting ? getAllPickableSubjectIds() : undefined,
+    subjectCatalog:       selecting && catalog ? catalog : undefined,
     navHidden,
-    catalogGrantedSubjects: user?._catalogBrowse && hasGroup
+    catalogGrantedSubjects: user?._catalogBrowse
       ? getCatalogGrantedSubjects(user)
       : undefined,
     canReturnToPurchasedAccess: canReturnToPurchasedAccess(user),
@@ -491,7 +491,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (mode === 'set_study_group') {
-      if (!user || user.previewStatus !== 'selecting') {
+      const canSetGroup = user && (
+        user.previewStatus === 'selecting'
+        || user.previewStatus === 'active'
+        || user.previewStatus === 'expired'
+      );
+      if (!canSetGroup) {
         return res.status(400).json({ error: 'Сейчас нельзя сохранить группу.' });
       }
       const facultyId = String(user.facultyId || '').trim() || null;
@@ -523,9 +528,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (mode === 'pick_preview_subject') {
       if (!user || user.previewStatus !== 'selecting') {
         return res.status(400).json({ error: 'Выбор предмета недоступен.' });
-      }
-      if (!String(user.studyGroup || '').trim()) {
-        return res.status(400).json({ error: 'Сначала укажи группу.' });
       }
       if (user.previewChosenSubject) {
         return res.status(400).json({ error: 'Предмет уже выбран и изменить его нельзя.' });
@@ -703,6 +705,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (mode === 'claim_preview_receipt') {
       if (!user?.previewChosenSubject) {
         return res.status(400).json({ error: 'Заявка не найдена.' });
+      }
+      if (!String(user.studyGroup || '').trim()) {
+        return res.status(400).json({
+          error: 'Укажи номер группы перед отправкой чека.',
+          needsStudyGroup: true,
+        });
       }
       user = await maybeExpirePreviewUser(redis, tgIdStr, user);
       const claimModules = normalizePreviewModules(modules);
