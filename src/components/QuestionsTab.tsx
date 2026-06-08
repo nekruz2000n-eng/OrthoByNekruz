@@ -748,30 +748,6 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
   <div className="w-[75px] flex-shrink-0" />
 </div>
 
-        {subject === 'bio' && (
-          <div className="flex gap-1.5 mt-3 justify-center">
-            {([
-              ['list', 'Список'],
-              ['flashcards', 'Флэшкарты'],
-            ] as const).map(([val, label]) => {
-              const act = bioSection === val;
-              return (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => setBioSection(val)}
-                  className="px-4 h-9 rounded-full text-[12px] font-bold whitespace-nowrap transition-all active:scale-95"
-                  style={act
-                    ? { background: accentColor, color: '#fff' }
-                    : { background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
         {!(subject === 'bio' && bioSection === 'flashcards') && (
         <>
         <div className="relative mt-3">
