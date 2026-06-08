@@ -251,3 +251,38 @@ img {
   user-select: none;
   touch-action: manipulation;
 }
+
+/* ─── Флэшкарты: переворот ─── */
+.flashcard-scene {
+  perspective: 1000px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.flashcard-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 300ms ease;
+  transform-style: preserve-3d;
+}
+
+.flashcard-inner.flashcard-flipped {
+  transform: rotateY(180deg);
+}
+
+.flashcard-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flashcard-back {
+  transform: rotateY(180deg);
+}

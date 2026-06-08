@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/accordion';
 import { FacultyIcon } from './FacultyIcon';
 import { QuestionAiPanel } from './QuestionAiPanel';
+import { FlashcardsTab } from './FlashcardsTab';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { termRegexSource as _termRegexSource } from '@/lib/glossaryUtils';
@@ -371,6 +372,7 @@ export const QuestionsTab = ({
   const [userNotes, setUserNotes] = useState<Record<number, string>>({});
   const [isLoaded, setIsLoaded] = useState(false);
   const [readingQuestion, setReadingQuestion] = useState<any | null>(null);
+  const [bioSection, setBioSection] = useState<'list' | 'flashcards'>('list');
 
   const [termDefStack, setTermDefStack] = useState<string[]>([]);
   const activeTermDef = termDefStack.length > 0 ? termDefStack[termDefStack.length - 1] : null;
@@ -410,10 +412,14 @@ export const QuestionsTab = ({
   const tooltipStartPos = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
+    setBioSection('list');
+  }, [subject]);
+
+  useEffect(() => {
     try { setStudiedIds(new Set(JSON.parse(localStorage.getItem(lsKey) || '[]'))); } catch {}
     try { setUserNotes(JSON.parse(localStorage.getItem(lsNoteKey) || '{}')); } catch {}
     setIsLoaded(true);
-  }, [subject]);
+  }, [subject, lsKey, lsNoteKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -718,19 +724,50 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                   {/* Обертка w-fit, которая "обтягивает" текст, а полоска растягивается на 100% от этой ширины */}
                   <div className="flex flex-col items-stretch w-fit mt-1">
                     <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5 text-center" style={{ color: accentColor }}>
-                      Вопросы · {cfg?.label || subject}
+                      {bioSection === 'flashcards' && subject === 'bio'
+                        ? 'Флэшкарты · bio'
+                        : `Вопросы · ${cfg?.label || subject}`}
                     </p>
 
                     {/* Полоска прогресса (w-full заполнит ровно ширину текста выше) */}
+                    {!(subject === 'bio' && bioSection === 'flashcards') && (
                     <div className="w-full h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--c-border)' }}>
                       <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: accentColor }} />
                     </div>
+                    )}
                   </div>
                 </div>
 
   {/* 3. Правая безопасная зона (75px) — теперь пустая, только для симметрии и защиты от меню "..." */}
   <div className="w-[75px] flex-shrink-0" />
 </div>
+
+        {subject === 'bio' && (
+          <div className="flex gap-1.5 mt-3 justify-center">
+            {([
+              ['list', 'Список'],
+              ['flashcards', 'Флэшкарты'],
+            ] as const).map(([val, label]) => {
+              const act = bioSection === val;
+              return (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setBioSection(val)}
+                  className="px-4 h-9 rounded-full text-[12px] font-bold whitespace-nowrap transition-all active:scale-95"
+                  style={act
+                    ? { background: accentColor, color: '#fff' }
+                    : { background: 'var(--c-card)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {!(subject === 'bio' && bioSection === 'flashcards') && (
+        <>
         <div className="relative mt-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--c-muted)' }} />
           <Input placeholder="Поиск по вопросу или №…" value={search} onChange={e => setSearch(e.target.value)}
@@ -763,8 +800,15 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
             );
           })}
         </div>
+        </>
+        )}
       </div>
 
+      {subject === 'bio' && bioSection === 'flashcards' ? (
+        <div className="flex-1 flex flex-col min-h-0" style={{ paddingBottom: 'var(--scroll-pb)' }}>
+          <FlashcardsTab subject={subject} accentColor={accentColor} bustDataCache={bustDataCache} />
+        </div>
+      ) : (
       <ScrollArea className="flex-1 scroll-container">
         <div className="py-3 px-3 mx-auto max-w-2xl w-full" style={{ paddingBottom: 'var(--scroll-pb)' }}>
           {microLoading ? (
@@ -855,6 +899,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
           )}
         </div>
       </ScrollArea>
+      )}
 
       <AnimatePresence>
         {readingQuestion && (
