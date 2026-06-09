@@ -15,7 +15,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ExamScreen, loadExamHistory, ExamHistoryEntry } from './ExamScreen';
 import { ResourcesSheet } from './ResourcesSheet';
 import orthoTicketsData from '@/data/ticketsData.json';
-import { LearnModuleEntry } from '@/components/LearnModuleEntry';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Theme = 'dark' | 'light' | 'bright';
@@ -479,10 +478,6 @@ export const StatsTab: React.FC<StatsTabProps> = ({
 
         <ScrollArea className="flex-1 px-4 scroll-container">
           <div className="space-y-3.5 mx-auto max-w-2xl pt-4" style={{ paddingBottom: 'var(--scroll-pb)' }}>
-
-            {subject === 'ortho' && (
-              <LearnModuleEntry accentColor={accentColor} />
-            )}
 
             {/* ─── HERO: кольцо готовности + дата экзамена ─── */}
             <div
