@@ -62,6 +62,15 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const weakTopicsRef = useRef(weakTopics);
   weakTopicsRef.current = weakTopics;
+  const startSessionRef = useRef<(
+    questions: BioQuestionTF[],
+    topic: string | null,
+    diff: DifficultyFilter,
+    errorsOnly?: boolean,
+    errorStmts?: TrueFalseStatement[],
+    weakTopicSet?: Set<string>,
+  ) => void>(() => {});
+  const loadKeyRef = useRef('');
 
   const topics = useMemo(() => listTopics(allQuestions, subject), [allQuestions, subject]);
 
@@ -118,22 +127,36 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
     setPhase('play');
   }, [clearAdvanceTimer]);
 
+  startSessionRef.current = startSession;
+
   useEffect(() => {
+    const loadKey = `${subject}:${bustDataCache ? 'bust' : 'cache'}`;
+    if (loadKeyRef.current === loadKey) return;
+    loadKeyRef.current = loadKey;
+
     let cancelled = false;
     setPhase('loading');
     (async () => {
-      const [questions, weak] = await Promise.all([
-        loadSubjectData(subject, 'questions', { bustCache: bustDataCache }),
-        fetchWeakTrueFalseTopics(subject),
-      ]);
-      if (cancelled) return;
-      const qs = questions as BioQuestionTF[];
-      setAllQuestions(qs);
-      setWeakTopics(weak);
-      startSession(qs, null, 'all', false, [], weak);
+      try {
+        const [questions, weak] = await Promise.all([
+          loadSubjectData(subject, 'questions', { bustCache: bustDataCache }),
+          fetchWeakTrueFalseTopics(subject),
+        ]);
+        if (cancelled) return;
+        const qs = questions as BioQuestionTF[];
+        setAllQuestions(qs);
+        setWeakTopics(weak);
+        startSessionRef.current(qs, null, 'all', false, [], weak);
+      } catch {
+        if (!cancelled) {
+          setAllQuestions([]);
+          setQueue([]);
+          setPhase('summary');
+        }
+      }
     })();
     return () => { cancelled = true; };
-  }, [subject, bustDataCache, startSession]);
+  }, [subject, bustDataCache]);
 
   useEffect(() => () => clearAdvanceTimer(), [clearAdvanceTimer]);
 

@@ -1256,21 +1256,14 @@ export default function Home() {
     previewStatus, receiptClaimedAt, previewConfirmedAt, previewRemainingMsByModule,
   ]);
 
-  const paymentFlowCacheBust = useMemo(() => {
-    const effectiveStatuses: PreviewModuleStatusMap = { ...previewModuleStatuses };
-    if (previewStatus === 'active') {
-      for (const mod of chosenPreviewModules) {
-        const rem = previewRemainingMsByModule[mod];
-        if (rem != null && rem <= 0 && effectiveStatuses[mod] === 'trial') {
-          effectiveStatuses[mod] = 'awaiting_payment';
-        }
-      }
-    }
-    return shouldBustPaymentFlowCache(subject, previewChosen, effectiveStatuses, previewStatus);
-  }, [
-    subject, previewChosen, previewModuleStatuses, previewStatus,
-    chosenPreviewModules, previewRemainingMsByModule,
-  ]);
+  const paymentFlowCacheBust = useMemo(
+    () => shouldBustPaymentFlowCache(subject, previewChosen, previewModuleStatuses, previewStatus)
+      || modulesNeedingPayment.length > 0,
+    [
+      subject, previewChosen, previewModuleStatuses, previewStatus,
+      modulesNeedingPayment.length,
+    ],
+  );
 
   // Локальный отсчёт per-module + мгновенный sync при нуле (до ответа сервера — экран оплаты)
   useEffect(() => {
