@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getSubject } from '@/lib/subjects';
 import { PREVIEW_MODULE_LABELS, type PreviewModule } from '@/lib/previewModules';
+import type { PreviewModuleStatusMap } from '@/lib/previewModuleStatus';
 import {
   describePreviewPrice,
   formatPriceRub,
@@ -29,6 +30,7 @@ interface PreviewPaymentTabPanelProps {
   module: PreviewModule;
   chosenModules: PreviewModule[];
   grantedModules?: PreviewModule[];
+  moduleStatuses?: PreviewModuleStatusMap;
   status: 'awaiting_payment' | 'rejected' | 'receipt_pending';
   checking?: boolean;
   modulesUpdating?: boolean;
@@ -44,6 +46,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
   module,
   chosenModules,
   grantedModules = [],
+  moduleStatuses = {},
   status,
   checking = false,
   modulesUpdating = false,
@@ -63,18 +66,44 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
     [subjectId, grantedModules],
   );
 
-  const payableFromServer = useMemo(() => {
-    const granted = new Set(grantedModules);
-    return PAYMENT_MODULE_ROW_ORDER.filter(
-      m => chosenModules.includes(m) && !granted.has(m),
-    );
-  }, [chosenModules, grantedModules]);
+  const grantedSet = useMemo(() => new Set(grantedModules), [grantedModules]);
 
-  const [selected, setSelected] = useState<PreviewModule[]>(payableFromServer);
+  const pickableModules = useMemo(() => (
+    PAYMENT_MODULE_ROW_ORDER.filter(
+      m => chosenModules.includes(m) && !grantedSet.has(m),
+    )
+  ), [chosenModules, grantedSet]);
+
+  const dueModules = useMemo(() => (
+    pickableModules.filter(m => {
+      const st = moduleStatuses[m];
+      return st === 'awaiting_payment' || st === 'rejected';
+    })
+  ), [pickableModules, moduleStatuses]);
+
+  const defaultPaymentSelection = useMemo(() => {
+    if (dueModules.length > 0) return dueModules;
+    if (pickableModules.includes(module)) return [module];
+    return pickableModules.length > 0 ? [pickableModules[0]] : [];
+  }, [dueModules, pickableModules, module]);
+
+  const selectionKey = `${defaultPaymentSelection.join('|')}|${pickableModules.join('|')}`;
+
+  const [selected, setSelected] = useState<PreviewModule[]>(defaultPaymentSelection);
 
   useEffect(() => {
-    setSelected(payableFromServer);
-  }, [payableFromServer.join('|')]);
+    setSelected(defaultPaymentSelection);
+    if (defaultPaymentSelection.length > 0) {
+      onUpdateModules?.(defaultPaymentSelection);
+    }
+  }, [selectionKey, defaultPaymentSelection, onUpdateModules]);
+
+  const modulePhase = useCallback((id: PreviewModule): 'owned' | 'due' | 'trial' => {
+    if (grantedSet.has(id)) return 'owned';
+    const st = moduleStatuses[id];
+    if (st === 'awaiting_payment' || st === 'rejected') return 'due';
+    return 'trial';
+  }, [grantedSet, moduleStatuses]);
 
   const priceSummary = useMemo(
     () => describePreviewPrice(subjectId, selected),
@@ -89,15 +118,22 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
   const toggleModule = useCallback((id: PreviewModule) => {
     const opt = rowOptions.find(o => o.id === id);
     if (!opt?.selectable || opt.alreadyOwned || modulesUpdating || checking) return;
+    if (!pickableModules.includes(id)) return;
 
     const next = selected.includes(id)
       ? selected.filter(m => m !== id)
       : [...selected, id];
     const ordered = PAYMENT_MODULE_ROW_ORDER.filter(m => next.includes(m));
     if (ordered.length === 0) return;
+    if (modulePhase(id) === 'due' && dueModules.includes(id) && !next.includes(id)) {
+      return;
+    }
 
     persistSelection(ordered);
-  }, [rowOptions, selected, modulesUpdating, checking, persistSelection]);
+  }, [
+    rowOptions, selected, modulesUpdating, checking, persistSelection,
+    pickableModules, modulePhase, dueModules,
+  ]);
 
   const copyPhone = useCallback(async () => {
     try {
@@ -205,24 +241,39 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
 
         <div className="flex gap-2 w-full">
           {rowOptions.map(opt => {
+            const phase = modulePhase(opt.id);
+            const pickable = pickableModules.includes(opt.id);
             const on = selected.includes(opt.id);
-            const disabled = !opt.selectable || opt.alreadyOwned || modulesUpdating || checking;
+            const mustPay = phase === 'due' && dueModules.includes(opt.id);
+            const disabled = !opt.selectable || opt.alreadyOwned || !pickable
+              || modulesUpdating || checking || (mustPay && on);
             return (
               <button
                 key={opt.id}
                 type="button"
                 disabled={disabled}
                 onClick={() => toggleModule(opt.id)}
-                className="flex-1 min-w-0 h-11 rounded-xl text-[11px] font-bold leading-tight px-1 transition-all active:scale-[0.98] disabled:opacity-40"
+                className="flex-1 min-w-0 min-h-[44px] rounded-xl text-[11px] font-bold leading-tight px-1 py-1 transition-all active:scale-[0.98] disabled:opacity-40 flex flex-col items-center justify-center gap-0.5"
                 style={{
                   background: on
                     ? `color-mix(in srgb, ${accent} 18%, var(--c-card))`
                     : 'var(--c-card)',
-                  border: `1.5px solid ${on ? accent : 'var(--c-border)'}`,
+                  border: `1.5px solid ${on ? accent : phase === 'due' ? accent : 'var(--c-border)'}`,
                   color: on ? accent : 'var(--c-muted)',
                 }}
               >
-                {opt.alreadyOwned ? '✓' : MODULE_ROW_LABELS[opt.id]}
+                {phase === 'owned' ? (
+                  '✓'
+                ) : (
+                  <>
+                    <span>{MODULE_ROW_LABELS[opt.id]}</span>
+                    {phase === 'trial' && pickable && (
+                      <span className="text-[8px] font-semibold uppercase tracking-wide opacity-70">
+                        проба
+                      </span>
+                    )}
+                  </>
+                )}
               </button>
             );
           })}

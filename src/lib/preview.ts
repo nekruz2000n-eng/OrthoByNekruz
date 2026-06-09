@@ -752,6 +752,15 @@ export function getPaymentGrantedSubjects(user: any): string[] {
       .filter(([, v]) => v === true)
       .map(([id]) => id);
   }
+  // В пробе subjects[subject]=true даёт доступ к trial — это не покупка
+  if (
+    user?.previewChosenSubject
+    && (user.previewStatus === 'active'
+      || user.previewStatus === 'expired'
+      || user.receiptClaimedAt)
+  ) {
+    return [];
+  }
   return getCatalogGrantedSubjects(user);
 }
 
@@ -1019,8 +1028,11 @@ export function updatePreviewPaymentChoice(
   if (user.receiptClaimedAt || hasFinalizedPreviewAccess(user)) return null;
 
   const granted = getGrantedModulesForPaymentSubject(user, subject);
-  const chosen = normalizePreviewModules(modules).filter(m => !granted.includes(m));
-  if (chosen.length === 0) return null;
+  const paymentPick = normalizePreviewModules(modules).filter(m => !granted.includes(m));
+  if (paymentPick.length === 0) return null;
+
+  const existingChosen = normalizePreviewModules(user.previewChosenModules);
+  const chosen = [...new Set([...existingChosen, ...paymentPick])];
 
   const before = user._subjectsBeforePreview;
   const isAddon = before && typeof before === 'object' && before[subject] === true;
@@ -1030,7 +1042,7 @@ export function updatePreviewPaymentChoice(
     : (user.navHidden || {});
   const hiddenTabs = isAddon
     ? buildNavHiddenForCatalogAddonPreview(subject, chosen, grantedSubjects, baseNavHidden)
-    : buildNavHiddenForPreview(subject, chosen);
+    : buildNavHiddenForPaymentTabs(subject, chosen, chosen.filter(m => granted.includes(m)));
   const navHidden = { ...(user.navHidden || {}), [subject]: hiddenTabs };
 
   const statuses: PreviewModuleStatusMap = { ...ensureModuleStatusMap(user, subject) };
@@ -1043,14 +1055,14 @@ export function updatePreviewPaymentChoice(
       statuses[m] = 'rejected';
       continue;
     }
-    // На экране оплаты не откатываем истёкшие разделы в trial — иначе UI «проваливается» в контент.
+    if (!paymentPick.includes(m) && statuses[m] === 'trial') continue;
     if (
       statuses[m] === 'awaiting_payment'
       || user.previewStatus === 'expired'
       || isPreviewModuleTrialExpired(probeUser, m, tgId)
     ) {
       statuses[m] = 'awaiting_payment';
-    } else {
+    } else if (paymentPick.includes(m)) {
       statuses[m] = 'trial';
     }
   }
@@ -1064,7 +1076,7 @@ export function updatePreviewPaymentChoice(
     ...user,
     previewChosenSubject: subject,
     previewChosenModules: chosen,
-    previewQuotedPrice:   calcPreviewPriceRub(subject, chosen),
+    previewQuotedPrice:   calcPreviewPriceRub(subject, paymentPick),
     previewModuleStatuses: statuses,
     navHidden,
   };

@@ -1256,6 +1256,15 @@ export default function Home() {
     previewStatus, receiptClaimedAt, previewConfirmedAt, previewRemainingMsByModule,
   ]);
 
+  const paymentModuleStatuses = useMemo(() => {
+    const map: PreviewModuleStatusMap = {};
+    for (const m of chosenPreviewModules) {
+      const st = resolveModuleStatus(m);
+      if (st) map[m] = st;
+    }
+    return map;
+  }, [chosenPreviewModules, resolveModuleStatus]);
+
   const paymentFlowCacheBust = useMemo(
     () => shouldBustPaymentFlowCache(subject, previewChosen, previewModuleStatuses, previewStatus)
       || modulesNeedingPayment.length > 0,
@@ -1322,6 +1331,7 @@ export default function Home() {
           module={mod}
           chosenModules={chosenPreviewModules}
           grantedModules={grantedPreviewModules}
+          moduleStatuses={paymentModuleStatuses}
           status={st}
           checking={statusChecking}
           modulesUpdating={paymentModulesUpdating}
@@ -1337,7 +1347,7 @@ export default function Home() {
     return content;
   }, [
     previewChosen, subject, tabToModule, chosenPreviewModules, grantedPreviewModules,
-    resolveModuleStatus, previewStatus, statusChecking, paymentModulesUpdating,
+    paymentModuleStatuses, resolveModuleStatus, previewStatus, statusChecking, paymentModulesUpdating,
     handleUpdatePaymentModules, handleClaimReceipt, paymentExitProps,
   ]);
 
