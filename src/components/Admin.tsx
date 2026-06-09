@@ -1060,6 +1060,7 @@ export default function AdminPage() {
   const [actioning,          setActioning]          = useState<string | null>(null);
   const [toast,              setToast]              = useState<string | null>(null);
   // expandedIds восстанавливаются из sessionStorage, чтобы после ↻ refresh карточки не схлопывались
+  const expandedIdsRef = useRef<Set<string>>(new Set());
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
     if (typeof window === 'undefined') return new Set();
     try {
@@ -1078,6 +1079,7 @@ export default function AdminPage() {
 
   // Сохраняем раскрытые карточки в sessionStorage при каждом изменении
   useEffect(() => {
+    expandedIdsRef.current = expandedIds;
     try {
       sessionStorage.setItem('admin_expanded_ids', JSON.stringify([...expandedIds]));
     } catch { /* private mode / quota */ }
@@ -1838,6 +1840,10 @@ export default function AdminPage() {
       sessionStorage.setItem('admin_secret', s);
       setAuthed(true);
 
+      for (const tgId of expandedIdsRef.current) {
+        void fetchUserDetail(s, tgId);
+      }
+
       if (!bg) {
         fetch('/api/admin-rate-blocks', {
           method:  'POST',
@@ -1854,7 +1860,7 @@ export default function AdminPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filter, debouncedSearch, sortBy, registeredAsc]);
+  }, [filter, debouncedSearch, sortBy, registeredAsc, fetchUserDetail]);
 
   useEffect(() => {
     if (!authed || !secret) return;
@@ -1980,9 +1986,19 @@ export default function AdminPage() {
             return { ...u, blocked: true, blockedReason: reason || 'manual', blockedAt: new Date().toISOString() };
           case 'unblock':
             return { ...u, blocked: false, blockedReason: null, blockedAt: null, opensToday: 0, suspicious: false };
-          case 'reset_demo':
+          case 'reset_demo': {
+            const detail = (data.user && typeof data.user === 'object')
+              ? data.user as Partial<User>
+              : null;
+            const navHidden = (data.navHidden && typeof data.navHidden === 'object')
+              ? data.navHidden as Record<string, string[]>
+              : (detail?.navHidden ?? u.navHidden);
+            const subjects = Array.isArray(data.subjects)
+              ? data.subjects
+              : (detail?.subjects ?? u.subjects);
             return {
               ...u,
+              ...detail,
               usedDemo: false,
               previewStatus: null,
               previewChosenSubject: null,
@@ -1991,8 +2007,15 @@ export default function AdminPage() {
               facultyId: null,
               previewFaculty: null,
               studyGroup: null,
-              subjects: u.subjects.filter(() => false),
+              previewNeedsConfirm: false,
+              previewPendingModules: [],
+              previewQuotedPrice: null,
+              previewConfirmedAt: null,
+              receiptClaimedAt: null,
+              subjects,
+              navHidden,
             };
+          }
           case 'force_payment_only': {
             const newSubjects = Array.isArray(data.subjects) ? data.subjects : [];
             const navHidden = (data.navHidden && typeof data.navHidden === 'object')

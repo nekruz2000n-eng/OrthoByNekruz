@@ -403,8 +403,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const id = String(tgId).trim();
         await clearPreviewTrialLockForUser(id);
         await clearAuthRateLimitsForTgId(redis, id);
+        let cleaned: Record<string, any> | null = null;
         if (user) {
-          const cleaned: Record<string, any> = { ...user };
+          cleaned = { ...user };
           delete cleaned.previewStatus;
           delete cleaned.previewChosenSubject;
           delete cleaned.previewChosenModules;
@@ -419,13 +420,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           delete cleaned.previewQuotedPrice;
           delete cleaned.receiptClaimedAt;
           delete cleaned._adminPaymentOnlyLock;
+          delete cleaned.previewModuleStatuses;
+          delete cleaned.previewActiveMsConsumed;
+          delete cleaned.previewActiveMsByModule;
+          delete cleaned.previewModuleTrustExpiresAt;
+          delete cleaned._navHiddenBeforePreview;
+          delete cleaned._subjectsBeforePreview;
+          delete cleaned._previewSnapshotBeforeAddon;
+          delete cleaned._previewStatusBeforeCatalog;
+          delete cleaned._catalogBrowse;
           const key = cleaned.activatedKey;
           if (key === 'preview' || (key && String(key).startsWith('promo:'))) {
             delete cleaned.activatedKey;
           }
-          await saveUser(String(tgId), cleaned);
+          await saveUser(id, cleaned);
         }
-        return res.status(200).json({ ok: true });
+        const today = new Date().toISOString().slice(0, 10);
+        const opensToday = Number(await redis.get(`opens:${id}:${today}`)) || 0;
+        const usedDemo   = Boolean(await redis.sismember('used_demo_ids', id));
+        const detail = cleaned ? toDetailUser(id, cleaned, opensToday, usedDemo) : null;
+        return res.status(200).json({
+          ok: true,
+          subjects: detail?.subjects ?? [],
+          navHidden: detail?.navHidden ?? {},
+          user: detail,
+        });
       }
 
       if (action === 'force_payment_only') {
