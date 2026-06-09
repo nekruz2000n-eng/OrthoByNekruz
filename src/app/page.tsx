@@ -331,11 +331,19 @@ export default function Home() {
     }
     if (d?.previewModuleStatuses && typeof d.previewModuleStatuses === 'object') {
       const nextStatuses = d.previewModuleStatuses as PreviewModuleStatusMap;
+      const remMsMap = d?.previewRemainingMsByModule as PreviewActiveMsMap | undefined;
       setPreviewModuleStatuses(prev => {
+        const merged: PreviewModuleStatusMap = { ...nextStatuses };
+        for (const m of ['questions', 'tests', 'tasks'] as PreviewModule[]) {
+          if (prev[m] === 'awaiting_payment' && merged[m] === 'trial') {
+            const rem = remMsMap?.[m];
+            if (rem == null || rem <= 0) merged[m] = 'awaiting_payment';
+          }
+        }
         const subjectId = (d?.previewChosenSubject as string | null) ?? null;
         if (subjectId) {
           const rejected: PreviewModule[] = (['questions', 'tests', 'tasks'] as PreviewModule[]).filter(
-            m => nextStatuses[m] === 'rejected' && prev[m] !== 'rejected',
+            m => merged[m] === 'rejected' && prev[m] !== 'rejected',
           );
           if (rejected.length > 0) {
             void bustSubjectModuleCache(subjectId, rejected);
@@ -344,7 +352,7 @@ export default function Home() {
             }
           }
         }
-        return nextStatuses;
+        return merged;
       });
     } else if (ps !== 'expired' && ps !== 'active' && !d?.receiptClaimedAt) {
       setPreviewModuleStatuses({});
@@ -1110,9 +1118,12 @@ export default function Home() {
       }
       return;
     }
-    setSubject(next);
-    localStorage.setItem('last_subject', next);
-  }, [availableSubjects, previewChosen, canAbandonPending, handleAbandonPendingPreview, setSubject, toast]);
+    toast({
+      variant: 'destructive',
+      title: 'Сначала оплата',
+      description: 'Заверши оплату на этом предмете.',
+    });
+  }, [availableSubjects, previewChosen, canAbandonPending, handleAbandonPendingPreview, toast]);
 
   const chosenPreviewModules = useMemo(
     () => normalizePreviewModules(previewModules),
@@ -1139,9 +1150,18 @@ export default function Home() {
   /** Не новый гость: до пробы уже были купленные предметы (докупка). */
   const isEstablishedForStats = paymentGrantedSubjects.length > 0;
 
+  /** Проба/оплата на предмете — нельзя уйти в другой предмет без явной отмены докупки. */
+  const previewSubjectLocked = !!previewChosen && (
+    inPendingPaymentFlow
+    || (previewStatus === 'active' && !receiptClaimedAt && !previewConfirmedAt)
+  );
+
   const statsAvailableSubjects = useMemo(() => {
     if (!previewChosen) return availableSubjects;
-    if (inPendingPaymentFlow && !isEstablishedForStats) {
+    if (previewSubjectLocked) {
+      if (isEstablishedForStats && canAbandonPending) {
+        return [...new Set([previewChosen, ...paymentGrantedSubjects])];
+      }
       return [previewChosen];
     }
     if (isEstablishedForStats) {
@@ -1152,28 +1172,26 @@ export default function Home() {
     }
     return availableSubjects;
   }, [
-    availableSubjects, previewChosen, inPendingPaymentFlow, isEstablishedForStats,
-    paymentGrantedSubjects,
+    availableSubjects, previewChosen, previewSubjectLocked, isEstablishedForStats,
+    paymentGrantedSubjects, canAbandonPending,
   ]);
 
   const handleSubjectChangeWithPending = useCallback((s: string) => {
-    const switchingToPurchased = isEstablishedForStats
-      && !!pendingPaymentSubject
-      && s !== pendingPaymentSubject
-      && paymentGrantedSubjects.includes(s);
-
-    if (switchingToPurchased && canAbandonPending) {
-      void handleAbandonPendingPreview(s).then(ok => {
-        if (ok) {
-          toast({ title: 'Докупка отменена', description: 'Вернулся к уже открытым предметам.' });
-        }
+    if (previewChosen && previewSubjectLocked && s !== previewChosen) {
+      const switchingToPurchased = isEstablishedForStats && paymentGrantedSubjects.includes(s);
+      if (switchingToPurchased && canAbandonPending) {
+        void handleAbandonPendingPreview(s).then(ok => {
+          if (ok) {
+            toast({ title: 'Докупка отменена', description: 'Вернулся к уже открытым предметам.' });
+          }
+        });
+        return;
+      }
+      toast({
+        variant: 'destructive',
+        title: 'Сначала оплата',
+        description: 'Заверши пробу или оплату на этом предмете.',
       });
-      return;
-    }
-
-    if (switchingToPurchased) {
-      setSubject(s);
-      localStorage.setItem('subject_chosen', 'true');
       return;
     }
 
@@ -1181,14 +1199,21 @@ export default function Home() {
     localStorage.setItem('subject_chosen', 'true');
     if (pendingPaymentSubject && s === pendingPaymentSubject && previewChosen === s) {
       const unpaid = modulesAwaitingPayment(previewModuleStatuses);
-      const tabs = unpaid.length > 0 ? unpaid : normalizePreviewModules(previewModules);
+      const localExpired = chosenPreviewModules.filter(mod => {
+        if (unpaid.includes(mod)) return false;
+        const rem = previewRemainingMsByModule[mod];
+        return rem != null && rem <= 0;
+      });
+      const needing = [...new Set([...unpaid, ...localExpired])];
+      const tabs = needing.length > 0 ? needing : normalizePreviewModules(previewModules);
       const first = firstPreviewModuleTab(tabs);
       if (first) setActiveTab(first);
     }
   }, [
-    isEstablishedForStats, pendingPaymentSubject, paymentGrantedSubjects, previewChosen,
-    canAbandonPending, handleAbandonPendingPreview, previewModuleStatuses,
-    previewModules, setSubject, toast,
+    previewChosen, previewSubjectLocked, isEstablishedForStats, paymentGrantedSubjects,
+    canAbandonPending, handleAbandonPendingPreview, pendingPaymentSubject,
+    previewModuleStatuses, previewModules, chosenPreviewModules, previewRemainingMsByModule,
+    setSubject, toast,
   ]);
 
   const grantedPreviewModules = useMemo(
@@ -1329,7 +1354,7 @@ export default function Home() {
   /** Витрина: купленные аккаунты — и при активной пробе; expired без чека — выбор другого предмета. */
   const canBrowseCatalog = previewStatus == null
     || previewStatus === 'confirmed'
-    || (previewStatus === 'active' && isEstablishedForStats)
+    || (previewStatus === 'active' && isEstablishedForStats && !previewSubjectLocked)
     || (previewStatus === 'expired' && (!receiptClaimedAt || canAbandonPending));
 
   // ── Сброс (6 быстрых тапов) ───────────────────────────────────────────────

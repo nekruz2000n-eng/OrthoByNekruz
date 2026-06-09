@@ -7,7 +7,7 @@ sys.path.insert(0, r"c:\Users\Admin\Downloads\download\scripts")
 from compare_bio_pdf import parse_pdf, build_pdf_index, norm, strip_prefix, find_option
 
 JSON_PATH = r"c:\Users\Admin\Downloads\download\src\data\bio_tests.json"
-PDF_PATH = r"c:\Users\Admin\Downloads\Итоговый тест биология (1) (2).pdf"
+PDF_PATH = r"c:\Users\Admin\Downloads\Итоговый тест биология (1) (3).pdf"
 
 
 def norm_loose(s: str) -> str:
@@ -43,7 +43,6 @@ def set_option_text(options: list[str], index: int, body: str) -> list[str]:
 
 # Explicit overrides: id -> (correct body text, optional option index to rewrite)
 EXPLICIT: dict[str, tuple[str, int | None]] = {
-    "0043": ("фагоцитоз", 4),
     "0149": ("9.2 ккал", 3),
     "0894": ("саркоптоза", 2),
     "1038": ("нейруляции", 3),

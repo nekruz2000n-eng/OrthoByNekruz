@@ -5,7 +5,7 @@ import sys
 
 import fitz
 
-PDF_PATH = r"c:\Users\Admin\Downloads\Итоговый тест биология (1) (2).pdf"
+PDF_PATH = r"c:\Users\Admin\Downloads\Итоговый тест биология (1) (3).pdf"
 JSON_PATH = r"c:\Users\Admin\Downloads\download\src\data\bio_tests.json"
 OUT_PATH = r"c:\Users\Admin\Downloads\download\pdf_mismatches.json"
 
@@ -23,7 +23,7 @@ def line_text(parts: list[tuple[str, bool]]) -> str:
 
 
 def norm(s: str) -> str:
-    return re.sub(r"\s+", " ", s.lower().strip())
+    return re.sub(r"\s+", " ", s.lower().strip().replace("ё", "е"))
 
 
 def strip_prefix(s: str) -> str:
@@ -65,7 +65,7 @@ def parse_pdf(path: str) -> list[dict]:
 
     questions: list[dict] = []
     current: dict | None = None
-    q_start = re.compile(r"^(\d{3})\.\s*(.*)$")
+    q_start = re.compile(r"^(\d{1,3})\.\s*(.*)$")
     opt_only = re.compile(r"^(\d+|[a-e])\)\s*$", re.I)
     opt_inline = re.compile(r"^(\d+|[a-e])\)\s*(.+)$", re.I)
 

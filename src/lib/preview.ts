@@ -1025,10 +1025,25 @@ export function updatePreviewPaymentChoice(
   const navHidden = { ...(user.navHidden || {}), [subject]: hiddenTabs };
 
   const statuses: PreviewModuleStatusMap = { ...ensureModuleStatusMap(user, subject) };
-  const paymentPhase = user.previewStatus === 'active' ? 'trial' : 'awaiting_payment';
+  const msMap = ensurePreviewActiveMsMap(user, chosen);
+  const probeUser = { ...user, previewActiveMsByModule: msMap };
+  const tgId = user?.telegramId != null ? String(user.telegramId) : null;
   for (const m of chosen) {
     if (statuses[m] === 'confirmed' || statuses[m] === 'receipt_pending') continue;
-    statuses[m] = statuses[m] === 'rejected' ? 'rejected' : paymentPhase;
+    if (statuses[m] === 'rejected') {
+      statuses[m] = 'rejected';
+      continue;
+    }
+    // На экране оплаты не откатываем истёкшие разделы в trial — иначе UI «проваливается» в контент.
+    if (
+      statuses[m] === 'awaiting_payment'
+      || user.previewStatus === 'expired'
+      || isPreviewModuleTrialExpired(probeUser, m, tgId)
+    ) {
+      statuses[m] = 'awaiting_payment';
+    } else {
+      statuses[m] = 'trial';
+    }
   }
   for (const m of ['questions', 'tests', 'tasks'] as PreviewModule[]) {
     if (!chosen.includes(m) && statuses[m] !== 'confirmed') {
@@ -1099,8 +1114,13 @@ export function claimPreviewReceipt(user: any, modulesToClaim?: PreviewModule[])
       : {}),
   };
   const trustDeadline = new Date(Date.now() + PREVIEW_RECEIPT_TRUST_MS).toISOString();
+  const explicitClaim = Boolean(modulesToClaim && modulesToClaim.length > 0);
+  const tgId = user?.telegramId != null ? String(user.telegramId) : null;
   for (const m of payable) {
-    if (statuses[m] === 'awaiting_payment' || statuses[m] === 'rejected') {
+    const st = statuses[m];
+    if (st === 'confirmed' || st === 'receipt_pending') continue;
+    const expiredTrial = st === 'trial' && isPreviewModuleTrialExpired(user, m, tgId);
+    if (explicitClaim || st === 'awaiting_payment' || st === 'rejected' || expiredTrial) {
       statuses[m] = 'receipt_pending';
       trustExpires[m] = trustDeadline;
     }

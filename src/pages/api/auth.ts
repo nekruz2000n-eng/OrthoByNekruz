@@ -23,6 +23,7 @@ import {
   getPaymentGrantedSubjects,
   switchPreviewPaymentSubject,
   maybeExpirePreviewUser,
+  applyModuleTrialExpiries,
   previewEndsAt,
   isPreviewTrialLocked,
   isPreviewShortDurationAccount,
@@ -661,10 +662,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!switched) {
         return res.status(400).json({ error: 'Для этого предмета нечего докупить.' });
       }
-      await saveUser(tgIdStr, touchUserActivity(switched));
+      const healedSwitch = applyModuleTrialExpiries(switched, tgIdStr) ?? switched;
+      await saveUser(tgIdStr, touchUserActivity(healedSwitch));
       return res.status(200).json({
         success: true,
-        ...(await subjectsResponse(switched, tgIdStr)),
+        ...(await subjectsResponse(healedSwitch, tgIdStr)),
       });
     }
 
@@ -676,10 +678,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'После отправки чека выбор изменить нельзя.' });
       }
       user = await maybeExpirePreviewUser(redis, tgIdStr, user);
-      const updated = updatePreviewPaymentChoice(user, normalizePreviewModules(modules));
+      let updated = updatePreviewPaymentChoice(user, normalizePreviewModules(modules));
       if (!updated) {
         return res.status(400).json({ error: 'Выбери хотя бы один раздел.' });
       }
+      updated = applyModuleTrialExpiries(updated, tgIdStr) ?? updated;
       await saveUser(tgIdStr, touchUserActivity(updated));
       return res.status(200).json({
         success: true,
