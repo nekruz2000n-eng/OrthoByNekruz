@@ -18,7 +18,7 @@ import { TrueFalseTab } from './TrueFalseTab';
 import type { BioGameMode } from './Navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { termRegexSource as _termRegexSource } from '@/lib/glossaryUtils';
+import { termRegexSource as _termRegexSource, itemRelatedTerms } from '@/lib/glossaryUtils';
 
 interface GlossaryItem { term: string; variations?: string[]; definition: string; image?: string | string[]; }
 
@@ -858,7 +858,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                       <div className="rounded-xl p-3 mb-3 relative overflow-hidden"
                         style={{ background: 'color-mix(in srgb, var(--c-bg) 60%, var(--c-card))', border: '1px solid var(--c-border)' }}>
                         <div className="text-sm leading-relaxed max-h-20 overflow-hidden" style={{ color: 'color-mix(in srgb, var(--c-text) 70%, transparent)' }}>
-                          {renderWithGlossary(q.answer, (q as any).relatedTerms)}
+                          {renderWithGlossary(q.answer, itemRelatedTerms(q))}
                         </div>
                         <div className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none"
                           style={{ background: 'linear-gradient(to top, color-mix(in srgb, var(--c-bg) 60%, var(--c-card)), transparent)' }} />
@@ -924,7 +924,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                   </span>
                 </div>
                 <h2 className="font-semibold leading-snug break-words" style={{ fontSize: `${fontSize * 1.15}px`, color: 'var(--c-text)' }}>
-                  {renderWithGlossary(readingQuestion.question, readingQuestion.relatedTerms)}
+                  {renderWithGlossary(readingQuestion.question, itemRelatedTerms(readingQuestion))}
                 </h2>
                 <div className="flex items-center gap-3" style={{ borderTop: '1px solid var(--c-border)', paddingTop: '12px' }}>
                   <BookOpen className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
@@ -932,7 +932,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                 </div>
                 
                 <div className="leading-snug font-normal break-words" style={{ fontSize: `${fontSize}px`, color: 'color-mix(in srgb, var(--c-text) 92%, transparent)' }}>
-                  {renderWithGlossary(readingQuestion.answer, readingQuestion.relatedTerms)}
+                  {renderWithGlossary(readingQuestion.answer, itemRelatedTerms(readingQuestion))}
                 </div>
 
                 <QuestionAiPanel

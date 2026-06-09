@@ -150,7 +150,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const overrides = overridesRaw as Record<string, string[]>;
           const merged = (data as any[]).map(item => {
             const id = String(item.id);
-            if (id in overrides) return { ...item, relatedTerms: overrides[id] };
+            if (id in overrides) {
+              const base = [
+                ...((item.related_glossary as string[] | undefined) ?? []),
+                ...((item.relatedTerms as string[] | undefined) ?? []),
+              ];
+              const terms = [...new Set([...overrides[id], ...base].map(t => String(t).trim()).filter(Boolean))];
+              return { ...item, relatedTerms: terms, related_glossary: terms };
+            }
             return item;
           });
           return res.status(200).json({ data: merged });

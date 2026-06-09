@@ -8,7 +8,13 @@
       "в) передавливания пищи",
       "г) образования пищевого комка"
     ],
-    "correct": "а) раздробления пищи"
+    "correct": "а) раздробления пищи",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "002",
@@ -19,7 +25,13 @@
       "в) параболы",
       "г) полукруга"
     ],
-    "correct": "б) полуэлипса"
+    "correct": "б) полуэлипса",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "003",
@@ -30,7 +42,13 @@
       "в) косом",
       "г) вертикальном"
     ],
-    "correct": "а) поперечном"
+    "correct": "а) поперечном",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "004",
@@ -41,7 +59,13 @@
       "в) 1,0-1,5 мм",
       "г) 0,22- 0,25 мм"
     ],
-    "correct": "а) 0,23 - 0,28 мм"
+    "correct": "а) 0,23 - 0,28 мм",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "005",
@@ -52,7 +76,13 @@
       "в) 1",
       "г) 2"
     ],
-    "correct": "б) 3"
+    "correct": "б) 3",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "006",
@@ -63,7 +93,13 @@
       "в) нижнепереднемотделе лицевого черепа",
       "г) нижнесреднем отделе лицевого черепа"
     ],
-    "correct": "а) верхнепереднемотделе лицевого черепа"
+    "correct": "а) верхнепереднемотделе лицевого черепа",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "007",
@@ -74,7 +110,13 @@
       "в) 50-56 лет",
       "г) 35 - 45 лет"
     ],
-    "correct": "г) 35 - 45 лет"
+    "correct": "г) 35 - 45 лет",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "008",
@@ -85,7 +127,13 @@
       "в) костные пластины",
       "г) контрфорсы"
     ],
-    "correct": "г) контрфорсы"
+    "correct": "г) контрфорсы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "009",
@@ -96,7 +144,13 @@
       "в) двумя парами крупных слюнных желез",
       "г) центральными резцами"
     ],
-    "correct": "б) мимической и жевательной мускулатурой"
+    "correct": "б) мимической и жевательной мускулатурой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "010",
@@ -107,7 +161,13 @@
       "в) 30",
       "г) 32"
     ],
-    "correct": "а) 20"
+    "correct": "а) 20",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "011",
@@ -118,7 +178,13 @@
       "в) переходной частью",
       "г) болтающейся частью"
     ],
-    "correct": "б) прикрепленной частью"
+    "correct": "б) прикрепленной частью",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "012",
@@ -129,7 +195,13 @@
       "в) 1,0-1,5 мм",
       "г) 3,5- 4,0 мм"
     ],
-    "correct": "в) 1,0-1,5 мм"
+    "correct": "в) 1,0-1,5 мм",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "013",
@@ -140,7 +212,13 @@
       "в) дистальном щечном бугре второго моляра",
       "г) медиальном щечном бугре второго моляра"
     ],
-    "correct": "б) дистальном щечном бугре третьего моляра"
+    "correct": "б) дистальном щечном бугре третьего моляра",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "014",
@@ -151,7 +229,13 @@
       "в) полупараболы",
       "г) полукруга"
     ],
-    "correct": "в) полупараболы"
+    "correct": "в) полупараболы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "015",
@@ -162,7 +246,13 @@
       "в) защитную функцию",
       "г) регулирующую функцию"
     ],
-    "correct": "а) амортизирующую функцию"
+    "correct": "а) амортизирующую функцию",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "016",
@@ -173,7 +263,13 @@
       "в) двумя парами крупных слюнных желез",
       "г) центральными резцами"
     ],
-    "correct": "б) тремя парами крупных слюнных желез"
+    "correct": "б) тремя парами крупных слюнных желез",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "017",
@@ -184,7 +280,13 @@
       "в) девяти зубов с каждой стороны",
       "г) шести зубов с каждой стороны"
     ],
-    "correct": "б) восьми зубов с каждой стороны"
+    "correct": "б) восьми зубов с каждой стороны",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "018",
@@ -195,7 +297,13 @@
       "в) альвеолярным",
       "г) крылонебным"
     ],
-    "correct": "г) крылонебным"
+    "correct": "г) крылонебным",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "019",
@@ -206,7 +314,13 @@
       "в) 4",
       "г) 5"
     ],
-    "correct": "в) 4"
+    "correct": "в) 4",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "020",
@@ -217,7 +331,13 @@
       "в) 28",
       "г) 32"
     ],
-    "correct": "г) 32"
+    "correct": "г) 32",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "021",
@@ -228,7 +348,13 @@
       "в) создании надежной защиты всего организма от действия неблагоприятных факторов среды",
       "г) образовании пищевого комка"
     ],
-    "correct": "а) постоянное обновление тканей пародонта, нарушенных в ходе физиологических и патологических процессов"
+    "correct": "а) постоянное обновление тканей пародонта, нарушенных в ходе физиологических и патологических процессов",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "022",
@@ -239,7 +365,13 @@
       "в) шестого моляра",
       "г) седьмого моляра"
     ],
-    "correct": "б) первых премоляров"
+    "correct": "б) первых премоляров",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "023",
@@ -250,7 +382,13 @@
       "в) шаровидная форма",
       "г) ячеистая форма"
     ],
-    "correct": "а) грибовидная форма"
+    "correct": "а) грибовидная форма",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "024",
@@ -261,7 +399,13 @@
       "в) центральных резцов",
       "г) жевательных зубов"
     ],
-    "correct": "г) жевательных зубов"
+    "correct": "г) жевательных зубов",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "025",
@@ -272,7 +416,13 @@
       "в) верхнечелюстную пазуху",
       "г) твердое небо"
     ],
-    "correct": "а) основании черепа"
+    "correct": "а) основании черепа",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "026",
@@ -283,7 +433,13 @@
       "в) сагиттальная и горизонтальная",
       "г) трансверзальная и вертикальная"
     ],
-    "correct": "а) сагиттальная и трансверзальная"
+    "correct": "а) сагиттальная и трансверзальная",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "027",
@@ -294,7 +450,13 @@
       "в) щеки",
       "г) зубы, мимическая мускулатура"
     ],
-    "correct": "а) губы, мимическая мускулатура"
+    "correct": "а) губы, мимическая мускулатура",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "028",
@@ -305,7 +467,13 @@
       "в) альвеолярным",
       "г) крылонебным"
     ],
-    "correct": "б) небный"
+    "correct": "б) небный",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "029",
@@ -316,7 +484,13 @@
       "в) 4",
       "г) 5"
     ],
-    "correct": "а) 2"
+    "correct": "а) 2",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "030",
@@ -327,7 +501,13 @@
       "в) двумя парами крупных слюнных желез",
       "г) центральными резцами"
     ],
-    "correct": "б) височно-нижнечелюстным суставом"
+    "correct": "б) височно-нижнечелюстным суставом",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "031",
@@ -338,7 +518,13 @@
       "в) лобную пазуху",
       "г) решетчатый лабиринт"
     ],
-    "correct": "а) гаймаровую пазуху"
+    "correct": "а) гаймаровую пазуху",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "032",
@@ -349,7 +535,13 @@
       "в) сжатая",
       "г) сниженная"
     ],
-    "correct": "а) пологая"
+    "correct": "а) пологая",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "033",
@@ -360,7 +552,13 @@
       "в) небный",
       "г) височной кости"
     ],
-    "correct": "б) альвеолярный"
+    "correct": "б) альвеолярный",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "034",
@@ -371,7 +569,13 @@
       "в) первичный цемент",
       "г) вторичный цемент"
     ],
-    "correct": "в) первичный цемент"
+    "correct": "в) первичный цемент",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "035",
@@ -382,7 +586,13 @@
       "в) слущивания",
       "г) деления"
     ],
-    "correct": "а) опорно-удерживающия"
+    "correct": "а) опорно-удерживающия",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "036",
@@ -393,7 +603,13 @@
       "в) в области резцового сосочка",
       "г) позади третьего моляра нижней челюсти"
     ],
-    "correct": "г) позади третьего моляра нижней челюсти"
+    "correct": "г) позади третьего моляра нижней челюсти",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "037",
@@ -404,7 +620,13 @@
       "в) твердое небо",
       "г) тело верхней челюсти"
     ],
-    "correct": "в) твердое небо"
+    "correct": "в) твердое небо",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "038",
@@ -415,7 +637,13 @@
       "в) премоляры",
       "г) моляры"
     ],
-    "correct": "в) премоляры"
+    "correct": "в) премоляры",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "039",
@@ -426,7 +654,13 @@
       "в) шейка",
       "г) корень"
     ],
-    "correct": "б) анатомическая коронка"
+    "correct": "б) анатомическая коронка",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "040",
@@ -437,7 +671,13 @@
       "в) небный",
       "г) височный"
     ],
-    "correct": "б) альвеолярный"
+    "correct": "б) альвеолярный",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "041",
@@ -448,7 +688,13 @@
       "в) диссоциативная",
       "г) дыхания"
     ],
-    "correct": "г) дыхания"
+    "correct": "г) дыхания",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "042",
@@ -459,7 +705,13 @@
       "в) круговой",
       "г) суставной"
     ],
-    "correct": "б) лобно-носовой"
+    "correct": "б) лобно-носовой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "043",
@@ -470,7 +722,13 @@
       "в) челюстная",
       "г) затылочная"
     ],
-    "correct": "в) челюстная"
+    "correct": "в) челюстная",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "044",
@@ -481,7 +739,13 @@
       "в) амортизирующая",
       "г) апластическая"
     ],
-    "correct": "в) амортизирующая"
+    "correct": "в) амортизирующая",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "045",
@@ -492,7 +756,13 @@
       "в) рыхлую десну",
       "г) болтающуюся десну"
     ],
-    "correct": "б) краевую десну (десневой край)"
+    "correct": "б) краевую десну (десневой край)",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "046",
@@ -503,7 +773,13 @@
       "в) межлуночковая перегородка",
       "г) анатомическое образование, располагающееся позади третьего моляра нижней челюсти"
     ],
-    "correct": "б) зубная ячейка"
+    "correct": "б) зубная ячейка",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "047",
@@ -514,7 +790,13 @@
       "в) сосцевидный отросток",
       "г) шиловидный отросток"
     ],
-    "correct": "б) суставной отросток"
+    "correct": "б) суставной отросток",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "048",
@@ -525,7 +807,13 @@
       "в) третичный",
       "г) заместительный"
     ],
-    "correct": "б) вторичный"
+    "correct": "б) вторичный",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "049",
@@ -536,7 +824,13 @@
       "в) премоляры",
       "г) моляры"
     ],
-    "correct": "в) премоляры"
+    "correct": "в) премоляры",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "050",
@@ -547,7 +841,13 @@
       "в) небный",
       "г) верно все"
     ],
-    "correct": "г) верно все"
+    "correct": "г) верно все",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "051",
@@ -558,7 +858,13 @@
       "в) остеобласты",
       "г) остеокласты"
     ],
-    "correct": "б) цементоциты"
+    "correct": "б) цементоциты",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "052",
@@ -569,7 +875,13 @@
       "в) коническая с одним бугром",
       "г) прямоугольная с тремя вестибулярными и двумя оральными буграми"
     ],
-    "correct": "г) прямоугольная с тремя вестибулярными и двумя оральными буграми"
+    "correct": "г) прямоугольная с тремя вестибулярными и двумя оральными буграми",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "053",
@@ -580,7 +892,13 @@
       "в) парасагитальная",
       "г) трансверзально-сагитальная"
     ],
-    "correct": "б) кривая Уилсона"
+    "correct": "б) кривая Уилсона",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "054",
@@ -591,7 +909,13 @@
       "в) скуловой",
       "г) лобно-носовой"
     ],
-    "correct": "б) височный"
+    "correct": "б) височный",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "055",
@@ -602,7 +926,13 @@
       "в) коническая",
       "г) овальная"
     ],
-    "correct": "б) лопатообразная"
+    "correct": "б) лопатообразная",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "056",
@@ -613,7 +943,13 @@
       "в) по проекции верхушек зубов",
       "г) от козелка уха до угла крыла носа"
     ],
-    "correct": "б) по режущим краям фронтальных зубов и дистальные бугорки вторых моляров"
+    "correct": "б) по режущим краям фронтальных зубов и дистальные бугорки вторых моляров",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "057",
@@ -624,7 +960,13 @@
       "в) сосцевидный отросток",
       "г) шиловидный отросток"
     ],
-    "correct": "б) венечный отросток"
+    "correct": "б) венечный отросток",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "058",
@@ -635,7 +977,13 @@
       "в) премоляры",
       "г) моляры"
     ],
-    "correct": "г) моляры"
+    "correct": "г) моляры",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "059",
@@ -646,7 +994,13 @@
       "в) скуловая",
       "г) cлезная"
     ],
-    "correct": "а) верхнечелюстная"
+    "correct": "а) верхнечелюстная",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "060",
@@ -657,7 +1011,13 @@
       "в) зубоальвеолярные",
       "г) верно все"
     ],
-    "correct": "г) верно все"
+    "correct": "г) верно все",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "061",
@@ -668,7 +1028,13 @@
       "в) кубовидную форму",
       "г) ячеистую фору"
     ],
-    "correct": "а) эллипсоидную форму"
+    "correct": "а) эллипсоидную форму",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "062",
@@ -679,7 +1045,13 @@
       "в) тонким костным слоем, представляющим собой свод ямки",
       "г) задней ножкой скулового отростка"
     ],
-    "correct": "б) задним скатом суставного бугорка"
+    "correct": "б) задним скатом суставного бугорка",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "063",
@@ -690,7 +1062,13 @@
       "в) средневогнутая",
       "г) верно все"
     ],
-    "correct": "б) средневыпуклая"
+    "correct": "б) средневыпуклая",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "064",
@@ -701,7 +1079,13 @@
       "в) тонким костным слоем, представляющим собой свод ямки",
       "г) задней ножкой скулового отростка"
     ],
-    "correct": "г) задней ножкой скулового отростка"
+    "correct": "г) задней ножкой скулового отростка",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "065",
@@ -712,7 +1096,13 @@
       "в) мениск",
       "г) тело нижней челюсти"
     ],
-    "correct": "в) мениск"
+    "correct": "в) мениск",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "066",
@@ -723,7 +1113,13 @@
       "в) глубокая узкая суставная ямка, хорошо развитый мыщелок и уплощенный мениск",
       "г) широкая уплощенная суставная ямка, небольшой мыщелок и хорошо развитый мениск"
     ],
-    "correct": "б) характерна узкая суставная ямка, небольшой мыщелок, мощный мениск"
+    "correct": "б) характерна узкая суставная ямка, небольшой мыщелок, мощный мениск",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "067",
@@ -734,7 +1130,13 @@
       "в) медиальная крыловидная мышца (m pterygoideusmedialis)",
       "г) челюстно-подъязычные мышцы (m mylohyoideus)"
     ],
-    "correct": "г) челюстно-подъязычные мышцы (m mylohyoideus)"
+    "correct": "г) челюстно-подъязычные мышцы (m mylohyoideus)",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "068",
@@ -745,7 +1147,13 @@
       "в) челюстно-подъязычные мышцы (m mylohyoideus)",
       "г) верно все"
     ],
-    "correct": "б) латеральных крыловидных мышц"
+    "correct": "б) латеральных крыловидных мышц",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "069",
@@ -756,7 +1164,13 @@
       "в) умеренного напряжения",
       "г) динамического напряжения"
     ],
-    "correct": "а) физиологического покоя"
+    "correct": "а) физиологического покоя",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "070",
@@ -767,7 +1181,13 @@
       "в) 22°",
       "г) 17°"
     ],
-    "correct": "г) 17°"
+    "correct": "г) 17°",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "071",
@@ -778,7 +1198,13 @@
       "в) книзу и кзади",
       "г) книзу и кпереди"
     ],
-    "correct": "а) кверху и кзади"
+    "correct": "а) кверху и кзади",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "072",
@@ -789,7 +1215,13 @@
       "в) равномерно",
       "г) не выражен"
     ],
-    "correct": "б) слабо"
+    "correct": "б) слабо",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "073",
@@ -800,7 +1232,13 @@
       "в) опускается",
       "г) не изменяет положения"
     ],
-    "correct": "а) выдвигается"
+    "correct": "а) выдвигается",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "074",
@@ -811,7 +1249,13 @@
       "в) восстановление тканей пародонта",
       "г) питание тканей пародонта"
     ],
-    "correct": "г) питание тканей пародонта"
+    "correct": "г) питание тканей пародонта",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "075",
@@ -822,7 +1266,13 @@
       "в) 4",
       "г) нет правильного ответа"
     ],
-    "correct": "б) 3"
+    "correct": "б) 3",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "076",
@@ -833,7 +1283,13 @@
       "в) медиальную крыловидную мышцу (m pterygoideusmedialis)",
       "г) челюстно-подъязычные мышцы (m mylohyoideus)"
     ],
-    "correct": "а) латеральные крыловидные мышцы (m pterygoideuslateralis)"
+    "correct": "а) латеральные крыловидные мышцы (m pterygoideuslateralis)",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "077",
@@ -844,7 +1300,13 @@
       "в) суставная ямка",
       "г) тело нижней челюсти"
     ],
-    "correct": "в) суставная ямка"
+    "correct": "в) суставная ямка",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "078",
@@ -855,7 +1317,13 @@
       "в) суставной головкой и суставной ямкой",
       "г) нет правильного ответа"
     ],
-    "correct": "б) суставным бугорком и суставной ямкой"
+    "correct": "б) суставным бугорком и суставной ямкой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "079",
@@ -866,7 +1334,13 @@
       "в) медиальной крыловидной мышцы (m pterygoideusmedialis)",
       "г) собственно жевательные (m masseter)"
     ],
-    "correct": "в) медиальной крыловидной мышцы (m pterygoideusmedialis)"
+    "correct": "в) медиальной крыловидной мышцы (m pterygoideusmedialis)",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "080",
@@ -877,7 +1351,13 @@
       "в) 24°-59°",
       "г) 150°-158°"
     ],
-    "correct": "б) 100° - 110°"
+    "correct": "б) 100° - 110°",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "081",
@@ -888,7 +1368,13 @@
       "в) 1",
       "г) 4"
     ],
-    "correct": "г) 4"
+    "correct": "г) 4",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "082",
@@ -899,7 +1385,13 @@
       "в) нет правильного ответа",
       "г) кзади и вверх"
     ],
-    "correct": "б) вперед и вниз"
+    "correct": "б) вперед и вниз",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "083",
@@ -910,7 +1402,13 @@
       "в) челюстно-подъязычные мышцы (m mylohyoideus)",
       "г) собственно жевательные (m masseter), латеральных крыловидных мышц, челюстно-подъязычные мышцы (m mylohyoideus)"
     ],
-    "correct": "а) собственно жевательные (m masseter)"
+    "correct": "а) собственно жевательные (m masseter)",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "084",
@@ -921,7 +1419,13 @@
       "в) крутая",
       "г) плоская, средневыпуклая, крутая"
     ],
-    "correct": "г) плоская, средневыпуклая, крутая"
+    "correct": "г) плоская, средневыпуклая, крутая",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "085",
@@ -932,7 +1436,13 @@
       "в) собственно жевательные мышцы и вспомогательные мышцы",
       "г) мимические и вспомогательные мышцы"
     ],
-    "correct": "а) жевательные и мимические мышцы"
+    "correct": "а) жевательные и мимические мышцы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "086",
@@ -943,7 +1453,13 @@
       "в) 1 фазу жевательного цикла",
       "г) 4 фазу жевательного цикла"
     ],
-    "correct": "г) 4 фазу жевательного цикла"
+    "correct": "г) 4 фазу жевательного цикла",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "087",
@@ -954,7 +1470,13 @@
       "в) тонким костным слоем, представляющим собой свод ямки",
       "г) задней ножкой скулового отростка"
     ],
-    "correct": "а) барабанной пластинкой"
+    "correct": "а) барабанной пластинкой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "088",
@@ -965,7 +1487,13 @@
       "в) подвисочной поверхности и подвисочного гребня основной кости",
       "г) височной поверхности большого крыла основной кости, и чешуи височной кости"
     ],
-    "correct": "г) височной поверхности большого крыла основной кости, и чешуи височной кости"
+    "correct": "г) височной поверхности большого крыла основной кости, и чешуи височной кости",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "089",
@@ -976,7 +1504,13 @@
       "в) капсула вместе с собственно капсулярными и внекапсулярными связками",
       "г) тело нижней челюсти"
     ],
-    "correct": "в) капсула вместе с собственно капсулярными и внекапсулярными связками"
+    "correct": "в) капсула вместе с собственно капсулярными и внекапсулярными связками",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "090",
@@ -987,7 +1521,13 @@
       "в) челюстно-подъязычную мышцу (m mylohyoideus)",
       "г) собственно жевательные мышцы (m masseter)"
     ],
-    "correct": "г) собственно жевательные мышцы (m masseter)"
+    "correct": "г) собственно жевательные мышцы (m masseter)",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "091",
@@ -998,7 +1538,13 @@
       "в) восстановление тканей пародонта",
       "г) передача жевательного давления"
     ],
-    "correct": "г) передача жевательного давления"
+    "correct": "г) передача жевательного давления",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "092",
@@ -1009,7 +1555,13 @@
       "в) двубрюшной ямки нижней челюсти",
       "г) скуловой дуги"
     ],
-    "correct": "в) двубрюшной ямки нижней челюсти"
+    "correct": "в) двубрюшной ямки нижней челюсти",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "093",
@@ -1020,7 +1572,13 @@
       "в) вспомогательные",
       "г) мимические"
     ],
-    "correct": "г) мимические"
+    "correct": "г) мимические",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "094",
@@ -1031,7 +1589,13 @@
       "в) сагитальные",
       "г) трансверзальные"
     ],
-    "correct": "г) трансверзальные"
+    "correct": "г) трансверзальные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "095",
@@ -1042,7 +1606,13 @@
       "в) дыхания",
       "г) выведения"
     ],
-    "correct": "а) жевания"
+    "correct": "а) жевания",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "096",
@@ -1053,7 +1623,13 @@
       "в) медиальная крыловидная",
       "г) собственно жевательная"
     ],
-    "correct": "а) переднее брюшко двубрюшной мышцы"
+    "correct": "а) переднее брюшко двубрюшной мышцы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "097",
@@ -1064,7 +1640,13 @@
       "в) 3 фазе движения нижней челюсти",
       "г) 4 фазе движения нижней челюсти"
     ],
-    "correct": "б) 2 фазе движения нижней челюсти"
+    "correct": "б) 2 фазе движения нижней челюсти",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "098",
@@ -1075,7 +1657,13 @@
       "в) 1",
       "г) 4"
     ],
-    "correct": "г) 4"
+    "correct": "г) 4",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "099",
@@ -1086,7 +1674,13 @@
       "в) медиальной крыловидной мышцы (m pterygoideusmedialis)",
       "г) собственно жевательные (m masseter)"
     ],
-    "correct": "а) латеральной крыловидной мышцы"
+    "correct": "а) латеральной крыловидной мышцы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "100",
@@ -1097,7 +1691,13 @@
       "в) 30-36",
       "г) 50-60"
     ],
-    "correct": "г) 50-60"
+    "correct": "г) 50-60",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "101",
@@ -1108,7 +1708,13 @@
       "в) передней",
       "г) задней"
     ],
-    "correct": "в) передней"
+    "correct": "в) передней",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "102",
@@ -1119,7 +1725,13 @@
       "в) передней окклюзии",
       "г) задней окклюзии"
     ],
-    "correct": "а) центральной окклюзии"
+    "correct": "а) центральной окклюзии",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "103",
@@ -1131,7 +1743,13 @@
       "г) глубокого",
       "д) прямого"
     ],
-    "correct": "в) прогенического"
+    "correct": "в) прогенического",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "104",
@@ -1142,7 +1760,13 @@
       "в) сагитальные",
       "г) трансверзальные"
     ],
-    "correct": "а) вертикальные"
+    "correct": "а) вертикальные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "105",
@@ -1153,7 +1777,13 @@
       "в) медиальная крыловидная",
       "г) собственно жевательная"
     ],
-    "correct": "а) подбородочно-подъязычная"
+    "correct": "а) подбородочно-подъязычная",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "106",
@@ -1164,7 +1794,13 @@
       "в) дыхания",
       "г) выведения"
     ],
-    "correct": "б) артикуляции"
+    "correct": "б) артикуляции",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "107",
@@ -1175,7 +1811,13 @@
       "в) медиальная крыловидная",
       "г) подбородочно-подъязычная"
     ],
-    "correct": "в) медиальная крыловидная"
+    "correct": "в) медиальная крыловидная",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "108",
@@ -1186,7 +1828,13 @@
       "в) мышечными",
       "г) физиологическими"
     ],
-    "correct": "в) мышечными"
+    "correct": "в) мышечными",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "109",
@@ -1197,7 +1845,13 @@
       "в) левая медиальная крыловидная мышца",
       "г) височная мышца"
     ],
-    "correct": "а) левая латеральная крыловидная мышца"
+    "correct": "а) левая латеральная крыловидная мышца",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "110",
@@ -1208,7 +1862,13 @@
       "в) двубрюшной ямки нижней челюсти",
       "г) скуловой дуги"
     ],
-    "correct": "г) скуловой дуги"
+    "correct": "г) скуловой дуги",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "111",
@@ -1219,7 +1879,13 @@
       "в) передняя крыловидная мышца",
       "г) височная мышца"
     ],
-    "correct": "г) височная мышца"
+    "correct": "г) височная мышца",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "112",
@@ -1230,7 +1896,13 @@
       "в) неподвижная зона",
       "г) переходная слизистая оболочка"
     ],
-    "correct": "г) переходная слизистая оболочка"
+    "correct": "г) переходная слизистая оболочка",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "113",
@@ -1241,7 +1913,13 @@
       "в) прямого суставного пути",
       "г) горизонтального суставного пути"
     ],
-    "correct": "а) сагиттального суставного пути"
+    "correct": "а) сагиттального суставного пути",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "114",
@@ -1252,7 +1930,13 @@
       "в) крылочелюстную складку",
       "г) резцовый сосочек"
     ],
-    "correct": "а) переходная складка"
+    "correct": "а) переходная складка",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "115",
@@ -1263,7 +1947,13 @@
       "в) сагитальные",
       "г) трансверзальные"
     ],
-    "correct": "в) сагитальные"
+    "correct": "в) сагитальные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "116",
@@ -1274,7 +1964,13 @@
       "в) дыхания",
       "г) глотания, артикуляции, дыхания"
     ],
-    "correct": "г) глотания, артикуляции, дыхания"
+    "correct": "г) глотания, артикуляции, дыхания",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "117",
@@ -1285,7 +1981,13 @@
       "в) на наружную интракапсулярную часть",
       "г) на внутреннюю интракапсулярную часть"
     ],
-    "correct": "а) на переднюю интракапсулярную часть"
+    "correct": "а) на переднюю интракапсулярную часть",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "118",
@@ -1296,7 +1998,13 @@
       "в) углом Беннета",
       "г) сагиттальным резцовым углом"
     ],
-    "correct": "в) углом Беннета"
+    "correct": "в) углом Беннета",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "119",
@@ -1307,7 +2015,13 @@
       "в) в 3 фазу движений нижней челюсти",
       "г) в 4 фазу движений нижней челюсти"
     ],
-    "correct": "в) в 3 фазу движений нижней челюсти"
+    "correct": "в) в 3 фазу движений нижней челюсти",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "120",
@@ -1318,7 +2032,13 @@
       "в) прикус",
       "г) центральное соотношение челюстей"
     ],
-    "correct": "а) артикуляция"
+    "correct": "а) артикуляция",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "121",
@@ -1329,7 +2049,13 @@
       "в) резцовая линия",
       "г) линия улыбки"
     ],
-    "correct": "б) клыковая линия"
+    "correct": "б) клыковая линия",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "122",
@@ -1340,7 +2066,13 @@
       "в) визуальных",
       "г) объективных"
     ],
-    "correct": "б) зубных"
+    "correct": "б) зубных",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "123",
@@ -1351,7 +2083,13 @@
       "в) передней",
       "г) центральной"
     ],
-    "correct": "а) боковой"
+    "correct": "а) боковой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "124",
@@ -1362,7 +2100,13 @@
       "в) передней",
       "г) центральной"
     ],
-    "correct": "в) передней"
+    "correct": "в) передней",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "125",
@@ -1373,7 +2117,13 @@
       "в) передней",
       "г) центральной"
     ],
-    "correct": "б) боковой"
+    "correct": "б) боковой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "126",
@@ -1384,7 +2134,13 @@
       "в) «рабочей стороной»",
       "г) «балансирующей стороной»"
     ],
-    "correct": "в) «рабочей стороной»"
+    "correct": "в) «рабочей стороной»",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "127",
@@ -1395,7 +2151,13 @@
       "в) прикус",
       "г) центральное соотношение челюстей"
     ],
-    "correct": "б) окклюзия"
+    "correct": "б) окклюзия",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "128",
@@ -1406,7 +2168,13 @@
       "в) угол Беннета",
       "г) угол суставного пути"
     ],
-    "correct": "а) трехпунктный контакт Бонвиля"
+    "correct": "а) трехпунктный контакт Бонвиля",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "129",
@@ -1417,7 +2185,13 @@
       "в) визуальных",
       "г) объективных"
     ],
-    "correct": "б) суставных"
+    "correct": "б) суставных",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "130",
@@ -1428,7 +2202,13 @@
       "в) передней",
       "г) центральной"
     ],
-    "correct": "в) передней"
+    "correct": "в) передней",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "131",
@@ -1439,7 +2219,13 @@
       "в) передней",
       "г) центральной"
     ],
-    "correct": "г) центральной"
+    "correct": "г) центральной",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "132",
@@ -1450,7 +2236,13 @@
       "в) передней",
       "г) центральной"
     ],
-    "correct": "б) боковой"
+    "correct": "б) боковой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "133",
@@ -1461,7 +2253,13 @@
       "в) «рабочей стороной»",
       "г) «балансирующей стороной»"
     ],
-    "correct": "в) «рабочей стороной»"
+    "correct": "в) «рабочей стороной»",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "134",
@@ -1472,7 +2270,13 @@
       "в) прикус",
       "г) центральное соотношение челюстей"
     ],
-    "correct": "в) прикус"
+    "correct": "в) прикус",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "135",
@@ -1483,7 +2287,13 @@
       "в) относительный покой",
       "г) динамическое напряжение"
     ],
-    "correct": "г) динамическое напряжение"
+    "correct": "г) динамическое напряжение",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "136",
@@ -1494,7 +2304,13 @@
       "в) визуальных",
       "г) объективных"
     ],
-    "correct": "б) мышечных"
+    "correct": "б) мышечных",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "137",
@@ -1505,7 +2321,13 @@
       "в) передней",
       "г) центральной"
     ],
-    "correct": "г) центральной"
+    "correct": "г) центральной",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "138",
@@ -1516,7 +2338,13 @@
       "в) передней",
       "г) центральной"
     ],
-    "correct": "б) боковой"
+    "correct": "б) боковой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "139",
@@ -1527,7 +2355,13 @@
       "в) передней",
       "г) центральной"
     ],
-    "correct": "б) боковой"
+    "correct": "б) боковой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "140",
@@ -1538,7 +2372,13 @@
       "в) центральной окклюзией",
       "г) боковой окклюзией"
     ],
-    "correct": "а) состоянием физиологического покоя"
+    "correct": "а) состоянием физиологического покоя",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "141",
@@ -1549,7 +2389,13 @@
       "в) центральной окклюзией",
       "г) боковой окклюзией"
     ],
-    "correct": "в) центральной окклюзией"
+    "correct": "в) центральной окклюзией",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "142",
@@ -1560,7 +2406,13 @@
       "в) центральной окклюзией",
       "г) боковой окклюзией"
     ],
-    "correct": "б) передней окклюзии"
+    "correct": "б) передней окклюзии",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "143",
@@ -1571,7 +2423,13 @@
       "в) нейтральными",
       "г) мышечными"
     ],
-    "correct": "б) динамическими"
+    "correct": "б) динамическими",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "144",
@@ -1582,7 +2440,13 @@
       "в) центральной окклюзией",
       "г) боковой окклюзией"
     ],
-    "correct": "в) центральной окклюзией"
+    "correct": "в) центральной окклюзией",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "145",
@@ -1593,7 +2457,13 @@
       "в) шесть зубных признаков",
       "г) семь зубных признаков"
     ],
-    "correct": "б) три зубных признака"
+    "correct": "б) три зубных признака",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "146",
@@ -1604,7 +2474,13 @@
       "в) статическим состоянием",
       "г) динамическим состоянием"
     ],
-    "correct": "в) статическим состоянием"
+    "correct": "в) статическим состоянием",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "147",
@@ -1615,7 +2491,13 @@
       "в) центральной окклюзией",
       "г) боковой окклюзией"
     ],
-    "correct": "г) боковой окклюзией"
+    "correct": "г) боковой окклюзией",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "148",
@@ -1626,7 +2508,13 @@
       "в) центральной окклюзией",
       "г) боковой окклюзией"
     ],
-    "correct": "б) передней окклюзии"
+    "correct": "б) передней окклюзии",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "149",
@@ -1637,7 +2525,13 @@
       "в) центральной окклюзией",
       "г) боковой окклюзией"
     ],
-    "correct": "г) боковой окклюзией"
+    "correct": "г) боковой окклюзией",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "150",
@@ -1648,7 +2542,13 @@
       "в) центральной окклюзией",
       "г) боковой окклюзией"
     ],
-    "correct": "в) центральной окклюзией"
+    "correct": "в) центральной окклюзией",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "151",
@@ -1659,7 +2559,13 @@
       "в) центральной окклюзией",
       "г) боковой окклюзией"
     ],
-    "correct": "в) центральной окклюзией"
+    "correct": "в) центральной окклюзией",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "152",
@@ -1670,7 +2576,13 @@
       "в) шесть зубных признаков",
       "г) семь зубных признаков"
     ],
-    "correct": "а) два зубных признака"
+    "correct": "а) два зубных признака",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "153",
@@ -1681,7 +2593,13 @@
       "в) статическим состоянием",
       "г) динамическим состоянием"
     ],
-    "correct": "б) балансирующей стороной"
+    "correct": "б) балансирующей стороной",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "154",
@@ -1692,7 +2610,13 @@
       "в) правой латеральной крыловидной мышцы",
       "г) левой латеральной крыловидной мышцы"
     ],
-    "correct": "в) правой латеральной крыловидной мышцы"
+    "correct": "в) правой латеральной крыловидной мышцы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "155",
@@ -1703,7 +2627,13 @@
       "в) центральной окклюзией",
       "г) боковой окклюзией"
     ],
-    "correct": "г) боковой окклюзией"
+    "correct": "г) боковой окклюзией",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "156",
@@ -1714,7 +2644,13 @@
       "в) центральной окклюзией",
       "г) боковой окклюзией"
     ],
-    "correct": "в) центральной окклюзией"
+    "correct": "в) центральной окклюзией",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "157",
@@ -1725,7 +2661,13 @@
       "в) центральной окклюзией",
       "г) боковой окклюзией"
     ],
-    "correct": "в) центральной окклюзией"
+    "correct": "в) центральной окклюзией",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "158",
@@ -1736,7 +2678,13 @@
       "в) фиссурно-бугорковым контактом",
       "г) бугорковым контактом"
     ],
-    "correct": "б) дезокклюзией"
+    "correct": "б) дезокклюзией",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "159",
@@ -1747,7 +2695,13 @@
       "в) шесть зубных признаков",
       "г) семь зубных признаков"
     ],
-    "correct": "г) семь зубных признаков"
+    "correct": "г) семь зубных признаков",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "160",
@@ -1758,7 +2712,13 @@
       "в) статическим состоянием",
       "г) динамическим состоянием"
     ],
-    "correct": "а) рабочей стороной"
+    "correct": "а) рабочей стороной",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "161",
@@ -1769,7 +2729,13 @@
       "в) правой латеральной крыловидной мышцы",
       "г) левой латеральной крыловидной мышцы"
     ],
-    "correct": "г) левой латеральной крыловидной мышцы"
+    "correct": "г) левой латеральной крыловидной мышцы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "162",
@@ -1780,7 +2746,13 @@
       "в) патологией",
       "г) прикусом"
     ],
-    "correct": "а) окклюзией"
+    "correct": "а) окклюзией",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "163",
@@ -1791,7 +2763,13 @@
       "в) центральная окклюзия",
       "г) задняя окклюзия"
     ],
-    "correct": "в) центральная окклюзия"
+    "correct": "в) центральная окклюзия",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "164",
@@ -1802,7 +2780,13 @@
       "в) прогенический",
       "г) глубокий"
     ],
-    "correct": "а) прямой"
+    "correct": "а) прямой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "165",
@@ -1813,7 +2797,13 @@
       "в) зубными",
       "г) физиологическими"
     ],
-    "correct": "в) зубными"
+    "correct": "в) зубными",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "166",
@@ -1824,7 +2814,13 @@
       "в) бипрогнатический",
       "г) физиологическая опистогнатия"
     ],
-    "correct": "г) физиологическая опистогнатия"
+    "correct": "г) физиологическая опистогнатия",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "167",
@@ -1835,7 +2831,13 @@
       "в) бипрогнатический",
       "г) физиологическая опистогнатия"
     ],
-    "correct": "б) прямой"
+    "correct": "б) прямой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "168",
@@ -1846,7 +2848,13 @@
       "в) резцовая линия",
       "г) линия улыбки"
     ],
-    "correct": "г) линия улыбки"
+    "correct": "г) линия улыбки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "169",
@@ -1857,7 +2865,13 @@
       "в) насильственный метод",
       "г) антропометрический метод"
     ],
-    "correct": "в) насильственный метод"
+    "correct": "в) насильственный метод",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "170",
@@ -1868,7 +2882,13 @@
       "в) функциональный метод",
       "г) анатомо-физиологический метод"
     ],
-    "correct": "г) анатомо-физиологический метод"
+    "correct": "г) анатомо-физиологический метод",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "171",
@@ -1879,7 +2899,13 @@
       "в) функциональный метод",
       "г) анатомо-физиологический метод"
     ],
-    "correct": "а) анатомический метод"
+    "correct": "а) анатомический метод",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "172",
@@ -1890,7 +2916,13 @@
       "в) боковая правая окклюзия",
       "г) боковая левая окклюзия"
     ],
-    "correct": "б) центральная окклюзия"
+    "correct": "б) центральная окклюзия",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "173",
@@ -1901,7 +2933,13 @@
       "в) все признаки центральной окклюзии",
       "г) передние зубы располагаются стык в стык"
     ],
-    "correct": "а) передние зубы наклонены орально"
+    "correct": "а) передние зубы наклонены орально",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "174",
@@ -1912,7 +2950,13 @@
       "в) частично патологический вид прикуса",
       "г) условно физиологический вид прикуса"
     ],
-    "correct": "б) физиологический вид прикуса"
+    "correct": "б) физиологический вид прикуса",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "175",
@@ -1923,7 +2967,13 @@
       "в) бюгельные протезы",
       "г) полные съемные протезы"
     ],
-    "correct": "б) виниры"
+    "correct": "б) виниры",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "176",
@@ -1934,7 +2984,13 @@
       "в) ХКС",
       "г) цинк-фосфатные материалы"
     ],
-    "correct": "в) ХКС"
+    "correct": "в) ХКС",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "177",
@@ -1945,7 +3001,13 @@
       "в) 2/3",
       "г) всю длину корня"
     ],
-    "correct": "в) 2/3"
+    "correct": "в) 2/3",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "178",
@@ -1956,7 +3018,13 @@
       "в) с показаниями к изготовлению",
       "г) с этиологией"
     ],
-    "correct": "б) материалом изготовления"
+    "correct": "б) материалом изготовления",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "179",
@@ -1967,7 +3035,13 @@
       "в) комбинированные",
       "г) онлей"
     ],
-    "correct": "г) онлей"
+    "correct": "г) онлей",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "180",
@@ -1978,7 +3052,13 @@
       "в) пинлей",
       "г) медиально окклюзионные"
     ],
-    "correct": "в) пинлей"
+    "correct": "в) пинлей",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "181",
@@ -1989,7 +3069,13 @@
       "в) пинлей",
       "г) онлей"
     ],
-    "correct": "б) комбинированные"
+    "correct": "б) комбинированные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "182",
@@ -2000,7 +3086,13 @@
       "в) пинлей",
       "г) окклюзионные"
     ],
-    "correct": "г) окклюзионные"
+    "correct": "г) окклюзионные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "183",
@@ -2011,7 +3103,13 @@
       "в) металлокерамические",
       "г) никель-хромового сплава"
     ],
-    "correct": "в) металлокерамические"
+    "correct": "в) металлокерамические",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "184",
@@ -2022,7 +3120,13 @@
       "в) бюгельные протезы",
       "г) полные съемные протезы"
     ],
-    "correct": "а) штифтовые конструкции"
+    "correct": "а) штифтовые конструкции",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "185",
@@ -2033,7 +3137,13 @@
       "в) штифтовые зубы",
       "г) полные съемные протезы"
     ],
-    "correct": "в) штифтовые зубы"
+    "correct": "в) штифтовые зубы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "186",
@@ -2044,7 +3154,13 @@
       "в) с показаниями к изготовлению",
       "г) с этиологией"
     ],
-    "correct": "б) топографией дефекта"
+    "correct": "б) топографией дефекта",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "187",
@@ -2055,7 +3171,13 @@
       "в) на резцы, клыки и премоляры нижней челюсти",
       "г) на зубы любой группы"
     ],
-    "correct": "г) на зубы любой группы"
+    "correct": "г) на зубы любой группы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "188",
@@ -2066,7 +3188,13 @@
       "в) штифтовой конструкцией",
       "г) вкладкой"
     ],
-    "correct": "в) штифтовой конструкцией"
+    "correct": "в) штифтовой конструкцией",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "189",
@@ -2077,7 +3205,13 @@
       "в) комбинированные",
       "г) инлей"
     ],
-    "correct": "г) инлей"
+    "correct": "г) инлей",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "190",
@@ -2088,7 +3222,13 @@
       "в) пинлей",
       "г) медиально окклюзионные"
     ],
-    "correct": "а) металлические"
+    "correct": "а) металлические",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "191",
@@ -2099,7 +3239,13 @@
       "в) металлокерамические",
       "г) никель-хромового сплава"
     ],
-    "correct": "б) композитные"
+    "correct": "б) композитные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "192",
@@ -2110,7 +3256,13 @@
       "в) пинлей",
       "г) медиально окклюзионно-дистальные"
     ],
-    "correct": "г) медиально окклюзионно-дистальные"
+    "correct": "г) медиально окклюзионно-дистальные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "193",
@@ -2121,7 +3273,13 @@
       "в) дефект твердых тканей с ИРОПЗ от 0,6 до 0,8",
       "г) дефект твердых тканей с ИРОПЗ более 0,8"
     ],
-    "correct": "б) дефект твердых тканей с ИРОПЗ от 0,3 до 0,6"
+    "correct": "б) дефект твердых тканей с ИРОПЗ от 0,3 до 0,6",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "194",
@@ -2132,7 +3290,13 @@
       "в) вкладка «оверлей»",
       "г) вкладка «пинлей»"
     ],
-    "correct": "а) вкладка «инлей»"
+    "correct": "а) вкладка «инлей»",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "195",
@@ -2143,7 +3307,13 @@
       "в) вкладка «оверлей»",
       "г) вкладка «пинлей»"
     ],
-    "correct": "в) вкладка «оверлей»"
+    "correct": "в) вкладка «оверлей»",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "196",
@@ -2154,7 +3324,13 @@
       "в) дефект твердых тканей с ИРОПЗ от 0,6 до 0,8",
       "г) дефект твердых тканей с ИРОПЗ более 0,8"
     ],
-    "correct": "г) дефект твердых тканей с ИРОПЗ более 0,8"
+    "correct": "г) дефект твердых тканей с ИРОПЗ более 0,8",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "197",
@@ -2165,7 +3341,13 @@
       "в) как опорный элемент мостовидного протеза",
       "г) дефект твердых тканей с ИРОПЗ более 0,8"
     ],
-    "correct": "а) непроходимость корневых каналов"
+    "correct": "а) непроходимость корневых каналов",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "198",
@@ -2176,7 +3358,13 @@
       "в) при разрушении корня более чем на ¼ его длины",
       "г) дефект твердых тканей с ИРОПЗ более 0,8"
     ],
-    "correct": "в) при разрушении корня более чем на ¼ его длины"
+    "correct": "в) при разрушении корня более чем на ¼ его длины",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "199",
@@ -2187,7 +3375,13 @@
       "в) корневые развертки",
       "г) алмазные и твердосплавные боры"
     ],
-    "correct": "г) алмазные и твердосплавные боры"
+    "correct": "г) алмазные и твердосплавные боры",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "200",
@@ -2198,7 +3392,13 @@
       "в) корень должен иметь не поврежденную циркулярную связку",
       "г) патологические изменения в периапикальных тканях"
     ],
-    "correct": "в) корень должен иметь не поврежденную циркулярную связку"
+    "correct": "в) корень должен иметь не поврежденную циркулярную связку",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "201",
@@ -2209,7 +3409,13 @@
       "в) между стенками полости и дном должен быть образован угол 45°",
       "г) подготовленная полость должна располагаться в пределах эмали не глубоко"
     ],
-    "correct": "а) стенка со стороны пульпы должна иметь достаточную толщину для предотвращения термического влияния материала вкладки"
+    "correct": "а) стенка со стороны пульпы должна иметь достаточную толщину для предотвращения термического влияния материала вкладки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "202",
@@ -2220,7 +3426,13 @@
       "в) при препарировании проводят профилактическое расширение полости",
       "г) подготовленная полость должна располагаться в пределах эмали не глубоко"
     ],
-    "correct": "в) при препарировании проводят профилактическое расширение полости"
+    "correct": "в) при препарировании проводят профилактическое расширение полости",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "203",
@@ -2231,7 +3443,13 @@
       "в) в виде «ступеньки»",
       "г) в виде «трапеции»"
     ],
-    "correct": "б) в виде «ласточкина хвоста»"
+    "correct": "б) в виде «ласточкина хвоста»",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "204",
@@ -2242,7 +3460,13 @@
       "в) вкладка «оверлей»",
       "г) вкладка «пинлей»"
     ],
-    "correct": "б) вкладка «онлей»"
+    "correct": "б) вкладка «онлей»",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "205",
@@ -2253,7 +3477,13 @@
       "в) восполнения дефекта зубного ряда",
       "г) опоры мостовидных протезов"
     ],
-    "correct": "г) опоры мостовидных протезов"
+    "correct": "г) опоры мостовидных протезов",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "206",
@@ -2264,7 +3494,13 @@
       "в) штифтовой конструкцией",
       "г) коронкой"
     ],
-    "correct": "в) штифтовой конструкцией"
+    "correct": "в) штифтовой конструкцией",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "207",
@@ -2275,7 +3511,13 @@
       "в) как опорный элемент мостовидного протеза",
       "г) дефект твердых тканей с ИРОПЗ более 0,8"
     ],
-    "correct": "а) короткие корни с истонченными стенками"
+    "correct": "а) короткие корни с истонченными стенками",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "208",
@@ -2286,7 +3528,13 @@
       "в) дефект любой из стенок корня более чем на ¼ его длины",
       "г) дефект твердых тканей с ИРОПЗ более 0,8"
     ],
-    "correct": "в) дефект любой из стенок корня более чем на ¼ его длины"
+    "correct": "в) дефект любой из стенок корня более чем на ¼ его длины",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "209",
@@ -2297,7 +3545,13 @@
       "в) корневые развертки",
       "г) алмазные боры"
     ],
-    "correct": "г) алмазные боры"
+    "correct": "г) алмазные боры",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "210",
@@ -2308,7 +3562,13 @@
       "в) пародонт должен быть полностью лишен признаков острого или хронического воспаления",
       "г) патологические изменения в периапикальных тканях"
     ],
-    "correct": "в) пародонт должен быть полностью лишен признаков острого или хронического воспаления"
+    "correct": "в) пародонт должен быть полностью лишен признаков острого или хронического воспаления",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "211",
@@ -2319,7 +3579,13 @@
       "в) между стенками полости и дном должен быть образован угол 45°",
       "г) подготовленная полость должна располагаться в пределах эмали не глубоко"
     ],
-    "correct": "а) между стенками полости и дном должен быть образован угол ближе к 90°"
+    "correct": "а) между стенками полости и дном должен быть образован угол ближе к 90°",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "212",
@@ -2330,7 +3596,13 @@
       "в) при препарировании следует создавать ретенционные элементы",
       "г) подготовленная полость должна располагаться в пределах эмали не глубоко"
     ],
-    "correct": "в) при препарировании следует создавать ретенционные элементы"
+    "correct": "в) при препарировании следует создавать ретенционные элементы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "213",
@@ -2341,7 +3613,13 @@
       "в) в форме «ступеньки»",
       "г) в форме «трапеции»"
     ],
-    "correct": "б) в форме «крестообразной»"
+    "correct": "б) в форме «крестообразной»",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "214",
@@ -2352,7 +3630,13 @@
       "в) вкладка «оверлей»",
       "г) вкладка «пинлей»"
     ],
-    "correct": "б) вкладка «онлей»"
+    "correct": "б) вкладка «онлей»",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "215",
@@ -2363,7 +3647,13 @@
       "в) вкладка «оверлей»",
       "г) вкладка «пинлей»"
     ],
-    "correct": "г) вкладка «пинлей»"
+    "correct": "г) вкладка «пинлей»",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "216",
@@ -2374,7 +3664,13 @@
       "в) штифтовой конструкцией",
       "г) коронкой"
     ],
-    "correct": "а) вкладкой"
+    "correct": "а) вкладкой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "217",
@@ -2385,7 +3681,13 @@
       "в) как опорный элемент мостовидного протеза",
       "г) дефект твердых тканей с ИРОПЗ более 0,8"
     ],
-    "correct": "а) патологические изменения в периапикальных тканях"
+    "correct": "а) патологические изменения в периапикальных тканях",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "218",
@@ -2396,7 +3698,13 @@
       "в) атрофия костной ткани альвеолярного отростка или альвеолярной части у корня на ¾ и более",
       "г) дефект твердых тканей с ИРОПЗ более 0,8"
     ],
-    "correct": "б) в случае, если твердые ткани разрушены ниже уровня десны до 1/4"
+    "correct": "б) в случае, если твердые ткани разрушены ниже уровня десны до 1/4",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "219",
@@ -2407,7 +3715,13 @@
       "в) корневые развертки",
       "г) твердосплавные боры"
     ],
-    "correct": "г) твердосплавные боры"
+    "correct": "г) твердосплавные боры",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "220",
@@ -2418,7 +3732,13 @@
       "в) пародонт должен быть полностью лишен признаков острого или хронического воспаления",
       "г) патологические изменения в периапикальных тканях"
     ],
-    "correct": "в) пародонт должен быть полностью лишен признаков острого или хронического воспаления"
+    "correct": "в) пародонт должен быть полностью лишен признаков острого или хронического воспаления",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "221",
@@ -2429,7 +3749,13 @@
       "в) полость должна иметь достаточную глубину, погружаться в дентин и не смещаться под влиянием жевательного давления",
       "г) подготовленная полость должна располагаться в пределах эмали не глубоко"
     ],
-    "correct": "в) полость должна иметь достаточную глубину, погружаться в дентин и не смещаться под влиянием жевательного давления"
+    "correct": "в) полость должна иметь достаточную глубину, погружаться в дентин и не смещаться под влиянием жевательного давления",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "222",
@@ -2440,7 +3766,13 @@
       "в) в подготовленной под вкладку полости входная, часть, должна быть несколько шире ее дна",
       "г) подготовленная полость должна располагаться в пределах эмали не глубоко"
     ],
-    "correct": "в) в подготовленной под вкладку полости входная, часть, должна быть несколько шире ее дна"
+    "correct": "в) в подготовленной под вкладку полости входная, часть, должна быть несколько шире ее дна",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "223",
@@ -2451,7 +3783,13 @@
       "в) в форме «ступеньки»",
       "г) в форме «трапеции»"
     ],
-    "correct": "б) в форме «Т-образной»"
+    "correct": "б) в форме «Т-образной»",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "224",
@@ -2462,7 +3800,13 @@
       "в) вкладкой",
       "г) культевой штифтовой вкладкой"
     ],
-    "correct": "б) штифтовым зубом"
+    "correct": "б) штифтовым зубом",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "225",
@@ -2473,7 +3817,13 @@
       "в) ЧСПП",
       "г) ПСПП"
     ],
-    "correct": "б) штифтовые конструкции"
+    "correct": "б) штифтовые конструкции",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "226",
@@ -2484,7 +3834,13 @@
       "в) коронки",
       "г) мостовидного протеза"
     ],
-    "correct": "б) штифтового зуба"
+    "correct": "б) штифтового зуба",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "227",
@@ -2495,7 +3851,13 @@
       "в) по размеру",
       "г) по цвету"
     ],
-    "correct": "а) по методу изготовления"
+    "correct": "а) по методу изготовления",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "228",
@@ -2506,7 +3868,13 @@
       "в) монолитные",
       "г) опорные"
     ],
-    "correct": "г) опорные"
+    "correct": "г) опорные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "229",
@@ -2517,7 +3885,13 @@
       "в) составные",
       "г) восстановительные"
     ],
-    "correct": "в) составные"
+    "correct": "в) составные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "230",
@@ -2528,7 +3902,13 @@
       "в) монолитные",
       "г) восстановительные"
     ],
-    "correct": "а) комбинированные"
+    "correct": "а) комбинированные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "231",
@@ -2539,7 +3919,13 @@
       "в) опирающиеся основание коронковой части на рядом стоящий зуб",
       "г) восстановительные"
     ],
-    "correct": "б) укрепляющиеся на наружной поверхности корня, и на внутренние стенки корневого канала"
+    "correct": "б) укрепляющиеся на наружной поверхности корня, и на внутренние стенки корневого канала",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "232",
@@ -2550,7 +3936,13 @@
       "в) невозможность точного восстановления размеров коронки",
       "г) невозможность достижения эстетического оптимума"
     ],
-    "correct": "а) при замене конструкций штифтового зуба возникает сложность с извлечением штифта из корневого канала"
+    "correct": "а) при замене конструкций штифтового зуба возникает сложность с извлечением штифта из корневого канала",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "233",
@@ -2561,7 +3953,13 @@
       "в) способ паяния",
       "г) способ литьевого прессования"
     ],
-    "correct": "б) прямой способ"
+    "correct": "б) прямой способ",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "234",
@@ -2572,7 +3970,13 @@
       "в) челюстно-лицевым протезом",
       "г) комбинированными протезами"
     ],
-    "correct": "б) несъемными протезами"
+    "correct": "б) несъемными протезами",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "235",
@@ -2583,7 +3987,13 @@
       "в) корневой части и искусственной коронки",
       "г) коронковой части, корневой части и искусственной коронки"
     ],
-    "correct": "в) корневой части и искусственной коронки"
+    "correct": "в) корневой части и искусственной коронки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "236",
@@ -2594,7 +4004,13 @@
       "в) по размеру",
       "г) по цвету"
     ],
-    "correct": "а) по материалу изготовления"
+    "correct": "а) по материалу изготовления",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "237",
@@ -2605,7 +4021,13 @@
       "в) монолитные",
       "г) восстановительные"
     ],
-    "correct": "г) восстановительные"
+    "correct": "г) восстановительные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "238",
@@ -2616,7 +4038,13 @@
       "в) монолитные",
       "г) восстановительные"
     ],
-    "correct": "б) паяные"
+    "correct": "б) паяные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "239",
@@ -2627,7 +4055,13 @@
       "в) монолитные",
       "г) восстановительные"
     ],
-    "correct": "а) металлические"
+    "correct": "а) металлические",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "240",
@@ -2638,7 +4072,13 @@
       "в) опирающиеся основание коронковой части на рядом стоящий зуб",
       "г) восстановительные"
     ],
-    "correct": "б) опирающиеся основанием коронковой части или защитной пластинки на наружную поверхность корня с охватом выступающей части корня кольцом"
+    "correct": "б) опирающиеся основанием коронковой части или защитной пластинки на наружную поверхность корня с охватом выступающей части корня кольцом",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "241",
@@ -2649,7 +4089,13 @@
       "в) невозможность точного восстановления размеров коронки",
       "г) невозможность достижения эстетического оптимума"
     ],
-    "correct": "г) невозможность достижения эстетического оптимума"
+    "correct": "г) невозможность достижения эстетического оптимума",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "242",
@@ -2660,7 +4106,13 @@
       "в) невозможность точного восстановления размеров коронки",
       "г) невозможность достижения эстетического оптимума"
     ],
-    "correct": "а) частое возникновение подвижности и расцементировки штифта"
+    "correct": "а) частое возникновение подвижности и расцементировки штифта",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "243",
@@ -2671,7 +4123,13 @@
       "в) способ паяния",
       "г) способ литьевого прессования"
     ],
-    "correct": "б) непрямой способ"
+    "correct": "б) непрямой способ",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "244",
@@ -2682,7 +4140,13 @@
       "в) по размеру",
       "г) по цвету"
     ],
-    "correct": "а) по конструкции"
+    "correct": "а) по конструкции",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "245",
@@ -2693,7 +4157,13 @@
       "в) П Фошаром",
       "г) А И Гавриловым"
     ],
-    "correct": "в) П Фошаром"
+    "correct": "в) П Фошаром",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "246",
@@ -2704,7 +4174,13 @@
       "в) по размеру",
       "г) по цвету"
     ],
-    "correct": "а) по материалу коронковой части"
+    "correct": "а) по материалу коронковой части",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "247",
@@ -2715,7 +4191,13 @@
       "в) монолитные",
       "г) восстановительные"
     ],
-    "correct": "в) монолитные"
+    "correct": "в) монолитные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "248",
@@ -2726,7 +4208,13 @@
       "в) монолитные",
       "г) восстановительные"
     ],
-    "correct": "б) литые"
+    "correct": "б) литые",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "249",
@@ -2737,7 +4225,13 @@
       "в) монолитные",
       "г) восстановительные"
     ],
-    "correct": "а) неметаллические"
+    "correct": "а) неметаллические",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "250",
@@ -2748,7 +4242,13 @@
       "в) опирающиеся основание коронковой части на рядом стоящий зуб",
       "г) восстановительные"
     ],
-    "correct": "б) опирающиеся основанием коронковой части или защитной пластинки на наружную поверхность подготовленного корня"
+    "correct": "б) опирающиеся основанием коронковой части или защитной пластинки на наружную поверхность подготовленного корня",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "251",
@@ -2759,7 +4259,13 @@
       "в) невозможность точного восстановления размеров коронки",
       "г) невозможность достижения эстетического оптимума"
     ],
-    "correct": "а) перелом корня или штифта в корне в процессе эксплуатации"
+    "correct": "а) перелом корня или штифта в корне в процессе эксплуатации",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "252",
@@ -2770,7 +4276,13 @@
       "в) восстановление разрушенных коронок многокорневых зубов верхней челюсти",
       "г) восстановление разрушенных коронок многокорневых зубов нижней челюсти"
     ],
-    "correct": "б) восстановление разрушенных коронок однокорневых зубов верхней челюсти"
+    "correct": "б) восстановление разрушенных коронок однокорневых зубов верхней челюсти",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "253",
@@ -2781,7 +4293,13 @@
       "в) способ паяния",
       "г) способ литьевого прессования"
     ],
-    "correct": "б) комбинированный способ"
+    "correct": "б) комбинированный способ",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "254",
@@ -2792,7 +4310,13 @@
       "в) фиксирующими",
       "г) опирающимися"
     ],
-    "correct": "а) восстановительными"
+    "correct": "а) восстановительными",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "255",
@@ -2803,7 +4327,13 @@
       "в) металлические",
       "г) композитные"
     ],
-    "correct": "в) металлические"
+    "correct": "в) металлические",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "256",
@@ -2814,7 +4344,13 @@
       "в) комбинированным способом",
       "г) сочетанным способом"
     ],
-    "correct": "а) прямым способом"
+    "correct": "а) прямым способом",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "257",
@@ -2825,7 +4361,13 @@
       "в) восстановление зубов с дефектами пришеечной области",
       "г) все виды дефектов коронковой части зуба"
     ],
-    "correct": "г) все виды дефектов коронковой части зуба"
+    "correct": "г) все виды дефектов коронковой части зуба",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "258",
@@ -2836,7 +4378,13 @@
       "в) возможность устранить недостатки подготовки полости",
       "г) оптимизация и повышение эффективности работы врача"
     ],
-    "correct": "б) экономит время врача и пациента"
+    "correct": "б) экономит время врача и пациента",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "259",
@@ -2847,7 +4395,13 @@
       "в) возможность учесть функциональную окклюзию",
       "г) оптимизация и повышение эффективности работы врача"
     ],
-    "correct": "в) возможность учесть функциональную окклюзию"
+    "correct": "в) возможность учесть функциональную окклюзию",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "260",
@@ -2858,7 +4412,13 @@
       "в) отсутствует необходимость получения оттиска",
       "г) изготовление и фиксация вкладки пациенту за одно посещение"
     ],
-    "correct": "г) изготовление и фиксация вкладки пациенту за одно посещение"
+    "correct": "г) изготовление и фиксация вкладки пациенту за одно посещение",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "261",
@@ -2869,7 +4429,13 @@
       "в) возможность учесть функциональную окклюзию",
       "г) опасность ожога слизистой оболочки полости рта"
     ],
-    "correct": "г) опасность ожога слизистой оболочки полости рта"
+    "correct": "г) опасность ожога слизистой оболочки полости рта",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "262",
@@ -2880,7 +4446,13 @@
       "в) возможность учесть функциональную окклюзию",
       "г) опасность ожога слизистой оболочки полости рта"
     ],
-    "correct": "б) необходимость дополнительного посещения"
+    "correct": "б) необходимость дополнительного посещения",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "263",
@@ -2891,7 +4463,13 @@
       "в) методом литья на огнеупорной модели",
       "г) литьевого прессования"
     ],
-    "correct": "а) компьютерного фрезерования вкладок из керамических блоков"
+    "correct": "а) компьютерного фрезерования вкладок из керамических блоков",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "264",
@@ -2902,7 +4480,13 @@
       "в) оптический",
       "г) компрессионный"
     ],
-    "correct": "в) оптический"
+    "correct": "в) оптический",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "265",
@@ -2913,7 +4497,13 @@
       "в) оптический",
       "г) компрессионный"
     ],
-    "correct": "б) оттиск не изготавливается"
+    "correct": "б) оттиск не изготавливается",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "266",
@@ -2924,7 +4514,13 @@
       "в) меньший расход воска",
       "г) индивидуальный в работе"
     ],
-    "correct": "а) большая точность"
+    "correct": "а) большая точность",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "267",
@@ -2935,7 +4531,13 @@
       "в) фиксирующими",
       "г) опирающимися"
     ],
-    "correct": "б) опорными"
+    "correct": "б) опорными",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "268",
@@ -2946,7 +4548,13 @@
       "в) металлические",
       "г) композитные"
     ],
-    "correct": "а) пластмассовые"
+    "correct": "а) пластмассовые",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "269",
@@ -2957,7 +4565,13 @@
       "в) комбинированным способом",
       "г) способ компьютерного фрезерования вкладки"
     ],
-    "correct": "б) непрямым способом"
+    "correct": "б) непрямым способом",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "270",
@@ -2968,7 +4582,13 @@
       "в) восстановление зубов с дефектами жевательной поверхности",
       "г) все виды дефектов коронковой части зуба"
     ],
-    "correct": "в) восстановление зубов с дефектами жевательной поверхности"
+    "correct": "в) восстановление зубов с дефектами жевательной поверхности",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "271",
@@ -2979,7 +4599,13 @@
       "в) возможность устранить недостатки подготовки полости",
       "г) оптимизация и повышение эффективности работы врача"
     ],
-    "correct": "б) отличается большой точностью, снижая усадку из-за литья на огнеупорной модели"
+    "correct": "б) отличается большой точностью, снижая усадку из-за литья на огнеупорной модели",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "272",
@@ -2990,7 +4616,13 @@
       "в) отсутствует необходимость получения оттиска и изготовления рабочей гипсовой модели",
       "г) оптимизация и повышение эффективности работы врача"
     ],
-    "correct": "в) отсутствует необходимость получения оттиска и изготовления рабочей гипсовой модели"
+    "correct": "в) отсутствует необходимость получения оттиска и изготовления рабочей гипсовой модели",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "273",
@@ -3001,7 +4633,13 @@
       "в) возможность учесть функциональную окклюзию",
       "г) сложность моделирования вкладки в связи с недостаточным обзором операционного поля"
     ],
-    "correct": "г) сложность моделирования вкладки в связи с недостаточным обзором операционного поля"
+    "correct": "г) сложность моделирования вкладки в связи с недостаточным обзором операционного поля",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "274",
@@ -3012,7 +4650,13 @@
       "в) в растворе 5% перекиси водорода",
       "г) используя таблетки Жавелиона"
     ],
-    "correct": "б) в растворе диоцида 1 5000"
+    "correct": "б) в растворе диоцида 1 5000",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "275",
@@ -3023,7 +4667,13 @@
       "в) в растворе 5% перекиси водорода",
       "г) используя таблетки Жавелиона"
     ],
-    "correct": "в) в растворе 5% перекиси водорода"
+    "correct": "в) в растворе 5% перекиси водорода",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "276",
@@ -3034,7 +4684,13 @@
       "в) тревожностью",
       "г) шизофренией"
     ],
-    "correct": "а) ятрогенией"
+    "correct": "а) ятрогенией",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "277",
@@ -3045,7 +4701,13 @@
       "в) предстерилизационня обработка",
       "г) автоклавирование"
     ],
-    "correct": "а) стерилизация"
+    "correct": "а) стерилизация",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "278",
@@ -3056,7 +4718,13 @@
       "в) в пересменок",
       "г) после каждого пациента"
     ],
-    "correct": "а) до смены, после смены, в конце рабочего дня"
+    "correct": "а) до смены, после смены, в конце рабочего дня",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "279",
@@ -3067,7 +4735,13 @@
       "в) оттискные материалы",
       "г) маски"
     ],
-    "correct": "в) оттискные материалы"
+    "correct": "в) оттискные материалы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "280",
@@ -3078,7 +4752,13 @@
       "в) в растворе 0,5% гипохлорита натрия",
       "г) используя таблетки Жавелиона"
     ],
-    "correct": "в) в растворе 0,5% гипохлорита натрия"
+    "correct": "в) в растворе 0,5% гипохлорита натрия",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "281",
@@ -3089,7 +4769,13 @@
       "в) обычные перчатки",
       "г) перчатки пропитанные спиртом"
     ],
-    "correct": "б) двойные перчатки"
+    "correct": "б) двойные перчатки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "282",
@@ -3100,7 +4786,13 @@
       "в) пары формалина и окись этилена",
       "г) горячий воздух"
     ],
-    "correct": "а) пар под давлением"
+    "correct": "а) пар под давлением",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "283",
@@ -3111,7 +4803,13 @@
       "в) предстерилизационня обработка",
       "г) автоклавирование"
     ],
-    "correct": "б) дезинфекция"
+    "correct": "б) дезинфекция",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "284",
@@ -3122,7 +4820,13 @@
       "в) в сухожаровом шкафу 45 мин",
       "г) 3% раствором перекиси водорода"
     ],
-    "correct": "а) спиртом 2-х кратно, с интервалом 15 минут"
+    "correct": "а) спиртом 2-х кратно, с интервалом 15 минут",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "285",
@@ -3133,7 +4837,13 @@
       "в) в пересменок",
       "г) после каждого пациента"
     ],
-    "correct": "г) после каждого пациента"
+    "correct": "г) после каждого пациента",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "286",
@@ -3143,7 +4853,13 @@
       "б) раствором «Жавелиона»",
       "в) до и после использования, путем протирания стерильным ватным шариком, смоченным в дистиллированной воде"
     ],
-    "correct": "а) до и после использования, путем протирания стерильным ватным шариком, смоченным 3% раствором перекиси водорода"
+    "correct": "а) до и после использования, путем протирания стерильным ватным шариком, смоченным 3% раствором перекиси водорода",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "287",
@@ -3154,7 +4870,13 @@
       "в) пары формалина и окись этилена",
       "г) горячий воздух"
     ],
-    "correct": "г) горячий воздух"
+    "correct": "г) горячий воздух",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "288",
@@ -3165,7 +4887,13 @@
       "в) пары формалина и окись этилена",
       "г) растворы антисептиков"
     ],
-    "correct": "г) растворы антисептиков"
+    "correct": "г) растворы антисептиков",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "289",
@@ -3176,7 +4904,13 @@
       "в) два раза в день",
       "г) раз в два дня"
     ],
-    "correct": "в) два раза в день"
+    "correct": "в) два раза в день",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "290",
@@ -3187,7 +4921,13 @@
       "в) 1,1 атмосферы",
       "г) 120 С-20 минут"
     ],
-    "correct": "а) 180 С - 60минут"
+    "correct": "а) 180 С - 60минут",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "291",
@@ -3198,7 +4938,13 @@
       "в) предстерилизационня обработка",
       "г) автоклавирование"
     ],
-    "correct": "в) предстерилизационня обработка"
+    "correct": "в) предстерилизационня обработка",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "292",
@@ -3209,7 +4955,13 @@
       "в) стоматологические наконечники",
       "г) все перечисленное верно"
     ],
-    "correct": "г) все перечисленное верно"
+    "correct": "г) все перечисленное верно",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "293",
@@ -3220,7 +4972,13 @@
       "в) на 10 минут после каждого пациента",
       "г) на 40 минут"
     ],
-    "correct": "а) на 30 мин"
+    "correct": "а) на 30 мин",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "294",
@@ -3231,7 +4989,13 @@
       "в) автоклав",
       "г) используются до конца рабочего дня"
     ],
-    "correct": "а) дезинфицирующий раствор"
+    "correct": "а) дезинфицирующий раствор",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "295",
@@ -3242,7 +5006,13 @@
       "в) 3%",
       "г) 5%"
     ],
-    "correct": "б) 0,5%"
+    "correct": "б) 0,5%",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "296",
@@ -3253,7 +5023,13 @@
       "в) УФ-лучи",
       "г) пар под давлением"
     ],
-    "correct": "г) пар под давлением"
+    "correct": "г) пар под давлением",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "297",
@@ -3264,7 +5040,13 @@
       "в) лучевая стерилизация",
       "г) предстерилизационная обработка"
     ],
-    "correct": "а) дезинфекция"
+    "correct": "а) дезинфекция",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "298",
@@ -3275,7 +5057,13 @@
       "в) газовый",
       "г) гласперленовый"
     ],
-    "correct": "г) гласперленовый"
+    "correct": "г) гласперленовый",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "299",
@@ -3286,7 +5074,13 @@
       "в) лучевая стерилизация",
       "г) предстерилизационная обработка"
     ],
-    "correct": "г) предстерилизационная обработка"
+    "correct": "г) предстерилизационная обработка",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "300",
@@ -3297,7 +5091,13 @@
       "в) с применением С - силиконовых оттискных масс",
       "г) с применением А - силиконовых оттискных масс"
     ],
-    "correct": "б) с применением интраоральной видеокамеры"
+    "correct": "б) с применением интраоральной видеокамеры",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "301",
@@ -3308,7 +5108,13 @@
       "в) оптический",
       "г) компрессионный"
     ],
-    "correct": "а) двойной"
+    "correct": "а) двойной",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "302",
@@ -3319,7 +5125,13 @@
       "в) комбинированный",
       "г) сочетанный"
     ],
-    "correct": "б) непрямой"
+    "correct": "б) непрямой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "303",
@@ -3330,7 +5142,13 @@
       "в) меньший расход воска",
       "г) индивидуальный в работе"
     ],
-    "correct": "а) экономит время врача и пациента"
+    "correct": "а) экономит время врача и пациента",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "304",
@@ -3341,7 +5159,13 @@
       "в) разрушение коронковой части зуба на 30%",
       "г) разрушение коронковой части зуба на 90%"
     ],
-    "correct": "г) разрушение коронковой части зуба на 90%"
+    "correct": "г) разрушение коронковой части зуба на 90%",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "305",
@@ -3352,7 +5176,13 @@
       "в) цилиндрическими борами",
       "г) файлами"
     ],
-    "correct": "а) шаровидными борами небольшого диаметра"
+    "correct": "а) шаровидными борами небольшого диаметра",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "306",
@@ -3363,7 +5193,13 @@
       "в) металлические",
       "г) композитные"
     ],
-    "correct": "б) керамические"
+    "correct": "б) керамические",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "307",
@@ -3374,7 +5210,13 @@
       "в) комбинированным способом",
       "г) способ компьютерного фрезерования вкладки"
     ],
-    "correct": "г) способ компьютерного фрезерования вкладки"
+    "correct": "г) способ компьютерного фрезерования вкладки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "308",
@@ -3385,7 +5227,13 @@
       "в) восстановление зубов с дефектами пришеечной области",
       "г) все виды дефектов коронковой части зуба"
     ],
-    "correct": "в) восстановление зубов с дефектами пришеечной области"
+    "correct": "в) восстановление зубов с дефектами пришеечной области",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "309",
@@ -3396,7 +5244,13 @@
       "в) возможность устранить недостатки подготовки полости",
       "г) оптимизация и повышение эффективности работы врача"
     ],
-    "correct": "в) возможность устранить недостатки подготовки полости"
+    "correct": "в) возможность устранить недостатки подготовки полости",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "310",
@@ -3407,7 +5261,13 @@
       "в) отсутствует необходимость получения оттиска",
       "г) не требует участия в работе зубного техника"
     ],
-    "correct": "г) не требует участия в работе зубного техника"
+    "correct": "г) не требует участия в работе зубного техника",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "311",
@@ -3418,7 +5278,13 @@
       "в) возможность учесть функциональную окклюзию",
       "г) нерациональные затраты времени врача на исполнение технической процедуры"
     ],
-    "correct": "г) нерациональные затраты времени врача на исполнение технической процедуры"
+    "correct": "г) нерациональные затраты времени врача на исполнение технической процедуры",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "312",
@@ -3429,7 +5295,13 @@
       "в) искусственный зуб",
       "г) искусственной коронкой"
     ],
-    "correct": "г) искусственной коронкой"
+    "correct": "г) искусственной коронкой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "313",
@@ -3440,7 +5312,13 @@
       "в) заболевания СОПР",
       "г) дефект твердых тканей зуба"
     ],
-    "correct": "г) дефект твердых тканей зуба"
+    "correct": "г) дефект твердых тканей зуба",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "314",
@@ -3451,7 +5329,13 @@
       "в) гипоплазия эмали",
       "г) гингивит"
     ],
-    "correct": "в) гипоплазия эмали"
+    "correct": "в) гипоплазия эмали",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "315",
@@ -3462,7 +5346,13 @@
       "в) кариес зуба с ИРОПЗ равном 0,9",
       "г) гингивит"
     ],
-    "correct": "в) кариес зуба с ИРОПЗ равном 0,9"
+    "correct": "в) кариес зуба с ИРОПЗ равном 0,9",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "316",
@@ -3473,7 +5363,13 @@
       "в) по технологии изготовления",
       "г) по форме промежуточной части"
     ],
-    "correct": "в) по технологии изготовления"
+    "correct": "в) по технологии изготовления",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "317",
@@ -3484,7 +5380,13 @@
       "в) по конструкции",
       "г) по форме промежуточной части"
     ],
-    "correct": "в) по конструкции"
+    "correct": "в) по конструкции",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "318",
@@ -3495,7 +5397,13 @@
       "в) литые",
       "г) комбинированные"
     ],
-    "correct": "г) комбинированные"
+    "correct": "г) комбинированные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "319",
@@ -3506,7 +5414,13 @@
       "в) литой коронкой",
       "г) комбинированной коронкой"
     ],
-    "correct": "б) собственно полной коронкой"
+    "correct": "б) собственно полной коронкой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "320",
@@ -3517,7 +5431,13 @@
       "в) комбинированных",
       "г) паяных"
     ],
-    "correct": "б) неметаллических"
+    "correct": "б) неметаллических",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "321",
@@ -3528,7 +5448,13 @@
       "в) перегрев пульпы зуба",
       "г) перелом рабочего инструмента"
     ],
-    "correct": "в) перегрев пульпы зуба"
+    "correct": "в) перегрев пульпы зуба",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "322",
@@ -3539,7 +5465,13 @@
       "в) заболевания СОПР",
       "г) некариозные поражения зубов"
     ],
-    "correct": "г) некариозные поражения зубов"
+    "correct": "г) некариозные поражения зубов",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "323",
@@ -3550,7 +5482,13 @@
       "в) заболевания СОПР",
       "г) как опорный элемент ортопедических конструкций"
     ],
-    "correct": "г) как опорный элемент ортопедических конструкций"
+    "correct": "г) как опорный элемент ортопедических конструкций",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "324",
@@ -3561,7 +5499,13 @@
       "в) клиновидный дефект",
       "г) гингивит"
     ],
-    "correct": "в) клиновидный дефект"
+    "correct": "в) клиновидный дефект",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "325",
@@ -3572,7 +5516,13 @@
       "в) кариес зуба с ИРОПЗ равном 0,9",
       "г) периодонтит"
     ],
-    "correct": "а) кариес зуба с ИРОПЗ равном 0,6"
+    "correct": "а) кариес зуба с ИРОПЗ равном 0,6",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "326",
@@ -3583,7 +5533,13 @@
       "в) по материалу изготовления",
       "г) по форме промежуточной части"
     ],
-    "correct": "в) по материалу изготовления"
+    "correct": "в) по материалу изготовления",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "327",
@@ -3594,7 +5550,13 @@
       "в) по времени использования",
       "г) по форме промежуточной части"
     ],
-    "correct": "в) по времени использования"
+    "correct": "в) по времени использования",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "328",
@@ -3605,7 +5567,13 @@
       "в) полукоронкой",
       "г) комбинированной коронкой"
     ],
-    "correct": "в) полукоронкой"
+    "correct": "в) полукоронкой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "329",
@@ -3616,7 +5584,13 @@
       "в) комбинированных",
       "г) паяных"
     ],
-    "correct": "б) неметаллических"
+    "correct": "б) неметаллических",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "330",
@@ -3627,7 +5601,13 @@
       "в) травма мягких тканей",
       "г) перелом рабочего инструмента"
     ],
-    "correct": "в) травма мягких тканей"
+    "correct": "в) травма мягких тканей",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "331",
@@ -3638,7 +5618,13 @@
       "в) заболевания СОПР",
       "г) кариозные поражения зубов"
     ],
-    "correct": "г) кариозные поражения зубов"
+    "correct": "г) кариозные поражения зубов",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "332",
@@ -3649,7 +5635,13 @@
       "в) флюороз",
       "г) гингивит"
     ],
-    "correct": "в) флюороз"
+    "correct": "в) флюороз",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "333",
@@ -3660,7 +5652,13 @@
       "в) кариес зуба с ИРОПЗ равном 0,6",
       "г) гингивит"
     ],
-    "correct": "в) кариес зуба с ИРОПЗ равном 0,6"
+    "correct": "в) кариес зуба с ИРОПЗ равном 0,6",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "334",
@@ -3671,7 +5669,13 @@
       "в) гиперестезия",
       "г) патологическая стираемость,  кариес зуба с ИРОПЗ равном 0,3, гиперестезия"
     ],
-    "correct": "г) патологическая стираемость,  кариес зуба с ИРОПЗ равном 0,3, гиперестезия"
+    "correct": "г) патологическая стираемость,  кариес зуба с ИРОПЗ равном 0,3, гиперестезия",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "335",
@@ -3682,7 +5686,13 @@
       "в) по применению",
       "г) по форме промежуточной части"
     ],
-    "correct": "в) по применению"
+    "correct": "в) по применению",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "336",
@@ -3693,7 +5703,13 @@
       "в) литые",
       "г) комбинированные"
     ],
-    "correct": "б) частичные"
+    "correct": "б) частичные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "337",
@@ -3704,7 +5720,13 @@
       "в) литые",
       "г) металлические"
     ],
-    "correct": "г) металлические"
+    "correct": "г) металлические",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "338",
@@ -3715,7 +5737,13 @@
       "в) полукоронками",
       "г) комбинированными коронками"
     ],
-    "correct": "а) трехчетвертными коронками"
+    "correct": "а) трехчетвертными коронками",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "339",
@@ -3726,7 +5754,13 @@
       "в) комбинированных",
       "г) паяных"
     ],
-    "correct": "а) металлических"
+    "correct": "а) металлических",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "340",
@@ -3737,7 +5771,13 @@
       "в) вскрытие полости зуба",
       "г) перелом рабочего инструмента"
     ],
-    "correct": "в) вскрытие полости зуба"
+    "correct": "в) вскрытие полости зуба",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "341",
@@ -3748,7 +5788,13 @@
       "в) препарирование твердых тканей",
       "г) флюоризацией твердых тканей"
     ],
-    "correct": "в) препарирование твердых тканей"
+    "correct": "в) препарирование твердых тканей",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "342",
@@ -3759,7 +5805,13 @@
       "в) опорные",
       "г) культевые"
     ],
-    "correct": "в) опорные"
+    "correct": "в) опорные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "343",
@@ -3770,7 +5822,13 @@
       "в) опорные",
       "г) временные"
     ],
-    "correct": "а) полные"
+    "correct": "а) полные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "344",
@@ -3781,7 +5839,13 @@
       "в) трехчетвертные",
       "г) культевые"
     ],
-    "correct": "б) неметаллические"
+    "correct": "б) неметаллические",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "345",
@@ -3792,7 +5856,13 @@
       "в) недостаточное препарирование твердых тканей",
       "г) перелом рабочего инструмента"
     ],
-    "correct": "в) недостаточное препарирование твердых тканей"
+    "correct": "в) недостаточное препарирование твердых тканей",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "346",
@@ -3803,7 +5873,13 @@
       "в) одонтопрепарирование вестибулярной и оральной поверхности",
       "г) сглаживание краев, углов, переходов одной поверхности в другую"
     ],
-    "correct": "в) одонтопрепарирование вестибулярной и оральной поверхности"
+    "correct": "в) одонтопрепарирование вестибулярной и оральной поверхности",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "347",
@@ -3814,7 +5890,13 @@
       "в) искусственная коронка должна восстанавливать межзубные контактные пункты",
       "г) коронка должна свободно прилегать к культе зуба, особенно в области шейки"
     ],
-    "correct": "в) искусственная коронка должна восстанавливать межзубные контактные пункты"
+    "correct": "в) искусственная коронка должна восстанавливать межзубные контактные пункты",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "348",
@@ -3825,7 +5907,13 @@
       "в) телескопические коронки",
       "г) экваторные коронки"
     ],
-    "correct": "г) экваторные коронки"
+    "correct": "г) экваторные коронки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "349",
@@ -3836,7 +5924,13 @@
       "в) телескопические коронки",
       "г) фарфоровые коронки"
     ],
-    "correct": "б) коронки из благородных и не благородных сплавов"
+    "correct": "б) коронки из благородных и не благородных сплавов",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "350",
@@ -3847,7 +5941,13 @@
       "в) штампованные коронки",
       "г) фафоровые коронки"
     ],
-    "correct": "б) литые коронки"
+    "correct": "б) литые коронки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "351",
@@ -3858,7 +5958,13 @@
       "в) при заболеваниях слизистой оболочки полости рта",
       "г) при периодонтитах"
     ],
-    "correct": "а) для восстановления анатомической формы зуба"
+    "correct": "а) для восстановления анатомической формы зуба",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "352",
@@ -3869,7 +5975,13 @@
       "в) трехчетвертные",
       "г) культевые"
     ],
-    "correct": "а) литые"
+    "correct": "а) литые",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "353",
@@ -3880,7 +5992,13 @@
       "в) между десной должен оставаться зазор",
       "г) свободное прилегание к шейке зуба"
     ],
-    "correct": "б) коронка должна восстанавливать анатомическую форму зуба"
+    "correct": "б) коронка должна восстанавливать анатомическую форму зуба",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "354",
@@ -3891,7 +6009,13 @@
       "в) травма щеки",
       "г) изменение вкуса во рту"
     ],
-    "correct": "в) травма щеки"
+    "correct": "в) травма щеки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "355",
@@ -3902,7 +6026,13 @@
       "в) одонтопрепарирование вестибулярной и оральной поверхности",
       "г) сглаживание краев, углов, переходов одной поверхности в другую"
     ],
-    "correct": "а) сепарация и препарирование контактных поверхностей"
+    "correct": "а) сепарация и препарирование контактных поверхностей",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "356",
@@ -3913,7 +6043,13 @@
       "в) одонтопрепарирование вестибулярной и оральной поверхности",
       "г) сглаживание краев, углов, переходов одной поверхности в другую"
     ],
-    "correct": "г) сглаживание краев, углов, переходов одной поверхности в другую"
+    "correct": "г) сглаживание краев, углов, переходов одной поверхности в другую",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "357",
@@ -3924,7 +6060,13 @@
       "в) коронка должна плотно прилегать к культе зуба, особенно в области шейки",
       "г) коронка должна свободно прилегать к культе зуба, особенно в области шейки"
     ],
-    "correct": "в) коронка должна плотно прилегать к культе зуба, особенно в области шейки"
+    "correct": "в) коронка должна плотно прилегать к культе зуба, особенно в области шейки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "358",
@@ -3935,7 +6077,13 @@
       "в) провизорные коронки",
       "г) культевые коронки"
     ],
-    "correct": "в) провизорные коронки"
+    "correct": "в) провизорные коронки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "359",
@@ -3946,7 +6094,13 @@
       "в) телескопические коронки",
       "г) фарфоровые коронки"
     ],
-    "correct": "б) коронки из неблагородных сплавов"
+    "correct": "б) коронки из неблагородных сплавов",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "360",
@@ -3957,7 +6111,13 @@
       "в) керамическими",
       "г) металлокерамическими"
     ],
-    "correct": "а) пластмассовыми"
+    "correct": "а) пластмассовыми",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "361",
@@ -3968,7 +6128,13 @@
       "в) трехчетвертные",
       "г) культевые"
     ],
-    "correct": "а) штампованные"
+    "correct": "а) штампованные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "362",
@@ -3979,7 +6145,13 @@
       "в) трехчетвертные",
       "г) культевые"
     ],
-    "correct": "а) фиксирующие"
+    "correct": "а) фиксирующие",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "363",
@@ -3990,7 +6162,13 @@
       "в) аллергия",
       "г) повышение артериального давления"
     ],
-    "correct": "г) повышение артериального давления"
+    "correct": "г) повышение артериального давления",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "364",
@@ -4001,7 +6179,13 @@
       "в) аллергия",
       "г) повышение артериального давления"
     ],
-    "correct": "а) завышение коронки по прикусу"
+    "correct": "а) завышение коронки по прикусу",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "365",
@@ -4012,7 +6196,13 @@
       "в) одонтопрепарирование вестибулярной и оральной поверхности",
       "г) сглаживание краев, углов, переходов одной поверхности в другую"
     ],
-    "correct": "б) одонтопрепарирование оккюзионной поверхности зуба (режущего края)"
+    "correct": "б) одонтопрепарирование оккюзионной поверхности зуба (режущего края)",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "366",
@@ -4023,7 +6213,13 @@
       "в) между десной должен оставаться зазор",
       "г) свободное прилегание к шейке зуба"
     ],
-    "correct": "б) искусственная коронка должна иметь плотный точечно-плоскостной контакт с зубами – антагонистами"
+    "correct": "б) искусственная коронка должна иметь плотный точечно-плоскостной контакт с зубами – антагонистами",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "367",
@@ -4034,7 +6230,13 @@
       "в) телескопические коронки",
       "г) экваторные коронки"
     ],
-    "correct": "в) телескопические коронки"
+    "correct": "в) телескопические коронки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "368",
@@ -4045,7 +6247,13 @@
       "в) телескопические коронки",
       "г) восстановительными коронками"
     ],
-    "correct": "г) восстановительными коронками"
+    "correct": "г) восстановительными коронками",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "369",
@@ -4056,7 +6264,13 @@
       "в) телескопические коронки",
       "г) коронок их благородных сплавов, облицованных пластмассой"
     ],
-    "correct": "а) полимерных коронок"
+    "correct": "а) полимерных коронок",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "370",
@@ -4067,7 +6281,13 @@
       "в) керамическими",
       "г) коронками их благородных сплавов, облицованных пластмассой"
     ],
-    "correct": "в) керамическими"
+    "correct": "в) керамическими",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "371",
@@ -4077,7 +6297,13 @@
       "б) 1-",
       "в) 2,3-"
     ],
-    "correct": "а) 0,3-"
+    "correct": "а) 0,3-",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "372",
@@ -4088,7 +6314,13 @@
       "в) обратно конусовидным бором",
       "г) цилиндрическим бором"
     ],
-    "correct": "г) цилиндрическим бором"
+    "correct": "г) цилиндрическим бором",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "373",
@@ -4099,7 +6331,13 @@
       "в) 24 часа",
       "г) 72 часа"
     ],
-    "correct": "а) 5-10 минут"
+    "correct": "а) 5-10 минут",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "374",
@@ -4110,7 +6348,13 @@
       "в) определение центрального соотношения челюстей",
       "г) полирование коронки"
     ],
-    "correct": "в) определение центрального соотношения челюстей"
+    "correct": "в) определение центрального соотношения челюстей",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "375",
@@ -4121,7 +6365,13 @@
       "в) гипсовом штампике",
       "г) не припасовывается"
     ],
-    "correct": "а) рабочей модели"
+    "correct": "а) рабочей модели",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "376",
@@ -4132,7 +6382,13 @@
       "в) центральной, передней и боковой окклюзии",
       "г) боковой окклюзии"
     ],
-    "correct": "в) центральной, передней и боковой окклюзии"
+    "correct": "в) центральной, передней и боковой окклюзии",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "377",
@@ -4143,7 +6399,13 @@
       "в) определение центрального соотношения челюстей",
       "г) шлифовка и полирование коронки"
     ],
-    "correct": "г) шлифовка и полирование коронки"
+    "correct": "г) шлифовка и полирование коронки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "378",
@@ -4154,7 +6416,13 @@
       "в) полиэфирной массой",
       "г) полусульфудой массой"
     ],
-    "correct": "б) силиконовой массой"
+    "correct": "б) силиконовой массой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "379",
@@ -4165,7 +6433,13 @@
       "в) препарирование зуба",
       "г) фиксация коронки"
     ],
-    "correct": "б) нанесение и обжиг фарфоровой массы"
+    "correct": "б) нанесение и обжиг фарфоровой массы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "380",
@@ -4176,7 +6450,13 @@
       "в) 3-й клинический этап",
       "г) 1-й клинический этап"
     ],
-    "correct": "б) площадка в пришеечной области для искусственной коронки, которая предназначена для равномерного распределения нагрузки через искусственную коронку на корень зуба"
+    "correct": "б) площадка в пришеечной области для искусственной коронки, которая предназначена для равномерного распределения нагрузки через искусственную коронку на корень зуба",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "381",
@@ -4187,7 +6467,13 @@
       "в) гипс",
       "г) воск"
     ],
-    "correct": "а) стеклоиномерный цемент"
+    "correct": "а) стеклоиномерный цемент",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "382",
@@ -4198,7 +6484,13 @@
       "в) 0,3 -",
       "г) 0,7 -"
     ],
-    "correct": "в) 0,3 -"
+    "correct": "в) 0,3 -",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "383",
@@ -4209,7 +6501,13 @@
       "в) 2,5 -",
       "г) 2,9 -"
     ],
-    "correct": "а) 0,3-0,5-"
+    "correct": "а) 0,3-0,5-",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "384",
@@ -4220,7 +6518,13 @@
       "в) собирающийся",
       "г) двойной"
     ],
-    "correct": "г) двойной"
+    "correct": "г) двойной",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "385",
@@ -4231,7 +6535,13 @@
       "в) протезирование зубов с живой пульпой у подростков",
       "г) резцы нижней челюсти с живой пульпой и невысокой и узкой клинической коронкой"
     ],
-    "correct": "г) резцы нижней челюсти с живой пульпой и невысокой и узкой клинической коронкой"
+    "correct": "г) резцы нижней челюсти с живой пульпой и невысокой и узкой клинической коронкой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "386",
@@ -4242,7 +6552,13 @@
       "в) штампованной коронкой",
       "г) пломбой"
     ],
-    "correct": "а) временной коронкой"
+    "correct": "а) временной коронкой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "387",
@@ -4253,7 +6569,13 @@
       "в) охлаждение воздухом культи зуба",
       "г) согревание культи зуба теплой водой"
     ],
-    "correct": "б) ретракцию краевой десны (нитью, кольцами)"
+    "correct": "б) ретракцию краевой десны (нитью, кольцами)",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "388",
@@ -4264,7 +6586,13 @@
       "в) скос",
       "г) уступ"
     ],
-    "correct": "г) уступ"
+    "correct": "г) уступ",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "389",
@@ -4275,7 +6603,13 @@
       "в) относительным противопоказанием к изготовлению цельнолитой коронки",
       "г) абсолютным противопоказанием к изготовлению цельнолитой коронки"
     ],
-    "correct": "а) показанием к изготовлению цельнолитой коронки"
+    "correct": "а) показанием к изготовлению цельнолитой коронки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "390",
@@ -4286,7 +6620,13 @@
       "в) препарирование зуба",
       "г) фиксация металлокерамической коронки"
     ],
-    "correct": "г) фиксация металлокерамической коронки"
+    "correct": "г) фиксация металлокерамической коронки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "391",
@@ -4297,7 +6637,13 @@
       "в) препарирование зуба",
       "г) фиксация коронки"
     ],
-    "correct": "в) препарирование зуба"
+    "correct": "в) препарирование зуба",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "392",
@@ -4308,7 +6654,13 @@
       "в) усадка металла при литье",
       "г) некачественное литье"
     ],
-    "correct": "а) чрезмерная конусность культи зуба"
+    "correct": "а) чрезмерная конусность культи зуба",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "393",
@@ -4319,7 +6671,13 @@
       "в) парафункция жевательных мышц",
       "г) аномалии формы зубов"
     ],
-    "correct": "в) парафункция жевательных мышц"
+    "correct": "в) парафункция жевательных мышц",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "394",
@@ -4330,7 +6688,13 @@
       "в) лучевая стерилизация",
       "г) предстерилизационная обработка"
     ],
-    "correct": "г) предстерилизационная обработка"
+    "correct": "г) предстерилизационная обработка",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "395",
@@ -4341,7 +6705,13 @@
       "в) 1,1 атмосферы",
       "г) 120 С-20 минут"
     ],
-    "correct": "а) 180 С-60минут"
+    "correct": "а) 180 С-60минут",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "396",
@@ -4352,7 +6722,13 @@
       "в) газовая",
       "г) гласперленовая"
     ],
-    "correct": "б) химическая"
+    "correct": "б) химическая",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "397",
@@ -4363,7 +6739,13 @@
       "в) на 45 минут",
       "г) на 10 – 15 минут"
     ],
-    "correct": "а) на 30 мин"
+    "correct": "а) на 30 мин",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "398",
@@ -4374,7 +6756,13 @@
       "в) 2,5 % глутаровый альдегид",
       "г) проточная вода"
     ],
-    "correct": "а) 3 % р-р перекиси водорода и 0,5 % р-р моющего средства"
+    "correct": "а) 3 % р-р перекиси водорода и 0,5 % р-р моющего средства",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "399",
@@ -4385,7 +6773,13 @@
       "в) сукровицы",
       "г) грибков"
     ],
-    "correct": "а) крови или слюны"
+    "correct": "а) крови или слюны",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "400",
@@ -4396,7 +6790,13 @@
       "в) в автоклаве",
       "г) в гласперленовом стерилизаторе"
     ],
-    "correct": "в) в автоклаве"
+    "correct": "в) в автоклаве",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "401",
@@ -4407,7 +6807,13 @@
       "в) полуфизиологическим",
       "г) специфическим"
     ],
-    "correct": "а) нефизиологическим"
+    "correct": "а) нефизиологическим",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "402",
@@ -4418,7 +6824,13 @@
       "в) с восковыми базисами и окклюзионными валиками, фиксированные в окклюдаторе",
       "г) не фиксированные в окклюдатор"
     ],
-    "correct": "а) с восковыми базисами и окклюзионными валиками"
+    "correct": "а) с восковыми базисами и окклюзионными валиками",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "403",
@@ -4429,7 +6841,13 @@
       "в) дистальной поверхности клыка",
       "г) середине первого премоляра"
     ],
-    "correct": "а) середине клыка"
+    "correct": "а) середине клыка",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "404",
@@ -4440,7 +6858,13 @@
       "в) две трети высоты",
       "г) три трети высоты"
     ],
-    "correct": "в) две трети высоты"
+    "correct": "в) две трети высоты",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "405",
@@ -4451,7 +6875,13 @@
       "в) на крампонные и бескрампонные",
       "г) с памятью формы"
     ],
-    "correct": "в) на крампонные и бескрампонные"
+    "correct": "в) на крампонные и бескрампонные",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "406",
@@ -4462,7 +6892,13 @@
       "в) клыков",
       "г) межзубного интервала"
     ],
-    "correct": "б) эстетического центра"
+    "correct": "б) эстетического центра",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "407",
@@ -4473,7 +6909,13 @@
       "в) жевательные мышцы",
       "г) слизистую оболочку полости рта"
     ],
-    "correct": "г) слизистую оболочку полости рта"
+    "correct": "г) слизистую оболочку полости рта",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "408",
@@ -4484,7 +6926,13 @@
       "в) половину высоты",
       "г) три трети"
     ],
-    "correct": "а) одну треть высоты"
+    "correct": "а) одну треть высоты",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "409",
@@ -4495,7 +6943,13 @@
       "в) половину высоты",
       "г) три трети"
     ],
-    "correct": "а) две трети высоты"
+    "correct": "а) две трети высоты",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "410",
@@ -4506,7 +6960,13 @@
       "в) ширины искусственных зубов",
       "г) положения шеек зубов в протезе"
     ],
-    "correct": "г) положения шеек зубов в протезе"
+    "correct": "г) положения шеек зубов в протезе",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "411",
@@ -4517,7 +6977,13 @@
       "в) положения передних зубов в протезе",
       "г) положения задних зубов в протезе"
     ],
-    "correct": "а) ширины передней группы зубов"
+    "correct": "а) ширины передней группы зубов",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "412",
@@ -4528,7 +6994,13 @@
       "в) металлической проволокой",
       "г) увеличением толщины воска"
     ],
-    "correct": "в) металлической проволокой"
+    "correct": "в) металлической проволокой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "413",
@@ -4539,7 +7011,13 @@
       "в) восковой базис с зубами и кламмерами на гипсовой модели",
       "г) восковой базис с зубами и кламмерами на гипсовой модели в окклюдаторе"
     ],
-    "correct": "г) восковой базис с зубами и кламмерами на гипсовой модели в окклюдаторе"
+    "correct": "г) восковой базис с зубами и кламмерами на гипсовой модели в окклюдаторе",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "414",
@@ -4551,7 +7029,13 @@
       "г) изготовление восковых базисов с окклюзионными валиками",
       "д) определение центральной окклюзии"
     ],
-    "correct": "б) постановка искусственных зубов"
+    "correct": "б) постановка искусственных зубов",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "415",
@@ -4562,7 +7046,13 @@
       "в) снятие слепков, постановка искусственных зубов",
       "г) постановка искусственных зубов, замена воска на пластмассу"
     ],
-    "correct": "г) постановка искусственных зубов, замена воска на пластмассу"
+    "correct": "г) постановка искусственных зубов, замена воска на пластмассу",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "416",
@@ -4573,7 +7063,13 @@
       "в) каналы литниковой системы должны быть по возможности короткими",
       "г) литники должны иметь круглую форму, диаметр основного литника должен быть меньше последующих литников, каналы литниковой системы должны быть по возможности короткими"
     ],
-    "correct": "г) литники должны иметь круглую форму, диаметр основного литника должен быть меньше последующих литников, каналы литниковой системы должны быть по возможности короткими"
+    "correct": "г) литники должны иметь круглую форму, диаметр основного литника должен быть меньше последующих литников, каналы литниковой системы должны быть по возможности короткими",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "417",
@@ -4584,7 +7080,13 @@
       "в) гипсовая форма испытывает большое деформирующее воздействие",
       "г) излишки пластмассы не остаются в литниковом канале, излишки пластмассы остаются в литниковом канале, гипсовая форма испытывает большое деформирующее воздействие"
     ],
-    "correct": "б) излишки пластмассы остаются в литниковом канале"
+    "correct": "б) излишки пластмассы остаются в литниковом канале",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "418",
@@ -4595,7 +7097,13 @@
       "в) полимеризации пластмассы",
       "г) обжига"
     ],
-    "correct": "а) литьевого прессования пластмассы"
+    "correct": "а) литьевого прессования пластмассы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "419",
@@ -4606,7 +7114,13 @@
       "в) значительное сопротивление току пластмассы",
       "г) наибольшее давление"
     ],
-    "correct": "в) значительное сопротивление току пластмассы"
+    "correct": "в) значительное сопротивление току пластмассы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "420",
@@ -4617,7 +7131,13 @@
       "в) где длина воска наименьшая",
       "г) где длина воска наибольшая"
     ],
-    "correct": "а) где толщина воска наибольшая"
+    "correct": "а) где толщина воска наибольшая",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "421",
@@ -4628,7 +7148,13 @@
       "в) слизистую оболочку полости рта и естественные зубы",
       "г) височно-нижнечелюстной сустав"
     ],
-    "correct": "в) слизистую оболочку полости рта и естественные зубы"
+    "correct": "в) слизистую оболочку полости рта и естественные зубы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "422",
@@ -4639,7 +7165,13 @@
       "в) на вестибулярной поверхности зуба",
       "г) в базисе протеза под искусственными зубами"
     ],
-    "correct": "б) на аппроксимальной поверхности зуба"
+    "correct": "б) на аппроксимальной поверхности зуба",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "423",
@@ -4650,7 +7182,13 @@
       "в) дуги, кламмеров и каркаса",
       "г) каркаса, базиса и искусственными зубами"
     ],
-    "correct": "г) каркаса, базиса и искусственными зубами"
+    "correct": "г) каркаса, базиса и искусственными зубами",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "424",
@@ -4661,7 +7199,13 @@
       "в) в области ската альвеолярного гребня с оральной стороны",
       "г) по центру альвеолярного гребня в базисе под искусственными зубами"
     ],
-    "correct": "б) между экватором и окклюзионной поверхностью"
+    "correct": "б) между экватором и окклюзионной поверхностью",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "425",
@@ -4672,7 +7216,13 @@
       "в) диагональная, дистальная, медиальная",
       "г) поперечная, диагональная, сагиттальная"
     ],
-    "correct": "г) поперечная, диагональная, сагиттальная"
+    "correct": "г) поперечная, диагональная, сагиттальная",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "426",
@@ -4683,7 +7233,13 @@
       "в) ответвления, тела, окклюзионной накладки",
       "г) плеча, тела, отростка, окклюзионной накладки"
     ],
-    "correct": "г) плеча, тела, отростка, окклюзионной накладки"
+    "correct": "г) плеча, тела, отростка, окклюзионной накладки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "427",
@@ -4694,7 +7250,13 @@
       "в) направляющую",
       "г) удерживающую и опорную"
     ],
-    "correct": "г) удерживающую и опорную"
+    "correct": "г) удерживающую и опорную",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "428",
@@ -4705,7 +7267,13 @@
       "в) жесткие, полуподвижные, шарнирные",
       "г) удерживающие, опорно-удерживающие"
     ],
-    "correct": "г) удерживающие, опорно-удерживающие"
+    "correct": "г) удерживающие, опорно-удерживающие",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "429",
@@ -4716,7 +7284,13 @@
       "в) сочетанный (объединяет одно плечо кламмера первого типа, второе – от второго типа, тело, окклюзионная накладка)",
       "г) одноплечий с накладкой"
     ],
-    "correct": "в) сочетанный (объединяет одно плечо кламмера первого типа, второе – от второго типа, тело, окклюзионная накладка)"
+    "correct": "в) сочетанный (объединяет одно плечо кламмера первого типа, второе – от второго типа, тело, окклюзионная накладка)",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "430",
@@ -4727,7 +7301,13 @@
       "в) дефекты твердых тканей зубов второго класса по классификации Блэка",
       "г) все дефекты твердых тканей зубов по классификации Цитрина"
     ],
-    "correct": "б) все классы дефектов зубных рядов, по классификации Кеннеди"
+    "correct": "б) все классы дефектов зубных рядов, по классификации Кеннеди",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "431",
@@ -4738,7 +7318,13 @@
       "в) сохранилось 5 - 6 устойчивых зубов, стоящих рядом",
       "г) дефекты большой протяженности"
     ],
-    "correct": "в) сохранилось 5 - 6 устойчивых зубов, стоящих рядом"
+    "correct": "в) сохранилось 5 - 6 устойчивых зубов, стоящих рядом",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "432",
@@ -4749,7 +7335,13 @@
       "в) двуплечий без накладки",
       "г) двуплечий с окклюзионной накладкой и телом"
     ],
-    "correct": "г) двуплечий с окклюзионной накладкой и телом"
+    "correct": "г) двуплечий с окклюзионной накладкой и телом",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "433",
@@ -4760,7 +7352,13 @@
       "в) двуплечий без накладки",
       "г) одноплечий с накладкой"
     ],
-    "correct": "а) разветвленный (расщепленный) (окклюзионная накладка, тело, два Т-образных плеча)"
+    "correct": "а) разветвленный (расщепленный) (окклюзионная накладка, тело, два Т-образных плеча)",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "434",
@@ -4771,7 +7369,13 @@
       "в) двуплечий без накладки",
       "г) одноплечий с накладкой"
     ],
-    "correct": "б) одноплечий кольцевой"
+    "correct": "б) одноплечий кольцевой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "435",
@@ -4782,7 +7386,13 @@
       "в) ответвления, тела, окклюзионной накладки",
       "г) плеча, тела, отростка"
     ],
-    "correct": "г) плеча, тела, отростка"
+    "correct": "г) плеча, тела, отростка",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "436",
@@ -4794,7 +7404,13 @@
       "г) между шейками зубов и окклюзионной поверхностью",
       "д) у переходной складки преддверия полости рта"
     ],
-    "correct": "б) между шейками зубов и переходной складкой дна полости рта"
+    "correct": "б) между шейками зубов и переходной складкой дна полости рта",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "437",
@@ -4805,7 +7421,13 @@
       "в) 3,3 -",
       "г) 4,2 -"
     ],
-    "correct": "а) 2,0 -"
+    "correct": "а) 2,0 -",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "438",
@@ -4816,7 +7438,13 @@
       "в) прямоугольной",
       "г) толстой, но узкой дуге"
     ],
-    "correct": "а) тонкой, но более широкой дуге"
+    "correct": "а) тонкой, но более широкой дуге",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "439",
@@ -4827,7 +7455,13 @@
       "в) у переходной складки дна полости рта",
       "г) между шейками зубов и окклюзионной поверхностью"
     ],
-    "correct": "б) между шейками зубов и переходной складкой дна полости рта"
+    "correct": "б) между шейками зубов и переходной складкой дна полости рта",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "440",
@@ -4838,7 +7472,13 @@
       "в) 3,0 -",
       "г) 3,3 -"
     ],
-    "correct": "а) 1,5 -"
+    "correct": "а) 1,5 -",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "441",
@@ -4849,7 +7489,13 @@
       "в) плоская",
       "г) плоская и широкая"
     ],
-    "correct": "а) узкая и толстая"
+    "correct": "а) узкая и толстая",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "442",
@@ -4860,7 +7506,13 @@
       "в) 3,2",
       "г) 4,0 -"
     ],
-    "correct": "г) 4,0 -"
+    "correct": "г) 4,0 -",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "443",
@@ -4871,7 +7523,13 @@
       "в) 8,0 -",
       "г) 11,6 -"
     ],
-    "correct": "г) 11,6 -"
+    "correct": "г) 11,6 -",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "444",
@@ -4882,7 +7540,13 @@
       "в) на  выше дна подъязычной переходной складки",
       "г) на  ниже дна подъязычной переходной складки"
     ],
-    "correct": "а) на  выше дна подъязычной переходной складки"
+    "correct": "а) на  выше дна подъязычной переходной складки",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "445",
@@ -4893,7 +7557,13 @@
       "в) плоской",
       "г) широкой и толстой"
     ],
-    "correct": "а) толстой и более узкой"
+    "correct": "а) толстой и более узкой",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "446",
@@ -4904,7 +7574,13 @@
       "в) 1,1 атмосферы",
       "г) 120 С-20 минутПравильный ответ: б"
     ],
-    "correct": "б) 2 атмосферы"
+    "correct": "б) 2 атмосферы",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   },
   {
     "id": "447",
@@ -4915,6 +7591,12 @@
       "в) стерилизация",
       "г) предстерилизационная обработка"
     ],
-    "correct": "в) стерилизация"
+    "correct": "в) стерилизация",
+    "topic": "anatomy_occlusion",
+    "difficulty": "medium",
+    "explanation": "",
+    "related_questions": [],
+    "related_glossary": [],
+    "relatedTerms": []
   }
 ]

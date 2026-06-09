@@ -80,7 +80,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const items = data.map((item: any) => ({
       id:           String(item.id),
       preview:      preview(String(item.question ?? '')),
-      relatedTerms: overrides[String(item.id)] ?? (item.relatedTerms as string[] | undefined) ?? [],
+      relatedTerms: overrides[String(item.id)] ?? [
+        ...((item.related_glossary as string[] | undefined) ?? []),
+        ...((item.relatedTerms as string[] | undefined) ?? []),
+      ],
     }));
 
     return res.status(200).json({ ok: true, items });

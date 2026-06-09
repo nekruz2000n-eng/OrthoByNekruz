@@ -20,6 +20,7 @@ import {
 import { FacultyIcon } from './FacultyIcon';
 import ReactMarkdown from 'react-markdown';
 import { RichText, GlossaryItem } from '@/components/RichText';
+import { itemRelatedTerms } from '@/lib/glossaryUtils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type BlockId = number | 'mistakes' | 'exam' | 'favorites';
@@ -1361,7 +1362,7 @@ export const TestsTab = ({
           <div>
             <RichText
               text={currentTest?.question || ''}
-              relatedTerms={(currentTest as any)?.relatedTerms}
+              relatedTerms={itemRelatedTerms(currentTest)}
               glossaryTerms={dynamicGlossary}
               fontSize={16}
               className="font-semibold"

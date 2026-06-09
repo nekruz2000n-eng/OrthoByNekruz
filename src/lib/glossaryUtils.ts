@@ -47,3 +47,19 @@ export function termRegexSource(term: string): string {
   _srcCache.set(term, src);
   return src;
 }
+
+/** relatedTerms из JSON + related_glossary + Redis-оверрайд (админка). */
+export function itemRelatedTerms(item: {
+  relatedTerms?: string[];
+  related_glossary?: string[];
+} | null | undefined): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of [...(item?.related_glossary || []), ...(item?.relatedTerms || [])]) {
+    const key = String(t).trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(String(t).trim());
+  }
+  return out;
+}

@@ -5,7 +5,6 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:data": "node scripts/build_orthopedics_json.mjs",
     "start": "next start",
     "lint": "next lint"
   },

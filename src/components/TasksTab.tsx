@@ -17,6 +17,7 @@ import { FacultyIcon } from './FacultyIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { RichText, GlossaryItem } from '@/components/RichText';
+import { itemRelatedTerms } from '@/lib/glossaryUtils';
 
 export const TasksTab = ({
   onSecretTap,
@@ -445,7 +446,7 @@ export const TasksTab = ({
                 </div>
                 <RichText
                   text={readingTask.question}
-                  relatedTerms={(readingTask as any).relatedTerms}
+                  relatedTerms={itemRelatedTerms(readingTask)}
                   glossaryTerms={dynamicGlossary}
                   fontSize={fontSize * 1.15}
                   className="font-semibold"
@@ -460,7 +461,7 @@ export const TasksTab = ({
 
                 <RichText
                   text={readingTask.answer}
-                  relatedTerms={(readingTask as any).relatedTerms}
+                  relatedTerms={itemRelatedTerms(readingTask)}
                   glossaryTerms={dynamicGlossary}
                   fontSize={fontSize}
                 />
