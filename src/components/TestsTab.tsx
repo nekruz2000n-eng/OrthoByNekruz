@@ -36,18 +36,34 @@ const LETTERS = ['А', 'Б', 'В', 'Г', 'Д', 'Е'];
 
 const LONG_PRESS_MS = 500;
 
-/** Сравнение ответа с ключом: «2) Э. Геккель» = «Э. Геккель». */
+/** Сравнение ответа с ключом: «2) Э. Геккель» = «Э. Геккель», «5)» = «5) К. Бэр». */
 function normalizeTestOptionText(s: string): string {
   return s
     .replace(/^[0-9]+\)\s*/u, '')
-    .replace(/^[a-zа-я]\.\s*/iu, '')
+    .replace(/^[a-zа-я][\).]\s*/iu, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
+function optionNumberPrefix(option: string): string | null {
+  const m = option.trim().match(/^(\d+)\)/u);
+  return m ? m[1] : null;
+}
+
 function isCorrectTestOption(option: string, correct: string): boolean {
   if (option === correct) return true;
-  return normalizeTestOptionText(option) === normalizeTestOptionText(correct);
+  const normOpt = normalizeTestOptionText(option);
+  const normCor = normalizeTestOptionText(correct);
+  if (normOpt && normCor && normOpt === normCor) return true;
+  const prefixOnly = correct.trim().match(/^(\d+)\)\s*$/u);
+  if (prefixOnly) {
+    return optionNumberPrefix(option) === prefixOnly[1];
+  }
+  return false;
+}
+
+function resolveCorrectOption(test: { options: string[]; correct: string }): string {
+  return test.options.find(o => isCorrectTestOption(o, test.correct)) ?? test.correct;
 }
 
 // ─── Block button (shared between flat and themed grids) ──────────────────────
@@ -1247,6 +1263,8 @@ export const TestsTab = ({
   const visibleOptions = options.filter((opt: string) => !hidden5050.includes(opt));
   const answerRevealed = studyMode;
   const hintsAvailable = isBlockMode && hintsEnabled && !studyMode && !showResult;
+  const scoredCurrent = scoredAnswers[currentTestIndex];
+  const resolvedCorrect = currentTest ? resolveCorrectOption(currentTest) : '';
 
   return (
     <div className="flex flex-col h-full overflow-hidden max-w-full" style={{ background: 'var(--c-bg)' }}>
@@ -1376,14 +1394,14 @@ export const TestsTab = ({
               const isWrong        = showResult && questionLocked && selected && !correct;
               const selectedRight  = showResult && questionLocked && selected && correct;
               const revealCorrect  = (showResult && questionLocked && correct && !selected) || (answerRevealed && correct && !showResult);
-              const dimmed         = showResult && !correct && !selected;
+              const dimmed         = showResult && questionLocked && !correct && !selected && !revealCorrect;
               return (
                 <button key={opt} onClick={() => handleSelect(opt)} disabled={showResult}
                   className="w-full rounded-[13px] p-3.5 flex items-center gap-3 text-left transition-all active:scale-[0.99]"
                   style={{
-                    background: selectedRight ? 'var(--c-primary-dim)' : isWrong ? 'var(--c-danger-soft)' : revealCorrect ? 'transparent' : 'var(--c-card)',
-                    border: `1.5px solid ${selectedRight ? 'var(--c-primary-br)' : isWrong ? 'color-mix(in srgb, var(--c-danger) 45%, transparent)' : revealCorrect ? 'var(--c-primary-br)' : 'var(--c-border)'}`,
-                    opacity: dimmed ? 0.5 : 1,
+                    background: selectedRight || revealCorrect ? 'var(--c-primary-dim)' : isWrong ? 'var(--c-danger-soft)' : 'var(--c-card)',
+                    border: `1.5px solid ${selectedRight || revealCorrect ? 'var(--c-primary-br)' : isWrong ? 'color-mix(in srgb, var(--c-danger) 45%, transparent)' : 'var(--c-border)'}`,
+                    opacity: dimmed ? 0.55 : 1,
                   }}>
                   <span className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-[12px] font-mono font-bold"
                     style={{
@@ -1404,7 +1422,32 @@ export const TestsTab = ({
             })}
           </div>
 
-          
+          {showResult && scoredCurrent && currentTest && (
+            <div
+              className="rounded-[13px] px-3.5 py-3 flex items-start gap-2.5"
+              style={{
+                background: scoredCurrent.correct ? 'var(--c-primary-dim)' : 'var(--c-danger-soft)',
+                border: `1px solid ${scoredCurrent.correct ? 'var(--c-primary-br)' : 'color-mix(in srgb, var(--c-danger) 40%, transparent)'}`,
+              }}
+            >
+              {scoredCurrent.correct
+                ? <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-primary)' }} />
+                : <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-danger)' }} />}
+              <div className="min-w-0 text-[13px] leading-snug">
+                {scoredCurrent.correct ? (
+                  <span style={{ color: 'var(--c-primary)', fontWeight: 600 }}>Верно</span>
+                ) : (
+                  <>
+                    <span style={{ color: 'var(--c-danger)', fontWeight: 600 }}>Неверно.</span>
+                    {' '}
+                    <span style={{ color: 'var(--c-text)' }}>
+                      Правильный ответ: <span style={{ fontWeight: 600 }}>{resolvedCorrect}</span>
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Навигация: предыдущий / следующий */}
           {(showResult || currentTestIndex > 0) && (
