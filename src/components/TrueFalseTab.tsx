@@ -60,6 +60,8 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
   const [swipeDir, setSwipeDir]         = useState<SwipeDir>(null);
   const [locked, setLocked]             = useState(false);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const weakTopicsRef = useRef(weakTopics);
+  weakTopicsRef.current = weakTopics;
 
   const topics = useMemo(() => listTopics(allQuestions, subject), [allQuestions, subject]);
 
@@ -76,8 +78,9 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
     diff: DifficultyFilter,
     errorsOnly = false,
     errorStmts: TrueFalseStatement[] = [],
-    weakTopicSet: Set<string> = weakTopics,
+    weakTopicSet?: Set<string>,
   ) => {
+    const weak = weakTopicSet ?? weakTopicsRef.current;
     clearAdvanceTimer();
     setFeedback('none');
     setSwipeDir(null);
@@ -95,7 +98,7 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
         difficulty: diff,
         count: SESSION_SIZE,
         onlyKeys,
-        weakTopics: weakTopicSet,
+        weakTopics: weak,
       });
     }
 
@@ -113,7 +116,7 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
     if (!errorsOnly) setSessionErrors([]);
     setAnswers([]);
     setPhase('play');
-  }, [clearAdvanceTimer, weakTopics]);
+  }, [clearAdvanceTimer]);
 
   useEffect(() => {
     let cancelled = false;
@@ -204,16 +207,16 @@ export const TrueFalseTab: React.FC<TrueFalseTabProps> = ({
 
   const applyTopic = (topic: string | null) => {
     setTopicFilter(topic);
-    startSession(allQuestions, topic, difficulty);
+    startSession(allQuestions, topic, difficulty, false, [], weakTopics);
   };
 
   const applyDifficulty = (diff: DifficultyFilter) => {
     setDifficulty(diff);
-    startSession(allQuestions, topicFilter, diff);
+    startSession(allQuestions, topicFilter, diff, false, [], weakTopics);
   };
 
-  const restartAll = () => startSession(allQuestions, topicFilter, difficulty);
-  const repeatErrors = () => startSession(allQuestions, topicFilter, difficulty, true, sessionErrors);
+  const restartAll = () => startSession(allQuestions, topicFilter, difficulty, false, [], weakTopics);
+  const repeatErrors = () => startSession(allQuestions, topicFilter, difficulty, true, sessionErrors, weakTopics);
 
   const totalAnswered = correctCount + wrongCount;
   const pct = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
