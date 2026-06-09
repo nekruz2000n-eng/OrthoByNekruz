@@ -124,7 +124,7 @@ export type PreviewStatus = 'selecting' | 'active' | 'expired' | 'confirmed';
 export function hasFinalizedPreviewAccess(user: any): boolean {
   if (!user) return false;
   if (user.previewStatus === 'confirmed') return true;
-  return !!user.previewConfirmedAt && !user.previewStatus;
+  return !!user.previewConfirmedAt;
 }
 
 function clearStalePreviewFlowFields(healed: Record<string, any>) {
@@ -167,19 +167,28 @@ export function healStalePreviewForFinalizedUser(user: any): any {
 
   if (getPendingAdminModules(user).length > 0) return user;
 
+  const inCatalogBrowse = user._catalogBrowse === true;
   let shouldHeal = false;
 
-  if (hasFinalizedPreviewAccess(user)) {
-    const inCatalogBrowse = user._catalogBrowse === true;
-    const staleSelecting = user.previewStatus === 'selecting' && !inCatalogBrowse;
-    const staleExpired = user.previewStatus === 'expired' && !inCatalogBrowse;
-    if (staleSelecting || staleExpired) shouldHeal = true;
+  if (user.previewConfirmedAt && user.previewStatus) {
+    if (!inCatalogBrowse || user.previewStatus === 'active' || user.previewStatus === 'expired') {
+      shouldHeal = true;
+    }
   }
 
   if (!shouldHeal && user.paid === true && getUserAvailableSubjects(user).length > 0) {
-    if (user.previewStatus === 'expired' || user.previewStatus === 'selecting') {
+    if (user.previewStatus === 'active' || user.previewStatus === 'expired') {
+      shouldHeal = true;
+    } else if (user.previewStatus === 'selecting' && !inCatalogBrowse) {
       shouldHeal = true;
     }
+  }
+
+  if (!shouldHeal && hasFinalizedPreviewAccess(user)) {
+    const staleSelecting = user.previewStatus === 'selecting' && !inCatalogBrowse;
+    const staleExpired = user.previewStatus === 'expired' && !inCatalogBrowse;
+    const staleActive = user.previewStatus === 'active';
+    if (staleSelecting || staleExpired || staleActive) shouldHeal = true;
   }
 
   if (!shouldHeal && (user.previewStatus === 'expired' || user.previewStatus === 'selecting')) {

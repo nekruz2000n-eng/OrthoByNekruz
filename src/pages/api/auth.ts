@@ -44,6 +44,7 @@ import type { PreviewModule } from '@/lib/previewModules';
 import { ensureModuleStatusMap } from '@/lib/previewModuleStatus';
 import { notifyAdminReceiptClaimed } from '@/lib/notifyAdmin';
 import { resolveFacultyPromoCode, facultyFieldsFromUser, getFacultyPromoById } from '@/lib/facultyCodes';
+import { ACCESS_CACHE_VERSION } from '@/lib/accessCache';
 import { normalizeStudyGroup, buildStudyGroupFromDigits } from '@/lib/studyGroup';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
 import { buildPreviewSubjectCatalog } from '@/lib/previewCatalogSettings';
@@ -364,15 +365,27 @@ async function saveUser(tgId: string, user: any) {
   await registerUserId(redis, tgId);
 }
 
-async function subjectsResponse(user: any, tgId?: string) {
+async function subjectsResponse(user: any, tgId?: string, extra?: Record<string, unknown>) {
   user = migrateUserSubjects(user);
   const subjects = getEffectiveUserSubjects(user, tgId);
   const catalog = user?.previewStatus ? await buildPreviewSubjectCatalog(redis) : undefined;
   return {
     registered: true,
     subjects,
+    accessCacheVersion: ACCESS_CACHE_VERSION,
     ...previewPayload(user, catalog, tgId),
+    ...extra,
   };
+}
+
+async function healAndMaybePersistUser(tgId: string, user: any, redisOk: boolean): Promise<{ user: any; accessHealed: boolean }> {
+  const before = user;
+  const healed = healStalePreviewForFinalizedUser(user);
+  const accessHealed = healed !== before;
+  if (redisOk && accessHealed) {
+    await saveUser(tgId, touchUserActivity(healed));
+  }
+  return { user: healed, accessHealed };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -733,9 +746,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'Заявка не найдена.' });
       }
       user = await maybeExpirePreviewUser(redis, tgIdStr, user);
+      const healedPreview = await healAndMaybePersistUser(tgIdStr, user, redisOk);
+      user = healedPreview.user;
       const catalog = await buildPreviewSubjectCatalog(redis);
       if (hasFinalizedPreviewAccess(user)) {
-        return res.status(200).json({ success: true, ...(await subjectsResponse(user, tgIdStr)) });
+        return res.status(200).json({
+          success: true,
+          ...(await subjectsResponse(user, tgIdStr, { accessHealed: healedPreview.accessHealed })),
+        });
       }
       if (user.receiptClaimedAt) {
         return res.status(200).json({
@@ -776,9 +794,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (redisOk) {
         user = await maybeExpirePreviewUser(redis, tgIdStr, user);
       }
-      user = healStalePreviewForFinalizedUser(user);
+      const healedCheck = await healAndMaybePersistUser(tgIdStr, user, redisOk);
 
-      return res.status(200).json(await subjectsResponse(user, tgIdStr));
+      return res.status(200).json(await subjectsResponse(
+        healedCheck.user,
+        tgIdStr,
+        { accessHealed: healedCheck.accessHealed },
+      ));
     }
 
     if (user && !user.trial_until && !user.previewStatus) {

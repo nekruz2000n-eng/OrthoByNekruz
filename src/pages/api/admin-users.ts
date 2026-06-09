@@ -12,6 +12,7 @@ import {
   previewChoiceNeedsAdminConfirm,
   previewChoiceIsAddon,
   hasFinalizedPreviewAccess,
+  healStalePreviewForFinalizedUser,
   reopenPreviewVitrine,
   getPendingAdminModules,
   adminForcePaymentOnlyScreen,
@@ -364,11 +365,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
 
-        await saveUser(String(tgId), updated);
+        let healed = healStalePreviewForFinalizedUser(updated);
+        if (enabled && user.paid === true) {
+          healed = healStalePreviewForFinalizedUser({ ...healed, paid: true });
+        }
+        await saveUser(String(tgId), healed);
         return res.status(200).json({
           ok: true,
-          subjects: getUserAvailableSubjects(updated),
-          navHidden,
+          subjects: getUserAvailableSubjects(healed),
+          navHidden: healed.navHidden ?? navHidden,
         });
       }
 
@@ -593,7 +598,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (action === 'toggle_paid') {
         const newPaid = !user.paid;
-        await saveUser(String(tgId), { ...user, paid: newPaid });
+        let updated = { ...user, paid: newPaid };
+        if (newPaid) {
+          updated = healStalePreviewForFinalizedUser(updated);
+        }
+        await saveUser(String(tgId), updated);
         return res.status(200).json({ ok: true, paid: newPaid });
       }
 

@@ -16,6 +16,7 @@ import { TasksTab }      from '@/components/TasksTab';
 import { StatsTab }      from '@/components/StatsTab';
 import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
+import { applyClientAccessCacheVersion, clearPreviewClientKeys } from '@/lib/accessCache';
 import { getDefaultSubjectId, subjectHasQuestionGameModes } from '@/lib/subjects';
 import { bustSubjectModuleCache, setOnSubjectDataUnavailable } from '@/lib/subjectData';
 import {
@@ -269,6 +270,15 @@ export default function Home() {
   }, []);
 
   const applyAccessPayload = useCallback((d: any) => {
+    if (d?.accessHealed === true || (
+      typeof d?.accessCacheVersion === 'number'
+      && d.accessCacheVersion > Number(localStorage.getItem('access_cache_v') || '0')
+    )) {
+      clearPreviewClientKeys();
+      if (typeof d?.accessCacheVersion === 'number') {
+        localStorage.setItem('access_cache_v', String(d.accessCacheVersion));
+      }
+    }
     if (d?.degraded === true) {
       try {
         const cached = JSON.parse(localStorage.getItem('available_subjects') || '[]');
@@ -648,6 +658,7 @@ export default function Home() {
 
   // ── Восстановление последнего предмета из localStorage (только на клиенте) ──
   useEffect(() => {
+    applyClientAccessCacheVersion();
     const saved = localStorage.getItem('last_subject');
     if (saved) setSubjectRaw(saved);
     const pending = localStorage.getItem(PENDING_PAYMENT_SUBJECT_KEY);

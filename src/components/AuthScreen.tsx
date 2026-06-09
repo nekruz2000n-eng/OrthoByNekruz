@@ -18,7 +18,9 @@ import {
   EMOJI_FONT_STACK,
   persistFacultyId,
   persistFacultyFromAccessCode,
+  type FacultyPromo,
 } from '@/lib/facultyCodes';
+import { applyClientAccessCacheVersion } from '@/lib/accessCache';
 
 type FacultyVariant = 'tooth' | 'stethoscope' | 'pediatrics';
 
@@ -30,10 +32,16 @@ function syncFacultyAfterAuth(data: { facultyId?: string | null }, accessCode: s
 }
 
 /** Те же эмодзи, что в поле ввода кода (3950 / 5016 / 2314) */
+const FACULTY_BY_VARIANT: Record<FacultyVariant, FacultyPromo> = {
+  tooth:       FACULTY_PROMOS.find(p => p.id === 'stomatology')!,
+  stethoscope: FACULTY_PROMOS.find(p => p.id === 'therapeutic')!,
+  pediatrics:  FACULTY_PROMOS.find(p => p.id === 'pediatrics')!,
+};
+
 const FACULTY_EMOJI: Record<FacultyVariant, string> = {
-  tooth:         FACULTY_PROMOS.find(p => p.id === 'stomatology')!.digitIcon,
-  stethoscope:   FACULTY_PROMOS.find(p => p.id === 'therapeutic')!.digitIcon,
-  pediatrics:    FACULTY_PROMOS.find(p => p.id === 'pediatrics')!.digitIcon,
+  tooth:       FACULTY_BY_VARIANT.tooth.digitIcon,
+  stethoscope: FACULTY_BY_VARIANT.stethoscope.digitIcon,
+  pediatrics:  FACULTY_BY_VARIANT.pediatrics.digitIcon,
 };
 
 /** Эмодзи в дожде — как в поле ввода (статичный div, без blur) */
@@ -90,9 +98,17 @@ const FallingFacultyParticle = ({
 );
 
 // ─── ЦЕНТРАЛЬНЫЙ ЛОГОТИП: зуб → стетоскоп → педиатрия по кругу ───────────────
-const AuthLogoCycle = () => {
+const AuthLogoCycle = ({
+  onPhaseChange,
+}: {
+  onPhaseChange?: (phase: number, visible: boolean) => void;
+}) => {
   const [phase, setPhase] = useState(0);
   const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    onPhaseChange?.(phase, visible);
+  }, [phase, visible, onPhaseChange]);
 
   useEffect(() => {
     const HOLD_MS = 2600;
@@ -136,6 +152,34 @@ const AuthLogoCycle = () => {
         aria-hidden
       >
         {FACULTY_EMOJI[LOGO_PHASES[phase]]}
+      </span>
+    </div>
+  );
+};
+
+const FacultyCodeHint = ({ phase, visible }: { phase: number; visible: boolean }) => {
+  const promo = FACULTY_BY_VARIANT[LOGO_PHASES[phase]];
+  return (
+    <div
+      className="flex flex-col items-center gap-1 transition-all duration-500 ease-in-out"
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0) scale(1)' : 'translateY(6px) scale(0.96)',
+        animation: visible ? 'authFacultyHintPop 0.45s ease-out' : undefined,
+      }}
+      aria-live="polite"
+    >
+      <div className="flex items-center gap-2">
+        <span style={{ fontSize: 22, fontFamily: EMOJI_FONT_STACK, lineHeight: 1 }}>{promo.digitIcon}</span>
+        <span
+          className="text-[22px] font-bold tracking-[0.22em] tabular-nums text-white"
+          style={{ textShadow: '0 0 16px rgba(255,255,255,0.35)' }}
+        >
+          {promo.code}
+        </span>
+      </div>
+      <span className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.42)' }}>
+        код факультета
       </span>
     </div>
   );
@@ -210,6 +254,11 @@ const ToothRainBG = () => {
           from { transform: translateY(8px) scale(0.8); opacity: 0; }
           to   { transform: translateY(0)   scale(1);   opacity: 1; }
         }
+        @keyframes authFacultyHintPop {
+          0%   { transform: translateY(8px) scale(0.92); opacity: 0; }
+          60%  { transform: translateY(-2px) scale(1.03); opacity: 1; }
+          100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
         /* Анимация тряски (ошибки) при неверном пароле */
         @keyframes authShake {
           0%,100% { transform: translateX(0); }
@@ -250,6 +299,12 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
 
   // ── Стейты (Состояния компонента) ──
   const [mounted, setMounted] = useState(false); // Флаг: загрузился ли компонент в браузере
+  const [logoPhase, setLogoPhase] = useState(0);
+  const [logoVisible, setLogoVisible] = useState(true);
+  const handleLogoPhaseChange = useCallback((phase: number, visible: boolean) => {
+    setLogoPhase(phase);
+    setLogoVisible(visible);
+  }, []);
   const [key, setKey] = useState(''); // Введенный пользователем ключ (до 8 цифр)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -292,7 +347,10 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   // ── Хуки жизненного цикла ──
 
   // Устанавливаем mounted в true после первой загрузки (защита от ошибок гидратации Next.js)
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    applyClientAccessCacheVersion();
+    setMounted(true);
+  }, []);
 
   // Таймер блокировки. Каждую секунду отнимает 1 от lockoutTime, пока не дойдет до 0.
   useEffect(() => {
@@ -536,8 +594,8 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         || (data.previewConfirmedAt && !data.previewStatus);
       if (confirmed || data.previewStatus === 'active' || data.previewStatus === 'selecting') {
         localStorage.setItem('is_authed', 'true');
-        if (confirmed && data.previewChosenSubject) {
-          localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
+        if (confirmed) {
+          localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
         }
         syncFacultyAfterAuth(data, key);
         onAuthenticated();
@@ -625,8 +683,10 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               filter: 'drop-shadow(0 0 12px hsl(var(--primary) / 0.5))', // Неоновое свечение вокруг
             }}
           >
-            <AuthLogoCycle />
+            <AuthLogoCycle onPhaseChange={handleLogoPhaseChange} />
           </div>
+
+          <FacultyCodeHint phase={logoPhase} visible={logoVisible} />
           
           <h1
             className="text-3xl font-bold tracking-tighter text-white select-none cursor-default"
