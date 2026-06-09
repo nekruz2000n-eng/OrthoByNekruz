@@ -15,6 +15,7 @@ import { FacultyIcon } from './FacultyIcon';
 import { QuestionAiPanel } from './QuestionAiPanel';
 import { FlashcardsTab } from './FlashcardsTab';
 import { TrueFalseTab } from './TrueFalseTab';
+import { LearnModuleEntry } from '@/components/LearnModuleEntry';
 import type { BioGameMode } from './Navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
@@ -802,6 +803,11 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
       ) : (
       <ScrollArea className="flex-1 scroll-container">
         <div className="py-3 px-3 mx-auto max-w-2xl w-full" style={{ paddingBottom: 'var(--scroll-pb)' }}>
+          {subject === 'ortho' && (
+            <div className="mb-3">
+              <LearnModuleEntry accentColor={accentColor} compact />
+            </div>
+          )}
           {microLoading ? (
               <div className="flex items-center justify-center py-24" style={{ color: 'var(--c-amber)' }}>
                 <svg className="animate-spin w-8 h-8" fill="none" viewBox="0 0 24 24">
