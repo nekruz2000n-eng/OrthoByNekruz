@@ -235,6 +235,11 @@ export default function Home() {
     if (tab === 'questions') setBioQuestionsSection('list');
   }, []);
 
+  const handlePaymentNavigateModule = useCallback((mod: PreviewModule) => {
+    const tab: TabType = mod;
+    handleNavTabChange(tab);
+  }, [handleNavTabChange]);
+
   const handleBioModeCycle = useCallback(() => {
     setActiveTab('questions');
     setBioQuestionsSection(prev => {
@@ -1337,6 +1342,7 @@ export default function Home() {
           modulesUpdating={paymentModulesUpdating}
           onUpdateModules={handleUpdatePaymentModules}
           onClaimReceipt={handleClaimReceipt}
+          onNavigateModule={handlePaymentNavigateModule}
           {...paymentExitProps}
         />
       );
@@ -1348,7 +1354,7 @@ export default function Home() {
   }, [
     previewChosen, subject, tabToModule, chosenPreviewModules, grantedPreviewModules,
     paymentModuleStatuses, resolveModuleStatus, previewStatus, statusChecking, paymentModulesUpdating,
-    handleUpdatePaymentModules, handleClaimReceipt, paymentExitProps,
+    handleUpdatePaymentModules, handleClaimReceipt, handlePaymentNavigateModule, paymentExitProps,
   ]);
 
   const trustPendingModule = useMemo(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSubject } from '@/lib/subjects';
 import { PREVIEW_MODULE_LABELS, type PreviewModule } from '@/lib/previewModules';
 import type { PreviewModuleStatusMap } from '@/lib/previewModuleStatus';
@@ -38,6 +38,8 @@ interface PreviewPaymentTabPanelProps {
   onClaimReceipt?: (modules: PreviewModule[]) => void;
   onBackToPurchased?: () => void;
   onBackToAvailable?: () => void;
+  /** Раздел ещё на пробе — перейти на вкладку, а не добавлять в оплату. */
+  onNavigateModule?: (module: PreviewModule) => void;
   backBusy?: boolean;
 }
 
@@ -54,6 +56,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
   onClaimReceipt,
   onBackToPurchased,
   onBackToAvailable,
+  onNavigateModule,
   backBusy = false,
 }) => {
   const { toast } = useToast();
@@ -68,30 +71,29 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
 
   const grantedSet = useMemo(() => new Set(grantedModules), [grantedModules]);
 
-  const pickableModules = useMemo(() => (
-    PAYMENT_MODULE_ROW_ORDER.filter(
-      m => chosenModules.includes(m) && !grantedSet.has(m),
-    )
-  ), [chosenModules, grantedSet]);
-
+  /** Только разделы с истёкшей пробой — в сумму оплаты. */
   const dueModules = useMemo(() => (
-    pickableModules.filter(m => {
+    PAYMENT_MODULE_ROW_ORDER.filter(m => {
+      if (!chosenModules.includes(m) || grantedSet.has(m)) return false;
       const st = moduleStatuses[m];
       return st === 'awaiting_payment' || st === 'rejected';
     })
-  ), [pickableModules, moduleStatuses]);
+  ), [chosenModules, grantedSet, moduleStatuses]);
 
   const defaultPaymentSelection = useMemo(() => {
     if (dueModules.length > 0) return dueModules;
-    if (pickableModules.includes(module)) return [module];
-    return pickableModules.length > 0 ? [pickableModules[0]] : [];
-  }, [dueModules, pickableModules, module]);
+    return [module];
+  }, [dueModules, module]);
 
-  const selectionKey = `${defaultPaymentSelection.join('|')}|${pickableModules.join('|')}`;
+  const selectionKey = `${defaultPaymentSelection.join('|')}|${dueModules.join('|')}`;
 
   const [selected, setSelected] = useState<PreviewModule[]>(defaultPaymentSelection);
+  /** Не дергать /api/auth повторно на каждый applyAccessPayload — только при смене выбора. */
+  const syncedSelectionKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (syncedSelectionKeyRef.current === selectionKey) return;
+    syncedSelectionKeyRef.current = selectionKey;
     setSelected(defaultPaymentSelection);
     if (defaultPaymentSelection.length > 0) {
       onUpdateModules?.(defaultPaymentSelection);
@@ -117,8 +119,13 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
 
   const toggleModule = useCallback((id: PreviewModule) => {
     const opt = rowOptions.find(o => o.id === id);
-    if (!opt?.selectable || opt.alreadyOwned || modulesUpdating || checking) return;
-    if (!pickableModules.includes(id)) return;
+    if (opt?.alreadyOwned || modulesUpdating || checking) return;
+    if (modulePhase(id) === 'trial') {
+      onNavigateModule?.(id);
+      return;
+    }
+    if (!dueModules.includes(id)) return;
+    if (opt && !opt.selectable) return;
 
     const next = selected.includes(id)
       ? selected.filter(m => m !== id)
@@ -132,7 +139,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
     persistSelection(ordered);
   }, [
     rowOptions, selected, modulesUpdating, checking, persistSelection,
-    pickableModules, modulePhase, dueModules,
+    dueModules, modulePhase, onNavigateModule,
   ]);
 
   const copyPhone = useCallback(async () => {
@@ -242,17 +249,19 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
         <div className="flex gap-2 w-full">
           {rowOptions.map(opt => {
             const phase = modulePhase(opt.id);
-            const pickable = pickableModules.includes(opt.id);
             const on = selected.includes(opt.id);
             const mustPay = phase === 'due' && dueModules.includes(opt.id);
-            const disabled = !opt.selectable || opt.alreadyOwned || !pickable
-              || modulesUpdating || checking || (mustPay && on);
+            const isTrial = phase === 'trial' && chosenModules.includes(opt.id);
+            const disabled = opt.alreadyOwned || modulesUpdating || checking
+              || (mustPay && on)
+              || (phase === 'due' && !opt.selectable);
             return (
               <button
                 key={opt.id}
                 type="button"
                 disabled={disabled}
                 onClick={() => toggleModule(opt.id)}
+                title={isTrial ? 'Перейти к пробе' : undefined}
                 className="flex-1 min-w-0 min-h-[44px] rounded-xl text-[11px] font-bold leading-tight px-1 py-1 transition-all active:scale-[0.98] disabled:opacity-40 flex flex-col items-center justify-center gap-0.5"
                 style={{
                   background: on
@@ -267,7 +276,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
                 ) : (
                   <>
                     <span>{MODULE_ROW_LABELS[opt.id]}</span>
-                    {phase === 'trial' && pickable && (
+                    {isTrial && (
                       <span className="text-[8px] font-semibold uppercase tracking-wide opacity-70">
                         проба
                       </span>
