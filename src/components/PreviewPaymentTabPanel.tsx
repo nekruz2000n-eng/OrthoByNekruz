@@ -5,6 +5,7 @@ import { getSubject } from '@/lib/subjects';
 import { PREVIEW_MODULE_LABELS, type PreviewModule } from '@/lib/previewModules';
 import type { PreviewModuleStatusMap } from '@/lib/previewModuleStatus';
 import {
+  bioUserHadTest,
   describePreviewPrice,
   formatPriceRub,
   getPaymentModuleRow,
@@ -107,9 +108,16 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
     return 'trial';
   }, [grantedSet, moduleStatuses]);
 
+  const isBio = subjectId === 'bio';
+
+  const bioHadTest = useMemo(
+    () => bioUserHadTest(chosenModules, grantedModules),
+    [chosenModules, grantedModules],
+  );
+
   const priceSummary = useMemo(
-    () => describePreviewPrice(subjectId, selected),
-    [subjectId, selected],
+    () => describePreviewPrice(subjectId, selected, { bioHadTest }),
+    [subjectId, selected, bioHadTest],
   );
 
   const persistSelection = useCallback((next: PreviewModule[]) => {
@@ -125,20 +133,25 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
       return;
     }
     if (!dueModules.includes(id)) return;
-    if (opt && !opt.selectable) return;
+    if (!isBio && opt && !opt.selectable) return;
 
     const next = selected.includes(id)
       ? selected.filter(m => m !== id)
       : [...selected, id];
     const ordered = PAYMENT_MODULE_ROW_ORDER.filter(m => next.includes(m));
     if (ordered.length === 0) return;
-    if (modulePhase(id) === 'due' && dueModules.includes(id) && !next.includes(id)) {
+    if (
+      !isBio
+      && modulePhase(id) === 'due'
+      && dueModules.includes(id)
+      && !next.includes(id)
+    ) {
       return;
     }
 
     persistSelection(ordered);
   }, [
-    rowOptions, selected, modulesUpdating, checking, persistSelection,
+    isBio, rowOptions, selected, modulesUpdating, checking, persistSelection,
     dueModules, modulePhase, onNavigateModule,
   ]);
 
@@ -250,11 +263,11 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
           {rowOptions.map(opt => {
             const phase = modulePhase(opt.id);
             const on = selected.includes(opt.id);
-            const mustPay = phase === 'due' && dueModules.includes(opt.id);
+            const mustPay = !isBio && phase === 'due' && dueModules.includes(opt.id);
             const isTrial = phase === 'trial' && chosenModules.includes(opt.id);
             const disabled = opt.alreadyOwned || modulesUpdating || checking
               || (mustPay && on)
-              || (phase === 'due' && !opt.selectable);
+              || (!isBio && phase === 'due' && !opt.selectable);
             return (
               <button
                 key={opt.id}

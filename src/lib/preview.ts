@@ -11,7 +11,7 @@ import {
   getGrantedCatalogModules,
   mergeGrantedModulesOnConfirm,
 } from '@/lib/catalogBrowse';
-import { calcPreviewPriceRub, getPaymentModuleRow } from '@/lib/previewPricing';
+import { bioUserHadTest, calcPreviewPriceRub, getPaymentModuleRow } from '@/lib/previewPricing';
 import {
   type PreviewModuleStatus,
   type PreviewModuleStatusMap,
@@ -719,7 +719,9 @@ export function buildActivePreviewUser(
     previewStatus:          'active' as PreviewStatus,
     previewChosenSubject:   subjectId,
     previewChosenModules:   chosenModules,
-    previewQuotedPrice:     calcPreviewPriceRub(subjectId, chosenModules),
+    previewQuotedPrice:     calcPreviewPriceRub(subjectId, chosenModules, {
+      bioHadTest: subjectId === 'bio' ? bioUserHadTest(chosenModules) : undefined,
+    }),
     previewStartedAt:       now,
     previewPickedAt:          now,
     previewConfirmedAt:       null,
@@ -979,7 +981,11 @@ export function adminForcePaymentOnlyScreen(user: any): any | null {
     previewModuleStatuses: statuses,
     previewActiveMsByModule: msMap,
     previewActiveMsConsumed: limit,
-    previewQuotedPrice: calcPreviewPriceRub(subjectId, chosen),
+    previewQuotedPrice: calcPreviewPriceRub(subjectId, chosen, {
+      bioHadTest: subjectId === 'bio'
+        ? bioUserHadTest(chosen, getGrantedModulesForPaymentSubject(user, subjectId))
+        : undefined,
+    }),
     previewStartedAt: user.previewStartedAt || now,
     receiptClaimedAt: null,
     previewConfirmedAt: null,
@@ -1076,7 +1082,9 @@ export function updatePreviewPaymentChoice(
     ...user,
     previewChosenSubject: subject,
     previewChosenModules: chosen,
-    previewQuotedPrice:   calcPreviewPriceRub(subject, paymentPick),
+    previewQuotedPrice:   calcPreviewPriceRub(subject, paymentPick, {
+      bioHadTest: subject === 'bio' ? bioUserHadTest(chosen, granted) : undefined,
+    }),
     previewModuleStatuses: statuses,
     navHidden,
   };
