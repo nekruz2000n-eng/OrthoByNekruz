@@ -7,7 +7,8 @@ import { loadSubjectData } from '@/lib/subjectData';
 import { CachedImage } from '@/components/CachedImage';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, BookOpen, CheckCircle2, Circle, X, Pencil, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Search, BookOpen, CheckCircle2, Circle, X, ArrowLeft, ArrowRight } from 'lucide-react';
+import { PersonalNoteCard } from '@/components/PersonalNoteCard';
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger
 } from '@/components/ui/accordion';
@@ -17,7 +18,6 @@ import { FlashcardsTab } from './FlashcardsTab';
 import { TrueFalseTab } from './TrueFalseTab';
 import type { BioGameMode } from './Navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
 import { termRegexSource as _termRegexSource, itemRelatedTerms } from '@/lib/glossaryUtils';
 
 interface GlossaryItem { term: string; variations?: string[]; definition: string; image?: string | string[]; }
@@ -379,6 +379,7 @@ export const QuestionsTab = ({
   const [userNotes, setUserNotes] = useState<Record<number, string>>({});
   const [isLoaded, setIsLoaded] = useState(false);
   const [readingQuestion, setReadingQuestion] = useState<any | null>(null);
+  const readingScrollRef = useRef<HTMLDivElement>(null);
   const [bioSectionLocal, setBioSectionLocal] = useState<BioGameMode>('list');
   const bioSection = bioSectionProp ?? bioSectionLocal;
   const setBioSection = onBioSectionChange ?? setBioSectionLocal;
@@ -666,41 +667,6 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
     </div>
   );
 };
-  const PersonalNote = ({ id }: { id: number }) => {
-    const [editing, setEditing] = useState(false);
-    const note = userNotes[id] || '';
-    const [local, setLocal] = useState(note);
-    const ref = useRef<HTMLTextAreaElement>(null);
-    useEffect(() => { setLocal(note); }, [note]);
-    useEffect(() => {
-      if (editing && ref.current) { ref.current.focus(); ref.current.setSelectionRange(ref.current.value.length, ref.current.value.length); }
-    }, [editing]);
-    return (
-      <div className="mt-4 p-4 rounded-2xl" style={{ background: 'var(--c-amber-dim)', border: '1px solid var(--c-amber-br)' }}>
-        <div className="flex items-center justify-between mb-2.5">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--c-amber)' }}>
-            <Pencil className="w-3 h-3" /> Моя заметка
-          </div>
-          <div className="flex gap-3">
-            {note && <button onClick={() => { clearNote(id); setLocal(''); }} style={{ color: 'hsl(var(--destructive))' }}><Trash2 className="w-3.5 h-3.5" /></button>}
-            <button onClick={() => { if (editing) updateNote(id, local); setEditing(v => !v); }} className="text-xs font-semibold" style={{ color: 'var(--c-amber)' }}>
-              {editing ? 'Готово' : 'Править'}
-            </button>
-          </div>
-        </div>
-        {editing
-          ? <textarea ref={ref} value={local} onChange={e => setLocal(e.target.value)} onBlur={() => updateNote(id, local)}
-              placeholder="Добавьте примечания..." autoFocus
-              className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm resize-none min-h-[60px]"
-              style={{ color: 'var(--c-text)', caretColor: 'var(--c-amber)' }} />
-          : <div className="text-sm prose prose-invert max-w-none break-words whitespace-pre-wrap min-h-[24px]" onClick={() => setEditing(true)}>
-              {note ? <ReactMarkdown>{note}</ReactMarkdown>
-                : <p className="italic text-sm" style={{ color: 'color-mix(in srgb, var(--c-amber) 40%, transparent)' }}>Нет примечаний. Нажмите «Править»...</p>}
-            </div>}
-      </div>
-    );
-  };
-
   const getPreview = (t: string) => t.replace(/\*\*/g, '').trim();
 
   return (
@@ -913,8 +879,11 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 pt-2 scroll-container"
-              onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+            <div
+              ref={readingScrollRef}
+              className="flex-1 overflow-y-auto px-5 pt-2 scroll-container"
+              onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
+            >
               
               <div className="space-y-4 pb-32 max-w-2xl mx-auto w-full overflow-x-hidden">
                 <div className="flex items-center gap-2 pt-2">
@@ -959,7 +928,12 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                     </div>
                   ));
                 })()}
-                <PersonalNote id={readingQuestion.id} />
+                <PersonalNoteCard
+                  note={userNotes[readingQuestion.id] || ''}
+                  onSave={text => updateNote(readingQuestion.id, text)}
+                  onClear={() => clearNote(readingQuestion.id)}
+                  scrollContainerRef={readingScrollRef}
+                />
                 {readingQuestion.audio && <AudioPlayer src={readingQuestion.audio} accentColor={accentColor} />}
               </div>
             </div>

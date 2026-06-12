@@ -11,12 +11,12 @@ import {
 } from '@/components/ui/accordion';
 import {
   Search, BookOpen, CheckCircle2, Circle, X, ChevronDown,
-  Pencil, Trash2, ArrowLeft, ArrowRight,
+  ArrowLeft, ArrowRight,
 } from 'lucide-react';
 import { FacultyIcon } from './FacultyIcon';
 import { motion, AnimatePresence } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
 import { RichText, GlossaryItem } from '@/components/RichText';
+import { PersonalNoteCard } from '@/components/PersonalNoteCard';
 import { itemRelatedTerms } from '@/lib/glossaryUtils';
 
 export const TasksTab = ({
@@ -151,60 +151,14 @@ export const TasksTab = ({
     </div>
   );
 
-  // ── Заметка ───────────────────────────────────────────────────────────────
-  const PersonalNote = ({ id }: { id: number }) => {
-    const [editing, setEditing] = useState(false);
-    const note = userNotes[id] || '';
-    const [local, setLocal] = useState(note);
-    const ref = useRef<HTMLTextAreaElement>(null);
-    useEffect(() => { setLocal(note); }, [note]);
-    useEffect(() => {
-      if (editing && ref.current) {
-        ref.current.focus();
-        ref.current.setSelectionRange(ref.current.value.length, ref.current.value.length);
-      }
-    }, [editing]);
-    return (
-      <div className="mt-4 p-3.5 rounded-2xl" style={{ background: 'var(--c-amber-dim)', border: '1px solid var(--c-amber-br)' }}>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-amber)' }}>
-            <Pencil className="w-3 h-3" /> Моя заметка
-          </div>
-          <div className="flex gap-3 items-center">
-            {note && (
-              <button onClick={() => { clearNote(id); setLocal(''); }} style={{ color: 'hsl(var(--destructive))' }}>
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-            <button
-              onClick={() => { if (editing) updateNote(id, local); setEditing(v => !v); }}
-              className="text-[11px] font-semibold"
-              style={{ color: 'var(--c-amber)' }}
-            >
-              {editing ? 'Готово' : 'Править'}
-            </button>
-          </div>
-        </div>
-        {editing
-          ? <textarea
-              ref={ref} value={local} onChange={e => setLocal(e.target.value)}
-              onBlur={() => updateNote(id, local)} placeholder="Добавьте примечания…" autoFocus
-              className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm resize-none min-h-[60px]"
-              style={{ color: 'var(--c-text)', caretColor: 'var(--c-amber)' }}
-            />
-          : <div
-              className="text-sm prose prose-invert max-w-none break-words whitespace-pre-wrap min-h-[24px]"
-              onClick={() => setEditing(true)}
-            >
-              {note
-                ? <ReactMarkdown>{note}</ReactMarkdown>
-                : <p className="italic text-sm" style={{ color: 'color-mix(in srgb, var(--c-amber) 45%, transparent)' }}>
-                    Нет примечаний. Нажмите «Править»…
-                  </p>}
-            </div>}
-      </div>
-    );
-  };
+  const renderNote = (id: number, inReading = false) => (
+    <PersonalNoteCard
+      note={userNotes[id] || ''}
+      onSave={text => updateNote(id, text)}
+      onClear={() => clearNote(id)}
+      scrollContainerRef={inReading ? readingScrollRef : undefined}
+    />
+  );
 
   const getPreview = (t: string) => t.replace(/\*\*/g, '').trim();
 
@@ -387,7 +341,7 @@ export const TasksTab = ({
                         </button>
                       </div>
 
-                      <PersonalNote id={task.id} />
+                      {renderNote(task.id)}
                     </AccordionContent>
                   </AccordionItem>
                 );
@@ -466,7 +420,7 @@ export const TasksTab = ({
                   fontSize={fontSize}
                 />
 
-                <PersonalNote id={readingTask.id} />
+                {renderNote(readingTask.id, true)}
               </div>
             </div>
 
