@@ -583,15 +583,6 @@ export default function Home() {
     void refreshAccess();
   }, [refreshAccess, previewConfirmedAt]);
 
-  // Если активный таб админ скрыл — переключаем на первый доступный
-  useEffect(() => {
-    const hidden = navHidden[subject] || [];
-    if (!hidden.includes(activeTab)) return;
-    const order: TabType[] = ['questions', 'tests', 'tasks', 'stats'];
-    const next = order.find(t => !hidden.includes(t));
-    if (next) setActiveTab(next);
-  }, [subject, navHidden, activeTab]);
-  
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1284,6 +1275,30 @@ export default function Home() {
     [previewGrantedModules],
   );
 
+  const navigationHiddenTabs = useMemo(() => {
+    const hidden = new Set(navHidden[subject] || []);
+    if (
+      previewChosen === subject
+      && !previewConfirmedAt
+      && (previewStatus === 'active' || previewStatus === 'expired' || !!receiptClaimedAt)
+    ) {
+      for (const m of grantedPreviewModules) hidden.delete(m);
+    }
+    return [...hidden] as TabType[];
+  }, [
+    navHidden, subject, previewChosen, previewConfirmedAt,
+    previewStatus, receiptClaimedAt, grantedPreviewModules,
+  ]);
+
+  // Если активный таб скрыт — переключаем на первый доступный (с учётом уже купленных разделов)
+  useEffect(() => {
+    const hidden = navigationHiddenTabs;
+    if (!hidden.includes(activeTab)) return;
+    const order: TabType[] = ['questions', 'tests', 'tasks', 'stats'];
+    const next = order.find(t => !hidden.includes(t));
+    if (next) setActiveTab(next);
+  }, [subject, navigationHiddenTabs, activeTab]);
+
   const resolveModuleStatus = useCallback((mod: PreviewModule): PreviewModuleStatus | undefined => {
     if (!previewChosen || !chosenPreviewModules.includes(mod)) return undefined;
     if (previewConfirmedAt) return 'confirmed';
@@ -1634,7 +1649,7 @@ export default function Home() {
         <Navigation
           activeTab={activeTab}
           onTabChange={handleNavTabChange}
-          hiddenTabs={(navHidden[subject] || []) as TabType[]}
+          hiddenTabs={navigationHiddenTabs}
           subject={subject}
           onBioModeCycle={subjectHasQuestionGameModes(subject) ? handleBioModeCycle : undefined}
           bioGameMode={subjectHasQuestionGameModes(subject) ? bioQuestionsSection : 'list'}

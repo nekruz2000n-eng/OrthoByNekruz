@@ -8,19 +8,19 @@ const CONTENT_MODULES: PreviewModule[] = ['questions', 'tests', 'tasks'];
 
 /** Предметы, уже открытые до витрины (докупка / ключ / админ). */
 export function getCatalogGrantedSubjects(user: any): string[] {
+  const ids = new Set<string>();
   const snap = user?._subjectsBeforePreview;
   if (snap && typeof snap === 'object') {
-    return Object.entries(snap)
-      .filter(([, v]) => v === true)
-      .map(([id]) => id);
+    for (const [id, v] of Object.entries(snap)) {
+      if (v === true) ids.add(id);
+    }
   }
   if (user?.subjects && typeof user.subjects === 'object') {
-    const ids = Object.entries(user.subjects)
-      .filter(([, v]) => v === true)
-      .map(([id]) => id);
-    if (ids.length) return ids;
+    for (const [id, v] of Object.entries(user.subjects)) {
+      if (v === true) ids.add(id);
+    }
   }
-  return [];
+  return [...ids];
 }
 
 /** Раздел уже в постоянном доступе — нельзя выбрать снова для пробы. */

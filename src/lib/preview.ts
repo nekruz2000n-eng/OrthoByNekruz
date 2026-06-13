@@ -648,6 +648,67 @@ export function isAddonPreviewPurchase(
   return Object.entries(before).some(([id, v]) => v === true && id !== subjectId);
 }
 
+/** Докупка разделов на предмете, который уже был открыт до пробы. */
+export function isSameSubjectAddonPreview(user: any, subjectId?: string): boolean {
+  const chosen = subjectId || user?.previewChosenSubject;
+  if (!chosen || !isPreviewPaymentFlowActive(user)) return false;
+  if (user._subjectsBeforePreview?.[chosen] === true) return true;
+  if (user._previewSnapshotBeforeAddon) return true;
+  return userAlreadyHasSubjectAccess(user, chosen) && !!user._navHiddenBeforePreview;
+}
+
+/** navHidden до начала пробы — для определения уже купленных разделов. */
+export function navHiddenBaseForGrantedModules(user: any): Record<string, string[]> {
+  if (user._navHiddenBeforePreview && typeof user._navHiddenBeforePreview === 'object') {
+    return user._navHiddenBeforePreview;
+  }
+  return (user.navHidden && typeof user.navHidden === 'object') ? user.navHidden : {};
+}
+
+export function grantedSubjectsForAddon(user: any, subjectId: string): string[] {
+  const ids = new Set(getCatalogGrantedSubjects(user));
+  if (user.subjects?.[subjectId] === true || user._subjectsBeforePreview?.[subjectId] === true) {
+    ids.add(subjectId);
+  }
+  return [...ids];
+}
+
+/** Навигация при докупке: купленные разделы + выбранные для пробы/оплаты. */
+export function buildSubjectAddonNavHidden(
+  user: any,
+  subjectId: string,
+  chosenModules: PreviewModule[],
+): string[] {
+  return buildNavHiddenForCatalogAddonPreview(
+    subjectId,
+    chosenModules,
+    grantedSubjectsForAddon(user, subjectId),
+    navHiddenBaseForGrantedModules(user),
+  );
+}
+
+/** Починить navHidden, если при докупке скрылись уже открытые разделы. */
+export function normalizeAddonPreviewNavHidden(user: any): any {
+  const subjectId = user?.previewChosenSubject;
+  if (!subjectId || !isPreviewPaymentFlowActive(user)) return user;
+  const chosen = normalizePreviewModules(user.previewChosenModules);
+  if (chosen.length === 0 || !isSameSubjectAddonPreview(user, subjectId)) return user;
+
+  const fixed = buildSubjectAddonNavHidden(user, subjectId, chosen);
+  const current = user.navHidden?.[subjectId];
+  if (
+    Array.isArray(current)
+    && current.length === fixed.length
+    && current.every((t: string) => fixed.includes(t))
+  ) {
+    return user;
+  }
+  return {
+    ...user,
+    navHidden: { ...(user.navHidden || {}), [subjectId]: fixed },
+  };
+}
+
 /** У пользователя уже были другие предметы — заявка на докупку. */
 export function previewChoiceIsAddon(user: any): boolean {
   const chosen = user?.previewChosenSubject;
@@ -793,17 +854,14 @@ export function buildActivePreviewUser(
   const subjects = before ? { ...before } : createDefaultSubjects();
   subjects[subjectId] = true;
   const now = new Date().toISOString();
-  const granted = getCatalogGrantedSubjects(user);
   const isCatalogAddon = options?.catalogAddon === true
     && userAlreadyHasSubjectAccess(user, subjectId);
   const isAddonPurchase = isAddonPreviewPurchase(user, subjectId, before, options);
-  const hiddenTabs = isCatalogAddon
-    ? buildNavHiddenForCatalogAddonPreview(
-      subjectId,
-      chosenModules,
-      granted,
-      user.navHidden || {},
-    )
+  const isSubjectAddon = isAddonPurchase && (
+    before?.[subjectId] === true || userAlreadyHasSubjectAccess(user, subjectId)
+  );
+  const hiddenTabs = isSubjectAddon
+    ? buildSubjectAddonNavHidden(user, subjectId, chosenModules)
     : buildNavHiddenForPreview(subjectId, chosenModules);
   const navHidden = { ...(user.navHidden || {}), [subjectId]: hiddenTabs };
   const navHiddenBeforePreview = (isCatalogAddon || isAddonPurchase)
@@ -850,12 +908,8 @@ export function isAdminPaymentOnlyLocked(user: any): boolean {
 /** Предметы, уже открыты до текущей заявки на оплату. */
 export function getPaymentGrantedSubjects(user: any): string[] {
   if (isAdminPaymentOnlyLocked(user)) return [];
-  const before = user._subjectsBeforePreview;
-  if (before && typeof before === 'object') {
-    return Object.entries(before)
-      .filter(([, v]) => v === true)
-      .map(([id]) => id);
-  }
+  const granted = getCatalogGrantedSubjects(user);
+  if (granted.length > 0) return granted;
   const chosen = user?.previewChosenSubject;
   if (chosen && isPreviewPaymentFlowActive(user)) {
     const subs = user.subjects && typeof user.subjects === 'object' ? user.subjects : {};
@@ -873,16 +927,16 @@ export function getPaymentGrantedSubjects(user: any): string[] {
   ) {
     return [];
   }
-  return getCatalogGrantedSubjects(user);
+  return [];
 }
 
 /** Купленные разделы предмета на экране оплаты. */
 export function getGrantedModulesForPaymentSubject(user: any, subjectId: string): PreviewModule[] {
-  const grantedSubjects = getPaymentGrantedSubjects(user);
-  const baseNavHidden = (user._navHiddenBeforePreview && typeof user._navHiddenBeforePreview === 'object')
-    ? user._navHiddenBeforePreview
-    : (user.navHidden || {});
-  return getGrantedCatalogModules(subjectId, grantedSubjects, baseNavHidden);
+  return getGrantedCatalogModules(
+    subjectId,
+    grantedSubjectsForAddon(user, subjectId),
+    navHiddenBaseForGrantedModules(user),
+  );
 }
 
 /** Разделы, уже куплены до текущей заявки на докупку (для экрана оплаты). */
@@ -1025,7 +1079,9 @@ export function expirePreviewUser(user: any) {
   if (subject && chosen.length > 0) {
     navHidden = {
       ...navHidden,
-      [subject]: buildNavHiddenForPaymentTabs(subject, chosen, confirmed),
+      [subject]: isSameSubjectAddonPreview(user, subject)
+        ? buildSubjectAddonNavHidden(user, subject, chosen)
+        : buildNavHiddenForPaymentTabs(subject, chosen, confirmed),
     };
   } else {
     navHidden = restoreNavHiddenAfterPreviewExpire(user);
@@ -1152,12 +1208,8 @@ export function updatePreviewPaymentChoice(
 
   const before = user._subjectsBeforePreview;
   const isAddon = before && typeof before === 'object' && before[subject] === true;
-  const grantedSubjects = isAddon ? getCatalogGrantedSubjects(user) : [];
-  const baseNavHidden = (user._navHiddenBeforePreview && typeof user._navHiddenBeforePreview === 'object')
-    ? user._navHiddenBeforePreview
-    : (user.navHidden || {});
   const hiddenTabs = isAddon
-    ? buildNavHiddenForCatalogAddonPreview(subject, chosen, grantedSubjects, baseNavHidden)
+    ? buildSubjectAddonNavHidden(user, subject, chosen)
     : buildNavHiddenForPaymentTabs(subject, chosen, chosen.filter(m => granted.includes(m)));
   const navHidden = { ...(user.navHidden || {}), [subject]: hiddenTabs };
 
@@ -1271,7 +1323,9 @@ export function claimPreviewReceipt(user: any, modulesToClaim?: PreviewModule[])
 
   const navHidden = {
     ...(user.navHidden || {}),
-    [chosen]: buildNavHiddenForPaymentTabs(chosen, allChosen, allChosen),
+    [chosen]: isSameSubjectAddonPreview(user, chosen)
+      ? buildSubjectAddonNavHidden(user, chosen, allChosen)
+      : buildNavHiddenForPaymentTabs(chosen, allChosen, allChosen),
   };
 
   return {
@@ -1378,7 +1432,9 @@ export function confirmPreviewModule(user: any, module: PreviewModule) {
 
   const navHidden = {
     ...(user.navHidden || {}),
-    [chosen]: buildNavHiddenForPaymentTabs(chosen, allChosen, confirmed),
+    [chosen]: isSameSubjectAddonPreview(user, chosen)
+      ? buildSubjectAddonNavHidden(user, chosen, allChosen)
+      : buildNavHiddenForPaymentTabs(chosen, allChosen, confirmed),
   };
 
   const trustExpires = user.previewModuleTrustExpiresAt && typeof user.previewModuleTrustExpiresAt === 'object'
@@ -1409,7 +1465,9 @@ export function rejectPreviewModule(user: any, module: PreviewModule) {
 
   const navHidden = {
     ...(user.navHidden || {}),
-    [chosen]: buildNavHiddenForPaymentTabs(chosen, allChosen, allChosen),
+    [chosen]: isSameSubjectAddonPreview(user, chosen)
+      ? buildSubjectAddonNavHidden(user, chosen, allChosen)
+      : buildNavHiddenForPaymentTabs(chosen, allChosen, allChosen),
   };
 
   const hasTrustAccess = allChosen.some(

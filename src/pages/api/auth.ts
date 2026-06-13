@@ -29,6 +29,7 @@ import {
   isPreviewShortDurationAccount,
   hasFinalizedPreviewAccess,
   healStalePreviewForFinalizedUser,
+  normalizeAddonPreviewNavHidden,
   userAlreadyHasAllChosenModules,
   claimPreviewReceipt,
   updatePreviewPaymentChoice,
@@ -373,6 +374,7 @@ async function saveUser(tgId: string, user: any) {
 
 async function subjectsResponse(user: any, tgId?: string, extra?: Record<string, unknown>) {
   user = migrateUserSubjects(user);
+  user = normalizeAddonPreviewNavHidden(user);
   const subjects = getEffectiveUserSubjects(user, tgId);
   const catalog = user?.previewStatus ? await buildPreviewSubjectCatalog(redis) : undefined;
   return {
@@ -386,7 +388,8 @@ async function subjectsResponse(user: any, tgId?: string, extra?: Record<string,
 
 async function healAndMaybePersistUser(tgId: string, user: any, redisOk: boolean): Promise<{ user: any; accessHealed: boolean }> {
   const before = user;
-  const healed = healStalePreviewForFinalizedUser(user);
+  let healed = healStalePreviewForFinalizedUser(user);
+  healed = normalizeAddonPreviewNavHidden(healed);
   const accessHealed = healed !== before;
   if (redisOk && accessHealed) {
     await saveUser(tgId, touchUserActivity(healed));
