@@ -140,18 +140,10 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
       : [...selected, id];
     const ordered = PAYMENT_MODULE_ROW_ORDER.filter(m => next.includes(m));
     if (ordered.length === 0) return;
-    if (
-      !isBio
-      && modulePhase(id) === 'due'
-      && dueModules.includes(id)
-      && !next.includes(id)
-    ) {
-      return;
-    }
 
     persistSelection(ordered);
   }, [
-    isBio, rowOptions, selected, modulesUpdating, checking, persistSelection,
+    rowOptions, selected, modulesUpdating, checking, persistSelection,
     dueModules, modulePhase, onNavigateModule,
   ]);
 
@@ -263,10 +255,11 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
           {rowOptions.map(opt => {
             const phase = modulePhase(opt.id);
             const on = selected.includes(opt.id);
-            const mustPay = !isBio && phase === 'due' && dueModules.includes(opt.id);
             const isTrial = phase === 'trial' && chosenModules.includes(opt.id);
+            const dueSelectedCount = dueModules.filter(m => selected.includes(m)).length;
+            const isLastDueSelected = phase === 'due' && on && dueSelectedCount <= 1;
             const disabled = opt.alreadyOwned || modulesUpdating || checking
-              || (mustPay && on)
+              || isLastDueSelected
               || (!isBio && phase === 'due' && !opt.selectable);
             return (
               <button
