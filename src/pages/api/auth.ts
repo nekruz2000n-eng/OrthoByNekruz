@@ -328,14 +328,20 @@ function previewPayload(
   const navHidden = (user?.navHidden && typeof user.navHidden === 'object')
     ? user.navHidden as Record<string, string[]>
     : {};
+  const chosen = normalizePreviewModules(user?.previewChosenModules);
+  const moduleStatuses = ensureModuleStatusMap(user);
+  const hasTrialModule = chosen.some(m => moduleStatuses[m] === 'trial');
   return {
     previewStatus:        user?.previewStatus ?? null,
     previewChosenSubject: user?.previewChosenSubject ?? null,
     previewChosenModules: user?.previewChosenModules ?? null,
+    previewPaymentSelection: user?.previewPaymentSelection ?? null,
     studyGroup:           user?.studyGroup ?? null,
     needsStudyGroup:      false,
     previewEndsAt:        previewEndsAt(user, tgId),
-    previewStartedAt:     user?.previewStatus === 'active' ? (user.previewStartedAt ?? null) : null,
+    previewStartedAt:     (user?.previewStatus === 'active' || hasTrialModule)
+      ? (user.previewStartedAt ?? null)
+      : null,
     previewConfirmedAt:   user?.previewConfirmedAt ?? null,
     previewQuotedPrice:   user?.previewQuotedPrice ?? null,
     receiptClaimedAt:     user?.receiptClaimedAt ?? null,
@@ -610,7 +616,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (mode === 'sync_preview_active') {
-      if (!user || user.previewStatus !== 'active') {
+      if (!user) {
         return res.status(200).json({ success: true, ...(await subjectsResponse(user, tgIdStr)) });
       }
       const deltaMs = Number(req.body?.deltaMs);

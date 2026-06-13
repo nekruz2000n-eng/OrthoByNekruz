@@ -161,6 +161,7 @@ function clearStalePreviewFlowFields(healed: Record<string, any>) {
   delete healed.previewActiveMsConsumed;
   delete healed.previewActiveMsByModule;
   delete healed.previewModuleRealSince;
+  delete healed.previewPaymentSelection;
   delete healed.previewModuleStatuses;
   delete healed.previewModuleTrustExpiresAt;
   delete healed._subjectsBeforePreview;
@@ -308,7 +309,6 @@ export function isPreviewModuleTrialExpired(
   module: PreviewModule,
   tgId?: string | null,
 ): boolean {
-  if (user?.previewStatus !== 'active') return true;
   const chosen = normalizePreviewModules(user?.previewChosenModules);
   if (!chosen.includes(module)) return true;
   const statuses = ensureModuleStatusMap(user, user.previewChosenSubject);
@@ -354,7 +354,6 @@ export function previewRemainingMsForModule(
   module: PreviewModule,
   tgId?: string | null,
 ): number {
-  if (user?.previewStatus !== 'active') return 0;
   const chosen = normalizePreviewModules(user?.previewChosenModules);
   if (!chosen.includes(module)) return 0;
   const statuses = ensureModuleStatusMap(user, user.previewChosenSubject);
@@ -441,12 +440,13 @@ function finalizePreviewExpiry(user: any): any {
 
 /** По таймеру переводит разделы из trial в awaiting_payment по одному. */
 export function applyModuleTrialExpiries(user: any, tgId?: string | null): any {
-  if (user?.previewStatus !== 'active') return user;
-  const subject = user.previewChosenSubject;
-  const chosen = normalizePreviewModules(user.previewChosenModules);
+  const subject = user?.previewChosenSubject;
+  const chosen = normalizePreviewModules(user?.previewChosenModules);
   if (!subject || chosen.length === 0) return user;
 
   const statuses: PreviewModuleStatusMap = { ...ensureModuleStatusMap(user, subject) };
+  const hasTrial = chosen.some(m => statuses[m] === 'trial');
+  if (!hasTrial) return user;
   const msMap = ensurePreviewActiveMsMap(user, chosen);
   let changed = false;
 
@@ -514,7 +514,7 @@ export function syncPreviewActiveMs(
   deltaMs: number,
   tgId?: string | null,
 ): any {
-  if (!user || user.previewStatus !== 'active') return user;
+  if (!user) return user;
   const chosen = normalizePreviewModules(user.previewChosenModules);
   if (!module || !chosen.includes(module)) return user;
 
@@ -1192,6 +1192,7 @@ export function updatePreviewPaymentChoice(
     ...user,
     previewChosenSubject: subject,
     previewChosenModules: chosen,
+    previewPaymentSelection: paymentPick,
     previewQuotedPrice:   calcPreviewPriceRub(subject, paymentPick, {
       bioHadTest: subject === 'bio' ? bioUserHadTest(chosen, granted) : undefined,
     }),
@@ -1242,11 +1243,12 @@ export function claimPreviewReceipt(user: any, modulesToClaim?: PreviewModule[])
 
   const allChosen = getPreviewChosenModulesForAdmin(user);
   const payable = modulesToClaim && modulesToClaim.length > 0
-    ? normalizePreviewModules(modulesToClaim).filter(
-      m => allChosen.includes(m) || ensureModuleStatusMap(user, chosen)[m] === 'awaiting_payment'
-        || ensureModuleStatusMap(user, chosen)[m] === 'rejected'
-        || ensureModuleStatusMap(user, chosen)[m] === 'trial',
-    )
+    ? normalizePreviewModules(modulesToClaim).filter(m => {
+      const st = ensureModuleStatusMap(user, chosen)[m];
+      if (st === 'confirmed' || st === 'receipt_pending') return false;
+      return allChosen.includes(m)
+        && (st === 'awaiting_payment' || st === 'rejected' || st === 'trial');
+    })
     : modulesAwaitingPayment(ensureModuleStatusMap(user, chosen));
   if (payable.length === 0) return null;
 
@@ -1257,16 +1259,9 @@ export function claimPreviewReceipt(user: any, modulesToClaim?: PreviewModule[])
       : {}),
   };
   const trustDeadline = new Date(Date.now() + PREVIEW_RECEIPT_TRUST_MS).toISOString();
-  const explicitClaim = Boolean(modulesToClaim && modulesToClaim.length > 0);
-  const tgId = user?.telegramId != null ? String(user.telegramId) : null;
   for (const m of payable) {
-    const st = statuses[m];
-    if (st === 'confirmed' || st === 'receipt_pending') continue;
-    const expiredTrial = st === 'trial' && isPreviewModuleTrialExpired(user, m, tgId);
-    if (explicitClaim || st === 'awaiting_payment' || st === 'rejected' || expiredTrial) {
-      statuses[m] = 'receipt_pending';
-      trustExpires[m] = trustDeadline;
-    }
+    statuses[m] = 'receipt_pending';
+    trustExpires[m] = trustDeadline;
   }
 
   const subjects = user.subjects && typeof user.subjects === 'object'
@@ -1285,8 +1280,11 @@ export function claimPreviewReceipt(user: any, modulesToClaim?: PreviewModule[])
     receiptClaimedAt:           user.receiptClaimedAt ?? new Date().toISOString(),
     previewModuleStatuses:      statuses,
     previewModuleTrustExpiresAt: trustExpires,
+    previewPaymentSelection:    undefined,
     navHidden,
-    previewStatus:              user.previewStatus === 'active' ? 'expired' as PreviewStatus : user.previewStatus,
+    previewStatus:              allChosen.some((m: PreviewModule) => statuses[m] === 'trial')
+      ? ('active' as PreviewStatus)
+      : (user.previewStatus === 'active' ? 'expired' as PreviewStatus : user.previewStatus),
   };
 }
 
@@ -1533,7 +1531,12 @@ export async function maybeExpirePreviewUser(
     user = updated;
   }
 
-  if (user.previewStatus !== 'active') return user;
+  if (user.previewStatus !== 'active') {
+    const chosen = normalizePreviewModules(user.previewChosenModules);
+    const statuses = ensureModuleStatusMap(user);
+    const hasTrial = chosen.some(m => statuses[m] === 'trial');
+    if (!hasTrial) return user;
+  }
 
   updated = applyModuleTrialExpiries(user, tgId);
   if (updated === user) return user;

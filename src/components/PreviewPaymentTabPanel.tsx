@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSubject } from '@/lib/subjects';
-import { PREVIEW_MODULE_LABELS, type PreviewModule } from '@/lib/previewModules';
+import { PREVIEW_MODULE_LABELS, normalizePreviewModules, type PreviewModule } from '@/lib/previewModules';
 import type { PreviewModuleStatusMap } from '@/lib/previewModuleStatus';
 import {
   bioUserHadTest,
@@ -32,6 +32,8 @@ interface PreviewPaymentTabPanelProps {
   chosenModules: PreviewModule[];
   grantedModules?: PreviewModule[];
   moduleStatuses?: PreviewModuleStatusMap;
+  /** Сохранённый выбор на экране оплаты (с сервера). */
+  paymentSelection?: PreviewModule[] | null;
   status: 'awaiting_payment' | 'rejected' | 'receipt_pending';
   checking?: boolean;
   modulesUpdating?: boolean;
@@ -39,8 +41,6 @@ interface PreviewPaymentTabPanelProps {
   onClaimReceipt?: (modules: PreviewModule[]) => void;
   onBackToPurchased?: () => void;
   onBackToAvailable?: () => void;
-  /** Раздел ещё на пробе — перейти на вкладку, а не добавлять в оплату. */
-  onNavigateModule?: (module: PreviewModule) => void;
   backBusy?: boolean;
 }
 
@@ -50,6 +50,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
   chosenModules,
   grantedModules = [],
   moduleStatuses = {},
+  paymentSelection = null,
   status,
   checking = false,
   modulesUpdating = false,
@@ -57,7 +58,6 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
   onClaimReceipt,
   onBackToPurchased,
   onBackToAvailable,
-  onNavigateModule,
   backBusy = false,
 }) => {
   const { toast } = useToast();
@@ -72,7 +72,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
 
   const grantedSet = useMemo(() => new Set(grantedModules), [grantedModules]);
 
-  /** Только разделы с истёкшей пробой — в сумму оплаты. */
+  /** Разделы с истёкшей пробой — в оплату по умолчанию. */
   const dueModules = useMemo(() => (
     PAYMENT_MODULE_ROW_ORDER.filter(m => {
       if (!chosenModules.includes(m) || grantedSet.has(m)) return false;
@@ -81,15 +81,31 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
     })
   ), [chosenModules, grantedSet, moduleStatuses]);
 
-  const defaultPaymentSelection = useMemo(() => {
-    if (dueModules.length > 0) return dueModules;
-    return [module];
-  }, [dueModules, module]);
+  /** Можно включать/выключать в сумму: проба, оплата, отказ. */
+  const toggleableModules = useMemo(() => (
+    PAYMENT_MODULE_ROW_ORDER.filter(m => {
+      if (!chosenModules.includes(m) || grantedSet.has(m)) return false;
+      const st = moduleStatuses[m];
+      return st === 'trial' || st === 'awaiting_payment' || st === 'rejected' || !st;
+    })
+  ), [chosenModules, grantedSet, moduleStatuses]);
 
-  const selectionKey = `${defaultPaymentSelection.join('|')}|${dueModules.join('|')}`;
+  const defaultPaymentSelection = useMemo(() => {
+    const saved = normalizePreviewModules(paymentSelection).filter(m => toggleableModules.includes(m));
+    if (saved.length > 0) return saved;
+    if (dueModules.length > 0) return dueModules;
+    if (toggleableModules.includes(module)) return [module];
+    return toggleableModules.slice(0, 1);
+  }, [paymentSelection, dueModules, module, toggleableModules]);
+
+  const selectionKey = [
+    defaultPaymentSelection.join('|'),
+    dueModules.join('|'),
+    toggleableModules.join('|'),
+    (paymentSelection ?? []).join('|'),
+  ].join('::');
 
   const [selected, setSelected] = useState<PreviewModule[]>(defaultPaymentSelection);
-  /** Не дергать /api/auth повторно на каждый applyAccessPayload — только при смене выбора. */
   const syncedSelectionKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -111,8 +127,8 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
   const isBio = subjectId === 'bio';
 
   const bioHadTest = useMemo(
-    () => bioUserHadTest(chosenModules, grantedModules),
-    [chosenModules, grantedModules],
+    () => bioUserHadTest([...new Set([...selected, ...grantedModules])], grantedModules),
+    [selected, grantedModules],
   );
 
   const priceSummary = useMemo(
@@ -128,11 +144,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
   const toggleModule = useCallback((id: PreviewModule) => {
     const opt = rowOptions.find(o => o.id === id);
     if (opt?.alreadyOwned || modulesUpdating || checking) return;
-    if (modulePhase(id) === 'trial') {
-      onNavigateModule?.(id);
-      return;
-    }
-    if (!dueModules.includes(id)) return;
+    if (!toggleableModules.includes(id)) return;
     if (!isBio && opt && !opt.selectable) return;
 
     const next = selected.includes(id)
@@ -144,7 +156,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
     persistSelection(ordered);
   }, [
     rowOptions, selected, modulesUpdating, checking, persistSelection,
-    dueModules, modulePhase, onNavigateModule,
+    toggleableModules, isBio,
   ]);
 
   const copyPhone = useCallback(async () => {
@@ -256,10 +268,10 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
             const phase = modulePhase(opt.id);
             const on = selected.includes(opt.id);
             const isTrial = phase === 'trial' && chosenModules.includes(opt.id);
-            const dueSelectedCount = dueModules.filter(m => selected.includes(m)).length;
-            const isLastDueSelected = phase === 'due' && on && dueSelectedCount <= 1;
+            const isLastSelected = on && selected.length <= 1;
             const disabled = opt.alreadyOwned || modulesUpdating || checking
-              || isLastDueSelected
+              || isLastSelected
+              || (!toggleableModules.includes(opt.id))
               || (!isBio && phase === 'due' && !opt.selectable);
             return (
               <button
@@ -267,7 +279,6 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
                 type="button"
                 disabled={disabled}
                 onClick={() => toggleModule(opt.id)}
-                title={isTrial ? 'Перейти к пробе' : undefined}
                 className="flex-1 min-w-0 min-h-[44px] rounded-xl text-[11px] font-bold leading-tight px-1 py-1 transition-all active:scale-[0.98] disabled:opacity-40 flex flex-col items-center justify-center gap-0.5"
                 style={{
                   background: on

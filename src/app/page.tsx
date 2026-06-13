@@ -208,6 +208,7 @@ export default function Home() {
   const [paymentGrantedSubjects, setPaymentGrantedSubjects] = useState<string[]>([]);
   const [abandonPreviewBusy, setAbandonPreviewBusy] = useState(false);
   const [paymentModulesUpdating, setPaymentModulesUpdating] = useState(false);
+  const [previewPaymentSelection, setPreviewPaymentSelection] = useState<PreviewModule[]>([]);
   const [showAccessWelcome, setShowAccessWelcome] = useState(false);
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
   const [previewModuleStatuses, setPreviewModuleStatuses] = useState<PreviewModuleStatusMap>({});
@@ -239,11 +240,6 @@ export default function Home() {
     setActiveTab(tab);
     if (tab === 'questions') setBioQuestionsSection('list');
   }, []);
-
-  const handlePaymentNavigateModule = useCallback((mod: PreviewModule) => {
-    const tab: TabType = mod;
-    handleNavTabChange(tab);
-  }, [handleNavTabChange]);
 
   const handleBioModeCycle = useCallback(() => {
     setActiveTab('questions');
@@ -321,6 +317,11 @@ export default function Home() {
     setPreviewStatus(ps);
     setPreviewChosen(d?.previewChosenSubject ?? null);
     setPreviewModules(Array.isArray(d?.previewChosenModules) ? d.previewChosenModules : []);
+    setPreviewPaymentSelection(
+      Array.isArray(d?.previewPaymentSelection)
+        ? normalizePreviewModules(d.previewPaymentSelection)
+        : [],
+    );
     setPreviewEndsAt(d?.previewEndsAt ?? null);
     setPreviewStartedAt(d?.previewStartedAt ?? null);
     setPreviewQuotedPrice(typeof d?.previewQuotedPrice === 'number' ? d.previewQuotedPrice : null);
@@ -746,7 +747,7 @@ export default function Home() {
   }, [applyAccessPayload, activeTab, tabToModule]);
 
   useEffect(() => {
-    if (!isAuthenticated || previewStatus !== 'active') return;
+    if (!isAuthenticated) return;
     const chosen = normalizePreviewModules(previewModules);
     if (chosen.length === 0) return;
 
@@ -758,7 +759,8 @@ export default function Home() {
     const isActiveNow = () => {
       if (!testAccount && typeof document !== 'undefined' && document.hidden) return false;
       const mod = tabToModule(activeTab);
-      return mod != null && chosen.includes(mod);
+      if (mod == null || !chosen.includes(mod)) return false;
+      return previewModuleStatuses[mod] === 'trial';
     };
 
     const tick = () => {
@@ -791,7 +793,7 @@ export default function Home() {
       document.removeEventListener('visibilitychange', onVisible);
       void syncPreviewActive(true);
     };
-  }, [isAuthenticated, previewStatus, previewModules, activeTab, tabToModule, syncPreviewActive]);
+  }, [isAuthenticated, previewModules, activeTab, tabToModule, syncPreviewActive, previewModuleStatuses]);
 
   // Опрос: админ подтвердил до конца пробы — сразу приветствие и доступ (вкладка видима)
   useEffect(() => {
@@ -1286,11 +1288,9 @@ export default function Home() {
     if (st === 'confirmed' || st === 'receipt_pending' || st === 'awaiting_payment' || st === 'rejected') {
       return st;
     }
-    if (receiptClaimedAt && !previewConfirmedAt) return 'receipt_pending';
 
-    if (previewStatus === 'expired') return 'awaiting_payment';
-
-    if (previewStatus === 'active') {
+    const isTrial = st === 'trial' || (!st && previewStatus === 'active');
+    if (isTrial) {
       const tgId = getTgId();
       if (isPreviewShortDurationAccount(tgId)) {
         const realMs = previewModuleRealMsRef.current[mod] ?? 0;
@@ -1298,13 +1298,14 @@ export default function Home() {
       }
       const remMs = previewRemainingMsByModule[mod];
       if (remMs != null && remMs <= 0) return 'awaiting_payment';
-      return st || 'trial';
+      return 'trial';
     }
 
+    if (previewStatus === 'expired') return 'awaiting_payment';
     return st;
   }, [
     previewModuleStatuses, previewChosen, chosenPreviewModules,
-    previewStatus, receiptClaimedAt, previewConfirmedAt, previewRemainingMsByModule,
+    previewStatus, previewConfirmedAt, previewRemainingMsByModule,
     previewTrialClockTick,
   ]);
 
@@ -1328,7 +1329,7 @@ export default function Home() {
 
   // Локальный отсчёт per-module + мгновенный sync при нуле (до ответа сервера — экран оплаты)
   useEffect(() => {
-    if (!isAuthenticated || previewStatus !== 'active') return;
+    if (!isAuthenticated) return;
     const mod = tabToModule(activeTab);
     if (!mod || !chosenPreviewModules.includes(mod)) return;
     if (resolveModuleStatus(mod) !== 'trial') return;
@@ -1356,15 +1357,18 @@ export default function Home() {
     }, 1000);
     return () => clearInterval(iv);
   }, [
-    isAuthenticated, previewStatus, chosenPreviewModules, activeTab,
+    isAuthenticated, chosenPreviewModules, activeTab,
     tabToModule, resolveModuleStatus, syncPreviewActive,
   ]);
 
   // При смене вкладки — сразу sync (фиксируем время прошлого раздела)
   useEffect(() => {
-    if (!isAuthenticated || previewStatus !== 'active') return;
+    if (!isAuthenticated) return;
+    const mod = tabToModule(activeTab);
+    if (!mod || !chosenPreviewModules.includes(mod)) return;
+    if (previewModuleStatuses[mod] !== 'trial') return;
     void syncPreviewActive(true);
-  }, [activeTab, isAuthenticated, previewStatus, syncPreviewActive]);
+  }, [activeTab, isAuthenticated, chosenPreviewModules, previewModuleStatuses, tabToModule, syncPreviewActive]);
 
   const paymentExitProps = useMemo(() => ({
     onBackToPurchased: canReturnToPurchased ? handleReturnToPurchased : undefined,
@@ -1391,12 +1395,12 @@ export default function Home() {
           chosenModules={chosenPreviewModules}
           grantedModules={grantedPreviewModules}
           moduleStatuses={paymentModuleStatuses}
+          paymentSelection={previewPaymentSelection}
           status={st}
           checking={statusChecking}
           modulesUpdating={paymentModulesUpdating}
           onUpdateModules={handleUpdatePaymentModules}
           onClaimReceipt={handleClaimReceipt}
-          onNavigateModule={handlePaymentNavigateModule}
           {...paymentExitProps}
         />
       );
@@ -1408,7 +1412,7 @@ export default function Home() {
   }, [
     previewChosen, subject, tabToModule, chosenPreviewModules, grantedPreviewModules,
     paymentModuleStatuses, resolveModuleStatus, previewStatus, statusChecking, paymentModulesUpdating,
-    handleUpdatePaymentModules, handleClaimReceipt, handlePaymentNavigateModule, paymentExitProps,
+    previewPaymentSelection, handleUpdatePaymentModules, handleClaimReceipt, paymentExitProps,
   ]);
 
   const trustPendingModule = useMemo(() => {
