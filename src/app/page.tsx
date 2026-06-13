@@ -20,9 +20,11 @@ import { applyClientAccessCacheVersion, clearPreviewClientKeys } from '@/lib/acc
 import { getDefaultSubjectId, subjectHasQuestionGameModes } from '@/lib/subjects';
 import { bustSubjectModuleCache, setOnSubjectDataUnavailable } from '@/lib/subjectData';
 import {
+  getPreviewActiveTimeMultiplier,
   getPreviewRealWindowMs,
   getPreviewSyncIntervalMs,
   isPreviewShortDurationAccount,
+  PREVIEW_TEST_REAL_WINDOW_MS,
   type PreviewActiveMsMap,
   type PreviewStatus,
 } from '@/lib/preview';
@@ -147,10 +149,11 @@ function clearLocalSession() {
 }
 
 function getTgId(): string | null {
+  const fromTg = (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id;
+  if (fromTg != null) return String(fromTg).trim();
   const fromLs = localStorage.getItem('user_tg_id');
   if (fromLs) return fromLs.trim();
-  const fromTg = (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id;
-  return fromTg != null ? String(fromTg).trim() : null;
+  return null;
 }
 
 function resolvePreviewEndIso(
@@ -211,6 +214,7 @@ export default function Home() {
   const [previewRemainingMinByModule, setPreviewRemainingMinByModule] = useState<PreviewActiveMsMap>({});
   const [previewRemainingMsByModule, setPreviewRemainingMsByModule] = useState<PreviewActiveMsMap>({});
   const [previewModuleTrustExpiresAt, setPreviewModuleTrustExpiresAt] = useState<Record<string, string>>({});
+  const [previewTrialClockTick, setPreviewTrialClockTick] = useState(0);
   const [trustNoticeDismissed, setTrustNoticeDismissed] = useState(false);
   const [pendingPaymentSubject, setPendingPaymentSubject] = useState<string | null>(null);
   const [serviceDegraded, setServiceDegraded] = useState(false);
@@ -218,6 +222,7 @@ export default function Home() {
   const [retryClaimAfterGroup, setRetryClaimAfterGroup] = useState<PreviewModule[] | null>(null);
   const pendingReceiptModulesRef = useRef<PreviewModule[] | null>(null);
   const previewActiveDeltaRef = useRef(0);
+  const previewModuleRealMsRef = useRef<Partial<Record<PreviewModule, number>>>({});
   const previewSyncBusyRef    = useRef(false);
   const { toast }    = useToast();
 
@@ -401,6 +406,7 @@ export default function Home() {
       else localStorage.removeItem('preview_end');
       if (d?.previewStartedAt) localStorage.setItem('preview_start', d.previewStartedAt);
       else localStorage.removeItem('preview_start');
+      previewModuleRealMsRef.current = {};
     } else {
       localStorage.removeItem('preview_end');
       localStorage.removeItem('preview_start');
@@ -757,8 +763,16 @@ export default function Home() {
 
     const tick = () => {
       const now = Date.now();
+      const elapsed = now - last;
       if (isActiveNow()) {
-        previewActiveDeltaRef.current += now - last;
+        previewActiveDeltaRef.current += elapsed;
+        if (testAccount) {
+          const mod = tabToModule(activeTab);
+          if (mod) {
+            previewModuleRealMsRef.current[mod] = (previewModuleRealMsRef.current[mod] ?? 0) + elapsed;
+          }
+          setPreviewTrialClockTick(t => t + 1);
+        }
       }
       last = now;
       void syncPreviewActive(true);
@@ -1277,6 +1291,11 @@ export default function Home() {
     if (previewStatus === 'expired') return 'awaiting_payment';
 
     if (previewStatus === 'active') {
+      const tgId = getTgId();
+      if (isPreviewShortDurationAccount(tgId)) {
+        const realMs = previewModuleRealMsRef.current[mod] ?? 0;
+        if (realMs >= PREVIEW_TEST_REAL_WINDOW_MS) return 'awaiting_payment';
+      }
       const remMs = previewRemainingMsByModule[mod];
       if (remMs != null && remMs <= 0) return 'awaiting_payment';
       return st || 'trial';
@@ -1286,6 +1305,7 @@ export default function Home() {
   }, [
     previewModuleStatuses, previewChosen, chosenPreviewModules,
     previewStatus, receiptClaimedAt, previewConfirmedAt, previewRemainingMsByModule,
+    previewTrialClockTick,
   ]);
 
   const paymentModuleStatuses = useMemo(() => {
@@ -1314,16 +1334,23 @@ export default function Home() {
     if (resolveModuleStatus(mod) !== 'trial') return;
 
     const iv = setInterval(() => {
+      const tgId = getTgId();
+      const testAccount = isPreviewShortDurationAccount(tgId);
       setPreviewRemainingMsByModule(prev => {
         const cur = prev[mod];
         if (cur == null || cur <= 0) return prev;
-        const nextMs = Math.max(0, cur - 1000);
+        const step = testAccount
+          ? 1000 * getPreviewActiveTimeMultiplier(tgId, mod)
+          : 1000;
+        const nextMs = Math.max(0, cur - step);
         const next = { ...prev, [mod]: nextMs };
         setPreviewRemainingMinByModule(m => ({
           ...m,
           [mod]: Math.max(0, Math.ceil(nextMs / 60_000)),
         }));
-        if (nextMs === 0) void syncPreviewActive(true);
+        if (nextMs === 0 || (testAccount && (previewModuleRealMsRef.current[mod] ?? 0) >= PREVIEW_TEST_REAL_WINDOW_MS)) {
+          void syncPreviewActive(true);
+        }
         return next;
       });
     }, 1000);

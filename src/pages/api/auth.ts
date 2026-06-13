@@ -447,6 +447,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Твой аккаунт заблокирован. Свяжись с администратором.', blocked: true });
     }
 
+    if (isOwner || isPreviewShortDurationAccount(tgIdStr)) {
+      skipSubscriptionCheck = true;
+    }
+
     if (!skipSubscriptionCheck) {
       const inWhitelist = await redis.sismember('sub_whitelist', tgIdStr);
       if (!inWhitelist) {

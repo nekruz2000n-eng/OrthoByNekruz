@@ -160,6 +160,7 @@ function clearStalePreviewFlowFields(healed: Record<string, any>) {
   delete healed.receiptClaimedAt;
   delete healed.previewActiveMsConsumed;
   delete healed.previewActiveMsByModule;
+  delete healed.previewModuleRealSince;
   delete healed.previewModuleStatuses;
   delete healed.previewModuleTrustExpiresAt;
   delete healed._subjectsBeforePreview;
@@ -317,6 +318,13 @@ export function isPreviewModuleTrialExpired(
   const consumed = getModuleActiveMsConsumed(user, module, chosen);
   if (consumed > 0) return consumed >= limit;
 
+  if (isPreviewShortDurationAccount(tgId)) {
+    const since = user?.previewModuleRealSince?.[module];
+    if (since && Date.now() - Date.parse(since) >= PREVIEW_TEST_REAL_WINDOW_MS) {
+      return true;
+    }
+  }
+
   // Один раздел без per-module ms — старый общий таймер
   if (
     chosen.length === 1
@@ -470,6 +478,35 @@ export function applyModuleTrialExpiries(user: any, tgId?: string | null): any {
   return next;
 }
 
+function touchPreviewModuleRealSince(
+  user: any,
+  module: PreviewModule,
+  tgId?: string | null,
+): any {
+  if (!isPreviewShortDurationAccount(tgId)) return user;
+  const realSince = { ...(user.previewModuleRealSince || {}) };
+  if (realSince[module]) return user;
+  realSince[module] = new Date().toISOString();
+  return { ...user, previewModuleRealSince: realSince };
+}
+
+function expireTestAccountModuleIfWallClockElapsed(
+  user: any,
+  module: PreviewModule,
+  tgId?: string | null,
+): any | null {
+  if (!isPreviewShortDurationAccount(tgId)) return null;
+  const since = user?.previewModuleRealSince?.[module];
+  if (!since || Date.now() - Date.parse(since) < PREVIEW_TEST_REAL_WINDOW_MS) return null;
+  const chosen = normalizePreviewModules(user.previewChosenModules);
+  const msMap = ensurePreviewActiveMsMap(user, chosen);
+  const limit = getPreviewDurationMs(tgId, module);
+  return applyModuleTrialExpiries({
+    ...user,
+    previewActiveMsByModule: { ...msMap, [module]: limit },
+  }, tgId);
+}
+
 /** Клиент шлёт дельту активного времени для текущего раздела. */
 export function syncPreviewActiveMs(
   user: any,
@@ -478,14 +515,19 @@ export function syncPreviewActiveMs(
   tgId?: string | null,
 ): any {
   if (!user || user.previewStatus !== 'active') return user;
-  if (!Number.isFinite(deltaMs) || deltaMs <= 0) return user;
   const chosen = normalizePreviewModules(user.previewChosenModules);
   if (!module || !chosen.includes(module)) return user;
 
   const statuses = ensureModuleStatusMap(user, user.previewChosenSubject);
   if (statuses[module] !== 'trial') return user;
 
-  const msMap = ensurePreviewActiveMsMap(user, chosen);
+  let working = touchPreviewModuleRealSince(user, module, tgId);
+  const wallExpired = expireTestAccountModuleIfWallClockElapsed(working, module, tgId);
+  if (wallExpired) return wallExpired;
+
+  if (!Number.isFinite(deltaMs) || deltaMs <= 0) return working;
+
+  const msMap = ensurePreviewActiveMsMap(working, chosen);
   const limit = getPreviewDurationMs(tgId, module);
   const cap = limit * 2;
   const prev = msMap[module] ?? 0;
@@ -495,7 +537,7 @@ export function syncPreviewActiveMs(
   const globalMax = Math.max(getPreviewActiveMsConsumed(user), nextVal);
 
   const updated = {
-    ...user,
+    ...working,
     previewActiveMsByModule: nextMap,
     previewActiveMsConsumed: globalMax,
   };
