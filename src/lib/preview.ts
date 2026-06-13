@@ -75,36 +75,51 @@ export function buildNavHiddenForConfirmedPurchase(
 
 export const PREVIEW_DURATION_MS = 5 * 60 * 1000;
 
+/** Проба раздела «Тест» в навигации — 3 мин активного времени на вкладке. */
+export const PREVIEW_TESTS_DURATION_MS = 3 * 60 * 1000;
+
 /** Интервал синхронизации таймера пробы с API (каждый раздел — своё значение). */
 export const PREVIEW_SYNC_INTERVAL_MS = 60_000;
 
 /** Доступ после «Скинул — войти» без подтверждения админа (trust-window). */
 export const PREVIEW_RECEIPT_TRUST_MS = 60 * 60 * 1000;
 
-/** TG ID тестового аккаунта: 1 сек реального времени = 1 мин пробы (совпадает с ADMIN_TG_ID). */
+/** TG ID тестового аккаунта: любая проба истекает через 30 сек реального времени. */
 const PREVIEW_TEST_TIME_TG_IDS = new Set(['978243325']);
 
-/** Множитель активного времени для тестового аккаунта (1 сек → 1 мин). */
-export const PREVIEW_TEST_ACTIVE_TIME_MULTIPLIER = 60;
+/** Реальное «стенное» окно пробы для тестового TG. */
+export const PREVIEW_TEST_REAL_WINDOW_MS = 30_000;
 
 export function isPreviewShortDurationAccount(tgId?: string | null): boolean {
   return !!tgId && PREVIEW_TEST_TIME_TG_IDS.has(String(tgId).trim());
 }
 
-/** Виртуальная длительность пробы одного раздела (всегда 5 мин). */
-export function getPreviewDurationMs(_tgId?: string | null): number {
+/** Виртуальная длительность пробы одного раздела (тесты — 3 мин, остальное — 5 мин). */
+export function getPreviewDurationMs(
+  _tgId?: string | null,
+  module?: PreviewModule | null,
+): number {
+  if (module === 'tests') return PREVIEW_TESTS_DURATION_MS;
   return PREVIEW_DURATION_MS;
 }
 
-/** Реальное «стенное» окно пробы: 5 мин для всех, ~5 сек для тестового TG (×60). */
-export function getPreviewRealWindowMs(tgId?: string | null): number {
-  const mult = getPreviewActiveTimeMultiplier(tgId);
-  return Math.round(getPreviewDurationMs(tgId) / mult);
+/** Реальное «стенное» окно пробы: как виртуальная длительность; для тестового TG — 30 сек. */
+export function getPreviewRealWindowMs(
+  tgId?: string | null,
+  module?: PreviewModule | null,
+): number {
+  if (isPreviewShortDurationAccount(tgId)) return PREVIEW_TEST_REAL_WINDOW_MS;
+  return getPreviewDurationMs(tgId, module);
 }
 
-/** 1 для обычных пользователей; 60 для тестового TG (1 сек = 1 мин). */
-export function getPreviewActiveTimeMultiplier(tgId?: string | null): number {
-  return isPreviewShortDurationAccount(tgId) ? PREVIEW_TEST_ACTIVE_TIME_MULTIPLIER : 1;
+/** 1 для обычных; для тестового TG — ускорение так, чтобы лимит раздела наступил за 30 сек. */
+export function getPreviewActiveTimeMultiplier(
+  tgId?: string | null,
+  module?: PreviewModule | null,
+): number {
+  if (!isPreviewShortDurationAccount(tgId)) return 1;
+  const duration = getPreviewDurationMs(tgId, module ?? 'tests');
+  return Math.max(1, Math.round(duration / PREVIEW_TEST_REAL_WINDOW_MS));
 }
 
 /** Интервал sync с API: тест — каждую секунду, остальные — раз в минуту. */
@@ -112,10 +127,16 @@ export function getPreviewSyncIntervalMs(tgId?: string | null): number {
   return isPreviewShortDurationAccount(tgId) ? 1_000 : PREVIEW_SYNC_INTERVAL_MS;
 }
 
-function getLegacyVirtualMsConsumed(user: any, tgId?: string | null): number {
+function getLegacyVirtualMsConsumed(
+  user: any,
+  tgId?: string | null,
+  module?: PreviewModule,
+): number {
   if (!user?.previewStartedAt) return 0;
   const elapsedReal = Date.now() - Date.parse(user.previewStartedAt);
-  return elapsedReal * getPreviewActiveTimeMultiplier(tgId);
+  const chosen = normalizePreviewModules(user?.previewChosenModules);
+  const mod = module ?? chosen[0];
+  return elapsedReal * getPreviewActiveTimeMultiplier(tgId, mod);
 }
 
 export type PreviewStatus = 'selecting' | 'active' | 'expired' | 'confirmed';
@@ -292,7 +313,7 @@ export function isPreviewModuleTrialExpired(
   const statuses = ensureModuleStatusMap(user, user.previewChosenSubject);
   if (statuses[module] !== 'trial') return true;
 
-  const limit = getPreviewDurationMs(tgId);
+  const limit = getPreviewDurationMs(tgId, module);
   const consumed = getModuleActiveMsConsumed(user, module, chosen);
   if (consumed > 0) return consumed >= limit;
 
@@ -302,7 +323,7 @@ export function isPreviewModuleTrialExpired(
     && usesLegacySharedTrialClock(user, chosen)
     && user.previewStartedAt
   ) {
-    return getLegacyVirtualMsConsumed(user, tgId) >= limit;
+    return getLegacyVirtualMsConsumed(user, tgId, module) >= limit;
   }
   // Несколько разделов: не посещённый ещё не истёк
   return false;
@@ -330,7 +351,7 @@ export function previewRemainingMsForModule(
   if (!chosen.includes(module)) return 0;
   const statuses = ensureModuleStatusMap(user, user.previewChosenSubject);
   if (statuses[module] !== 'trial') return 0;
-  const limit = getPreviewDurationMs(tgId);
+  const limit = getPreviewDurationMs(tgId, module);
   const consumed = getModuleActiveMsConsumed(user, module, chosen);
   if (consumed > 0) return Math.max(0, limit - consumed);
   if (
@@ -338,7 +359,7 @@ export function previewRemainingMsForModule(
     && usesLegacySharedTrialClock(user, chosen)
     && user.previewStartedAt
   ) {
-    return Math.max(0, limit - getLegacyVirtualMsConsumed(user, tgId));
+    return Math.max(0, limit - getLegacyVirtualMsConsumed(user, tgId, module));
   }
   return limit;
 }
@@ -391,7 +412,9 @@ export function previewEndsAt(user: any, tgId?: string | null): string | null {
     return new Date(Date.now() + remaining).toISOString();
   }
   if (trialMods.length === 1 && user.previewStartedAt) {
-    return new Date(Date.parse(user.previewStartedAt) + getPreviewRealWindowMs(tgId)).toISOString();
+    return new Date(
+      Date.parse(user.previewStartedAt) + getPreviewRealWindowMs(tgId, trialMods[0]),
+    ).toISOString();
   }
   return new Date(Date.now() + remaining).toISOString();
 }
@@ -463,10 +486,10 @@ export function syncPreviewActiveMs(
   if (statuses[module] !== 'trial') return user;
 
   const msMap = ensurePreviewActiveMsMap(user, chosen);
-  const limit = getPreviewDurationMs(tgId);
+  const limit = getPreviewDurationMs(tgId, module);
   const cap = limit * 2;
   const prev = msMap[module] ?? 0;
-  const effectiveDelta = Math.round(deltaMs * getPreviewActiveTimeMultiplier(tgId));
+  const effectiveDelta = Math.round(deltaMs * getPreviewActiveTimeMultiplier(tgId, module));
   const nextVal = Math.min(cap, prev + effectiveDelta);
   const nextMap: PreviewActiveMsMap = { ...msMap, [module]: nextVal };
   const globalMax = Math.max(getPreviewActiveMsConsumed(user), nextVal);
@@ -1000,9 +1023,9 @@ export function adminForcePaymentOnlyScreen(user: any): any | null {
   }
   if (chosen.length === 0) return null;
 
-  const limit = PREVIEW_DURATION_MS;
   const msMap: PreviewActiveMsMap = {};
-  for (const m of chosen) msMap[m] = limit;
+  for (const m of chosen) msMap[m] = getPreviewDurationMs(null, m);
+  const consumedMax = Math.max(0, ...chosen.map(m => msMap[m] ?? 0));
 
   const statuses = setAllModuleStatuses(
     chosen,
@@ -1025,7 +1048,7 @@ export function adminForcePaymentOnlyScreen(user: any): any | null {
     previewChosenModules: chosen,
     previewModuleStatuses: statuses,
     previewActiveMsByModule: msMap,
-    previewActiveMsConsumed: limit,
+    previewActiveMsConsumed: consumedMax,
     previewQuotedPrice: calcPreviewPriceRub(subjectId, chosen, {
       bioHadTest: subjectId === 'bio'
         ? bioUserHadTest(chosen, getGrantedModulesForPaymentSubject(user, subjectId))
