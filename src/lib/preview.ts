@@ -791,6 +791,14 @@ export function getPaymentGrantedSubjects(user: any): string[] {
       .filter(([, v]) => v === true)
       .map(([id]) => id);
   }
+  const chosen = user?.previewChosenSubject;
+  if (chosen && isPreviewPaymentFlowActive(user)) {
+    const subs = user.subjects && typeof user.subjects === 'object' ? user.subjects : {};
+    const fromSubjects = Object.entries(subs)
+      .filter(([id, v]) => v === true && id !== chosen)
+      .map(([id]) => id);
+    if (fromSubjects.length > 0) return fromSubjects;
+  }
   // В пробе subjects[subject]=true даёт доступ к trial — это не покупка
   if (
     user?.previewChosenSubject
@@ -1406,32 +1414,34 @@ export function confirmPreviewUser(user: any) {
     ...user,
     subjects,
     navHidden,
-    previewChosenSubject: chosen,
-    previewChosenModules: modules,
     previewConfirmedAt:   now,
-    receiptClaimedAt:     user.receiptClaimedAt ?? now,
     paid:                 user.paid === true,
     activatedKey:         user.activatedKey && !String(user.activatedKey).startsWith('promo:')
       ? user.activatedKey
       : (user.activatedKey || 'preview'),
     [`${chosen}_grantedAt`]: now,
-    _subjectsBeforePreview:    undefined,
-    _navHiddenBeforePreview:   undefined,
     _migrated_subjects:        true,
   };
 
   delete updated.previewStatus;
+  delete updated.previewChosenSubject;
+  delete updated.previewChosenModules;
   delete updated.previewStartedAt;
   delete updated.previewExpiredAt;
   delete updated.previewPickedAt;
   delete updated.previewFacultyRecordedAt;
+  delete updated.previewQuotedPrice;
+  delete updated.receiptClaimedAt;
+  delete updated._subjectsBeforePreview;
+  delete updated._navHiddenBeforePreview;
+  delete updated._previewSnapshotBeforeAddon;
   delete updated._previewStatusBeforeCatalog;
   delete updated._catalogBrowse;
   delete updated._adminPaymentOnlyLock;
   delete updated.previewActiveMsConsumed;
   delete updated.previewActiveMsByModule;
+  delete updated.previewModuleStatuses;
   delete updated.previewModuleTrustExpiresAt;
-  updated.previewModuleStatuses = initModuleStatuses(modules, 'confirmed');
 
   return updated;
 }

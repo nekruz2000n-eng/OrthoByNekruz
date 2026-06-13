@@ -381,6 +381,8 @@ export default function Home() {
     if (d?.previewConfirmedAt || d?.previewStatus === 'confirmed') {
       localStorage.removeItem(PENDING_PAYMENT_SUBJECT_KEY);
       setPendingPaymentSubject(null);
+      setPreviewModuleTrustExpiresAt({});
+      localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
     }
 
     if (Array.isArray(d?.subjectCatalog)) setSubjectCatalog(d.subjectCatalog);
@@ -421,15 +423,17 @@ export default function Home() {
     }
 
     const receiptAccessOpened = !!d?.previewConfirmedAt
-      && !!pendingSubject
-      && list.includes(pendingSubject)
       && ps !== 'active'
       && ps !== 'expired'
       && ps !== 'selecting';
 
     if (receiptAccessOpened || accessJustOpened || ps === 'confirmed') {
       triggerAccessWelcomeIfPending();
-      if ((receiptAccessOpened || accessJustOpened) && pendingSubject) {
+      if (receiptAccessOpened && pendingSubject) {
+        setSubjectRaw(pendingSubject);
+        localStorage.setItem('last_subject', pendingSubject);
+        localStorage.setItem('subject_chosen', 'true');
+      } else if (accessJustOpened && pendingSubject) {
         setSubjectRaw(pendingSubject);
         localStorage.setItem('last_subject', pendingSubject);
         localStorage.setItem('subject_chosen', 'true');
@@ -467,6 +471,7 @@ export default function Home() {
     const isCatalogAddonPreview = !!pendingSubject && !list.includes(pendingSubject);
     if (
       isCatalogAddonPreview
+      && !d?.previewConfirmedAt
       && (ps === 'active' || ps === 'expired' || (d?.receiptClaimedAt && !d?.previewConfirmedAt))
     ) {
       setShowSubjectSelect(false);
@@ -1171,26 +1176,27 @@ export default function Home() {
     return localExpired.length > 0 ? [...new Set([...fromServer, ...localExpired])] : fromServer;
   }, [previewModuleStatuses, previewStatus, chosenPreviewModules, previewRemainingMsByModule]);
 
-  const inPendingPaymentFlow = !!previewChosen && (
+  const inPendingPaymentFlow = !!previewChosen && !previewConfirmedAt && (
     previewStatus === 'expired'
     || modulesNeedingPayment.length > 0
     || (!!receiptClaimedAt && !previewConfirmedAt)
   );
 
   /** Не новый гость: до пробы уже были купленные предметы (докупка). */
-  const isEstablishedForStats = paymentGrantedSubjects.length > 0;
+  const isEstablishedForStats = paymentGrantedSubjects.length > 0
+    || (previewConfirmedAt && availableSubjects.length > 1);
 
   /** Проба/оплата на предмете — нельзя уйти в другой предмет без явной отмены докупки. */
-  const previewSubjectLocked = !!previewChosen && (
+  const previewSubjectLocked = !!previewChosen && !previewConfirmedAt && (
     inPendingPaymentFlow
     || (previewStatus === 'active' && !receiptClaimedAt && !previewConfirmedAt)
   );
 
   const statsAvailableSubjects = useMemo(() => {
-    if (!previewChosen) return availableSubjects;
+    if (!previewChosen || previewConfirmedAt) return availableSubjects;
     if (previewSubjectLocked) {
-      if (isEstablishedForStats && canAbandonPending) {
-        return [...new Set([previewChosen, ...paymentGrantedSubjects])];
+      if (isEstablishedForStats) {
+        return [...new Set([previewChosen, ...paymentGrantedSubjects, ...availableSubjects])];
       }
       return [previewChosen];
     }
@@ -1202,13 +1208,20 @@ export default function Home() {
     }
     return availableSubjects;
   }, [
-    availableSubjects, previewChosen, previewSubjectLocked, isEstablishedForStats,
-    paymentGrantedSubjects, canAbandonPending,
+    availableSubjects, previewChosen, previewConfirmedAt, previewSubjectLocked, isEstablishedForStats,
+    paymentGrantedSubjects,
   ]);
 
   const handleSubjectChangeWithPending = useCallback((s: string) => {
     if (previewChosen && previewSubjectLocked && s !== previewChosen) {
-      const switchingToPurchased = isEstablishedForStats && paymentGrantedSubjects.includes(s);
+      const switchingToPurchased = (isEstablishedForStats && paymentGrantedSubjects.includes(s))
+        || (availableSubjects.includes(s) && s !== previewChosen);
+      if (switchingToPurchased && receiptClaimedAt && !previewConfirmedAt) {
+        setSubject(s);
+        localStorage.setItem('subject_chosen', 'true');
+        localStorage.setItem('last_subject', s);
+        return;
+      }
       if (switchingToPurchased && canAbandonPending) {
         void handleAbandonPendingPreview(s).then(ok => {
           if (ok) {
@@ -1240,8 +1253,8 @@ export default function Home() {
       if (first) setActiveTab(first);
     }
   }, [
-    previewChosen, previewSubjectLocked, isEstablishedForStats, paymentGrantedSubjects,
-    canAbandonPending, handleAbandonPendingPreview, pendingPaymentSubject,
+    previewChosen, previewSubjectLocked, previewConfirmedAt, isEstablishedForStats, paymentGrantedSubjects,
+    availableSubjects, receiptClaimedAt, canAbandonPending, handleAbandonPendingPreview, pendingPaymentSubject,
     previewModuleStatuses, previewModules, chosenPreviewModules, previewRemainingMsByModule,
     setSubject, toast,
   ]);
@@ -1254,12 +1267,12 @@ export default function Home() {
   const resolveModuleStatus = useCallback((mod: PreviewModule): PreviewModuleStatus | undefined => {
     if (!previewChosen || !chosenPreviewModules.includes(mod)) return undefined;
     if (previewConfirmedAt) return 'confirmed';
-    if (receiptClaimedAt && !previewConfirmedAt) return 'receipt_pending';
 
     const st = previewModuleStatuses[mod];
-    if (st === 'awaiting_payment' || st === 'rejected' || st === 'confirmed' || st === 'receipt_pending') {
+    if (st === 'confirmed' || st === 'receipt_pending' || st === 'awaiting_payment' || st === 'rejected') {
       return st;
     }
+    if (receiptClaimedAt && !previewConfirmedAt) return 'receipt_pending';
 
     if (previewStatus === 'expired') return 'awaiting_payment';
 
