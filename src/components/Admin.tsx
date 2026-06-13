@@ -22,6 +22,7 @@ interface User {
   previewStatus:        string | null;
   previewChosenSubject: string | null;
   previewChosenModules: string[] | null;
+  previewDisplayModules?: PreviewModule[];
   promoCode:            string | null;
   facultyId:            string | null;
   previewFaculty:       string | null;
@@ -310,8 +311,11 @@ function UserCard({
   const previewSubjectLabel = user.previewChosenSubject
     ? (availableSubjects.find(s => s.id === user.previewChosenSubject)?.label || user.previewChosenSubject)
     : null;
-  const previewModulesLabel = user.previewChosenModules?.length
-    ? user.previewChosenModules.map(m =>
+  const adminModules = (user.previewDisplayModules?.length
+    ? user.previewDisplayModules
+    : user.previewChosenModules) as PreviewModule[] | null | undefined;
+  const previewModulesLabel = adminModules?.length
+    ? adminModules.map(m =>
         m === 'questions' ? 'Вопросы' : m === 'tests' ? 'Тесты' : m === 'tasks' ? 'Задачи' : m,
       ).join(', ')
     : null;
@@ -493,7 +497,11 @@ function UserCard({
               <Chip bg={T.purpleSoft} color={T.purple}>→ {previewSubjectLabel}</Chip>
             )}
             {user.previewIsAddon && (user.previewStatus === 'expired' || user.previewStatus === 'active') && (
-              <Chip bg={T.infoSoft} color={T.info}>докупка</Chip>
+              <Chip bg={T.infoSoft} color={T.info}>
+                докупка{previewSubjectLabel
+                  ? ` · ${previewSubjectLabel}${previewModulesLabel ? ` — ${previewModulesLabel}` : ''}`
+                  : ''}
+              </Chip>
             )}
             {user.previewStatus === 'selecting' && (
               <Chip bg={T.infoSoft} color={T.info}>выбирает</Chip>
@@ -557,13 +565,24 @@ function UserCard({
                 mono />
             )}
             {previewRequestLabel && (
-              <Meta label="Заявка" value={previewRequestLabel} color={T.purple} />
+              <Meta label={user.previewIsAddon ? 'Докупка' : 'Заявка'} value={previewRequestLabel} color={T.purple} />
+            )}
+            {user.previewIsAddon && previewModulesLabel && !previewRequestLabel && previewSubjectLabel && (
+              <Meta label="Докупка" value={`${previewSubjectLabel} — ${previewModulesLabel}`} color={T.purple} />
             )}
             {user.previewQuotedPrice != null && (
               <Meta label="Сумма" value={formatPriceRub(user.previewQuotedPrice)} color={T.purple} />
             )}
             {user.receiptClaimedAt && (
               <Meta label="Чек" value="студент нажал «Скинул»" color={T.purple} />
+            )}
+            {user.previewIsAddon && previewModulesLabel && !user.receiptClaimedAt
+              && (user.previewStatus === 'expired' || user.previewStatus === 'active') && (
+              <Meta
+                label="Ожидание"
+                value="студент ещё не нажал «войти» — кнопки дать/отказ появятся после чека"
+                color={T.warn}
+              />
             )}
             {previewSubjectLabel && !previewModulesLabel && (
               <Meta label="Выбор (пробный)" value={previewSubjectLabel} color={T.purple} />
@@ -770,7 +789,7 @@ function UserCard({
             {user.previewNeedsConfirm && user.previewChosenSubject && (
               (user.previewPendingModules && user.previewPendingModules.length > 0
                 ? user.previewPendingModules
-                : (user.previewChosenModules || []) as PreviewModule[]
+                : (adminModules || [])
               ).map(mod => (
                 <React.Fragment key={mod}>
                   <ActionBtn variant="success" disabled={busy} fullWidth
@@ -2061,6 +2080,9 @@ export default function AdminPage() {
               previewPendingModules: Array.isArray(data.previewPendingModules)
                 ? data.previewPendingModules
                 : [],
+              previewDisplayModules: Array.isArray(data.previewDisplayModules)
+                ? data.previewDisplayModules
+                : u.previewDisplayModules,
               receiptClaimedAt: u.receiptClaimedAt,
               paid: data.paid === true,
               activatedKey: u.activatedKey === 'preview' || !u.activatedKey ? 'preview' : u.activatedKey,
@@ -2079,6 +2101,9 @@ export default function AdminPage() {
               previewPendingModules: Array.isArray(data.previewPendingModules)
                 ? data.previewPendingModules
                 : [],
+              previewDisplayModules: Array.isArray(data.previewDisplayModules)
+                ? data.previewDisplayModules
+                : u.previewDisplayModules,
               receiptClaimedAt: (data.receiptClaimedAt as string | null) ?? u.receiptClaimedAt,
               navHidden,
             };

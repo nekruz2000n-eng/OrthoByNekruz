@@ -452,15 +452,29 @@ export default function Home() {
       localStorage.removeItem('preview_end');
       localStorage.removeItem('preview_start');
       const pending = d?.previewChosenSubject as string | null | undefined;
-      if (pending && !userKeptOtherSubject(pending)) {
+      if (pending && (!list.includes(pending) || !userKeptOtherSubject(pending))) {
         setSubjectRaw(pending);
         localStorage.setItem('last_subject', pending);
+        localStorage.setItem('subject_chosen', 'true');
       }
     }
 
     if (ps === 'selecting') return;
 
     if (list.length === 0) return;
+
+    /** Докупка: предмет пробы ещё не в купленных — не уводить на старый предмет после таймера/sync. */
+    const isCatalogAddonPreview = !!pendingSubject && !list.includes(pendingSubject);
+    if (
+      isCatalogAddonPreview
+      && (ps === 'active' || ps === 'expired' || (d?.receiptClaimedAt && !d?.previewConfirmedAt))
+    ) {
+      setShowSubjectSelect(false);
+      localStorage.setItem('subject_chosen', 'true');
+      localStorage.setItem('last_subject', pendingSubject);
+      setSubjectRaw(pendingSubject);
+      return;
+    }
 
     const alreadyChosen = localStorage.getItem('subject_chosen') === 'true';
     const preferred = (savedSubject && list.includes(savedSubject)) ? savedSubject : list[0];

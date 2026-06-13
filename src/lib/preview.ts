@@ -177,10 +177,17 @@ export function healStalePreviewForFinalizedUser(user: any): any {
   }
 
   if (!shouldHeal && user.paid === true && getUserAvailableSubjects(user).length > 0) {
-    if (user.previewStatus === 'active' || user.previewStatus === 'expired') {
-      shouldHeal = true;
-    } else if (user.previewStatus === 'selecting' && !inCatalogBrowse) {
-      shouldHeal = true;
+    const addonInProgress = !!user.previewChosenSubject
+      && user._subjectsBeforePreview
+      && typeof user._subjectsBeforePreview === 'object'
+      && user._subjectsBeforePreview[user.previewChosenSubject] !== true
+      && isPreviewPaymentFlowActive(user);
+    if (!addonInProgress) {
+      if (user.previewStatus === 'active' || user.previewStatus === 'expired') {
+        shouldHeal = true;
+      } else if (user.previewStatus === 'selecting' && !inCatalogBrowse) {
+        shouldHeal = true;
+      }
     }
   }
 
@@ -508,6 +515,31 @@ export function snapshotSubjects(user: any): Record<string, boolean> | null {
   return snap;
 }
 
+/** Идёт проба или оплата (в т.ч. докупка после прошлого подтверждения). */
+export function isPreviewPaymentFlowActive(user: any): boolean {
+  return user?.previewStatus === 'active'
+    || user?.previewStatus === 'expired'
+    || !!user?.receiptClaimedAt;
+}
+
+/** Разделы заявки для админки: поле, navHidden или статусы модулей. */
+export function getPreviewChosenModulesForAdmin(user: any): PreviewModule[] {
+  const subject = user?.previewChosenSubject;
+  if (!subject) return [];
+
+  const fromField = inferChosenModulesForConfirm(user, subject);
+  if (fromField.length > 0) return fromField;
+
+  const statuses = user?.previewModuleStatuses;
+  if (statuses && typeof statuses === 'object') {
+    const fromStatuses = (['questions', 'tests', 'tasks'] as PreviewModule[]).filter(
+      m => statuses[m] != null,
+    );
+    if (fromStatuses.length > 0) return fromStatuses;
+  }
+  return [];
+}
+
 /** Есть ли хотя бы один раздел, ожидающий действия админа. */
 export function previewChoiceNeedsAdminConfirm(user: any): boolean {
   return getPendingAdminModules(user).length > 0;
@@ -517,12 +549,17 @@ export function previewChoiceNeedsAdminConfirm(user: any): boolean {
 export function getPendingAdminModules(user: any): PreviewModule[] {
   const chosen = user?.previewChosenSubject;
   if (!chosen) return [];
-  if (hasFinalizedPreviewAccess(user)) return [];
+  if (!isPreviewPaymentFlowActive(user) && hasFinalizedPreviewAccess(user)) return [];
 
-  const allChosen = normalizePreviewModules(user?.previewChosenModules);
+  const allChosen = getPreviewChosenModulesForAdmin(user);
   const statuses = ensureModuleStatusMap(user, chosen);
   const pending = allChosen.filter(m => statuses[m] === 'receipt_pending');
   if (pending.length > 0) return pending;
+
+  const fromStatuses = (['questions', 'tests', 'tasks'] as PreviewModule[]).filter(
+    m => statuses[m] === 'receipt_pending',
+  );
+  if (fromStatuses.length > 0) return fromStatuses;
 
   // Legacy: один блок подтверждения без previewModuleStatuses
   if (user.receiptClaimedAt && !user.previewModuleStatuses) {
@@ -1128,11 +1165,15 @@ export function switchPreviewPaymentSubject(
 export function claimPreviewReceipt(user: any, modulesToClaim?: PreviewModule[]) {
   const chosen = user?.previewChosenSubject;
   if (!chosen) return null;
-  if (hasFinalizedPreviewAccess(user)) return user;
+  if (hasFinalizedPreviewAccess(user) && !isPreviewPaymentFlowActive(user)) return user;
 
-  const allChosen = normalizePreviewModules(user?.previewChosenModules);
+  const allChosen = getPreviewChosenModulesForAdmin(user);
   const payable = modulesToClaim && modulesToClaim.length > 0
-    ? normalizePreviewModules(modulesToClaim).filter(m => allChosen.includes(m))
+    ? normalizePreviewModules(modulesToClaim).filter(
+      m => allChosen.includes(m) || ensureModuleStatusMap(user, chosen)[m] === 'awaiting_payment'
+        || ensureModuleStatusMap(user, chosen)[m] === 'rejected'
+        || ensureModuleStatusMap(user, chosen)[m] === 'trial',
+    )
     : modulesAwaitingPayment(ensureModuleStatusMap(user, chosen));
   if (payable.length === 0) return null;
 
@@ -1244,7 +1285,7 @@ export function reopenPreviewVitrine(user: any) {
 export function confirmPreviewModule(user: any, module: PreviewModule) {
   const chosen = user?.previewChosenSubject;
   if (!chosen) return null;
-  const allChosen = normalizePreviewModules(user?.previewChosenModules);
+  const allChosen = getPreviewChosenModulesForAdmin(user);
   if (!allChosen.includes(module)) return null;
 
   const statuses: PreviewModuleStatusMap = { ...ensureModuleStatusMap(user, chosen) };
@@ -1288,7 +1329,7 @@ export function confirmPreviewModule(user: any, module: PreviewModule) {
 export function rejectPreviewModule(user: any, module: PreviewModule) {
   const chosen = user?.previewChosenSubject;
   if (!chosen) return null;
-  const allChosen = normalizePreviewModules(user?.previewChosenModules);
+  const allChosen = getPreviewChosenModulesForAdmin(user);
   if (!allChosen.includes(module)) return null;
 
   const statuses: PreviewModuleStatusMap = { ...ensureModuleStatusMap(user, chosen) };
