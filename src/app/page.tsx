@@ -914,6 +914,41 @@ export default function Home() {
     }
   }, [applyAccessPayload, toast, previewStatus, paymentGrantedSubjects]);
 
+  const handleExitCatalogBrowse = useCallback(async () => {
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) return;
+    setCatalogBrowseLoading(true);
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: tgId,
+          mode: 'exit_catalog_browse',
+          initData: initDat,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({
+          variant: 'destructive',
+          title: 'Ошибка',
+          description: data.error || 'Не удалось вернуться к купленному.',
+        });
+        return;
+      }
+      accessRequestGen.current += 1;
+      applyAccessPayload(data);
+      setAccessChecked(true);
+      toast({ title: 'Витрина закрыта', description: 'Вернулся к уже открытым разделам.' });
+    } catch {
+      toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
+    } finally {
+      setCatalogBrowseLoading(false);
+    }
+  }, [applyAccessPayload, toast]);
+
   const handleSetStudyGroup = useCallback(async (group: string) => {
     const tgId    = localStorage.getItem('user_tg_id');
     const initDat = (window as any).Telegram?.WebApp?.initData || '';
@@ -1520,6 +1555,12 @@ export default function Home() {
         navHidden={navHidden}
         loading={previewPicking}
         onConfirm={handlePreviewPick}
+        onBackToPurchased={
+          catalogGrantedSubjects.length > 0 || availableSubjects.length > 0
+            ? handleExitCatalogBrowse
+            : undefined
+        }
+        backBusy={catalogBrowseLoading}
       />,
     );
   }

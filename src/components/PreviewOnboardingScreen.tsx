@@ -20,6 +20,9 @@ interface PreviewOnboardingScreenProps {
   navHidden?: Record<string, string[]>;
   loading?: boolean;
   onConfirm: (subjectId: string, modules: PreviewModule[]) => void;
+  /** Вернуться к уже купленным разделам (витрина из приложения). */
+  onBackToPurchased?: () => void;
+  backBusy?: boolean;
 }
 
 type Step = 'subject' | 'modules';
@@ -30,6 +33,8 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
   navHidden = {},
   loading = false,
   onConfirm,
+  onBackToPurchased,
+  backBusy = false,
 }) => {
   const [step, setStep] = useState<Step>('subject');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -281,6 +286,29 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
           )}
         </AnimatePresence>
       </div>
+
+      {step === 'subject' && onBackToPurchased && (
+        <div
+          className="flex-shrink-0 w-full max-w-xs mx-auto px-5 pt-2 pb-5 relative z-10"
+          style={{ background: 'linear-gradient(to top, var(--c-bg) 70%, transparent)' }}
+        >
+          <button
+            type="button"
+            onClick={onBackToPurchased}
+            disabled={loading || backBusy}
+            className="w-full h-12 rounded-2xl text-sm font-semibold disabled:opacity-45"
+            style={{
+              background: 'var(--c-card)',
+              color: 'var(--c-muted)',
+              border: '1px solid var(--c-border)',
+            }}
+          >
+            {backBusy
+              ? <span className="inline-flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Выход...</span>
+              : 'Назад к купленному'}
+          </button>
+        </div>
+      )}
 
       {step === 'modules' && selectedEntry && (
         <div

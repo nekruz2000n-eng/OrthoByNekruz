@@ -20,6 +20,9 @@ const TBANK_PHONE_COPY = '+79003166646';
 const RECEIPT_TG_URL = 'https://t.me/evoeidos';
 const RECEIPT_TG_HANDLE = '@evoeidos';
 
+/** Нижняя навигация fixed — контент должен прокручиваться выше неё. */
+const NAV_SCROLL_PAD = 'calc(var(--nav-bottom, 12px) + 92px)';
+
 const MODULE_ROW_LABELS: Record<PreviewModule, string> = {
   questions: 'Вопросы',
   tests:     'Тест',
@@ -209,8 +212,12 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center h-full p-6">
-      <div className="max-w-sm w-full text-center space-y-5">
+    <div
+      className="h-full overflow-y-auto overscroll-contain"
+      style={{ WebkitOverflowScrolling: 'touch', paddingBottom: NAV_SCROLL_PAD }}
+    >
+      <div className="flex flex-col items-center p-6 pt-8">
+        <div className="max-w-sm w-full text-center space-y-5">
         <div className="text-4xl">{status === 'rejected' ? '↩️' : '⏳'}</div>
         <div className="space-y-2 px-1">
           <h2 className="text-lg font-bold leading-snug" style={{ color: 'var(--c-text)' }}>
@@ -350,6 +357,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
         </div>
 
         {exitButton}
+        </div>
       </div>
 
       {receiptOpen && (

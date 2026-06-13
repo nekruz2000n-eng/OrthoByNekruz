@@ -125,6 +125,24 @@ export function buildCatalogSelectingUser(
   };
 }
 
+/** Выйти из витрины без выбора — вернуться к уже купленному доступу. */
+export function exitCatalogBrowse(user: any): any | null {
+  if (!user?._catalogBrowse) return null;
+  if (user.previewStatus !== 'selecting') return null;
+  if (user.previewChosenSubject) return null;
+
+  const updated: Record<string, unknown> = { ...user };
+  delete updated.previewStatus;
+  delete updated._catalogBrowse;
+  delete updated._subjectsBeforePreview;
+  delete updated._previewStatusBeforeCatalog;
+  delete updated.previewChosenSubject;
+  delete updated.previewChosenModules;
+  delete updated.previewQuotedPrice;
+  delete updated.previewFacultyRecordedAt;
+  return updated;
+}
+
 /** После окончания просмотра / входа по коду — снова витрина (группа → выбор предмета). */
 export function restartCatalogBrowseSelecting(
   user: any,

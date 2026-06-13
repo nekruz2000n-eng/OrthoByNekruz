@@ -55,6 +55,7 @@ import { registerUserId } from '@/lib/userIndex';
 import { clearAuthRateLimitsForTgId, checkCatalogBrowseLimit } from '@/lib/authRateLimit';
 import {
   buildCatalogSelectingUser,
+  exitCatalogBrowse,
   getCatalogGrantedSubjects,
   isCatalogModuleAlreadyGranted,
   restartCatalogBrowseSelecting,
@@ -497,6 +498,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       const profile = { username, firstName, lastName };
       return handleCatalogBrowseStart(res, tgIdStr, user, profile, promo);
+    }
+
+    if (mode === 'exit_catalog_browse') {
+      if (!user?._catalogBrowse) {
+        return res.status(400).json({ error: 'Витрина не открыта.' });
+      }
+      const updated = exitCatalogBrowse(user);
+      if (!updated) {
+        return res.status(400).json({ error: 'Нельзя выйти из витрины.' });
+      }
+      updated.username   = username ?? updated.username;
+      updated.firstName  = firstName ?? updated.firstName;
+      updated.lastName   = lastName ?? updated.lastName;
+      updated.lastLogin  = new Date().toISOString();
+      updated.loginCount = Number(updated.loginCount || 0) + 1;
+      await saveUser(tgIdStr, updated);
+      return res.status(200).json({
+        success: true,
+        ...(await subjectsResponse(updated, tgIdStr)),
+      });
     }
 
     if (mode === 'set_study_group') {
