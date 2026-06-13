@@ -7,7 +7,7 @@ import { PreviewGroupScreen } from '@/components/PreviewGroupScreen';
 import { PreviewPaymentTabPanel } from '@/components/PreviewPaymentTabPanel';
 import { TrustAccessNotice } from '@/components/TrustAccessNotice';
 import { ChannelCodeEntryScreen } from '@/components/ChannelCodeEntryScreen';
-import { AccessWelcomeOverlay, PREVIEW_AWAITING_CONFIRM_KEY } from '@/components/AccessWelcomeOverlay';
+import { AccessWelcomeOverlay, PREVIEW_AWAITING_CONFIRM_KEY, PREVIEW_WELCOME_SEEN_KEY } from '@/components/AccessWelcomeOverlay';
 import { AuthScreen }    from '@/components/AuthScreen';
 import { Navigation, TabType, type BioGameMode } from '@/components/Navigation';
 import { QuestionsTab }  from '@/components/QuestionsTab';
@@ -38,7 +38,7 @@ import {
   shouldBustPaymentFlowCache,
 } from '@/lib/previewModuleStatus';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
-import { persistFacultyId, USER_FACULTY_ID_KEY } from '@/lib/facultyCodes';
+import { persistFacultyId, readStoredFacultyId, USER_FACULTY_ID_KEY } from '@/lib/facultyCodes';
 
 // ─── updateSafeAreas ─────────────────────────────────────────────────────────
 //
@@ -254,12 +254,6 @@ export default function Home() {
     if (!subjectHasQuestionGameModes(subject)) setBioQuestionsSection('list');
   }, [subject]);
 
-  const triggerAccessWelcomeIfPending = useCallback(() => {
-    if (localStorage.getItem(PREVIEW_AWAITING_CONFIRM_KEY) === '1') {
-      setShowAccessWelcome(true);
-    }
-  }, []);
-
   /** Поздний ответ check_subjects не должен затирать свежий ответ после кода/группы. */
   const accessRequestGen = useRef(0);
   const previewPollGen   = useRef(0);
@@ -384,11 +378,14 @@ export default function Home() {
       localStorage.setItem(PENDING_PAYMENT_SUBJECT_KEY, psid);
       setPendingPaymentSubject(psid);
     }
+
+    const wasAwaitingConfirm = localStorage.getItem(PREVIEW_AWAITING_CONFIRM_KEY) === '1';
+
     if (d?.previewConfirmedAt || d?.previewStatus === 'confirmed') {
       localStorage.removeItem(PENDING_PAYMENT_SUBJECT_KEY);
       setPendingPaymentSubject(null);
       setPreviewModuleTrustExpiresAt({});
-      localStorage.setItem(PREVIEW_AWAITING_CONFIRM_KEY, '1');
+      localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
     }
 
     if (Array.isArray(d?.subjectCatalog)) setSubjectCatalog(d.subjectCatalog);
@@ -414,7 +411,6 @@ export default function Home() {
     }
 
     const pendingSubject = d?.previewChosenSubject as string | null | undefined;
-    const wasAwaitingConfirm = localStorage.getItem(PREVIEW_AWAITING_CONFIRM_KEY) === '1';
     const accessJustOpened = wasAwaitingConfirm
       && !!pendingSubject
       && list.includes(pendingSubject)
@@ -434,8 +430,12 @@ export default function Home() {
       && ps !== 'expired'
       && ps !== 'selecting';
 
-    if (receiptAccessOpened || accessJustOpened || ps === 'confirmed') {
-      triggerAccessWelcomeIfPending();
+    const confirmAt = (d?.previewConfirmedAt as string | null) ?? null;
+    const welcomeAlreadySeen = !!confirmAt
+      && localStorage.getItem(PREVIEW_WELCOME_SEEN_KEY) === confirmAt;
+
+    if ((receiptAccessOpened || accessJustOpened || ps === 'confirmed') && !welcomeAlreadySeen) {
+      setShowAccessWelcome(true);
       if (receiptAccessOpened && pendingSubject) {
         setSubjectRaw(pendingSubject);
         localStorage.setItem('last_subject', pendingSubject);
@@ -506,7 +506,7 @@ export default function Home() {
       localStorage.setItem('last_subject', next);
       return next;
     });
-  }, [setSubjectRaw, triggerAccessWelcomeIfPending]);
+  }, [setSubjectRaw]);
 
   const pollAccessForAdminConfirm = useCallback(async () => {
     if (typeof document !== 'undefined' && document.hidden) return;
@@ -577,8 +577,11 @@ export default function Home() {
   const dismissAccessWelcome = useCallback(() => {
     setShowAccessWelcome(false);
     localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
+    if (previewConfirmedAt) {
+      localStorage.setItem(PREVIEW_WELCOME_SEEN_KEY, previewConfirmedAt);
+    }
     void refreshAccess();
-  }, [refreshAccess]);
+  }, [refreshAccess, previewConfirmedAt]);
 
   // Если активный таб админ скрыл — переключаем на первый доступный
   useEffect(() => {
@@ -893,6 +896,7 @@ export default function Home() {
           telegramId: tgId,
           mode: 'start_catalog_browse',
           initData: initDat,
+          facultyId: readStoredFacultyId() || undefined,
         }),
       });
       const data = await res.json();

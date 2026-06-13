@@ -43,7 +43,7 @@ import {
 import type { PreviewModule } from '@/lib/previewModules';
 import { ensureModuleStatusMap } from '@/lib/previewModuleStatus';
 import { notifyAdminReceiptClaimed } from '@/lib/notifyAdmin';
-import { resolveFacultyPromoCode, facultyFieldsFromUser, getFacultyPromoById } from '@/lib/facultyCodes';
+import { resolveFacultyPromoCode, facultyFieldsFromUser, resolveUserFacultyPromo } from '@/lib/facultyCodes';
 import { ACCESS_CACHE_VERSION } from '@/lib/accessCache';
 import { normalizeStudyGroup, buildStudyGroupFromDigits } from '@/lib/studyGroup';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
@@ -481,13 +481,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!isEstablishedAccount(user)) {
         return res.status(403).json({ error: 'Каталог доступен после регистрации.' });
       }
-      let promo = getFacultyPromoById(user.facultyId);
-      if (!promo && key) {
-        promo = resolveFacultyPromoCode(String(key).trim());
-      }
+      let promo = resolveUserFacultyPromo(user, key, req.body?.facultyId);
       if (!promo) {
         return res.status(400).json({
-          error: 'Код факультета не сохранён. Введи его из канала.',
+          error: 'Введи код факультета из канала.',
           needsFacultyCode: true,
         });
       }

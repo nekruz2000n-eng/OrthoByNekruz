@@ -9,6 +9,7 @@ import {
   getDefaultDigitIcon,
   isLegacyPaidKey,
   persistFacultyFromAccessCode,
+  FACULTY_PROMOS,
 } from '@/lib/facultyCodes';
 
 interface ChannelCodeEntryScreenProps {
@@ -89,9 +90,29 @@ export const ChannelCodeEntryScreen: React.FC<ChannelCodeEntryScreenProps> = ({
         <h1 className="text-xl font-bold mb-2 text-center" style={{ color: 'var(--c-text)' }}>
           Введи код факультета
         </h1>
-        <p className="text-sm text-center mb-8 max-w-xs leading-relaxed" style={{ color: 'var(--c-muted)' }}>
-          Код → витрина → пробный доступ к другому предмету. Группу спросим при оплате.
+        <p className="text-sm text-center mb-5 max-w-xs leading-relaxed" style={{ color: 'var(--c-muted)' }}>
+          Код → витрина → пробный доступ к другому предмету.
         </p>
+
+        <div className="w-full max-w-xs mb-6 space-y-2">
+          {FACULTY_PROMOS.map(p => (
+            <div
+              key={p.id}
+              className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left"
+              style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
+            >
+              <span className="text-lg leading-none" style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' }}>
+                {p.digitIcon}
+              </span>
+              <span className="text-[12px] leading-snug flex-1 min-w-0" style={{ color: 'var(--c-text)' }}>
+                {p.facultyLabel}
+              </span>
+              <span className="text-sm font-bold tabular-nums shrink-0" style={{ color: 'var(--c-primary)' }}>
+                {p.code}
+              </span>
+            </div>
+          ))}
+        </div>
 
         <div
           className="relative w-full max-w-xs h-14 rounded-2xl flex items-center justify-center cursor-text mb-4"

@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 
 export const PREVIEW_AWAITING_CONFIRM_KEY = 'preview_awaiting_confirm';
 
+/** После «Погнали!» — не показывать приветствие повторно для того же подтверждения. */
+export const PREVIEW_WELCOME_SEEN_KEY = 'preview_welcome_seen_at';
+
 interface AccessWelcomeOverlayProps {
   onContinue: () => void;
 }

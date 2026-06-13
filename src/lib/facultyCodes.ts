@@ -49,6 +49,48 @@ export function resolveFacultyPromoCode(input: string): FacultyPromo | null {
   return FACULTY_PROMOS.find(p => p.code === digits) ?? null;
 }
 
+/** Факультет уже известен (новые и старые пользователи с сохранённым кодом). */
+export function userHasKnownFaculty(user: {
+  facultyId?: string | null;
+  promoCode?: string | null;
+  previewFaculty?: string | null;
+} | null | undefined): boolean {
+  return resolveUserFacultyPromo(user) != null;
+}
+
+/** facultyId, promoCode или подпись факультета из старых записей. */
+export function resolveUserFacultyPromo(
+  user: {
+    facultyId?: string | null;
+    promoCode?: string | null;
+    previewFaculty?: string | null;
+  } | null | undefined,
+  key?: string | null,
+  clientFacultyId?: string | null,
+): FacultyPromo | null {
+  const byId = getFacultyPromoById(user?.facultyId);
+  if (byId) return byId;
+
+  const storedCode = String(user?.promoCode || '').replace(/\D/g, '');
+  if (storedCode) {
+    const byStored = resolveFacultyPromoCode(storedCode);
+    if (byStored) return byStored;
+  }
+
+  const label = String(user?.previewFaculty || '').trim();
+  if (label) {
+    const byLabel = FACULTY_PROMOS.find(p => p.facultyLabel === label) ?? null;
+    if (byLabel) return byLabel;
+  }
+
+  if (key) {
+    const byKey = resolveFacultyPromoCode(String(key).trim());
+    if (byKey) return byKey;
+  }
+
+  return getFacultyPromoById(clientFacultyId);
+}
+
 export function detectFacultyByInput(input: string): FacultyPromo | null {
   const digits = input.replace(/\D/g, '');
   if (!digits) return null;
