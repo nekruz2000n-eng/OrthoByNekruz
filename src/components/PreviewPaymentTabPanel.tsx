@@ -15,8 +15,10 @@ import { openTgChat } from '@/lib/tgLinks';
 import { Copy, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-const TBANK_PHONE_DISPLAY = '+7 900 316 66 46';
-const TBANK_PHONE_COPY = '+79003166646';
+const PAYMENT_BANK = 'Альфа-Банк';
+const PAYMENT_CARD_DISPLAY = '2200 1541 2618 5783';
+const PAYMENT_CARD_COPY = '2200154126185783';
+const PAYMENT_RECIPIENT = 'Amin Guseinov';
 const RECEIPT_TG_URL = 'https://t.me/evoeidos';
 const RECEIPT_TG_HANDLE = '@evoeidos';
 
@@ -162,12 +164,12 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
     toggleableModules, isBio,
   ]);
 
-  const copyPhone = useCallback(async () => {
+  const copyCard = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(TBANK_PHONE_COPY);
+      await navigator.clipboard.writeText(PAYMENT_CARD_COPY);
       toast({
-        title: 'Номер скопирован',
-        description: 'Вставь в перевод Т-Банка',
+        title: 'Номер карты скопирован',
+        description: 'Вставь при переводе в Альфа-Банк',
       });
     } catch {
       toast({ variant: 'destructive', title: 'Не удалось скопировать' });
@@ -250,20 +252,23 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
 
         <button
           type="button"
-          onClick={copyPhone}
+          onClick={copyCard}
           className="w-full rounded-2xl px-4 py-3.5 text-left transition-opacity active:opacity-80"
           style={{ background: 'var(--c-card)', border: '1px solid var(--c-border)' }}
         >
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--c-muted)' }}>
-                Т-Банк
+                {PAYMENT_BANK}
               </p>
-              <p className="text-base font-bold mt-0.5 tabular-nums" style={{ color: 'var(--c-text)' }}>
-                {TBANK_PHONE_DISPLAY}
+              <p className="text-base font-bold mt-0.5 tabular-nums tracking-wide" style={{ color: 'var(--c-text)' }}>
+                {PAYMENT_CARD_DISPLAY}
+              </p>
+              <p className="text-[12px] mt-1 font-medium" style={{ color: 'var(--c-text)' }}>
+                {PAYMENT_RECIPIENT}
               </p>
               <p className="text-[11px] mt-1" style={{ color: 'var(--c-muted)' }}>
-                Нажми, чтобы скопировать номер
+                Нажми, чтобы скопировать номер карты
               </p>
             </div>
             <Copy className="w-5 h-5 shrink-0" style={{ color: 'var(--c-primary)' }} />
