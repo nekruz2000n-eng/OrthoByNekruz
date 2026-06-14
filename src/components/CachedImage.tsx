@@ -7,7 +7,7 @@ import React, { useState, useEffect, forwardRef } from 'react';
 // дальше отдаются из Cache API — мгновенно и без обращения к сети (работает
 // даже офлайн). Имя кэша фиксированное: картинка `1.png` по смыслу неизменна.
 // Если заменишь файл, оставив имя, — бампни версию (v1 → v2).
-const IMG_CACHE = 'question-images-v1';
+const IMG_CACHE = 'question-images-v2';
 
 async function resolveImage(src: string): Promise<string> {
   if (!src || typeof caches === 'undefined') return src;
