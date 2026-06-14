@@ -1391,6 +1391,7 @@ export default function Home() {
     const iv = setInterval(() => {
       const tgId = getTgId();
       const testAccount = isPreviewShortDurationAccount(tgId);
+      if (!testAccount && typeof document !== 'undefined' && document.hidden) return;
       setPreviewRemainingMsByModule(prev => {
         const cur = prev[mod];
         if (cur == null || cur <= 0) return prev;

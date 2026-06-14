@@ -24,7 +24,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis }                from '@upstash/redis';
 import { getSubject, getAllDataFileNames } from '@/lib/subjects';
-import { isPreviewExpired, maybeExpirePreviewUser } from '@/lib/preview';
+import { isPreviewExpired, isPreviewModuleTrialExpired, maybeExpirePreviewUser } from '@/lib/preview';
 import { userHasModuleDataAccess } from '@/lib/previewModuleStatus';
 import { verifyInitDataId }     from '@/lib/verifyInitData';
 import { isRedisUnavailableError } from '@/lib/redisDegraded';
@@ -108,6 +108,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const dataType = String(type) as 'questions' | 'tests' | 'tasks' | 'glossary';
     if (!userHasModuleDataAccess(user, subjectCfg.id, dataType)) {
       return res.status(403).json({ error: 'No access to module' });
+    }
+
+    const flowSubject = user?.previewChosenSubject;
+    if (
+      user?.previewStatus === 'active'
+      && flowSubject === subjectCfg.id
+      && dataType !== 'glossary'
+      && user.previewModuleStatuses?.[dataType] === 'trial'
+      && isPreviewModuleTrialExpired(user, dataType, String(telegramId))
+    ) {
+      return res.status(403).json({ error: 'Preview module expired' });
     }
 
     // 3. Выбор файла по type

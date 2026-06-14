@@ -529,10 +529,9 @@ export function syncPreviewActiveMs(
 
   const msMap = ensurePreviewActiveMsMap(working, chosen);
   const limit = getPreviewDurationMs(tgId, module);
-  const cap = limit * 2;
   const prev = msMap[module] ?? 0;
   const effectiveDelta = Math.round(deltaMs * getPreviewActiveTimeMultiplier(tgId, module));
-  const nextVal = Math.min(cap, prev + effectiveDelta);
+  const nextVal = Math.min(limit, prev + effectiveDelta);
   const nextMap: PreviewActiveMsMap = { ...msMap, [module]: nextVal };
   const globalMax = Math.max(getPreviewActiveMsConsumed(user), nextVal);
 
