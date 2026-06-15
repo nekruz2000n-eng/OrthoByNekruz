@@ -2143,7 +2143,16 @@ export default function AdminPage() {
             const navHidden = (data.navHidden && typeof data.navHidden === 'object')
               ? data.navHidden as Record<string, string[]>
               : fallbackNav;
-            return { ...u, subjects: newSubjects, hasMicro: newSubjects.includes('micro'), navHidden };
+            return {
+              ...u,
+              subjects: newSubjects,
+              hasMicro: newSubjects.includes('micro'),
+              navHidden,
+              previewStatus: (data.previewStatus as string | null) ?? u.previewStatus,
+              previewConfirmedAt: (data.previewConfirmedAt as string | null) ?? u.previewConfirmedAt,
+              previewChosenSubject: (data.previewChosenSubject as string | null) ?? u.previewChosenSubject,
+              paid: data.previewConfirmedAt ? true : u.paid,
+            };
           }
           case 'toggle_section': {
             if (!subjectId || !section) return u;
@@ -2155,7 +2164,14 @@ export default function AdminPage() {
             const navHidden = (data.navHidden && typeof data.navHidden === 'object')
               ? data.navHidden as Record<string, string[]>
               : fallbackNav;
-            return { ...u, navHidden };
+            return {
+              ...u,
+              navHidden,
+              previewStatus: (data.previewStatus as string | null) ?? u.previewStatus,
+              previewConfirmedAt: (data.previewConfirmedAt as string | null) ?? u.previewConfirmedAt,
+              previewChosenSubject: (data.previewChosenSubject as string | null) ?? u.previewChosenSubject,
+              paid: data.previewConfirmedAt ? true : u.paid,
+            };
           }
           default:
             return u;

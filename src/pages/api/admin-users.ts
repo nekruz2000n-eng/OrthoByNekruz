@@ -13,6 +13,8 @@ import {
   previewChoiceIsAddon,
   hasFinalizedPreviewAccess,
   healStalePreviewForFinalizedUser,
+  healExamNavHidden,
+  clearPreviewFlowIfAdminGrantedAccess,
   reopenPreviewVitrine,
   getPendingAdminModules,
   getPreviewChosenModulesForAdmin,
@@ -216,6 +218,12 @@ async function saveUser(tgId: string, data: any) {
   await registerUserId(redis, tgId);
 }
 
+function applyAdminAccessHeals(user: any): any {
+  let healed = healStalePreviewForFinalizedUser(user);
+  healed = healExamNavHidden(healed);
+  return clearPreviewFlowIfAdminGrantedAccess(healed);
+}
+
 async function buildUserList(ids: string[]) {
   if (!ids.length) return [];
 
@@ -368,15 +376,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
 
-        let healed = healStalePreviewForFinalizedUser(updated);
+        let healed = applyAdminAccessHeals(updated);
         if (enabled && user.paid === true) {
-          healed = healStalePreviewForFinalizedUser({ ...healed, paid: true });
+          healed = applyAdminAccessHeals({ ...healed, paid: true });
         }
         await saveUser(String(tgId), healed);
         return res.status(200).json({
           ok: true,
           subjects: getUserAvailableSubjects(healed),
           navHidden: healed.navHidden ?? navHidden,
+          previewStatus: healed.previewStatus ?? null,
+          previewConfirmedAt: healed.previewConfirmedAt ?? null,
+          previewChosenSubject: healed.previewChosenSubject ?? null,
         });
       }
 
@@ -668,8 +679,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const set = new Set<string>(navHidden[subjectId] || []);
         if (enabled) set.delete(sectionId); else set.add(sectionId);
         if (set.size === 0) delete navHidden[subjectId]; else navHidden[subjectId] = [...set];
-        await saveUser(String(tgId), { ...user, navHidden });
-        return res.status(200).json({ ok: true, navHidden });
+        const healed = applyAdminAccessHeals({ ...user, navHidden });
+        await saveUser(String(tgId), healed);
+        return res.status(200).json({
+          ok: true,
+          navHidden: healed.navHidden ?? navHidden,
+          previewStatus: healed.previewStatus ?? null,
+          previewConfirmedAt: healed.previewConfirmedAt ?? null,
+          previewChosenSubject: healed.previewChosenSubject ?? null,
+        });
       }
 
       return res.status(400).json({ error: 'Unknown action' });

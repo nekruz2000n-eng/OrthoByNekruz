@@ -184,6 +184,30 @@ export function userAlreadyHasAllChosenModules(
   return chosen.every(m => !hidden.has(m));
 }
 
+/** Админ вручную открыл предмет/разделы — завершить воронку оплаты без «Скинул — войти». */
+export function clearPreviewFlowIfAdminGrantedAccess(user: any): any {
+  if (!user) return user;
+  if (getPendingAdminModules(user).length > 0) return user;
+
+  const chosen = user.previewChosenSubject;
+  if (!chosen || !isPreviewPaymentFlowActive(user)) return user;
+  if (!userAlreadyHasSubjectAccess(user, chosen)) return user;
+
+  const mods = normalizePreviewModules(user.previewChosenModules);
+  if (mods.length > 0 && !userAlreadyHasAllChosenModules(user, chosen, mods)) {
+    return user;
+  }
+
+  const healed: Record<string, any> = { ...user };
+  clearStalePreviewFlowFields(healed);
+  if (!healed.previewConfirmedAt) {
+    healed.previewConfirmedAt = new Date().toISOString();
+  }
+  if (!healed.paid) healed.paid = true;
+  delete healed._adminPaymentOnlyLock;
+  return healed;
+}
+
 /** Сброс зависшей витрины/оплаты у пользователей с уже выданным доступом. */
 export function healStalePreviewForFinalizedUser(user: any): any {
   if (!user) return user;
