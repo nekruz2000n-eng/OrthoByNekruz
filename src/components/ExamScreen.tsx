@@ -254,10 +254,11 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
     if (!selectedTicket) { setPhase('no-data'); return; }
 
     const pickedItems: Item[] = [
-      { ...selectedTicket.questions[0], type: 'question' },
-      { ...selectedTicket.questions[1], type: 'question' },
+      ...selectedTicket.questions
+        .filter((q): q is RawItem => !!q?.question)
+        .map((q): Item => ({ ...q, type: 'question' })),
       { ...selectedTicket.task, type: 'task' },
-    ];
+    ].filter((item): item is Item => !!item.question);
 
     const prevBest = ticketBest[String(selectedTicket.id)];
     prevBestRef.current = prevBest === undefined ? null : prevBest;
@@ -345,6 +346,8 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
   const inExam      = phase === 'question' || phase === 'answer';
   const passedCount = ticketsData.filter(t => ticketBest[String(t.id)] !== undefined).length;
   const perfectCount = ticketsData.filter(t => ticketBest[String(t.id)] === 100).length;
+  const questionsPerTicket = ticketsData[0]?.questions?.length ?? 2;
+  const ticketCompositionLabel = `${questionsPerTicket} вопроса + задача`;
 
   // ════════════════════════════════════════════════════════════════════════
   return createPortal(
@@ -442,7 +445,7 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                 <div className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ opacity: 0.85 }}>Главный режим</div>
                 <div className="text-[24px] font-extrabold leading-tight mb-1.5" style={{ letterSpacing: '-0.5px' }}>Вытянуть билет</div>
                 <div className="text-[13px] mb-4 max-w-[240px]" style={{ opacity: 0.9, lineHeight: 1.4 }}>
-                  Случайный билет: 2 вопроса + задача. Таймер 20 минут — как на реальном экзамене.
+                  Случайный билет: {ticketCompositionLabel}. Таймер 20 минут — как на реальном экзамене.
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-[15px] font-bold"
                   style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.35)' }}>

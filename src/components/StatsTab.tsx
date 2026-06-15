@@ -14,7 +14,12 @@ import { loadSubjectData } from '@/lib/subjectData';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExamScreen, loadExamHistory, ExamHistoryEntry } from './ExamScreen';
 import { ResourcesSheet } from './ResourcesSheet';
-import orthoTicketsData from '@/data/ticketsData.json';
+import {
+  buildExamTicketsForSubject,
+  getExamTicketCompositionLabel,
+  hasExamTicketData,
+  type ExamTicket,
+} from '@/lib/examTickets';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Theme = 'dark' | 'light' | 'bright';
@@ -271,27 +276,32 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   const isOrtho = subject === 'ortho';
 
   const [counts, setCounts] = useState<{ q: number; t: number; ts: number }>({ q: 0, t: 0, ts: 0 });
+  const [examTickets, setExamTickets] = useState<ExamTicket[]>([]);
+  const [questionsData, setQuestionsData] = useState<unknown[]>([]);
+  const [tasksData, setTasksData] = useState<unknown[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     setCounts({ q: 0, t: 0, ts: 0 });
+    setExamTickets([]);
+    setQuestionsData([]);
+    setTasksData([]);
     Promise.all([
       loadSubjectData(subject, 'questions'),
       loadSubjectData(subject, 'tasks'),
       loadSubjectData(subject, 'tests'),
     ]).then(([q, t, ts]) => {
-      if (!cancelled) setCounts({ q: q.length, t: t.length, ts: ts.length });
+      if (cancelled) return;
+      setQuestionsData(q);
+      setTasksData(t);
+      setCounts({ q: q.length, t: t.length, ts: ts.length });
+      setExamTickets(buildExamTicketsForSubject(subject, q, t));
     });
     return () => { cancelled = true; };
   }, [subject]);
 
-  const getTicketsForSubject = (subjId: string) => {
-    switch (subjId) {
-      case 'ortho': return orthoTicketsData;
-      default:      return [];
-    }
-  };
-  const currentTickets = getTicketsForSubject(subject);
+  const currentTickets = examTickets;
+  const examTicketsOfficial = subject === 'ortho';
 
   // localStorage ключи (раздельный прогресс по предметам)
   const LS = {
@@ -430,7 +440,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
     ? Math.max(...examHistory.map(h => Math.round((h.score / h.total) * 100)))
     : 0;
   const lastTry = examHistory[examHistory.length - 1];
-  const enoughData = currentTickets.length > 0;
+  const enoughData = hasExamTicketData(subject, questionsData, tasksData);
 
   return (
     <>
@@ -623,8 +633,10 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                       {enoughData
                         ? lastTry
                           ? `Лучший: ${bestPct}% · попыток: ${examHistory.length}`
-                          : 'Официальные билеты · 20 минут'
-                        : 'Билеты в разработке'}
+                          : examTicketsOfficial
+                            ? 'Официальные билеты · 20 минут'
+                            : `${currentTickets.length} билетов · ${getExamTicketCompositionLabel(questionsData.length)}`
+                        : `Нужны вопросы и задачи (${getExamTicketCompositionLabel(questionsData.length)})`}
                     </div>
                   </div>
                   {enoughData && <ChevronRight className="w-5 h-5 flex-shrink-0" style={{ opacity: 0.8 }} />}
@@ -885,7 +897,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             accentColor={accentColor}
             dimColor={cfg?.dimColor || 'var(--c-primary-dim)'}
             borderColor={cfg?.borderColor || 'var(--c-primary-br)'}
-            ticketsData={currentTickets as any}
+            ticketsData={currentTickets}
             onClose={() => { setShowExam(false); reloadExamHistory(); loadStats(); }}
             onResultSaved={reloadExamHistory}
           />
