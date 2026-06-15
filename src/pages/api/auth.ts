@@ -28,6 +28,7 @@ import {
   isPreviewTrialLocked,
   isPreviewShortDurationAccount,
   hasFinalizedPreviewAccess,
+  healExamNavHidden,
   healStalePreviewForFinalizedUser,
   normalizeAddonPreviewNavHidden,
   userAlreadyHasAllChosenModules,
@@ -391,6 +392,7 @@ async function healAndMaybePersistUser(tgId: string, user: any, redisOk: boolean
   const before = user;
   let healed = healStalePreviewForFinalizedUser(user);
   healed = normalizeAddonPreviewNavHidden(healed);
+  healed = healExamNavHidden(healed);
   const accessHealed = healed !== before;
   if (redisOk && accessHealed) {
     await saveUser(tgId, touchUserActivity(healed));

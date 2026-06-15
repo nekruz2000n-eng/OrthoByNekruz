@@ -77,7 +77,7 @@ export function buildNavHiddenForCatalogAddonPreview(
   grantedSubjects: string[],
   navHidden: Record<string, string[]>,
 ): string[] {
-  const hidden = new Set<string>(['exam', 'materials']);
+  const hidden = new Set<string>(['materials']);
   const granted = new Set(getGrantedCatalogModules(subjectId, grantedSubjects, navHidden));
   const visible = new Set<PreviewModule>([...granted, ...chosenModules]);
   for (const tab of CONTENT_MODULES) {

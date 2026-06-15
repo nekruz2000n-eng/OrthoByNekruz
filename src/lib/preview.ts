@@ -31,7 +31,7 @@ export function buildNavHiddenForPreview(
   subjectId: string,
   chosenModules: PreviewModule[],
 ): string[] {
-  const hidden = new Set<string>(['exam', 'materials']);
+  const hidden = new Set<string>(['materials']);
   for (const tab of ['questions', 'tests', 'tasks'] as PreviewModule[]) {
     if (!chosenModules.includes(tab)) hidden.add(tab);
   }
@@ -47,7 +47,7 @@ export function buildNavHiddenForPaymentTabs(
   chosenModules: PreviewModule[],
   confirmedModules: PreviewModule[] = [],
 ): string[] {
-  const hidden = new Set<string>(['exam', 'materials']);
+  const hidden = new Set<string>(['materials']);
   for (const tab of ['questions', 'tests', 'tasks'] as PreviewModule[]) {
     if (!chosenModules.includes(tab)) hidden.add(tab);
   }
@@ -63,7 +63,7 @@ export function buildNavHiddenForConfirmedPurchase(
   subjectId: string,
   chosenModules: PreviewModule[],
 ): string[] {
-  const hidden = new Set<string>(['exam']);
+  const hidden = new Set<string>();
   for (const tab of ['questions', 'tests', 'tasks'] as PreviewModule[]) {
     if (!chosenModules.includes(tab)) hidden.add(tab);
   }
@@ -1573,6 +1573,20 @@ export function getEffectiveUserSubjects(user: any, tgId?: string | null): strin
     return getUserAvailableSubjects(user);
   }
   return getUserAvailableSubjects(user);
+}
+
+/** Убрать устаревшее авто-скрытие «Проверки готовности» из navHidden (раньше прятали при пробе/оплате). */
+export function healExamNavHidden(user: any): any {
+  if (!user?.navHidden || typeof user.navHidden !== 'object') return user;
+  let changed = false;
+  const navHidden: Record<string, string[]> = {};
+  for (const [sid, hidden] of Object.entries(user.navHidden as Record<string, string[]>)) {
+    if (!Array.isArray(hidden)) continue;
+    const next = hidden.filter(t => t !== 'exam');
+    if (next.length !== hidden.length) changed = true;
+    if (next.length > 0) navHidden[sid] = next;
+  }
+  return changed ? { ...user, navHidden } : user;
 }
 
 export async function maybeExpirePreviewUser(
