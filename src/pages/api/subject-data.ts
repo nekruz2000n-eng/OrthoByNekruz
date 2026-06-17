@@ -24,6 +24,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis }                from '@upstash/redis';
 import { getSubject, getAllDataFileNames } from '@/lib/subjects';
+import { resolveBioQuestionsFile } from '@/lib/bioQuestions';
 import { isPreviewExpired, isPreviewModuleTrialExpired, maybeExpirePreviewUser } from '@/lib/preview';
 import { userHasModuleDataAccess } from '@/lib/previewModuleStatus';
 import { verifyInitDataId }     from '@/lib/verifyInitData';
@@ -124,7 +125,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 3. Выбор файла по type
     let fileName: string | null = null;
     switch (type) {
-      case 'questions': fileName = subjectCfg.questionsFile; break;
+      case 'questions':
+        fileName = subjectCfg.id === 'bio'
+          ? resolveBioQuestionsFile(user?.facultyId)
+          : subjectCfg.questionsFile;
+        break;
       case 'tasks':     fileName = subjectCfg.tasksFile;     break;
       case 'tests':     fileName = subjectCfg.testsFile;     break;
       case 'glossary':  fileName = subjectCfg.glossaryFile;  break;

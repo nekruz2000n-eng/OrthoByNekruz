@@ -14,6 +14,8 @@
 //
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { BIO_QUESTIONS_PED_FILE } from '@/lib/bioQuestions';
+
 /** Название университета в шапке всех дисциплин */
 export const APP_BRAND_NAME = 'КрасГМУ';
 
@@ -125,7 +127,7 @@ export const SUBJECTS: SubjectConfig[] = [
     dimColor:       'hsl(142 70% 45% / 0.12)',
     borderColor:    'hsl(142 70% 45% / 0.28)',
     iconVariant:    'normal',
-    questionsFile:  'bio_questions.json',
+    questionsFile:  'bio_questions_stomatology.json',
     tasksFile:      'bio_tasks.json',
     testsFile:      'bio_tests.json',
     glossaryFile:   'bio_glossary.json',
@@ -436,5 +438,7 @@ export function getAllDataFileNames(): string[] {
     names.add(s.testsFile);
     names.add(s.glossaryFile);
   }
+  names.add(BIO_QUESTIONS_PED_FILE);
+  names.add('bio_questions.json');
   return [...names];
 }

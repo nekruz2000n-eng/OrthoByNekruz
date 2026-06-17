@@ -9,6 +9,8 @@
 //  удаляется и данные сразу подтягиваются с сервера у всех студентов.
 // ════════════════════════════════════════════════════════════════════════════
 
+import { readStoredFacultyId } from '@/lib/facultyCodes';
+
 let onSubjectDataUnavailable: (() => void) | null = null;
 
 /** Регистрирует колбэк при 503 / сбое Redis на subject-data. */
@@ -47,6 +49,10 @@ async function purgeOldCaches(): Promise<void> {
 }
 
 function cacheKey(subject: string, type: SubjectDataType): string {
+  if (subject === 'bio' && type === 'questions') {
+    const faculty = readStoredFacultyId() || 'stomatology';
+    return `https://cache.local/subject-data/${subject}/${type}/${faculty}`;
+  }
   return `https://cache.local/subject-data/${subject}/${type}`;
 }
 
