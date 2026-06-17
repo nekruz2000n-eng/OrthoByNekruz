@@ -57,6 +57,7 @@ import { registerUserId } from '@/lib/userIndex';
 import { clearAuthRateLimitsForTgId, checkCatalogBrowseLimit } from '@/lib/authRateLimit';
 import {
   buildCatalogSelectingUser,
+  canExitCatalogBrowse,
   exitCatalogBrowse,
   getCatalogGrantedSubjects,
   isCatalogModuleAlreadyGranted,
@@ -352,9 +353,11 @@ function previewPayload(
     pickSubjects:         selecting ? getAllPickableSubjectIds() : undefined,
     subjectCatalog:       selecting && catalog ? catalog : undefined,
     navHidden,
+    catalogBrowseActive: user?._catalogBrowse === true,
     catalogGrantedSubjects: user?._catalogBrowse
       ? getCatalogGrantedSubjects(user)
       : undefined,
+    canExitCatalogBrowse: canExitCatalogBrowse(user),
     canReturnToPurchasedAccess: canReturnToPurchasedAccess(user),
     canAbandonPendingPreview: canAbandonPendingPreview(user),
     previewGrantedModules: getPreviewPaymentGrantedModules(user),
@@ -505,12 +508,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (mode === 'exit_catalog_browse') {
-      if (!user?._catalogBrowse) {
-        return res.status(400).json({ error: 'Витрина не открыта.' });
+      if (!canExitCatalogBrowse(user)) {
+        return res.status(400).json({ error: 'Нельзя вернуться к купленному сейчас.' });
       }
       const updated = exitCatalogBrowse(user);
       if (!updated) {
-        return res.status(400).json({ error: 'Нельзя выйти из витрины.' });
+        return res.status(400).json({ error: 'Не удалось вернуться к купленному.' });
       }
       updated.username   = username ?? updated.username;
       updated.firstName  = firstName ?? updated.firstName;

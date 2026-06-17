@@ -1,6 +1,11 @@
 import type { FacultyPromo } from '@/lib/facultyCodes';
 import { getNavHiddenForSubject } from '@/lib/subjectCatalog';
-import { buildSelectingPreviewUserFromExisting, snapshotSubjects } from '@/lib/preview';
+import { getUserAvailableSubjects } from '@/lib/subjects';
+import {
+  buildSelectingPreviewUserFromExisting,
+  hasFinalizedPreviewAccess,
+  snapshotSubjects,
+} from '@/lib/preview';
 import type { PreviewStatus } from '@/lib/preview';
 import type { PreviewModule } from '@/lib/previewModules';
 
@@ -125,11 +130,17 @@ export function buildCatalogSelectingUser(
   };
 }
 
+/** Можно выйти с экрана выбора и вернуться к уже купленному. */
+export function canExitCatalogBrowse(user: any): boolean {
+  if (user?.previewStatus !== 'selecting' || user.previewChosenSubject) return false;
+  if (user._catalogBrowse === true) return true;
+  const granted = getUserAvailableSubjects(user);
+  return granted.length > 0 || hasFinalizedPreviewAccess(user) || user.paid === true;
+}
+
 /** Выйти из витрины без выбора — вернуться к уже купленному доступу. */
 export function exitCatalogBrowse(user: any): any | null {
-  if (!user?._catalogBrowse) return null;
-  if (user.previewStatus !== 'selecting') return null;
-  if (user.previewChosenSubject) return null;
+  if (!canExitCatalogBrowse(user)) return null;
 
   const updated: Record<string, unknown> = { ...user };
   delete updated.previewStatus;

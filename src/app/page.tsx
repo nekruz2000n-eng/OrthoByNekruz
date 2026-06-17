@@ -195,6 +195,7 @@ export default function Home() {
   const [catalogBrowseLoading, setCatalogBrowseLoading] = useState(false);
   const [subjectCatalog,  setSubjectCatalog]   = useState<SubjectCatalogEntry[]>([]);
   const [catalogGrantedSubjects, setCatalogGrantedSubjects] = useState<string[]>([]);
+  const [canExitCatalogBrowse, setCanExitCatalogBrowse] = useState(false);
   const [previewEndsAt,   setPreviewEndsAt]    = useState<string | null>(null);
   const [previewStartedAt, setPreviewStartedAt] = useState<string | null>(null);
   const [previewPicking,  setPreviewPicking]   = useState<boolean>(false);
@@ -389,9 +390,10 @@ export default function Home() {
     }
 
     if (Array.isArray(d?.subjectCatalog)) setSubjectCatalog(d.subjectCatalog);
-    if (Array.isArray(d?.catalogGrantedSubjects)) {
+    setCanExitCatalogBrowse(d?.canExitCatalogBrowse === true);
+    if (d?.catalogBrowseActive === true && Array.isArray(d?.catalogGrantedSubjects)) {
       setCatalogGrantedSubjects(d.catalogGrantedSubjects);
-    } else if (ps !== 'selecting') {
+    } else {
       setCatalogGrantedSubjects([]);
     }
     if (Array.isArray(d?.pickSubjects)) setPickSubjects(d.pickSubjects);
@@ -1556,11 +1558,7 @@ export default function Home() {
         navHidden={navHidden}
         loading={previewPicking}
         onConfirm={handlePreviewPick}
-        onBackToPurchased={
-          catalogGrantedSubjects.length > 0 || availableSubjects.length > 0
-            ? handleExitCatalogBrowse
-            : undefined
-        }
+        onBackToPurchased={canExitCatalogBrowse ? handleExitCatalogBrowse : undefined}
         backBusy={catalogBrowseLoading}
       />,
     );
