@@ -8,7 +8,7 @@
 //       «Тренировка» отключает таймер; «Слабые» выбирает худший/неоткрытый билет.
 //    2. Таймер 20 минут (только в режиме «Экзамен»). Виден номер билета.
 //    3. На экране вопроса — анимированный зуб («подумай»), затем «Показать ответ».
-//    4. Юзер видит эталон → отмечает «Знал» / «Не знал».
+//    4. Юзер видит эталон → отмечает «Знаю» / «Не знаю».
 //    5. После 3-го ответа — экран результата с поразборным списком билета.
 //    6. Результат пишется в localStorage с номером билета.
 // ════════════════════════════════════════════════════════════════════════════
@@ -166,7 +166,7 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
   const [currentTicket, setCurrentTicket] = useState<string | number>('');
   const [currentIdx, setCurrentIdx] = useState(0);
   const [score, setScore] = useState(0);
-  const [answers, setAnswers] = useState<boolean[]>([]);   // знал/не знал по каждому
+  const [answers, setAnswers] = useState<boolean[]>([]);   // знаю/не знаю по каждому
   const [secondsLeft, setSecondsLeft] = useState(EXAM_DURATION_SEC);
   const [confirmExit, setConfirmExit] = useState(false);
   const startTimeRef = useRef<number>(0);
@@ -619,12 +619,12 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                 <button onClick={() => handleSelfGrade(false)}
                   className="flex-1 h-[52px] rounded-2xl font-bold text-[14px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
                   style={{ background: 'hsla(var(--destructive), 0.1)', border: '1.5px solid hsla(var(--destructive), 0.3)', color: 'hsl(var(--destructive))' }}>
-                  <XCircle className="w-5 h-5" /> Не знал
+                  <XCircle className="w-5 h-5" /> Не знаю
                 </button>
                 <button onClick={() => handleSelfGrade(true)}
                   className="flex-1 h-[52px] rounded-2xl font-bold text-[14px] flex items-center justify-center gap-2 transition active:scale-[0.97]"
                   style={{ background: accentColor, color: 'var(--c-bg)', boxShadow: `0 6px 16px color-mix(in srgb, ${accentColor} 30%, transparent)` }}>
-                  <Check className="w-5 h-5" /> Знал
+                  <Check className="w-5 h-5" /> Знаю
                 </button>
               </div>
               <button onClick={() => { if (mode === 'exam') setConfirmExit(true); else onClose(); }}
