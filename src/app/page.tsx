@@ -6,6 +6,7 @@ import { PreviewOnboardingScreen } from '@/components/PreviewOnboardingScreen';
 import { PreviewGroupScreen } from '@/components/PreviewGroupScreen';
 import { PreviewPaymentTabPanel } from '@/components/PreviewPaymentTabPanel';
 import { TrustAccessNotice } from '@/components/TrustAccessNotice';
+import { FacultyPickerModal } from '@/components/FacultyPickerModal';
 import { ChannelCodeEntryScreen } from '@/components/ChannelCodeEntryScreen';
 import { AccessWelcomeOverlay, PREVIEW_AWAITING_CONFIRM_KEY, PREVIEW_WELCOME_SEEN_KEY } from '@/components/AccessWelcomeOverlay';
 import { AuthScreen }    from '@/components/AuthScreen';
@@ -38,7 +39,7 @@ import {
   shouldBustPaymentFlowCache,
 } from '@/lib/previewModuleStatus';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
-import { persistFacultyId, readStoredFacultyId, USER_FACULTY_ID_KEY } from '@/lib/facultyCodes';
+import { persistFacultyId, readStoredFacultyId, USER_FACULTY_ID_KEY, type FacultyPromo } from '@/lib/facultyCodes';
 
 // ─── updateSafeAreas ─────────────────────────────────────────────────────────
 //
@@ -222,6 +223,8 @@ export default function Home() {
   const [serviceDegraded, setServiceDegraded] = useState(false);
   const [showGroupForReceipt, setShowGroupForReceipt] = useState(false);
   const [retryClaimAfterGroup, setRetryClaimAfterGroup] = useState<PreviewModule[] | null>(null);
+  const [needsFacultyPick, setNeedsFacultyPick] = useState(false);
+  const [facultyPickSaving, setFacultyPickSaving] = useState(false);
   const pendingReceiptModulesRef = useRef<PreviewModule[] | null>(null);
   const previewActiveDeltaRef = useRef(0);
   const previewModuleRealMsRef = useRef<Partial<Record<PreviewModule, number>>>({});
@@ -399,6 +402,7 @@ export default function Home() {
     if (Array.isArray(d?.pickSubjects)) setPickSubjects(d.pickSubjects);
 
     if (d?.facultyId) persistFacultyId(String(d.facultyId));
+    setNeedsFacultyPick(d?.needsFacultyPick === true);
 
     if (ps === 'active') {
       const endIso = resolvePreviewEndIso(d?.previewEndsAt ?? null, d?.previewStartedAt ?? null, getTgId());
@@ -915,6 +919,42 @@ export default function Home() {
       setCatalogBrowseLoading(false);
     }
   }, [applyAccessPayload, toast, previewStatus, paymentGrantedSubjects]);
+
+  const handleFacultyPick = useCallback(async (promo: FacultyPromo) => {
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) return;
+    setFacultyPickSaving(true);
+    try {
+      const res = await fetch('/api/auth', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          telegramId: tgId,
+          mode:       'set_faculty',
+          facultyId:  promo.id,
+          initData:   initDat,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({
+          variant: 'destructive',
+          title: 'Факультет',
+          description: data.error || 'Не удалось сохранить',
+        });
+        return;
+      }
+      persistFacultyId(promo.id);
+      void bustSubjectModuleCache('bio', ['questions']);
+      applyAccessPayload(data);
+      setNeedsFacultyPick(false);
+    } catch {
+      toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
+    } finally {
+      setFacultyPickSaving(false);
+    }
+  }, [applyAccessPayload, toast]);
 
   const handleExitCatalogBrowse = useCallback(async () => {
     const tgId    = localStorage.getItem('user_tg_id');
@@ -1540,6 +1580,17 @@ export default function Home() {
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
       </div>,
+    );
+  }
+
+  if (needsFacultyPick) {
+    return (
+      <>
+        <FacultyPickerModal saving={facultyPickSaving} onSelect={handleFacultyPick} />
+        <div className="flex items-center justify-center min-h-screen bg-background">
+          <Loader2 className="w-8 h-8 text-primary animate-spin opacity-30" />
+        </div>
+      </>
     );
   }
 

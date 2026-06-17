@@ -1163,6 +1163,18 @@ export default function AdminPage() {
   const [demoResetLoading, setDemoResetLoading] = useState(false);
   const [giftBioTasksLoading, setGiftBioTasksLoading] = useState(false);
 
+  const [facultyStatsExpanded, setFacultyStatsExpanded] = useState(false);
+  const [facultyStatsLoading, setFacultyStatsLoading] = useState(false);
+  const [facultyStats, setFacultyStats] = useState<{
+    total: number;
+    stomatology: number;
+    pediatrics: number;
+    therapeutic: number;
+    unknown: number;
+    computedAt: string;
+    nextRefreshAt: string;
+  } | null>(null);
+
   const [previewCatalogExpanded, setPreviewCatalogExpanded] = useState(false);
   const [previewCatalog, setPreviewCatalog] = useState<PreviewCatalogSettings>({});
   const [previewCatalogBase, setPreviewCatalogBase] = useState<PreviewCatalogBaseEntry[]>([]);
@@ -1380,6 +1392,31 @@ export default function AdminPage() {
       setGiftBioTasksLoading(false);
     }
   };
+
+  const fetchFacultyStats = useCallback(async (force = false) => {
+    const initData = getTelegramInitData();
+    if (!initData) { showToast('Нет доступа: не в Telegram'); return; }
+    setFacultyStatsLoading(true);
+    try {
+      const r = await fetch('/api/admin-faculty-stats', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ secret, initData, force }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.stats) {
+        setFacultyStats(data.stats);
+      } else if (r.status === 403) {
+        showToast('Нет прав — открой админку через Telegram');
+      } else {
+        showToast((data as { error?: string }).error || 'Ошибка загрузки статистики');
+      }
+    } catch {
+      showToast('Ошибка сети');
+    } finally {
+      setFacultyStatsLoading(false);
+    }
+  }, [secret]);
 
   const fetchRateBlocks = useCallback(async () => {
     setRateBlocksLoading(true);
@@ -2487,6 +2524,105 @@ export default function AdminPage() {
       }}>
 
         {adminTab === 'settings' && (<>
+
+        {/* статистика по факультетам */}
+        <div style={{
+          background: T.surface, border: `1px solid ${T.border}`,
+          borderRadius: 14, marginBottom: 14, overflow: 'hidden',
+        }}>
+          <button
+            type="button"
+            onClick={() => {
+              if (!facultyStatsExpanded && !facultyStats) void fetchFacultyStats(false);
+              setFacultyStatsExpanded(v => !v);
+            }}
+            style={{
+              width: '100%', padding: '13px 14px', border: 'none', background: 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+              cursor: 'pointer', fontFamily: FONT_SANS, textAlign: 'left',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 10, background: T.accentSoft,
+                color: T.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 18, flexShrink: 0,
+              }}>📊</div>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text }}>
+                  Студенты по факультетам
+                </div>
+                <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>
+                  Стом · Пед · Леч · без факультета · обновление раз в месяц
+                </div>
+              </div>
+            </div>
+            <span style={{
+              color: T.textFaint, fontSize: 14,
+              transform: facultyStatsExpanded ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.2s', display: 'inline-block',
+            }}>▾</span>
+          </button>
+
+          {facultyStatsExpanded && (
+            <div style={{ borderTop: `1px solid ${T.border}`, background: T.surfaceAlt, padding: '14px' }}>
+              {facultyStatsLoading && !facultyStats ? (
+                <div style={{ textAlign: 'center', color: T.textFaint, fontSize: 13, padding: 12 }}>
+                  Считаем…
+                </div>
+              ) : facultyStats ? (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                    {([
+                      { label: '🦷 Стоматология', value: facultyStats.stomatology, color: T.success },
+                      { label: '👶 Педиатрия', value: facultyStats.pediatrics, color: T.warn },
+                      { label: '🩺 Лечебный', value: facultyStats.therapeutic, color: T.accent },
+                      { label: '❓ Без факультета', value: facultyStats.unknown, color: T.textMuted },
+                    ] as const).map(row => (
+                      <div
+                        key={row.label}
+                        style={{
+                          padding: '10px 12px', borderRadius: 10,
+                          background: T.surface, border: `1px solid ${T.border}`,
+                        }}
+                      >
+                        <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>{row.label}</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: row.color }}>{row.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{
+                    fontSize: 11, color: T.textFaint, lineHeight: 1.5, marginBottom: 10,
+                  }}>
+                    Всего в базе: <strong style={{ color: T.text }}>{facultyStats.total}</strong>
+                    {' · '}
+                    Обновлено: {new Date(facultyStats.computedAt).toLocaleString('ru-RU')}
+                    <br />
+                    Следующее автообновление: {new Date(facultyStats.nextRefreshAt).toLocaleDateString('ru-RU')}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void fetchFacultyStats(true)}
+                    disabled={facultyStatsLoading}
+                    style={{
+                      height: 34, padding: '0 12px', borderRadius: 8,
+                      border: `1px solid ${T.border}`, background: T.surface,
+                      color: T.textMuted, fontSize: 12, fontWeight: 600,
+                      cursor: facultyStatsLoading ? 'default' : 'pointer',
+                      opacity: facultyStatsLoading ? 0.6 : 1,
+                    }}
+                  >
+                    {facultyStatsLoading ? '…' : '↻ Пересчитать сейчас'}
+                  </button>
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', color: T.textFaint, fontSize: 13, padding: 12 }}>
+                  Не удалось загрузить
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* пробный вход — коды из канала */}
         <div style={{

@@ -46,7 +46,7 @@ import {
 import type { PreviewModule } from '@/lib/previewModules';
 import { ensureModuleStatusMap } from '@/lib/previewModuleStatus';
 import { notifyAdminReceiptClaimed } from '@/lib/notifyAdmin';
-import { resolveFacultyPromoCode, facultyFieldsFromUser, resolveUserFacultyPromo } from '@/lib/facultyCodes';
+import { resolveFacultyPromoCode, facultyFieldsFromUser, resolveUserFacultyPromo, applyFacultyToUser, getFacultyPromoById, userNeedsFacultyPick } from '@/lib/facultyCodes';
 import { ACCESS_CACHE_VERSION } from '@/lib/accessCache';
 import { normalizeStudyGroup, buildStudyGroupFromDigits } from '@/lib/studyGroup';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
@@ -358,6 +358,7 @@ function previewPayload(
       ? getCatalogGrantedSubjects(user)
       : undefined,
     canExitCatalogBrowse: canExitCatalogBrowse(user),
+    needsFacultyPick: userNeedsFacultyPick(user),
     canReturnToPurchasedAccess: canReturnToPurchasedAccess(user),
     canAbandonPendingPreview: canAbandonPendingPreview(user),
     previewGrantedModules: getPreviewPaymentGrantedModules(user),
@@ -525,6 +526,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         success: true,
         ...(await subjectsResponse(updated, tgIdStr)),
       });
+    }
+
+    if (mode === 'set_faculty') {
+      if (!user) {
+        return res.status(401).json({ error: 'Сначала войди в приложение.' });
+      }
+      const facultyId = String(req.body?.facultyId || '').trim();
+      const promo = getFacultyPromoById(facultyId);
+      if (!promo) {
+        return res.status(400).json({ error: 'Неизвестный факультет.' });
+      }
+      const updated = applyFacultyToUser(
+        touchUserVisit({ ...user, username, firstName, lastName }),
+        promo,
+      );
+      await saveUser(tgIdStr, updated);
+      return res.status(200).json(await subjectsResponse(updated, tgIdStr));
     }
 
     if (mode === 'set_study_group') {

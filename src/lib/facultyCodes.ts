@@ -160,6 +160,26 @@ export function facultyFieldsFromUser(user: { facultyId?: string | null } | null
   };
 }
 
+/** Записать факультет в профиль пользователя (Redis). */
+export function applyFacultyToUser<T extends Record<string, unknown>>(
+  user: T,
+  promo: FacultyPromo,
+): T & { facultyId: string; promoCode: string; previewFaculty: string } {
+  return {
+    ...user,
+    facultyId:      promo.id,
+    promoCode:      promo.code,
+    previewFaculty: promo.facultyLabel,
+  };
+}
+
+/** Нужно ли показать выбор факультета (нет данных ни в профиле, ни в старых полях). */
+export function userNeedsFacultyPick(
+  user: Parameters<typeof userHasKnownFaculty>[0] | null | undefined,
+): boolean {
+  return !!user && !userHasKnownFaculty(user);
+}
+
 export function isLegacyPaidKey(input: string): boolean {
   return /^\d{8}$/.test(input.trim());
 }
