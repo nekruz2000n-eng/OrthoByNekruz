@@ -185,12 +185,7 @@ export const TasksTab = ({
     {/* 2. Центрированный блок с логотипом, названием и прогрессом */}
     <div className="flex flex-col items-center justify-center flex-1 min-w-0">
       <div className="flex items-center gap-2">
-        <div
-          className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0"
-          style={{ background: `color-mix(in srgb, ${accentColor} 14%, transparent)` }}
-        >
-          <AppBrandIcon size={20} onClick={onSecretTap} />
-        </div>
+        <AppBrandIcon onClick={onSecretTap} />
         <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
           {APP_BRAND_NAME}
         </h1>

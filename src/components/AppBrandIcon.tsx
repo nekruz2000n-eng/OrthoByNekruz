@@ -3,16 +3,20 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
+const LOGO_LIGHT = '/krasgmu-logo-light.png';
+const LOGO_DARK = '/krasgmu-logo-dark.png';
+
 export interface AppBrandIconProps {
-  size?: number;
+  /** Размер круга в px */
+  size?: 32 | 36;
   className?: string;
   style?: React.CSSProperties;
   onClick?: React.MouseEventHandler<HTMLSpanElement>;
 }
 
-/** Логотип КрасГМУ в шапке табов (медицинский крест). */
+/** Логотип КрасГМУ в шапке табов — круг 32×32, светлый/тёмный вариант по теме. */
 export function AppBrandIcon({
-  size = 20,
+  size = 32,
   className,
   style,
   onClick,
@@ -27,19 +31,31 @@ export function AppBrandIcon({
           onClick(e as unknown as React.MouseEvent<HTMLSpanElement>);
         }
       } : undefined}
-      className={cn('inline-flex items-center justify-center leading-none select-none', className)}
-      style={style}
+      className={cn(
+        'inline-flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full',
+        className,
+      )}
+      style={{
+        width: size,
+        height: size,
+        background: 'transparent',
+        ...style,
+      }}
     >
-      <svg
-        width={size}
-        height={size}
-        viewBox="0 0 24 24"
-        fill="none"
-        aria-hidden
-      >
-        <rect x="10.25" y="4" width="3.5" height="16" rx="0.75" fill="#D32F2F" />
-        <rect x="4" y="10.25" width="16" height="3.5" rx="0.75" fill="#D32F2F" />
-      </svg>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={LOGO_LIGHT}
+        alt=""
+        className="h-full w-full object-cover dark:hidden"
+        draggable={false}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={LOGO_DARK}
+        alt=""
+        className="hidden h-full w-full object-cover dark:block"
+        draggable={false}
+      />
     </span>
   );
 }
