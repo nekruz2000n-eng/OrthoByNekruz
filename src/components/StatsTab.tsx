@@ -8,6 +8,7 @@ import {
   Award, ChevronRight, Calendar, Pencil,
 } from 'lucide-react';
 import { FacultyIcon }     from './FacultyIcon';
+import { AppBrandIcon }     from './AppBrandIcon';
 import { SubjectType }   from '@/components/SubjectSelectScreen';
 import { SUBJECTS, getSubject, APP_BRAND_NAME } from '@/lib/subjects';
 import { loadSubjectData } from '@/lib/subjectData';
@@ -470,10 +471,10 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                         className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0"
                         style={{ background: 'var(--c-primary-dim)' }}
                       >
-                        <FacultyIcon size={20} />
+                        <AppBrandIcon size={20} />
                       </div>
                       <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
-                        {cfg?.brandName || APP_BRAND_NAME}
+                        {APP_BRAND_NAME}
                       </h1>
                     </div>
                     <p className="text-[10px] font-bold uppercase tracking-widest mt-1 mb-1 text-center" style={{ color: accentColor }}>

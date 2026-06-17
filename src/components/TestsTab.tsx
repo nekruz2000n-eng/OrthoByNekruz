@@ -17,7 +17,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { FacultyIcon } from './FacultyIcon';
+import { AppBrandIcon } from './AppBrandIcon';
 import ReactMarkdown from 'react-markdown';
 import { RichText, GlossaryItem } from '@/components/RichText';
 import { itemRelatedTerms } from '@/lib/glossaryUtils';
@@ -813,10 +813,10 @@ export const TestsTab = ({
       <div className="flex flex-col items-center justify-center flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ background: 'var(--c-primary-dim)' }}>
-            <FacultyIcon size={20} onClick={onSecretTap} />
+            <AppBrandIcon size={20} onClick={onSecretTap} />
           </div>
           <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
-            {cfg?.brandName || APP_BRAND_NAME}
+            {APP_BRAND_NAME}
           </h1>
         </div>
         

@@ -13,7 +13,7 @@ import {
   Search, BookOpen, CheckCircle2, Circle, X, ChevronDown,
   ArrowLeft, ArrowRight,
 } from 'lucide-react';
-import { FacultyIcon } from './FacultyIcon';
+import { AppBrandIcon } from './AppBrandIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RichText, GlossaryItem } from '@/components/RichText';
 import { PersonalNoteCard } from '@/components/PersonalNoteCard';
@@ -189,10 +189,10 @@ export const TasksTab = ({
           className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0"
           style={{ background: `color-mix(in srgb, ${accentColor} 14%, transparent)` }}
         >
-          <FacultyIcon size={20} onClick={onSecretTap} />
+          <AppBrandIcon size={20} onClick={onSecretTap} />
         </div>
         <h1 className="text-[16px] font-bold tracking-tight leading-tight truncate" style={{ color: 'var(--c-text)' }}>
-          {cfg?.brandName || APP_BRAND_NAME}
+          {APP_BRAND_NAME}
         </h1>
       </div>
       
