@@ -184,10 +184,31 @@ export function userAlreadyHasAllChosenModules(
   return chosen.every(m => !hidden.has(m));
 }
 
+/** Идёт проба или незавершённая оплата — нельзя сбрасывать витрину/таймер. */
+export function isPreviewFlowInProgress(user: any): boolean {
+  if (!user) return false;
+  if (getPendingAdminModules(user).length > 0) return true;
+  if (user._catalogBrowse === true && user.previewStatus === 'selecting' && !user.previewChosenSubject) {
+    return true;
+  }
+  const chosen = user.previewChosenSubject;
+  if (!chosen) return false;
+  const modules = normalizePreviewModules(user.previewChosenModules);
+  if (modules.length === 0) return false;
+  const statuses = ensureModuleStatusMap(user, chosen);
+  if (modules.some(m => statuses[m] === 'trial')) return true;
+  if (user.previewStatus === 'active') return true;
+  if (user.receiptClaimedAt) return true;
+  if (user.previewStatus === 'expired') {
+    return modules.some(m => statuses[m] !== 'confirmed');
+  }
+  return false;
+}
+
 /** Админ вручную открыл предмет/разделы — завершить воронку оплаты без «Скинул — войти». */
 export function clearPreviewFlowIfAdminGrantedAccess(user: any): any {
   if (!user) return user;
-  if (getPendingAdminModules(user).length > 0) return user;
+  if (isPreviewFlowInProgress(user)) return user;
 
   const chosen = user.previewChosenSubject;
   if (!chosen || !isPreviewPaymentFlowActive(user)) return user;
@@ -212,6 +233,7 @@ export function clearPreviewFlowIfAdminGrantedAccess(user: any): any {
 export function healStalePreviewForFinalizedUser(user: any): any {
   if (!user) return user;
 
+  if (isPreviewFlowInProgress(user)) return user;
   if (getPendingAdminModules(user).length > 0) return user;
 
   const inCatalogBrowse = user._catalogBrowse === true;
@@ -913,7 +935,7 @@ export function buildActivePreviewUser(
     previewActiveMsConsumed:  0,
     previewActiveMsByModule:  initPreviewActiveMsMap(chosenModules),
     previewModuleStatuses:    syncModuleStatusesOnPick(chosenModules),
-    ...(isAddonPurchase ? { paid: false } : {}),
+    paid:                     false,
     subjects,
     navHidden,
     _subjectsBeforePreview: before,

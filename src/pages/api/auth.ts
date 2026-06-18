@@ -676,9 +676,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       let updated = syncPreviewActiveMs(user, activeModule, deltaMs, tgIdStr);
       if (updated !== user) {
         await saveUser(tgIdStr, updated);
-      } else {
-        updated = await maybeExpirePreviewUser(redis, tgIdStr, user);
       }
+      updated = await maybeExpirePreviewUser(redis, tgIdStr, updated);
       return res.status(200).json({
         success: true,
         ...(await subjectsResponse(updated, tgIdStr)),
