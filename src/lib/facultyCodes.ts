@@ -43,6 +43,73 @@ export const FACULTY_PROMOS: FacultyPromo[] = [
 export const MAX_PROMO_CODE_LENGTH = Math.max(...FACULTY_PROMOS.map(p => p.code.length));
 export const MAX_INPUT_LENGTH = Math.max(MAX_PROMO_CODE_LENGTH, 8);
 
+export const FACULTY_SHORT_LABEL: Record<string, string> = {
+  stomatology: 'Стоматология',
+  therapeutic: 'Лечебный',
+  pediatrics:  'Педиатрия',
+};
+
+export function getFacultyShortLabel(facultyId: string | null | undefined): string | null {
+  if (!facultyId) return null;
+  return FACULTY_SHORT_LABEL[facultyId] ?? null;
+}
+
+export function getFacultyPromoFromActivatedKey(
+  activatedKey: string | null | undefined,
+): FacultyPromo | null {
+  const key = String(activatedKey || '').trim();
+  if (!key.startsWith('promo:')) return null;
+  return getFacultyPromoById(key.slice('promo:'.length));
+}
+
+export function healUserFacultyFields<T extends Record<string, unknown>>(
+  user: T,
+): { user: T; changed: boolean } {
+  const promo =
+    getFacultyPromoById(user.facultyId as string | null | undefined)
+    ?? resolveFacultyPromoCode(String(user.promoCode || ''))
+    ?? getFacultyPromoFromActivatedKey(user.activatedKey as string | null | undefined)
+    ?? (() => {
+      const label = String(user.previewFaculty || '').trim();
+      return label ? FACULTY_PROMOS.find(p => p.facultyLabel === label) ?? null : null;
+    })();
+  if (!promo) return { user, changed: false };
+
+  const next: Record<string, unknown> = { ...user };
+  let changed = false;
+  if (next.facultyId !== promo.id) {
+    next.facultyId = promo.id;
+    changed = true;
+  }
+  if (next.promoCode !== promo.code) {
+    next.promoCode = promo.code;
+    changed = true;
+  }
+  if (next.previewFaculty !== promo.facultyLabel) {
+    next.previewFaculty = promo.facultyLabel;
+    changed = true;
+  }
+  return { user: changed ? (next as T) : user, changed };
+}
+
+export function facultyDisplayFromUser(
+  user: {
+    facultyId?: string | null;
+    promoCode?: string | null;
+    previewFaculty?: string | null;
+    activatedKey?: string | null;
+  } | null | undefined,
+): { icon: string; code: string; label: string; facultyId: string } | null {
+  const promo = resolveUserFacultyPromo(user);
+  if (!promo) return null;
+  return {
+    icon:      promo.digitIcon,
+    code:      promo.code,
+    label:     getFacultyShortLabel(promo.id) ?? promo.facultyLabel,
+    facultyId: promo.id,
+  };
+}
+
 export function resolveFacultyPromoCode(input: string): FacultyPromo | null {
   const digits = input.replace(/\D/g, '');
   if (!digits) return null;
@@ -54,6 +121,7 @@ export function userHasKnownFaculty(user: {
   facultyId?: string | null;
   promoCode?: string | null;
   previewFaculty?: string | null;
+  activatedKey?: string | null;
 } | null | undefined): boolean {
   return resolveUserFacultyPromo(user) != null;
 }
@@ -64,6 +132,7 @@ export function resolveUserFacultyPromo(
     facultyId?: string | null;
     promoCode?: string | null;
     previewFaculty?: string | null;
+    activatedKey?: string | null;
   } | null | undefined,
   key?: string | null,
   clientFacultyId?: string | null,
@@ -82,6 +151,9 @@ export function resolveUserFacultyPromo(
     const byLabel = FACULTY_PROMOS.find(p => p.facultyLabel === label) ?? null;
     if (byLabel) return byLabel;
   }
+
+  const byActivated = getFacultyPromoFromActivatedKey(user?.activatedKey);
+  if (byActivated) return byActivated;
 
   if (key) {
     const byKey = resolveFacultyPromoCode(String(key).trim());

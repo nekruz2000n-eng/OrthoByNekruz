@@ -26,6 +26,9 @@ interface User {
   promoCode:            string | null;
   facultyId:            string | null;
   previewFaculty:       string | null;
+  facultyDisplayLabel?: string | null;
+  facultyDisplayCode?:  string | null;
+  facultyIcon?:         string | null;
   previewStartedAt?:    string | null;
   previewConfirmedAt?:  string | null;
   previewQuotedPrice?:  number | null;
@@ -322,6 +325,12 @@ function UserCard({
   const previewRequestLabel = previewSubjectLabel
     ? (previewModulesLabel ? `${previewSubjectLabel} — ${previewModulesLabel}` : previewSubjectLabel)
     : null;
+  const facultyLabel = user.facultyDisplayLabel
+    ?? (user.previewFaculty
+      ? user.previewFaculty.replace(/\s+факультет$/i, '')
+      : null);
+  const facultyCode = user.facultyDisplayCode ?? user.promoCode;
+  const facultyIcon = user.facultyIcon ?? null;
 
   // «Новенький» — регистрация менее 24 ч назад
   const isFresh = !!user.registeredAt &&
@@ -467,6 +476,11 @@ function UserCard({
             {isChannelGrant && !hasFullKey && (
               <Chip bg={T.purpleSoft} color={T.purple}>канал</Chip>
             )}
+            {facultyLabel && (
+              <Chip bg={T.successSoft} color={T.success}>
+                {facultyIcon ? `${facultyIcon} ` : ''}{facultyCode ? `${facultyCode} · ` : ''}{facultyLabel}
+              </Chip>
+            )}
             <button
               type="button"
               onClick={e => { e.stopPropagation(); onAction(user.tgId, 'toggle_paid'); }}
@@ -590,10 +604,17 @@ function UserCard({
             {user.promoCode && (
               <Meta label="Код канала" value={user.promoCode} mono />
             )}
+            {facultyLabel && (
+              <Meta
+                label="Факультет"
+                value={`${facultyIcon ? `${facultyIcon} ` : ''}${facultyCode ? `${facultyCode} · ` : ''}${facultyLabel}`}
+                color={T.success}
+              />
+            )}
             {user.studyGroup && (
               <Meta label="Группа" value={user.studyGroup} mono />
             )}
-            {user.previewFaculty && (
+            {!facultyLabel && user.previewFaculty && (
               <Meta label="Факультет" value={user.previewFaculty} />
             )}
             <Meta

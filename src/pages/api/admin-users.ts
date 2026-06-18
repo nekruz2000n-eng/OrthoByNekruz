@@ -26,6 +26,7 @@ import { verifyInitDataUser } from '@/lib/verifyInitData';
 import { getAllUserIds, registerUserId, removeUserId } from '@/lib/userIndex';
 import { isValidTelegramUsername, normalizeTelegramUsername } from '@/lib/tgLinks';
 import { resolveLastActivityIso } from '@/lib/userActivity';
+import { facultyDisplayFromUser, healUserFacultyFields } from '@/lib/facultyCodes';
 
 const redis        = Redis.fromEnv();
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
@@ -72,6 +73,7 @@ function toListUser(
   usedDemo: boolean,
 ) {
   user = ensureSubjects(user);
+  const facultyDisplay = facultyDisplayFromUser(user);
   const userSubjects = getEffectiveUserSubjects(user);
   return {
     tgId:          id,
@@ -88,9 +90,12 @@ function toListUser(
     previewChosenSubject: user.previewChosenSubject ?? null,
     previewChosenModules: Array.isArray(user.previewChosenModules) ? user.previewChosenModules : null,
     previewDisplayModules: getPreviewChosenModulesForAdmin(user),
-    promoCode:            user.promoCode            ?? null,
-    facultyId:            user.facultyId            ?? null,
+    promoCode:            user.promoCode            ?? facultyDisplay?.code ?? null,
+    facultyId:            user.facultyId            ?? facultyDisplay?.facultyId ?? null,
     previewFaculty:       user.previewFaculty       ?? null,
+    facultyDisplayLabel:  facultyDisplay?.label     ?? null,
+    facultyDisplayCode:   facultyDisplay?.code      ?? null,
+    facultyIcon:          facultyDisplay?.icon      ?? null,
     previewConfirmedAt:   user.previewConfirmedAt   ?? null,
     previewQuotedPrice:   typeof user.previewQuotedPrice === 'number' ? user.previewQuotedPrice : null,
     receiptClaimedAt:     user.receiptClaimedAt     ?? null,
@@ -118,6 +123,7 @@ function toDetailUser(
   usedDemo: boolean,
 ) {
   user = ensureSubjects(user);
+  const facultyDisplay = facultyDisplayFromUser(user);
   const userSubjects = getEffectiveUserSubjects(user);
   return {
     tgId:          id,
@@ -134,9 +140,12 @@ function toDetailUser(
     previewChosenSubject: user.previewChosenSubject ?? null,
     previewChosenModules: Array.isArray(user.previewChosenModules) ? user.previewChosenModules : null,
     previewDisplayModules: getPreviewChosenModulesForAdmin(user),
-    promoCode:            user.promoCode            ?? null,
-    facultyId:            user.facultyId            ?? null,
+    promoCode:            user.promoCode            ?? facultyDisplay?.code ?? null,
+    facultyId:            user.facultyId            ?? facultyDisplay?.facultyId ?? null,
     previewFaculty:       user.previewFaculty       ?? null,
+    facultyDisplayLabel:  facultyDisplay?.label     ?? null,
+    facultyDisplayCode:   facultyDisplay?.code      ?? null,
+    facultyIcon:          facultyDisplay?.icon      ?? null,
     previewStartedAt:     user.previewStartedAt     ?? null,
     previewConfirmedAt:   user.previewConfirmedAt   ?? null,
     previewQuotedPrice:   typeof user.previewQuotedPrice === 'number' ? user.previewQuotedPrice : null,
@@ -214,7 +223,8 @@ function sortUsers(
 }
 
 async function saveUser(tgId: string, data: any) {
-  await redis.set(`user_id:${tgId}`, data);
+  const { user: healed } = healUserFacultyFields(data);
+  await redis.set(`user_id:${tgId}`, healed);
   await registerUserId(redis, tgId);
 }
 
@@ -290,8 +300,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (action === 'get_user' && tgId) {
       const id = String(tgId);
-      const user: any = await redis.get(`user_id:${id}`);
+      let user: any = await redis.get(`user_id:${id}`);
       if (!user) return res.status(404).json({ error: 'User not found' });
+      user = ensureSubjects(user);
+      const facultyHeal = healUserFacultyFields(user);
+      if (facultyHeal.changed) {
+        await saveUser(id, facultyHeal.user);
+        user = facultyHeal.user;
+      }
 
       const today = new Date().toISOString().slice(0, 10);
       const opensToday = Number(await redis.get(`opens:${id}:${today}`)) || 0;

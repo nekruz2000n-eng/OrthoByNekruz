@@ -46,7 +46,7 @@ import {
 import type { PreviewModule } from '@/lib/previewModules';
 import { ensureModuleStatusMap } from '@/lib/previewModuleStatus';
 import { notifyAdminReceiptClaimed } from '@/lib/notifyAdmin';
-import { resolveFacultyPromoCode, facultyFieldsFromUser, resolveUserFacultyPromo, applyFacultyToUser, getFacultyPromoById, userNeedsFacultyPick } from '@/lib/facultyCodes';
+import { resolveFacultyPromoCode, facultyFieldsFromUser, resolveUserFacultyPromo, applyFacultyToUser, getFacultyPromoById, userNeedsFacultyPick, healUserFacultyFields } from '@/lib/facultyCodes';
 import { ACCESS_CACHE_VERSION } from '@/lib/accessCache';
 import { normalizeStudyGroup, buildStudyGroupFromDigits } from '@/lib/studyGroup';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
@@ -375,7 +375,8 @@ function previewPayload(
 }
 
 async function saveUser(tgId: string, user: any) {
-  await redis.set(`user_id:${tgId}`, user);
+  const { user: healed } = healUserFacultyFields(user);
+  await redis.set(`user_id:${tgId}`, healed);
   await registerUserId(redis, tgId);
 }
 
@@ -399,7 +400,9 @@ async function healAndMaybePersistUser(tgId: string, user: any, redisOk: boolean
   healed = normalizeAddonPreviewNavHidden(healed);
   healed = healExamNavHidden(healed);
   healed = clearPreviewFlowIfAdminGrantedAccess(healed);
-  const accessHealed = healed !== before;
+  const facultyHeal = healUserFacultyFields(healed);
+  healed = facultyHeal.user;
+  const accessHealed = healed !== before || facultyHeal.changed;
   if (redisOk && accessHealed) {
     await saveUser(tgId, touchUserActivity(healed));
   }
