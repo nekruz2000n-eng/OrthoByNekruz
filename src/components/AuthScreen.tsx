@@ -98,17 +98,9 @@ const FallingFacultyParticle = ({
 );
 
 // ─── ЦЕНТРАЛЬНЫЙ ЛОГОТИП: зуб → стетоскоп → педиатрия по кругу ───────────────
-const AuthLogoCycle = ({
-  onPhaseChange,
-}: {
-  onPhaseChange?: (phase: number, visible: boolean) => void;
-}) => {
+const AuthLogoCycle = () => {
   const [phase, setPhase] = useState(0);
   const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    onPhaseChange?.(phase, visible);
-  }, [phase, visible, onPhaseChange]);
 
   useEffect(() => {
     const HOLD_MS = 2600;
@@ -157,30 +149,94 @@ const AuthLogoCycle = ({
   );
 };
 
-const FacultyCodeHint = ({ phase, visible }: { phase: number; visible: boolean }) => {
-  const promo = FACULTY_BY_VARIANT[LOGO_PHASES[phase]];
+const FACULTY_SHORT_LABEL: Record<string, string> = {
+  stomatology: 'Стоматология',
+  therapeutic: 'Лечебный',
+  pediatrics:  'Педиатрия',
+};
+
+const FACULTY_ACCENT: Record<string, { border: string; bg: string; text: string }> = {
+  stomatology: {
+    border: 'rgba(52, 211, 153, 0.35)',
+    bg:     'rgba(52, 211, 153, 0.1)',
+    text:   'rgba(52, 211, 153, 0.95)',
+  },
+  therapeutic: {
+    border: 'rgba(96, 165, 250, 0.35)',
+    bg:     'rgba(96, 165, 250, 0.1)',
+    text:   'rgba(96, 165, 250, 0.95)',
+  },
+  pediatrics: {
+    border: 'rgba(251, 191, 36, 0.35)',
+    bg:     'rgba(251, 191, 36, 0.1)',
+    text:   'rgba(251, 191, 36, 0.95)',
+  },
+};
+
+/** Все три кода факультета — всегда на экране, по нажатию подставляется в поле */
+const FacultyCodesPanel = ({
+  input,
+  disabled,
+  onSelect,
+}: {
+  input: string;
+  disabled: boolean;
+  onSelect: (code: string) => void;
+}) => {
+  const active = detectFacultyByInput(input);
+
   return (
-    <div
-      className="flex flex-col items-center gap-1 transition-all duration-500 ease-in-out"
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0) scale(1)' : 'translateY(6px) scale(0.96)',
-        animation: visible ? 'authFacultyHintPop 0.45s ease-out' : undefined,
-      }}
-      aria-live="polite"
-    >
-      <div className="flex items-center gap-2">
-        <span style={{ fontSize: 22, fontFamily: EMOJI_FONT_STACK, lineHeight: 1 }}>{promo.digitIcon}</span>
-        <span
-          className="text-[22px] font-bold tracking-[0.22em] tabular-nums text-white"
-          style={{ textShadow: '0 0 16px rgba(255,255,255,0.35)' }}
-        >
-          {promo.code}
-        </span>
+    <div className="space-y-2">
+      <p className="text-[11px] text-center leading-snug" style={{ color: 'rgba(255,255,255,0.42)' }}>
+        Код из канала — выбери свой факультет
+      </p>
+      <div className="grid gap-2">
+        {FACULTY_PROMOS.map(promo => {
+          const accent = FACULTY_ACCENT[promo.id];
+          const isActive = active?.id === promo.id;
+          const isFilled = input === promo.code;
+          return (
+            <button
+              key={promo.id}
+              type="button"
+              disabled={disabled}
+              onClick={() => onSelect(promo.code)}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all duration-200 active:scale-[0.98] disabled:opacity-45 disabled:pointer-events-none"
+              style={{
+                background: isActive || isFilled ? accent.bg : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${isActive || isFilled ? accent.border : 'rgba(255,255,255,0.07)'}`,
+                boxShadow: isFilled ? `0 0 0 1px ${accent.border}` : undefined,
+              }}
+            >
+              <span
+                className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center"
+                style={{
+                  background: accent.bg,
+                  border: `1px solid ${accent.border}`,
+                  fontSize: 20,
+                  fontFamily: EMOJI_FONT_STACK,
+                  lineHeight: 1,
+                }}
+                aria-hidden
+              >
+                {promo.digitIcon}
+              </span>
+              <span
+                className="text-[17px] font-bold tracking-[0.18em] tabular-nums shrink-0"
+                style={{ color: isActive || isFilled ? accent.text : 'rgba(255,255,255,0.88)' }}
+              >
+                {promo.code}
+              </span>
+              <span
+                className="text-[12px] font-medium ml-auto text-right leading-tight"
+                style={{ color: isActive || isFilled ? accent.text : 'rgba(255,255,255,0.5)' }}
+              >
+                {FACULTY_SHORT_LABEL[promo.id]}
+              </span>
+            </button>
+          );
+        })}
       </div>
-      <span className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.42)' }}>
-        код факультета
-      </span>
     </div>
   );
 };
@@ -298,14 +354,8 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const { toast } = useToast();
 
   // ── Стейты (Состояния компонента) ──
-  const [mounted, setMounted] = useState(false); // Флаг: загрузился ли компонент в браузере
-  const [logoPhase, setLogoPhase] = useState(0);
-  const [logoVisible, setLogoVisible] = useState(true);
-  const handleLogoPhaseChange = useCallback((phase: number, visible: boolean) => {
-    setLogoPhase(phase);
-    setLogoVisible(visible);
-  }, []);
-  const [key, setKey] = useState(''); // Введенный пользователем ключ (до 8 цифр)
+  const [mounted, setMounted] = useState(false);
+  const [key, setKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -683,11 +733,9 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               filter: 'drop-shadow(0 0 12px hsl(var(--primary) / 0.5))', // Неоновое свечение вокруг
             }}
           >
-            <AuthLogoCycle onPhaseChange={handleLogoPhaseChange} />
+            <AuthLogoCycle />
           </div>
 
-          <FacultyCodeHint phase={logoPhase} visible={logoVisible} />
-          
           <h1
             className="text-3xl font-bold tracking-tighter text-white select-none cursor-default"
             onClick={handleTitleClick} // Обработчик 6 тапов для сброса
@@ -708,6 +756,12 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           
           {/* Фон карточки: глухой темно-зеленый с эффектом размытия заднего фона */}
           <div className="space-y-4 bg-[#141A17]/80 p-6 rounded-[28px] border border-white/5 backdrop-blur-md shadow-2xl">
+
+            <FacultyCodesPanel
+              input={key}
+              disabled={loading || lockoutTime > 0}
+              onSelect={code => setKey(code)}
+            />
 
             {/* ── ПОЛЕ ВВОДА КЛЮЧА ── */}
             {/* Это кастомное поле. Настоящий <input> скрыт (opacity-0), а мы визуализируем то, что юзер ввел, с помощью эмодзи */}
