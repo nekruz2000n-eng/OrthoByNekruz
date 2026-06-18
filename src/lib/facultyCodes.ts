@@ -45,7 +45,7 @@ export const MAX_INPUT_LENGTH = Math.max(MAX_PROMO_CODE_LENGTH, 8);
 
 export const FACULTY_SHORT_LABEL: Record<string, string> = {
   stomatology: 'Стоматология',
-  therapeutic: 'Лечебный',
+  therapeutic: 'Лечебное дело',
   pediatrics:  'Педиатрия',
 };
 

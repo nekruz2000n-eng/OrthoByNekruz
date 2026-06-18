@@ -2597,7 +2597,7 @@ export default function AdminPage() {
                     {([
                       { label: '🦷 Стоматология', value: facultyStats.stomatology, color: T.success },
                       { label: '👶 Педиатрия', value: facultyStats.pediatrics, color: T.warn },
-                      { label: '🩺 Лечебный', value: facultyStats.therapeutic, color: T.accent },
+                      { label: '🩺 Лечебное дело', value: facultyStats.therapeutic, color: T.accent },
                       { label: '❓ Без факультета', value: facultyStats.unknown, color: T.textMuted },
                     ] as const).map(row => (
                       <div

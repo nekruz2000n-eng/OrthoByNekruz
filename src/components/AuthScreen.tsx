@@ -15,6 +15,7 @@ import {
   getDefaultDigitIcon,
   isLegacyPaidKey,
   FACULTY_PROMOS,
+  FACULTY_SHORT_LABEL,
   EMOJI_FONT_STACK,
   persistFacultyId,
   persistFacultyFromAccessCode,
@@ -149,12 +150,6 @@ const AuthLogoCycle = () => {
   );
 };
 
-const FACULTY_SHORT_LABEL: Record<string, string> = {
-  stomatology: 'Стоматология',
-  therapeutic: 'Лечебный',
-  pediatrics:  'Педиатрия',
-};
-
 const FACULTY_ACCENT: Record<string, { border: string; bg: string; text: string }> = {
   stomatology: {
     border: 'rgba(52, 211, 153, 0.35)',
@@ -222,14 +217,8 @@ const FacultyCodesPanel = ({
                 {promo.digitIcon}
               </span>
               <span
-                className="text-[17px] font-bold tracking-[0.18em] tabular-nums shrink-0"
+                className="text-[14px] font-semibold leading-tight"
                 style={{ color: isActive || isFilled ? accent.text : 'rgba(255,255,255,0.88)' }}
-              >
-                {promo.code}
-              </span>
-              <span
-                className="text-[12px] font-medium ml-auto text-right leading-tight"
-                style={{ color: isActive || isFilled ? accent.text : 'rgba(255,255,255,0.5)' }}
               >
                 {FACULTY_SHORT_LABEL[promo.id]}
               </span>

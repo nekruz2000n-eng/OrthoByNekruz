@@ -2,18 +2,12 @@
 
 import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { FACULTY_PROMOS, type FacultyPromo } from '@/lib/facultyCodes';
+import { FACULTY_PROMOS, FACULTY_SHORT_LABEL, type FacultyPromo } from '@/lib/facultyCodes';
 
 const FACULTY_ACCENT: Record<string, { border: string; bg: string }> = {
   stomatology: { border: 'rgba(52, 211, 153, 0.45)',  bg: 'rgba(52, 211, 153, 0.12)' },
   therapeutic: { border: 'rgba(96, 165, 250, 0.45)',  bg: 'rgba(96, 165, 250, 0.12)' },
   pediatrics:  { border: 'rgba(251, 191, 36, 0.45)',  bg: 'rgba(251, 191, 36, 0.12)' },
-};
-
-const SHORT_LABEL: Record<string, string> = {
-  stomatology: 'Стоматология',
-  therapeutic: 'Лечебный',
-  pediatrics:  'Педиатрия',
 };
 
 interface Props {
@@ -69,7 +63,7 @@ export const FacultyPickerModal: React.FC<Props> = ({ saving, onSelect }) => {
                 </span>
                 <span className="flex-1 min-w-0">
                   <span className="block text-[15px] font-semibold" style={{ color: 'var(--c-text)' }}>
-                    {SHORT_LABEL[promo.id] ?? promo.facultyLabel}
+                    {FACULTY_SHORT_LABEL[promo.id] ?? promo.facultyLabel}
                   </span>
                   <span className="block text-xs mt-0.5" style={{ color: 'var(--c-muted)' }}>
                     {promo.facultyLabel}
