@@ -116,6 +116,27 @@ export const SUBJECTS: SubjectConfig[] = [
     availableInDemo: false,
   },
 
+  // ═════════════════════════ ФАРМАКОЛОГИЯ ══════════════════════════════════
+  {
+    id:             'pharma',
+    label:          'Фармакология',
+    shortLabel:     'pharma',
+    sub:            'Вопросы · Тесты · Задачи',
+    badge:          '3 курс',
+    color:          'hsl(262 58% 52%)',
+    dimColor:       'hsl(262 58% 52% / 0.12)',
+    borderColor:    'hsl(262 58% 52% / 0.28)',
+    iconVariant:    'normal',
+    questionsFile:  'pharma_questions.json',
+    tasksFile:      'pharma_tasks.json',
+    testsFile:      'pharma_tests.json',
+    glossaryFile:   'pharma_glossary.json',
+    lsPrefix:       'pharma',
+    freeWithKey:    false,
+    availableInDemo: false,
+    questionGameModes: true,
+  },
+
   // ═════════════════════════ БИОЛОГИЯ ═════════════════════════════════════
   {
     id:             'bio',
