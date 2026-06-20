@@ -20,7 +20,7 @@ import {
 import { AppBrandIcon } from './AppBrandIcon';
 import ReactMarkdown from 'react-markdown';
 import { RichText, GlossaryItem } from '@/components/RichText';
-import { itemRelatedTerms } from '@/lib/glossaryUtils';
+import { itemRelatedTerms, filterValidGlossary } from '@/lib/glossaryUtils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type BlockId = number | 'mistakes' | 'exam' | 'favorites';
@@ -426,7 +426,7 @@ export const TestsTab = ({
   useEffect(() => {
     let cancelled = false;
     loadSubjectData(subject, 'glossary', { bustCache: bustDataCache })
-      .then(d => { if (!cancelled) setDynamicGlossary(d as GlossaryItem[]); });
+      .then(d => { if (!cancelled) setDynamicGlossary(filterValidGlossary(d as GlossaryItem[])); });
     return () => { cancelled = true; };
   }, [subject, bustDataCache]);
 

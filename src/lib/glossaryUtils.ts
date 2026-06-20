@@ -16,6 +16,64 @@ function _ruStem(word: string): string {
   return w;
 }
 
+/** Есть непустые term и definition — иначе термин не подсвечиваем. */
+export function hasValidGlossaryDefinition(
+  item: { term?: string; definition?: string } | null | undefined,
+): boolean {
+  return !!String(item?.term ?? '').trim() && !!String(item?.definition ?? '').trim();
+}
+
+export function filterValidGlossary<T extends { term?: string; definition?: string }>(
+  items: T[],
+): T[] {
+  return items.filter(hasValidGlossaryDefinition);
+}
+
+/** Найти запись глоссария по term или variations (без учёта регистра). */
+export function findGlossaryEntry<T extends { term: string; variations?: string[] }>(
+  glossary: T[],
+  word: string,
+): T | undefined {
+  const w = word.toLowerCase().replace(/ё/g, 'е');
+  return glossary.find(g => {
+    if (g.term.toLowerCase().replace(/ё/g, 'е') === w) return true;
+    return (g.variations || []).some(v => v.toLowerCase().replace(/ё/g, 'е') === w);
+  });
+}
+
+/** Подпись раздела («Противопоказания:») — не термин глоссария. */
+export function isSectionHeaderLabel(plain: string, start: number, end: number): boolean {
+  if (start >= end || end > plain.length) return false;
+  let i = end;
+  while (i < plain.length && plain[i] === ' ') i++;
+  return i < plain.length && plain[i] === ':';
+}
+
+/** @deprecated use isSectionHeaderLabel */
+export function isBoldSectionHeader(
+  plain: string,
+  chars: { bold: boolean }[],
+  start: number,
+  end: number,
+): boolean {
+  if (!isSectionHeaderLabel(plain, start, end)) return false;
+  for (let i = start; i < end; i++) {
+    if (!chars[i]?.bold) return false;
+  }
+  return true;
+}
+
+/** Глоссарий для текста вопроса/ответа: только явные relatedTerms, не весь пул. */
+export function glossaryForRelatedTerms<T extends { term?: string; definition?: string }>(
+  glossary: T[],
+  relatedTerms?: string[],
+): T[] {
+  const valid = filterValidGlossary(glossary);
+  if (!relatedTerms?.length) return [];
+  const related = new Set(relatedTerms.map(t => t.trim().toLowerCase()));
+  return valid.filter(g => related.has(String(g.term ?? '').trim().toLowerCase()));
+}
+
 function _escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

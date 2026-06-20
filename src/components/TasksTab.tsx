@@ -17,7 +17,7 @@ import { AppBrandIcon } from './AppBrandIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RichText, GlossaryItem } from '@/components/RichText';
 import { PersonalNoteCard } from '@/components/PersonalNoteCard';
-import { itemRelatedTerms } from '@/lib/glossaryUtils';
+import { itemRelatedTerms, filterValidGlossary } from '@/lib/glossaryUtils';
 
 export const TasksTab = ({
   onSecretTap,
@@ -68,7 +68,7 @@ export const TasksTab = ({
   useEffect(() => {
     let cancelled = false;
     loadSubjectData(subject, 'glossary', { bustCache: bustDataCache })
-      .then(d => { if (!cancelled) setDynamicGlossary(d as GlossaryItem[]); });
+      .then(d => { if (!cancelled) setDynamicGlossary(filterValidGlossary(d as GlossaryItem[])); });
     return () => { cancelled = true; };
   }, [subject, bustDataCache]);
 

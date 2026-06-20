@@ -18,7 +18,7 @@ import { FlashcardsTab } from './FlashcardsTab';
 import { TrueFalseTab } from './TrueFalseTab';
 import type { BioGameMode } from './Navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { termRegexSource as _termRegexSource, itemRelatedTerms } from '@/lib/glossaryUtils';
+import { termRegexSource as _termRegexSource, itemRelatedTerms, filterValidGlossary, glossaryForRelatedTerms, isSectionHeaderLabel } from '@/lib/glossaryUtils';
 
 interface GlossaryItem { term: string; variations?: string[]; definition: string; image?: string | string[]; }
 
@@ -385,7 +385,7 @@ export const QuestionsTab = ({
   const setBioSection = onBioSectionChange ?? setBioSectionLocal;
 
   const [termDefStack, setTermDefStack] = useState<string[]>([]);
-  const activeTermDef = termDefStack.length > 0 ? termDefStack[termDefStack.length - 1] : null;
+  const activeTermKey = termDefStack.length > 0 ? termDefStack[termDefStack.length - 1] : null;
 
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [fontSize, setFontSize] = useState(16);
@@ -444,7 +444,7 @@ export const QuestionsTab = ({
   useEffect(() => {
     let cancelled = false;
     loadSubjectData(subject, 'glossary', { bustCache: bustDataCache })
-      .then(d => { if (!cancelled) setDynamicGlossary((d as GlossaryItem[]).flat()); });
+      .then(d => { if (!cancelled) setDynamicGlossary(filterValidGlossary(d as GlossaryItem[])); });
     return () => { cancelled = true; };
   }, [subject, bustDataCache]);
 
@@ -488,7 +488,7 @@ export const QuestionsTab = ({
 
   // ОБНОВЛЕННЫЙ БЛОК РАСЧЕТА ПОЗИЦИИ
   useLayoutEffect(() => {
-    if (!activeTermDef || !tooltipTarget || !tooltipRef.current) return;
+    if (!activeTermKey || !tooltipTarget || !tooltipRef.current) return;
     const popup = tooltipRef.current.getBoundingClientRect();
     
     const GAP = 12; 
@@ -521,7 +521,7 @@ export const QuestionsTab = ({
         y: Math.max(PAD, Math.min(prev.y, vh - popup.height - PAD))
       }));
     }
-  }, [activeTermDef, tooltipTarget]);
+  }, [activeTermKey, tooltipTarget]);
   
   useEffect(() => {
     if (termDefStack.length === 0) return;
@@ -579,9 +579,9 @@ export const QuestionsTab = ({
 const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boolean = false) => {
   if (!text) return null;
 
-  const localGlossary = (isNested || !relatedTerms?.length)
+  const localGlossary = isNested
     ? glossaryTerms
-    : glossaryTerms.filter(g => relatedTerms.some(rt => rt.toLowerCase() === g.term.toLowerCase()));
+    : glossaryForRelatedTerms(glossaryTerms, relatedTerms);
 
   return (
     <div className="w-full break-words whitespace-pre-wrap [word-break:break-word]">
@@ -598,7 +598,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
         const plain = chars.map(c => c.ch).join('');
         const plainNorm = plain.toLowerCase().replace(/ё/g, 'е');
 
-        type Hit = { start: number; end: number; def: string; term: string };
+        type Hit = { start: number; end: number; item: GlossaryItem };
         const hits: Hit[] = [];
         
         const isLetter = (s: string, i: number) =>
@@ -610,15 +610,19 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
             const f = form.toLowerCase().replace(/ё/g, 'е');
             let idx = plainNorm.indexOf(f);
             while (idx !== -1) {
-              if (!isLetter(plainNorm, idx - 1) && !isLetter(plainNorm, idx + f.length)) {
-                hits.push({ start: idx, end: idx + f.length, def: g.definition, term: form });
+              if (
+                !isLetter(plainNorm, idx - 1) &&
+                !isLetter(plainNorm, idx + f.length) &&
+                !isSectionHeaderLabel(plain, idx, idx + f.length)
+              ) {
+                hits.push({ start: idx, end: idx + f.length, item: g });
               }
               idx = plainNorm.indexOf(f, idx + 1);
             }
           }
         }
 
-        hits.sort((a, b) => b.term.length - a.term.length);
+        hits.sort((a, b) => (b.end - b.start) - (a.end - a.start));
         const accepted: Hit[] = [];
         const used = new Array(plain.length).fill(false);
         for (const h of hits) {
@@ -642,8 +646,9 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
               style={{ cursor: 'pointer', color: 'var(--c-glossary, var(--c-primary))' }}
               onClick={(ev) => {
                 ev.stopPropagation();
+                const termKey = h.item.term;
                 if (isNested) {
-                  setTermDefStack(prev => [...prev, h.def]);
+                  setTermDefStack(prev => [...prev, termKey]);
                 } else {
                   const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
                   setTooltipTarget({ top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width });
@@ -651,7 +656,7 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                   let safeY = r.bottom + 8;
                   if (safeY + 200 > window.innerHeight) safeY = r.top - 210;
                   setTooltipPos({ x: safeX, y: Math.max(10, safeY) });
-                  setTermDefStack([h.def]);
+                  setTermDefStack([termKey]);
                 }
               }}
             >
@@ -991,8 +996,8 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
         )}
       </AnimatePresence>
 
-      {activeTermDef && (() => {
-        const found = glossaryTerms.find(g => g.definition === activeTermDef);
+      {activeTermKey && (() => {
+        const found = glossaryTerms.find(g => g.term === activeTermKey);
         return (
           <div ref={tooltipRef} className="fixed z-[200] rounded-2xl p-4 shadow-2xl max-w-[280px] select-none"
             style={{ 
@@ -1027,6 +1032,12 @@ const renderWithGlossary = (text: string, relatedTerms?: string[], isNested: boo
                 images={Array.isArray(found.image) ? found.image : [found.image]}
                 onZoom={openZoom}
               />
+            )}
+
+            {found?.term && (
+              <h4 className="font-bold mb-1 text-sm" style={{ color: 'var(--c-text)' }}>
+                {found.term}
+              </h4>
             )}
             
             <div className="text-sm font-normal" style={{ color: 'var(--c-text)' }}>

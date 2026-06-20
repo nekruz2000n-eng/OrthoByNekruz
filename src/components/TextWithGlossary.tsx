@@ -22,6 +22,7 @@ export const TextWithGlossary: React.FC<Props> = ({ text, glossary }) => {
   const regex = useMemo(() => {
     if (!glossary.length) return null;
     const terms = glossary
+      .filter(g => g.term?.trim() && g.definition?.trim())
       .map(g => escapeRegExp(g.term))
       .filter(Boolean)
       .sort((a, b) => b.length - a.length); // длинные первыми
@@ -31,7 +32,7 @@ export const TextWithGlossary: React.FC<Props> = ({ text, glossary }) => {
 
   const findDefinition = (word: string) => {
     const found = glossary.find(
-      g => g.term.toLowerCase() === word.toLowerCase()
+      g => g.term.toLowerCase() === word.toLowerCase() && g.definition?.trim()
     );
     return found?.definition;
   };

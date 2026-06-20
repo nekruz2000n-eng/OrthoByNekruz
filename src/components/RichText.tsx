@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useRef, useLayoutEffect, useEffect } from 'react';
 import { CachedImage } from '@/components/CachedImage';
-import { termRegexSource as _termRegexSource } from '@/lib/glossaryUtils';
+import { termRegexSource as _termRegexSource, glossaryForRelatedTerms, isSectionHeaderLabel } from '@/lib/glossaryUtils';
 
 export interface GlossaryItem {
   term:        string;
@@ -175,10 +175,7 @@ export const RichText: React.FC<Props> = ({
 
   // ── Глоссарий: если relatedTerms есть — фильтруем, иначе весь глоссарий ──────
   const localGlossary = useMemo(() => {
-    if (!relatedTerms?.length)
-      return [...glossaryTerms].sort((a, b) => b.term.length - a.term.length);
-    return [...glossaryTerms
-      .filter(g => relatedTerms.some(rt => rt.toLowerCase() === g.term.toLowerCase()))]
+    return [...glossaryForRelatedTerms(glossaryTerms, relatedTerms)]
       .sort((a, b) => b.term.length - a.term.length);
   }, [relatedTerms, glossaryTerms]);
 
@@ -217,6 +214,7 @@ export const RichText: React.FC<Props> = ({
         let m: RegExpExecArray | null;
         while ((m = re.exec(norm)) !== null) {
           if (m[0].length === 0) { re.lastIndex++; continue; }
+          if (isSectionHeaderLabel(plain, m.index, m.index + m[0].length)) continue;
           hits.push({ start: m.index, end: m.index + m[0].length, item: g });
         }
       }
