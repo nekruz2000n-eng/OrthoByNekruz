@@ -15,6 +15,7 @@ SOURCES = [
     Path(r"c:\Users\Admin\Downloads\pharma_q_51_82.json"),
     Path(r"c:\Users\Admin\Downloads\pharma_q_83_116.json"),
 ]
+TASKS_SOURCE = Path(r"c:\Users\Admin\Downloads\pharma_tasks.json")
 
 SKIP_TERMS = {
     "преимущества", "недостатки", "примеры", "характеристика", "достоинства",
@@ -283,6 +284,17 @@ def main() -> None:
     print(f"glossary:  {len(glossary)} ({sum(1 for g in glossary if g.get('variations'))} with variations)")
 
 
+def import_tasks(source: Path = TASKS_SOURCE) -> None:
+    raw = json.loads(source.read_text(encoding="utf-8"))
+    glossary = json.loads((DATA / "pharma_glossary.json").read_text(encoding="utf-8"))
+    tasks = link_related_terms(raw, glossary)
+    (DATA / "pharma_tasks.json").write_text(
+        json.dumps(tasks, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    print(f"tasks: {len(tasks)}")
+
+
 def glossary_only() -> None:
     questions = json.loads((DATA / "pharma_questions.json").read_text(encoding="utf-8"))
     glossary = build_glossary(questions)
@@ -302,5 +314,7 @@ if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "--glossary-only":
         glossary_only()
+    elif len(sys.argv) > 1 and sys.argv[1] == "--tasks":
+        import_tasks()
     else:
         main()
