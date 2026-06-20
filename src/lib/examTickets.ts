@@ -1,4 +1,5 @@
 import orthoTicketsData from '@/data/ticketsData.json';
+import pharmaTicketsData from '@/data/pharma_tickets.json';
 
 export interface ExamRawItem {
   id: number | string;
@@ -11,6 +12,8 @@ export interface ExamTicket {
   ticketNumber: string | number;
   questions: ExamRawItem[];
   task: ExamRawItem;
+  /** Собран из неиспользованных вопросов/задач (нет данных от студентов). */
+  isRandom?: boolean;
 }
 
 type DataItem = {
@@ -109,7 +112,77 @@ export function buildRandomExamTickets(
   return tickets;
 }
 
-/** Билеты для предмета: официальные (ortho) или случайные из вопросов/задач. */
+/** Предметы с официальными фиксированными билетами (не случайная сборка). */
+export const OFFICIAL_EXAM_TICKET_SUBJECTS = new Set(['ortho', 'pharma']);
+
+/** KrasGMU pharma: 2 вопроса + задача, билеты 1–40. */
+export const PHARMA_EXAM_TICKET_TOTAL = 40;
+export const PHARMA_QUESTIONS_PER_TICKET = 2;
+
+function collectOfficialUsedIds(official: ExamTicket[]): { qIds: Set<string>; tIds: Set<string> } {
+  const qIds = new Set<string>();
+  const tIds = new Set<string>();
+  for (const ticket of official) {
+    for (const q of ticket.questions) qIds.add(String(q.id));
+    tIds.add(String(ticket.task.id));
+  }
+  return { qIds, tIds };
+}
+
+/** Официальные билеты + заполнители из неиспользованных вопросов/задач. */
+export function buildPharmaExamTickets(
+  questions: unknown[],
+  tasks: unknown[],
+): ExamTicket[] {
+  const official = (pharmaTicketsData as ExamTicket[]).slice();
+  const officialByNumber = new Map<number, ExamTicket>();
+  for (const ticket of official) {
+    officialByNumber.set(Number(ticket.ticketNumber), ticket);
+  }
+
+  const { qIds: usedQ, tIds: usedT } = collectOfficialUsedIds(official);
+  const qPool = normalizePool(questions).filter(q => !usedQ.has(String(q.id)));
+  const tPool = normalizePool(tasks).filter(t => !usedT.has(String(t.id)));
+
+  const missing: number[] = [];
+  for (let n = 1; n <= PHARMA_EXAM_TICKET_TOTAL; n++) {
+    if (!officialByNumber.has(n)) missing.push(n);
+  }
+
+  const shuffledQ = seededShuffle(qPool, 'pharma:fill:questions');
+  const shuffledT = seededShuffle(tPool, 'pharma:fill:tasks');
+
+  const result: ExamTicket[] = [];
+  for (let n = 1; n <= PHARMA_EXAM_TICKET_TOTAL; n++) {
+    const fixed = officialByNumber.get(n);
+    if (fixed) {
+      result.push({ ...fixed, isRandom: false });
+      continue;
+    }
+
+    const fillIdx = missing.indexOf(n);
+    const qStart = fillIdx * PHARMA_QUESTIONS_PER_TICKET;
+    const ticketQuestions = shuffledQ.slice(qStart, qStart + PHARMA_QUESTIONS_PER_TICKET);
+    const task = shuffledT.length > 0 ? shuffledT[fillIdx % shuffledT.length] : null;
+
+    if (ticketQuestions.length < PHARMA_QUESTIONS_PER_TICKET || !task) continue;
+
+    result.push({
+      id: n,
+      ticketNumber: String(n),
+      isRandom: true,
+      questions: ticketQuestions.map((q, j) => ({
+        ...q,
+        id: q.id ?? `r${n}_q${j + 1}`,
+      })),
+      task: { ...task, id: task.id ?? `r${n}_task` },
+    });
+  }
+
+  return result;
+}
+
+/** Билеты для предмета: официальные (ortho, pharma) или случайные из вопросов/задач. */
 export function buildExamTicketsForSubject(
   subjectId: string,
   questions: unknown[],
@@ -117,6 +190,9 @@ export function buildExamTicketsForSubject(
 ): ExamTicket[] {
   if (subjectId === 'ortho') {
     return orthoTicketsData as ExamTicket[];
+  }
+  if (subjectId === 'pharma') {
+    return buildPharmaExamTickets(questions, tasks);
   }
   return buildRandomExamTickets(subjectId, questions, tasks);
 }
@@ -127,6 +203,18 @@ export function hasExamTicketData(
   tasks: unknown[],
 ): boolean {
   if (subjectId === 'ortho') return (orthoTicketsData as ExamTicket[]).length > 0;
+  if (subjectId === 'pharma') {
+    const official = pharmaTicketsData as ExamTicket[];
+    if (!official.length) return false;
+    const { qIds, tIds } = collectOfficialUsedIds(official);
+    const qPool = normalizePool(questions).filter(q => !qIds.has(String(q.id)));
+    const tPool = normalizePool(tasks).filter(t => !tIds.has(String(t.id)));
+    const missing = PHARMA_EXAM_TICKET_TOTAL - official.length;
+    return (
+      qPool.length >= missing * PHARMA_QUESTIONS_PER_TICKET &&
+      tPool.length >= 1
+    );
+  }
   const qPool = normalizePool(questions);
   const tPool = normalizePool(tasks);
   const qPerTicket = getQuestionsPerTicket(qPool.length);

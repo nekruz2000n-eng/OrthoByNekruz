@@ -37,6 +37,8 @@ export interface Ticket {
   ticketNumber: string | number;
   questions: RawItem[]; // массив из 2 элементов
   task: RawItem;        // 1 элемент (может быть пустым)
+  /** Сборный билет из неиспользованных вопросов/задач. */
+  isRandom?: boolean;
 }
 
 export interface ExamHistoryEntry {
@@ -502,15 +504,20 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                     const pct = ticketBest[String(ticket.id)];
                     const isPerfect = pct === 100;
                     const isTried = pct !== undefined && pct < 100;
+                    const isRandom = ticket.isRandom === true;
                     return (
                       <button key={ticket.id} onClick={() => startExam(ticket.id)}
                         className="relative aspect-square rounded-xl flex flex-col items-center justify-center gap-0.5 transition active:scale-90"
                         style={{
                           background: isPerfect ? accentColor : isTried ? 'var(--c-amber-dim)' : 'var(--c-card)',
-                          border: `1.5px solid ${isPerfect ? accentColor : isTried ? 'var(--c-amber-br)' : 'var(--c-border)'}`,
+                          border: `1.5px ${isRandom && !isPerfect && !isTried ? 'dashed' : 'solid'} ${isPerfect ? accentColor : isTried ? 'var(--c-amber-br)' : 'var(--c-border)'}`,
                         }}>
                         {isPerfect && (
                           <Medal className="w-2.5 h-2.5 absolute top-1 right-1" style={{ color: 'rgba(255,255,255,0.9)' }} />
+                        )}
+                        {isRandom && !isPerfect && (
+                          <span className="absolute top-0.5 right-0.5 text-[7px] font-bold leading-none opacity-50"
+                            style={{ color: 'var(--c-muted)' }}>~</span>
                         )}
                         <span className="text-[15px] font-bold leading-none font-mono"
                           style={{ color: isPerfect ? '#fff' : 'var(--c-text)' }}>

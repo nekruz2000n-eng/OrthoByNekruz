@@ -302,7 +302,10 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   }, [subject]);
 
   const currentTickets = examTickets;
-  const examTicketsOfficial = subject === 'ortho';
+  const examTicketsOfficial = subject === 'ortho' || subject === 'pharma';
+  const pharmaOfficialCount = subject === 'pharma'
+    ? currentTickets.filter(t => !t.isRandom).length
+    : 0;
 
   // localStorage ключи (раздельный прогресс по предметам)
   const LS = {
@@ -630,7 +633,9 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                         ? lastTry
                           ? `Лучший: ${bestPct}% · попыток: ${examHistory.length}`
                           : examTicketsOfficial
-                            ? 'Официальные билеты · 20 минут'
+                            ? subject === 'pharma'
+                              ? `${pharmaOfficialCount} официальных + ${currentTickets.length - pharmaOfficialCount} сборных · ${currentTickets.length} билетов`
+                              : 'Официальные билеты · 20 минут'
                             : `${currentTickets.length} билетов · ${getExamTicketCompositionLabel(questionsData.length)}`
                         : `Нужны вопросы и задачи (${getExamTicketCompositionLabel(questionsData.length)})`}
                     </div>
