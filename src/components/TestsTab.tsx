@@ -448,7 +448,7 @@ export const TestsTab = ({
     })),
     [testsData]);
 
-  const hasThemes = useMemo(() => processed.some((t: any) => t.theme), [processed]);
+  const hasThemes = useMemo(() => processed.some((t: any) => t.theme || t.topic), [processed]);
 
   // Плоские глобальные блоки — всегда 25 вопросов подряд, ID 1..N
   const blocks = useMemo(() => Array.from({ length: TOTAL_BLOCKS }, (_, i) => {
@@ -469,7 +469,7 @@ export const TestsTab = ({
     const groups: { theme: string; questions: any[] }[] = [];
     const themeIndex = new Map<string, number>();
     for (const q of processed) {
-      const theme = (q as any).theme || 'Общий раздел';
+      const theme = (q as any).theme || (q as any).topic || 'Общий раздел';
       if (!themeIndex.has(theme)) {
         themeIndex.set(theme, groups.length);
         groups.push({ theme, questions: [] });

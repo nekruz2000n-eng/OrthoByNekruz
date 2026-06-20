@@ -16,6 +16,7 @@ SOURCES = [
     Path(r"c:\Users\Admin\Downloads\pharma_q_83_116.json"),
 ]
 TASKS_SOURCE = Path(r"c:\Users\Admin\Downloads\pharma_tasks.json")
+TESTS_SOURCE = Path(r"c:\Users\Admin\Downloads\pharma_tests_final.json")
 
 SKIP_TERMS = {
     "преимущества", "недостатки", "примеры", "характеристика", "достоинства",
@@ -310,11 +311,20 @@ def glossary_only() -> None:
     print(f"glossary: {len(glossary)} ({sum(1 for g in glossary if g.get('variations'))} with variations)")
 
 
+def import_tests(source: Path = TESTS_SOURCE) -> None:
+    import subprocess
+    import sys
+    script = ROOT / "scripts" / "import_pharma_tests.py"
+    subprocess.run([sys.executable, str(script), str(source)], check=True)
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "--glossary-only":
         glossary_only()
     elif len(sys.argv) > 1 and sys.argv[1] == "--tasks":
         import_tasks()
+    elif len(sys.argv) > 1 and sys.argv[1] == "--tests":
+        import_tests()
     else:
         main()
