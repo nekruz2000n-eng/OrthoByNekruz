@@ -12,6 +12,9 @@ MANUAL = ROOT / "scripts" / "_pharma_manual_text.txt"
 QUESTIONS = ROOT / "src" / "data" / "pharma_questions.json"
 MARKER = "## По методичке кафедры (КрасГМУ)"
 
+# Generic pharmacokinetics intro wrongly attached to many unrelated questions.
+GENERIC_MANUAL_FINGERPRINT = "ОБЩАЯ ФАРМАКОЛОГИЯ ФАРМАКОКИНЕТИКА"
+
 # Ordered anchors in the departmental manual (later anchor ends previous block).
 ANCHORS: list[tuple[str, str]] = [
     ("ОБЩАЯ ФАРМАКОЛОГИЯ", "general_intro"),
@@ -185,6 +188,8 @@ def pick_sections(qid: int, qtext: str) -> list[str]:
         keys += ["antithrombotic", "hemostasis"]
     if has("нитроглицерин", "стенокард", "антиангин", "сердечно", "гипертенз"):
         keys += ["pharmacodynamics"]
+    if 39 <= qid <= 42 or has("возраст", "пол как фактор", "хронофармак", "фармакогенет", "сопутствующ", "полипрагмаз"):
+        keys += ["distribution", "biotransform", "excretion"]
     if has("рецепт", "пропис", "таблетк", "мазь", "линимент", "суппозитор"):
         keys += ["general_intro"]
 
@@ -195,8 +200,6 @@ def pick_sections(qid: int, qtext: str) -> list[str]:
         if k not in seen:
             seen.add(k)
             ordered.append(k)
-    if not ordered:
-        ordered = ["general_intro"]
     return ordered[:3]
 
 
@@ -223,10 +226,23 @@ def new_sentences(answer: str, bodies: list[str], limit: int = 5) -> list[str]:
     return picked
 
 
+def is_generic_manual_block(block: str) -> bool:
+    return GENERIC_MANUAL_FINGERPRINT in block
+
+
 def strip_old_block(answer: str) -> str:
     if MARKER not in answer:
         return answer.rstrip()
     return answer.split(MARKER)[0].rstrip()
+
+
+def strip_generic_manual(answer: str) -> str:
+    if MARKER not in answer:
+        return answer.rstrip()
+    base, block = answer.split(MARKER, 1)
+    if is_generic_manual_block(block):
+        return base.rstrip()
+    return answer.rstrip()
 
 
 def enrich_question(q: dict, sections: dict[str, str]) -> tuple[dict, int]:
@@ -234,6 +250,8 @@ def enrich_question(q: dict, sections: dict[str, str]) -> tuple[dict, int]:
     qtext = re.sub(r"\*\*([^*]+)\*\*", r"\1", q["question"])
     base = strip_old_block(q["answer"])
     keys = pick_sections(qid, qtext)
+    if not keys:
+        return {**q, "answer": base}, 0
     bodies = [sections[k] for k in keys if k in sections]
     added = new_sentences(base, bodies, limit=5)
     if not added:
