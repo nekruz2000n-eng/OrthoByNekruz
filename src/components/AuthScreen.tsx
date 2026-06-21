@@ -22,10 +22,10 @@ import {
   type FacultyPromo,
 } from '@/lib/facultyCodes';
 import { applyClientAccessCacheVersion } from '@/lib/accessCache';
+import { APP_BRAND_NAME } from '@/lib/subjects';
+import { AppBrandIcon } from '@/components/AppBrandIcon';
 
 type FacultyVariant = 'tooth' | 'stethoscope' | 'pediatrics';
-
-const LOGO_PHASES: FacultyVariant[] = ['tooth', 'stethoscope', 'pediatrics'];
 
 function syncFacultyAfterAuth(data: { facultyId?: string | null }, accessCode: string) {
   if (data?.facultyId) persistFacultyId(String(data.facultyId));
@@ -98,57 +98,10 @@ const FallingFacultyParticle = ({
   />
 );
 
-// ─── ЦЕНТРАЛЬНЫЙ ЛОГОТИП: зуб → стетоскоп → педиатрия по кругу ───────────────
-const AuthLogoCycle = () => {
-  const [phase, setPhase] = useState(0);
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    const HOLD_MS = 2600;
-    const FADE_MS = 500;
-    let cancelled = false;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-
-    const schedule = (fn: () => void, ms: number) => {
-      const id = setTimeout(() => { if (!cancelled) fn(); }, ms);
-      timers.push(id);
-    };
-
-    const tick = () => {
-      setVisible(false);
-      schedule(() => {
-        setPhase(p => (p + 1) % 3);
-        setVisible(true);
-        schedule(tick, HOLD_MS);
-      }, FADE_MS);
-    };
-
-    schedule(tick, HOLD_MS);
-    return () => {
-      cancelled = true;
-      timers.forEach(clearTimeout);
-    };
-  }, []);
-
-  return (
-    <div
-      className="w-12 h-12 flex items-center justify-center transition-opacity duration-500 ease-in-out"
-      style={{ opacity: visible ? 1 : 0 }}
-    >
-      <span
-        className="leading-none select-none"
-        style={{
-          fontSize: 44,
-          fontFamily: EMOJI_FONT_STACK,
-          filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.35))',
-        }}
-        aria-hidden
-      >
-        {FACULTY_EMOJI[LOGO_PHASES[phase]]}
-      </span>
-    </div>
-  );
-};
+// ─── ЦЕНТРАЛЬНЫЙ ЛОГОТИП ─────────────────────────────────────────────────────
+const AuthBrandLogo = () => (
+  <AppBrandIcon size={48} forceDark />
+);
 
 const FACULTY_ACCENT: Record<string, { border: string; bg: string; text: string }> = {
   stomatology: {
@@ -722,14 +675,14 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               filter: 'drop-shadow(0 0 12px hsl(var(--primary) / 0.5))', // Неоновое свечение вокруг
             }}
           >
-            <AuthLogoCycle />
+            <AuthBrandLogo />
           </div>
 
           <h1
             className="text-3xl font-bold tracking-tighter text-white select-none cursor-default"
             onClick={handleTitleClick} // Обработчик 6 тапов для сброса
           >
-            ByNekruz
+            {APP_BRAND_NAME}
           </h1>
           <p className="text-[13px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Подготовка к экзамену</p>
           
