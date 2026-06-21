@@ -46,7 +46,7 @@ import {
 import type { PreviewModule } from '@/lib/previewModules';
 import { ensureModuleStatusMap } from '@/lib/previewModuleStatus';
 import { notifyAdminReceiptClaimed } from '@/lib/notifyAdmin';
-import { resolveFacultyPromoCode, facultyFieldsFromUser, resolveUserFacultyPromo, applyFacultyToUser, getFacultyPromoById, userNeedsFacultyPick, healUserFacultyFields } from '@/lib/facultyCodes';
+import { resolveFacultyPromoCode, facultyFieldsFromUser, resolveUserFacultyPromo, applyFacultyToUser, getFacultyPromoById, userNeedsFacultyPick, userHasKnownFaculty, healUserFacultyFields } from '@/lib/facultyCodes';
 import { ACCESS_CACHE_VERSION } from '@/lib/accessCache';
 import { normalizeStudyGroup, buildStudyGroupFromDigits } from '@/lib/studyGroup';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
@@ -342,7 +342,7 @@ function previewPayload(
     previewChosenModules: user?.previewChosenModules ?? null,
     previewPaymentSelection: user?.previewPaymentSelection ?? null,
     studyGroup:           user?.studyGroup ?? null,
-    needsStudyGroup:      false,
+    needsStudyGroup:      selecting && userHasKnownFaculty(user) && !hasGroup,
     previewEndsAt:        previewEndsAt(user, tgId),
     previewStartedAt:     (user?.previewStatus === 'active' || hasTrialModule)
       ? (user.previewStartedAt ?? null)
@@ -586,6 +586,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (mode === 'pick_preview_subject') {
       if (!user || user.previewStatus !== 'selecting') {
         return res.status(400).json({ error: 'Выбор предмета недоступен.' });
+      }
+      if (!String(user.studyGroup || '').trim()) {
+        return res.status(400).json({
+          error: 'Сначала укажи номер группы.',
+          needsStudyGroup: true,
+        });
       }
       if (user.previewChosenSubject) {
         return res.status(400).json({ error: 'Предмет уже выбран и изменить его нельзя.' });

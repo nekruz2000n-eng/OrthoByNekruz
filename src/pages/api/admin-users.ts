@@ -19,6 +19,7 @@ import {
   getPendingAdminModules,
   getPreviewChosenModulesForAdmin,
   adminForcePaymentOnlyScreen,
+  resetPreviewDemoAccess,
 } from '@/lib/preview';
 import type { PreviewModule } from '@/lib/previewModules';
 import { clearAuthRateLimitsForTgId } from '@/lib/authRateLimit';
@@ -440,34 +441,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         await clearAuthRateLimitsForTgId(redis, id);
         let cleaned: Record<string, any> | null = null;
         if (user) {
-          const patched: Record<string, any> = { ...user };
-          delete patched.previewStatus;
-          delete patched.previewChosenSubject;
-          delete patched.previewChosenModules;
-          delete patched.promoCode;
-          delete patched.facultyId;
-          delete patched.previewFaculty;
-          delete patched.studyGroup;
-          delete patched.previewStartedAt;
-          delete patched.previewPickedAt;
-          delete patched.previewExpiredAt;
-          delete patched.previewConfirmedAt;
-          delete patched.previewQuotedPrice;
-          delete patched.receiptClaimedAt;
-          delete patched._adminPaymentOnlyLock;
-          delete patched.previewModuleStatuses;
-          delete patched.previewActiveMsConsumed;
-          delete patched.previewActiveMsByModule;
-          delete patched.previewModuleTrustExpiresAt;
-          delete patched._navHiddenBeforePreview;
-          delete patched._subjectsBeforePreview;
-          delete patched._previewSnapshotBeforeAddon;
-          delete patched._previewStatusBeforeCatalog;
-          delete patched._catalogBrowse;
-          const key = patched.activatedKey;
-          if (key === 'preview' || (key && String(key).startsWith('promo:'))) {
-            delete patched.activatedKey;
-          }
+          const patched = resetPreviewDemoAccess(user);
           await saveUser(id, patched);
           cleaned = patched;
         }

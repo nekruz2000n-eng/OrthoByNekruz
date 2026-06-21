@@ -1,5 +1,6 @@
 import { SUBJECTS, createDefaultSubjects, getUserAvailableSubjects } from '@/lib/subjects';
 import type { FacultyPromo } from '@/lib/facultyCodes';
+import { applyFacultyToUser, resolveUserFacultyPromo } from '@/lib/facultyCodes';
 import { getNavHiddenForSubject } from '@/lib/subjectCatalog';
 import {
   type PreviewModule,
@@ -782,6 +783,60 @@ type RedisSetOps = {
   srem:      (key: string, ...members: (string | number)[]) => Promise<unknown>;
   smembers:  (key: string) => Promise<unknown>;
 };
+
+const PREVIEW_DEMO_RESET_FIELDS = [
+  'previewStatus',
+  'previewChosenSubject',
+  'previewChosenModules',
+  'previewStartedAt',
+  'previewPickedAt',
+  'previewExpiredAt',
+  'previewConfirmedAt',
+  'previewQuotedPrice',
+  'receiptClaimedAt',
+  '_adminPaymentOnlyLock',
+  'previewModuleStatuses',
+  'previewActiveMsConsumed',
+  'previewActiveMsByModule',
+  'previewModuleTrustExpiresAt',
+  '_navHiddenBeforePreview',
+  '_subjectsBeforePreview',
+  '_previewSnapshotBeforeAddon',
+  '_previewStatusBeforeCatalog',
+  '_catalogBrowse',
+  'previewFacultyRecordedAt',
+  'previewPaymentSelection',
+] as const;
+
+/** Сброс пробного доступа: факультет сохраняем, группу — заново, витрина выбора. */
+export function resetPreviewDemoAccess(user: any): any {
+  const promo = resolveUserFacultyPromo(user);
+  const patched: Record<string, any> = { ...user };
+
+  for (const field of PREVIEW_DEMO_RESET_FIELDS) {
+    delete patched[field];
+  }
+
+  delete patched.studyGroup;
+
+  const key = patched.activatedKey;
+  if (key === 'preview' || (key && String(key).startsWith('promo:'))) {
+    delete patched.activatedKey;
+  }
+
+  if (!promo) {
+    delete patched.facultyId;
+    delete patched.previewFaculty;
+    delete patched.promoCode;
+    return patched;
+  }
+
+  const withFaculty = applyFacultyToUser(patched, promo);
+  withFaculty.previewStatus = 'selecting';
+  withFaculty.studyGroup = null;
+  withFaculty.activatedKey = `promo:${promo.id}`;
+  return withFaculty;
+}
 
 /** Снимает блокировку «пробный уже использован» для TG ID (string/number в Redis). */
 export async function clearPreviewTrialLock(redis: RedisSetOps, tgId: string) {

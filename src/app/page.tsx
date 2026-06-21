@@ -224,6 +224,7 @@ export default function Home() {
   const [showGroupForReceipt, setShowGroupForReceipt] = useState(false);
   const [retryClaimAfterGroup, setRetryClaimAfterGroup] = useState<PreviewModule[] | null>(null);
   const [needsFacultyPick, setNeedsFacultyPick] = useState(false);
+  const [needsStudyGroup, setNeedsStudyGroup] = useState(false);
   const [facultyPickSaving, setFacultyPickSaving] = useState(false);
   const pendingReceiptModulesRef = useRef<PreviewModule[] | null>(null);
   const previewActiveDeltaRef = useRef(0);
@@ -403,6 +404,7 @@ export default function Home() {
 
     if (d?.facultyId) persistFacultyId(String(d.facultyId));
     setNeedsFacultyPick(d?.needsFacultyPick === true);
+    setNeedsStudyGroup(d?.needsStudyGroup === true);
 
     if (ps === 'active') {
       const endIso = resolvePreviewEndIso(d?.previewEndsAt ?? null, d?.previewStartedAt ?? null, getTgId());
@@ -542,6 +544,63 @@ export default function Home() {
       applyAccessPayload(d);
     } catch { /* сеть — повторим на следующем интервале */ }
   }, [applyAccessPayload, logoutLocal]);
+
+  const syncAccessSilent = useCallback(async () => {
+    if (typeof document !== 'undefined' && document.hidden) return;
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId || !initDat) return;
+
+    const gen = ++accessRequestGen.current;
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telegramId: tgId, mode: 'check_subjects', initData: initDat }),
+      });
+      const d = await res.json();
+      if (gen !== accessRequestGen.current) return;
+      if (res.status === 403 && d.needSubscription) {
+        logoutLocal();
+        return;
+      }
+      if (d.registered === false) {
+        logoutLocal();
+        return;
+      }
+      applyAccessPayload(d);
+      setAccessChecked(true);
+    } catch { /* повторим на следующем интервале */ }
+  }, [applyAccessPayload, logoutLocal]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (needsStudyGroup) return;
+    const shouldPoll = previewStatus === 'active'
+      || previewStatus === 'expired'
+      || !!receiptClaimedAt
+      || !!previewConfirmedAt;
+    if (!shouldPoll) return;
+
+    const tick = () => { void syncAccessSilent(); };
+    tick();
+    const iv = setInterval(tick, 6000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [
+    isAuthenticated,
+    needsStudyGroup,
+    previewStatus,
+    receiptClaimedAt,
+    previewConfirmedAt,
+    syncAccessSilent,
+  ]);
 
   const refreshAccess = useCallback(() => {
     const tgId    = localStorage.getItem('user_tg_id');
@@ -1045,6 +1104,10 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (data.needsStudyGroup) {
+          setNeedsStudyGroup(true);
+          return;
+        }
         toast({ variant: 'destructive', title: 'Ошибка', description: data.error || 'Не удалось сохранить выбор' });
         return;
       }
@@ -1575,7 +1638,13 @@ export default function Home() {
     );
   }
 
-  if (!accessChecked && previewStatus !== 'expired' && previewStatus !== 'active' && !receiptClaimedAt) {
+  if (
+    !accessChecked
+    && previewStatus !== 'expired'
+    && previewStatus !== 'active'
+    && !receiptClaimedAt
+    && !(previewStatus === 'selecting' && needsStudyGroup)
+  ) {
     return withAccessWelcome(
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -1591,6 +1660,15 @@ export default function Home() {
           <Loader2 className="w-8 h-8 text-primary animate-spin opacity-30" />
         </div>
       </>
+    );
+  }
+
+  if (previewStatus === 'selecting' && needsStudyGroup) {
+    return withAccessWelcome(
+      <PreviewGroupScreen
+        loading={groupSaving}
+        onSubmit={handleSetStudyGroup}
+      />,
     );
   }
 
