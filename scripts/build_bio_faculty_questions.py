@@ -16,6 +16,37 @@ PED_LIST = ROOT / "scripts" / "_ped_questions.json"
 MATCH_THRESHOLD = 0.72
 FALLBACK_THRESHOLD = 0.45
 
+# Explicit pediatrics → stomatology mapping where fuzzy match fails
+PED_STOM_OVERRIDES: dict[int, int | list[int]] = {
+    39: 53,
+    40: 54,
+    41: 55,
+    42: 56,
+    43: 57,
+    44: 58,
+    45: 59,
+    46: 60,
+    47: 61,
+    48: 61,
+}
+
+
+def _ped_answer_overrides() -> dict[int, dict]:
+    fix_path = Path(__file__).resolve().parent / "fix_ped_bio_evolution_q39_48.py"
+    if not fix_path.exists():
+        return {}
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("fix_ped_bio", fix_path)
+    if spec is None or spec.loader is None:
+        return {}
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return {47: mod.PATCH_47, 48: mod.PATCH_48}
+
+
+PED_ANSWER_OVERRIDES = _ped_answer_overrides()
+
 
 def normalize(text: str) -> str:
     text = text.replace("**", "")
@@ -86,7 +117,17 @@ def main() -> None:
 
         source_ids: list[int] = []
         answer = ""
-        if best and ratio >= MATCH_THRESHOLD:
+        override = PED_STOM_OVERRIDES.get(num)
+        if override is not None:
+            ids = override if isinstance(override, list) else [override]
+            sources = [stom_by_id[i] for i in ids if i in stom_by_id]
+            if sources:
+                answer = merge_answers(sources) if len(sources) > 1 else sources[0]["answer"]
+                source_ids = [int(x["id"]) for x in sources]
+                best = sources[0]
+                ratio = 1.0
+                stats["full_match"] += 1
+        elif best and ratio >= MATCH_THRESHOLD:
             answer = best["answer"]
             source_ids = [int(best["id"])]
             stats["full_match"] += 1
@@ -129,6 +170,8 @@ def main() -> None:
             "source_stom_ids": source_ids,
             "match_ratio": round(ratio, 4) if best else 0,
         }
+        if num in PED_ANSWER_OVERRIDES:
+            entry.update(PED_ANSWER_OVERRIDES[num])
         ped_out.append(entry)
 
     PED_OUT.write_text(json.dumps(ped_out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
