@@ -100,7 +100,7 @@ const FallingFacultyParticle = ({
 
 // ─── ЦЕНТРАЛЬНЫЙ ЛОГОТИП ─────────────────────────────────────────────────────
 const AuthBrandLogo = () => (
-  <AppBrandIcon size={48} forceDark />
+  <AppBrandIcon size={72} forceDark />
 );
 
 const FACULTY_ACCENT: Record<string, { border: string; bg: string; text: string }> = {
