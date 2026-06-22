@@ -810,7 +810,9 @@ const PREVIEW_DEMO_RESET_FIELDS = [
 export function resetPreviewDemoAccess(user: any): any {
   const promo = resolveUserFacultyPromo(user);
   const preservedSubject = String(user?.previewChosenSubject || '').trim() || null;
-  const preservedModules = normalizePreviewModules(user?.previewChosenModules);
+  const preservedModules = preservedSubject
+    ? getPreviewChosenModulesForAdmin(user)
+    : [];
   const patched: Record<string, any> = { ...user };
 
   for (const field of PREVIEW_DEMO_RESET_FIELDS) {
@@ -854,7 +856,7 @@ export function resetPreviewDemoAccess(user: any): any {
 export function resumePreviewTrialAfterGroup(user: any): any | null {
   if (user?.previewStatus !== 'selecting') return null;
   const subjectId = String(user.previewChosenSubject || '').trim();
-  const modules = normalizePreviewModules(user.previewChosenModules);
+  const modules = getPreviewChosenModulesForAdmin(user);
   if (!subjectId || modules.length === 0) return null;
   if (!String(user.studyGroup || '').trim()) return null;
   return buildActivePreviewUser(user, subjectId, modules);

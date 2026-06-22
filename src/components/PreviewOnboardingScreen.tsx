@@ -18,6 +18,9 @@ interface PreviewOnboardingScreenProps {
   /** Предметы, уже в постоянном доступе (витрина из приложения). */
   catalogGrantedSubjects?: string[];
   navHidden?: Record<string, string[]>;
+  /** Сохранённый выбор после сброса пробы — подставляем на витрине. */
+  initialSubjectId?: string | null;
+  initialModules?: PreviewModule[];
   loading?: boolean;
   onConfirm: (subjectId: string, modules: PreviewModule[]) => void;
   /** Вернуться к уже купленным разделам (витрина из приложения). */
@@ -31,6 +34,8 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
   subjectCatalog,
   catalogGrantedSubjects = [],
   navHidden = {},
+  initialSubjectId = null,
+  initialModules = [],
   loading = false,
   onConfirm,
   onBackToPurchased,
@@ -73,6 +78,17 @@ export const PreviewOnboardingScreen: React.FC<PreviewOnboardingScreenProps> = (
       setSelectedModules([pickableModules[0].id]);
     }
   }, [step, pickableModules]);
+
+  useEffect(() => {
+    const subjectId = String(initialSubjectId || '').trim();
+    const mods = initialModules.filter(m => m === 'questions' || m === 'tests' || m === 'tasks');
+    if (!subjectId || mods.length === 0) return;
+    const entry = subjectCatalog.find(s => s.id === subjectId);
+    if (!entry || isSubjectFullyOwned(subjectId, entry)) return;
+    setSelectedId(subjectId);
+    setSelectedModules(mods);
+    setStep('modules');
+  }, [initialSubjectId, initialModules, subjectCatalog, catalogGrantedSubjects, navHidden]);
 
   const openSubject = (id: string, item: SubjectCatalogEntry) => {
     if (isSubjectFullyOwned(id, item)) return;

@@ -596,16 +596,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           needsStudyGroup: true,
         });
       }
-      if (user.previewChosenSubject) {
-        return res.status(400).json({ error: 'Предмет уже выбран и изменить его нельзя.' });
-      }
 
       const chosen = String(subjectId || '').trim();
-      if (!getSubject(chosen)) {
+      const lockedSubject = String(user.previewChosenSubject || '').trim();
+      if (lockedSubject && lockedSubject !== chosen) {
+        return res.status(400).json({ error: 'Предмет уже выбран и изменить его нельзя.' });
+      }
+      const subjectToUse = lockedSubject || chosen;
+
+      if (!getSubject(subjectToUse)) {
         return res.status(400).json({ error: 'Неизвестный предмет.' });
       }
 
-      const catalogEntry = (await buildPreviewSubjectCatalog(redis)).find(s => s.id === chosen);
+      const catalogEntry = (await buildPreviewSubjectCatalog(redis)).find(s => s.id === subjectToUse);
       if (!catalogEntry?.hasAnyModule) {
         return res.status(400).json({ error: 'Для этого предмета материалы ещё не готовы.' });
       }
@@ -627,7 +630,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ? user.navHidden as Record<string, string[]>
           : {};
         for (const modId of chosenModules) {
-          if (isCatalogModuleAlreadyGranted(chosen, modId, granted, navHiddenMap)) {
+          if (isCatalogModuleAlreadyGranted(subjectToUse, modId, granted, navHiddenMap)) {
             return res.status(400).json({
               error: 'Этот раздел уже открыт. Выбери другой для докупки.',
             });
@@ -635,9 +638,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       } else if (
         !isPreviewShortDurationAccount(tgIdStr)
-        && userAlreadyHasAllChosenModules(user, chosen, chosenModules)
+        && userAlreadyHasAllChosenModules(user, subjectToUse, chosenModules)
       ) {
-        const updated = recordFacultyChoiceOnly(user, chosen, chosenModules);
+        const updated = recordFacultyChoiceOnly(user, subjectToUse, chosenModules);
         updated.username   = username ?? updated.username;
         updated.firstName  = firstName ?? updated.firstName;
         updated.lastName   = lastName ?? updated.lastName;
@@ -652,8 +655,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const isCatalogAddon = user._catalogBrowse === true
-        && userAlreadyHasSubjectAccess(user, chosen);
-      const updated = buildActivePreviewUser(user, chosen, chosenModules, {
+        && userAlreadyHasSubjectAccess(user, subjectToUse);
+      const updated = buildActivePreviewUser(user, subjectToUse, chosenModules, {
         catalogAddon: isCatalogAddon,
       });
       if (user._catalogBrowse) {

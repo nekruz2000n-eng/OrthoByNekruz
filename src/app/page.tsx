@@ -1685,6 +1685,8 @@ export default function Home() {
         subjectCatalog={subjectCatalog}
         catalogGrantedSubjects={catalogGrantedSubjects}
         navHidden={navHidden}
+        initialSubjectId={previewChosen}
+        initialModules={chosenPreviewModules}
         loading={previewPicking}
         onConfirm={handlePreviewPick}
         onBackToPurchased={canExitCatalogBrowse ? handleExitCatalogBrowse : undefined}
