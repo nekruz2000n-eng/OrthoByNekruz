@@ -18,6 +18,41 @@ const BIO_TESTS_RUB = MODULE_PRICE_RUB;
 const BIO_TASKS_WITH_TEST_RUB = 0;
 const BIO_TASKS_WITHOUT_TEST_RUB = 1000;
 
+/** Фармакология, 3 курс — комплект перед экзаменом */
+const PHARMA_BUNDLE_RUB = 500;
+/** Дата экзамена (локальная полночь следующего дня после последнего дня подготовки). */
+export const PHARMA_EXAM_DATE = '2026-06-11';
+
+export function getPharmaExamDaysLeft(now = new Date()): number {
+  const exam = new Date(`${PHARMA_EXAM_DATE}T23:59:59`);
+  const ms = exam.getTime() - now.getTime();
+  if (ms <= 0) return 0;
+  return Math.ceil(ms / (24 * 60 * 60 * 1000));
+}
+
+function formatDaysLeftRu(days: number): string {
+  if (days === 0) return 'сегодня экзамен';
+  if (days === 1) return 'остался 1 день';
+  if (days >= 2 && days <= 4) return `осталось ${days} дня`;
+  const mod10 = days % 10;
+  const mod100 = days % 100;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return `осталось ${days} дня`;
+  }
+  return `осталось ${days} дней`;
+}
+
+/** Пояснение на экране оплаты: скидка на комплект, не постоянная цена. */
+export function getPharmaLateExamPromoNote(now = new Date()): string {
+  const days = getPharmaExamDaysLeft(now);
+  const when = formatDaysLeftRu(days);
+  return (
+    `Скидка для 3 курса: ${when} до экзамена — весь комплект `
+    + `(вопросы, тест и задачи) за ${formatPriceRub(PHARMA_BUNDLE_RUB)}. `
+    + 'Такая цена только на финиш подготовки, не навсегда.'
+  );
+}
+
 export type PreviewPriceOptions = {
   /** Биология: тест был в пробе/куплен — задачи 0 ₽, иначе 1000 ₽ */
   bioHadTest?: boolean;
@@ -42,6 +77,7 @@ export function calcPreviewPriceRub(
   if (subjectId === 'ortho') return calcOrthoPreviewPrice(chosen);
   if (subjectId === 'bio')  return calcBioPreviewPrice(chosen, options?.bioHadTest ?? false);
   if (subjectId === 'micro') return chosen.length * MODULE_PRICE_RUB;
+  if (subjectId === 'pharma') return PHARMA_BUNDLE_RUB;
   return MODULE_PRICE_RUB;
 }
 
@@ -124,6 +160,15 @@ export function getPaymentModuleOptions(subjectId: string): PaymentModuleOption[
       selectable: true,
     }));
   }
+  if (subjectId === 'pharma') {
+    return ALL_PREVIEW_MODULES.map(id => ({
+      id,
+      label: PREVIEW_MODULE_LABELS[id],
+      shortLabel: PAYMENT_MODULE_SHORT_LABELS[id],
+      unitPriceRub: null,
+      selectable: true,
+    }));
+  }
   return ALL_PREVIEW_MODULES.map(id => ({
     id,
     label: PREVIEW_MODULE_LABELS[id],
@@ -169,6 +214,9 @@ export function getPreviewPriceHint(subjectId: string): string {
   }
   if (subjectId === 'bio') {
     return 'Вопросы 800 ₽ · Тест 500 ₽ · Задачи 0 ₽ (с тестом) или 1000 ₽ (без теста)';
+  }
+  if (subjectId === 'pharma') {
+    return `Комплект (вопросы + тест + задачи) — ${formatPriceRub(PHARMA_BUNDLE_RUB)} до экзамена`;
   }
   return 'Любой тест — 500 ₽';
 }
@@ -229,6 +277,18 @@ export function describePreviewPrice(
       total,
       hint: getPreviewPriceHint(subjectId),
       lines,
+    };
+  }
+
+  if (subjectId === 'pharma') {
+    const fullKit = ['questions', 'tests', 'tasks'] as PreviewModule[];
+    const hasFullKit = fullKit.every(m => chosen.includes(m));
+    return {
+      total,
+      hint: getPreviewPriceHint(subjectId),
+      lines: hasFullKit
+        ? ['Вопросы + тест + задачи (комплект)']
+        : chosen.map(m => PREVIEW_MODULE_LABELS[m]),
     };
   }
 

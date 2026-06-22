@@ -11,6 +11,7 @@ import {
   buildSelectingPreviewUser,
   buildSelectingPreviewUserFromExisting,
   buildActivePreviewUser,
+  resumePreviewTrialAfterGroup,
   recordFacultyChoiceOnly,
   isEstablishedAccount,
   userAlreadyHasSubjectAccess,
@@ -400,6 +401,8 @@ async function healAndMaybePersistUser(tgId: string, user: any, redisOk: boolean
   healed = normalizeAddonPreviewNavHidden(healed);
   healed = healExamNavHidden(healed);
   healed = clearPreviewFlowIfAdminGrantedAccess(healed);
+  const resumed = resumePreviewTrialAfterGroup(healed);
+  if (resumed) healed = resumed;
   const facultyHeal = healUserFacultyFields(healed);
   healed = facultyHeal.user;
   const accessHealed = healed !== before || facultyHeal.changed;
@@ -575,11 +578,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         lastLogin:  new Date().toISOString(),
         loginCount: Number(user.loginCount || 0) + 1,
       };
-      await saveUser(tgIdStr, updated);
-      const catalog = await buildPreviewSubjectCatalog(redis);
+      const resumed = resumePreviewTrialAfterGroup(updated) ?? updated;
+      await saveUser(tgIdStr, resumed);
       return res.status(200).json({
         success: true,
-        ...(await subjectsResponse(updated, tgIdStr)),
+        ...(await subjectsResponse(resumed, tgIdStr)),
       });
     }
 

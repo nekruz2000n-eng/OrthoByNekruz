@@ -786,8 +786,6 @@ type RedisSetOps = {
 
 const PREVIEW_DEMO_RESET_FIELDS = [
   'previewStatus',
-  'previewChosenSubject',
-  'previewChosenModules',
   'previewStartedAt',
   'previewPickedAt',
   'previewExpiredAt',
@@ -808,9 +806,11 @@ const PREVIEW_DEMO_RESET_FIELDS = [
   'previewPaymentSelection',
 ] as const;
 
-/** Сброс пробного доступа: факультет сохраняем, группу — заново, витрина выбора. */
+/** Сброс пробного доступа: факультет и выбор предмета/разделов сохраняем, группу — заново. */
 export function resetPreviewDemoAccess(user: any): any {
   const promo = resolveUserFacultyPromo(user);
+  const preservedSubject = String(user?.previewChosenSubject || '').trim() || null;
+  const preservedModules = normalizePreviewModules(user?.previewChosenModules);
   const patched: Record<string, any> = { ...user };
 
   for (const field of PREVIEW_DEMO_RESET_FIELDS) {
@@ -824,10 +824,16 @@ export function resetPreviewDemoAccess(user: any): any {
     delete patched.activatedKey;
   }
 
+  if (preservedSubject && patched.subjects && typeof patched.subjects === 'object') {
+    patched.subjects = { ...patched.subjects, [preservedSubject]: false };
+  }
+
   if (!promo) {
     delete patched.facultyId;
     delete patched.previewFaculty;
     delete patched.promoCode;
+    delete patched.previewChosenSubject;
+    delete patched.previewChosenModules;
     return patched;
   }
 
@@ -835,7 +841,23 @@ export function resetPreviewDemoAccess(user: any): any {
   withFaculty.previewStatus = 'selecting';
   withFaculty.studyGroup = null;
   withFaculty.activatedKey = `promo:${promo.id}`;
+  if (preservedSubject) {
+    withFaculty.previewChosenSubject = preservedSubject;
+  }
+  if (preservedModules.length > 0) {
+    withFaculty.previewChosenModules = preservedModules;
+  }
   return withFaculty;
+}
+
+/** После сброса и ввода группы — снова открыть пробу с сохранённым выбором. */
+export function resumePreviewTrialAfterGroup(user: any): any | null {
+  if (user?.previewStatus !== 'selecting') return null;
+  const subjectId = String(user.previewChosenSubject || '').trim();
+  const modules = normalizePreviewModules(user.previewChosenModules);
+  if (!subjectId || modules.length === 0) return null;
+  if (!String(user.studyGroup || '').trim()) return null;
+  return buildActivePreviewUser(user, subjectId, modules);
 }
 
 /** Снимает блокировку «пробный уже использован» для TG ID (string/number в Redis). */

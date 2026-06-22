@@ -9,6 +9,7 @@ import {
   describePreviewPrice,
   formatPriceRub,
   getPaymentModuleRow,
+  getPharmaLateExamPromoNote,
   PAYMENT_MODULE_ROW_ORDER,
 } from '@/lib/previewPricing';
 import { openTgChat } from '@/lib/tgLinks';
@@ -95,13 +96,16 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
     })
   ), [chosenModules, grantedSet, moduleStatuses]);
 
+  const isPharma = subjectId === 'pharma';
+
   const defaultPaymentSelection = useMemo(() => {
     const saved = normalizePreviewModules(paymentSelection).filter(m => toggleableModules.includes(m));
     if (saved.length > 0) return saved;
+    if (isPharma && toggleableModules.length > 0) return toggleableModules;
     if (dueModules.length > 0) return dueModules;
     if (toggleableModules.includes(module)) return [module];
     return toggleableModules.slice(0, 1);
-  }, [paymentSelection, dueModules, module, toggleableModules]);
+  }, [paymentSelection, dueModules, module, toggleableModules, isPharma]);
 
   const selectionKey = [
     defaultPaymentSelection.join('|'),
@@ -150,7 +154,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
     const opt = rowOptions.find(o => o.id === id);
     if (opt?.alreadyOwned || modulesUpdating || checking) return;
     if (!toggleableModules.includes(id)) return;
-    if (!isBio && opt && !opt.selectable) return;
+    if (!isBio && !isPharma && opt && !opt.selectable) return;
 
     const next = selected.includes(id)
       ? selected.filter(m => m !== id)
@@ -161,7 +165,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
     persistSelection(ordered);
   }, [
     rowOptions, selected, modulesUpdating, checking, persistSelection,
-    toggleableModules, isBio,
+    toggleableModules, isBio, isPharma,
   ]);
 
   const copyCard = useCallback(async () => {
@@ -284,7 +288,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
             const disabled = opt.alreadyOwned || modulesUpdating || checking
               || isLastSelected
               || (!toggleableModules.includes(opt.id))
-              || (!isBio && phase === 'due' && !opt.selectable);
+              || (!isBio && !isPharma && phase === 'due' && !opt.selectable);
             return (
               <button
                 key={opt.id}
@@ -316,6 +320,20 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
             );
           })}
         </div>
+
+        {isPharma && status !== 'rejected' && (
+          <div
+            className="rounded-2xl px-4 py-3.5 text-left"
+            style={{
+              background: `color-mix(in srgb, ${accent} 12%, var(--c-card))`,
+              border: `1px solid color-mix(in srgb, ${accent} 28%, var(--c-border))`,
+            }}
+          >
+            <p className="text-[12px] leading-relaxed" style={{ color: 'var(--c-text)' }}>
+              {getPharmaLateExamPromoNote()}
+            </p>
+          </div>
+        )}
 
         {priceSummary && (
           <div
