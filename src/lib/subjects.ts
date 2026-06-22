@@ -297,6 +297,28 @@ export const SUBJECTS: SubjectConfig[] = [
     freeWithKey:    false,
     availableInDemo: false,
   },
+
+  // ═════════════════════════ ХИМИЯ ════════════════════════════════════════
+  {
+    id:             'chem',
+    label:          'Химия',
+    shortLabel:     'chem',
+    sub:            'Вопросы · Тесты · Задачи',
+    badge:          '1 курс',
+    color:          'hsl(199 89% 48%)',
+    dimColor:       'hsl(199 89% 48% / 0.12)',
+    borderColor:    'hsl(199 89% 48% / 0.28)',
+    iconVariant:    'normal',
+    questionsFile:  'chem_questions.json',
+    tasksFile:      'chem_tasks.json',
+    testsFile:      'chem_tests.json',
+    glossaryFile:   'chem_glossary.json',
+    lsPrefix:       'chem',
+    freeWithKey:    false,
+    availableInDemo: false,
+    questionGameModes: true,
+  },
+
 // ═════════════════════ Английский для педиатров 1 курс ════════════════════════
   {
     id:             'eng',
