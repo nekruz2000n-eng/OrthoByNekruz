@@ -14,7 +14,7 @@
 //
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { BIO_QUESTIONS_PED_FILE } from '@/lib/bioQuestions';
+import { BIO_QUESTIONS_PED_FILE, BIO_QUESTIONS_THERAPEUTIC_FILE } from '@/lib/bioQuestions';
 
 /** Название университета в шапке всех дисциплин */
 export const APP_BRAND_NAME = 'КрасГМУ';
@@ -482,6 +482,7 @@ export function getAllDataFileNames(): string[] {
     names.add(s.glossaryFile);
   }
   names.add(BIO_QUESTIONS_PED_FILE);
+  names.add(BIO_QUESTIONS_THERAPEUTIC_FILE);
   names.add('bio_questions.json');
   return [...names];
 }
