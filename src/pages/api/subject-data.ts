@@ -25,6 +25,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis }                from '@upstash/redis';
 import { getSubject, getAllDataFileNames } from '@/lib/subjects';
 import { resolveBioQuestionsFile } from '@/lib/bioQuestions';
+import { resolveBioTasksFile } from '@/lib/bioTasks';
 import { isPreviewExpired, isPreviewModuleTrialExpired, maybeExpirePreviewUser } from '@/lib/preview';
 import { userHasModuleDataAccess } from '@/lib/previewModuleStatus';
 import { verifyInitDataId }     from '@/lib/verifyInitData';
@@ -130,7 +131,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ? resolveBioQuestionsFile(user?.facultyId)
           : subjectCfg.questionsFile;
         break;
-      case 'tasks':     fileName = subjectCfg.tasksFile;     break;
+      case 'tasks':
+        if (subjectCfg.id === 'bio') {
+          fileName = resolveBioTasksFile(user?.facultyId);
+          if (!fileName) {
+            return res.status(403).json({ error: 'Задачи по биологии доступны только стоматологам' });
+          }
+        } else {
+          fileName = subjectCfg.tasksFile;
+        }
+        break;
       case 'tests':     fileName = subjectCfg.testsFile;     break;
       case 'glossary':  fileName = subjectCfg.glossaryFile;  break;
       default:          return res.status(400).json({ error: 'Unknown type' });

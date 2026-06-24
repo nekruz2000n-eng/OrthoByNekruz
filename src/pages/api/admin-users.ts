@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from '@upstash/redis';
 import {
   SUBJECTS, getSubject, getUserAvailableSubjects, migrateUserSubjects, applyBioTasksGift,
+  ensureStomatologyBioTasksVisible,
 } from '@/lib/subjects';
 import {
   confirmPreviewUser,
@@ -232,7 +233,10 @@ async function saveUser(tgId: string, data: any) {
 function applyAdminAccessHeals(user: any): any {
   let healed = healStalePreviewForFinalizedUser(user);
   healed = healExamNavHidden(healed);
-  return clearPreviewFlowIfAdminGrantedAccess(healed);
+  healed = clearPreviewFlowIfAdminGrantedAccess(healed);
+  const stomTasks = ensureStomatologyBioTasksVisible(healed);
+  if (stomTasks) healed = stomTasks;
+  return healed;
 }
 
 async function buildUserList(ids: string[]) {

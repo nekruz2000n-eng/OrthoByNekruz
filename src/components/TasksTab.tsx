@@ -16,8 +16,15 @@ import {
 import { AppBrandIcon } from './AppBrandIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RichText, GlossaryItem } from '@/components/RichText';
+import { CachedImage } from '@/components/CachedImage';
 import { PersonalNoteCard } from '@/components/PersonalNoteCard';
 import { itemRelatedTerms, filterValidGlossary } from '@/lib/glossaryUtils';
+
+const taskImages = (task: { image?: string | string[]; images?: string | string[] }): string[] => {
+  const raw = task.images || task.image;
+  if (!raw) return [];
+  return Array.isArray(raw) ? raw : [raw];
+};
 
 export const TasksTab = ({
   onSecretTap,
@@ -43,6 +50,8 @@ export const TasksTab = ({
   const [isLoaded,    setIsLoaded]    = useState(false);
   const [readingTask, setReadingTask] = useState<any | null>(null);
   const [fontSize,    setFontSize]    = useState(16);
+  const [zoomList,    setZoomList]    = useState<string[]>([]);
+  const [zoomIdx,     setZoomIdx]     = useState(0);
 
   const initialDistance = useRef<number | null>(null);
   const initialFontSize = useRef(16);
@@ -161,6 +170,37 @@ export const TasksTab = ({
   );
 
   const getPreview = (t: string) => t.replace(/\*\*/g, '').trim();
+
+  const openZoom = (images: string[], idx = 0) => {
+    setZoomList(images);
+    setZoomIdx(idx);
+  };
+
+  const renderTaskImages = (task: any, opts: { compact?: boolean } = {}) => {
+    const images = taskImages(task);
+    if (!images.length) return null;
+    return (
+      <div className={opts.compact ? 'mb-3' : 'space-y-3'}>
+        {images.map((img, i) => (
+          <div
+            key={`${task.id}-${i}`}
+            className="img-protected-wrapper rounded-xl overflow-hidden cursor-pointer relative"
+            style={{ border: '1px solid var(--c-border)' }}
+            onClick={e => { e.stopPropagation(); openZoom(images, i); }}
+            onContextMenu={e => e.preventDefault()}
+          >
+            <CachedImage
+              src={img}
+              alt={`Рисунок к задаче №${task.id}`}
+              className={`w-full h-auto object-contain ${opts.compact ? 'max-h-36' : 'max-h-80'}`}
+              loading="lazy"
+              draggable={false}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   // ────────────────────────────────────────────────────────────────────────────
   return (
@@ -300,6 +340,7 @@ export const TasksTab = ({
                     </AccordionTrigger>
 
                     <AccordionContent className="px-4 pb-4 pt-0 w-full overflow-hidden">
+                      {renderTaskImages(task, { compact: true })}
                       {/* preview answer */}
                       <div
                         className="rounded-xl p-3 mb-3 relative overflow-hidden"
@@ -401,6 +442,8 @@ export const TasksTab = ({
                   className="font-semibold"
                 />
 
+                {renderTaskImages(readingTask)}
+
                 <div className="flex items-center gap-2.5 pt-3" style={{ borderTop: '1px solid var(--c-border)' }}>
                   <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--c-primary)' }} />
                   <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--c-primary)' }}>
@@ -480,6 +523,45 @@ export const TasksTab = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {zoomList.length > 0 && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center"
+          style={{ background: 'hsl(0 0% 0% / 0.85)' }}
+          onClick={() => setZoomList([])}
+        >
+          <button
+            className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center"
+            style={{ background: 'hsl(0 0% 100% / 0.15)', color: '#fff' }}
+            onClick={e => { e.stopPropagation(); setZoomList([]); }}
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <CachedImage
+            src={zoomList[zoomIdx]}
+            alt=""
+            className="max-w-[92vw] max-h-[85vh] object-contain"
+            draggable={false}
+            onClick={e => e.stopPropagation()}
+          />
+          {zoomList.length > 1 && (
+            <div className="absolute bottom-8 flex gap-2">
+              {zoomList.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={e => { e.stopPropagation(); setZoomIdx(i); }}
+                  className="rounded-full transition-all"
+                  style={{
+                    width: i === zoomIdx ? 18 : 8,
+                    height: 8,
+                    background: i === zoomIdx ? '#fff' : 'rgba(255,255,255,0.4)',
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

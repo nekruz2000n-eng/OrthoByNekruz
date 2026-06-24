@@ -10,6 +10,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import { readStoredFacultyId } from '@/lib/facultyCodes';
+import { bioFacultyHasTasks } from '@/lib/bioTasks';
 
 let onSubjectDataUnavailable: (() => void) | null = null;
 
@@ -50,6 +51,10 @@ async function purgeOldCaches(): Promise<void> {
 
 function cacheKey(subject: string, type: SubjectDataType): string {
   if (subject === 'bio' && type === 'questions') {
+    const faculty = readStoredFacultyId() || 'stomatology';
+    return `https://cache.local/subject-data/${subject}/${type}/${faculty}`;
+  }
+  if (subject === 'bio' && type === 'tasks') {
     const faculty = readStoredFacultyId() || 'stomatology';
     return `https://cache.local/subject-data/${subject}/${type}/${faculty}`;
   }

@@ -6,6 +6,7 @@ import {
   getUserAvailableSubjects,
   createDefaultSubjects,
   migrateUserSubjects,
+  ensureStomatologyBioTasksVisible,
 } from '@/lib/subjects';
 import {
   buildSelectingPreviewUser,
@@ -384,6 +385,8 @@ async function saveUser(tgId: string, user: any) {
 async function subjectsResponse(user: any, tgId?: string, extra?: Record<string, unknown>) {
   user = migrateUserSubjects(user);
   user = normalizeAddonPreviewNavHidden(user);
+  const stomTasks = ensureStomatologyBioTasksVisible(user);
+  if (stomTasks) user = stomTasks;
   const subjects = getEffectiveUserSubjects(user, tgId);
   const catalog = user?.previewStatus ? await buildPreviewSubjectCatalog(redis) : undefined;
   return {
@@ -401,6 +404,8 @@ async function healAndMaybePersistUser(tgId: string, user: any, redisOk: boolean
   healed = normalizeAddonPreviewNavHidden(healed);
   healed = healExamNavHidden(healed);
   healed = clearPreviewFlowIfAdminGrantedAccess(healed);
+  const stomTasks = ensureStomatologyBioTasksVisible(healed);
+  if (stomTasks) healed = stomTasks;
   const resumed = resumePreviewTrialAfterGroup(healed);
   if (resumed) healed = resumed;
   const facultyHeal = healUserFacultyFields(healed);
@@ -543,10 +548,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!promo) {
         return res.status(400).json({ error: 'Неизвестный факультет.' });
       }
-      const updated = applyFacultyToUser(
+      let updated = applyFacultyToUser(
         touchUserVisit({ ...user, username, firstName, lastName }),
         promo,
       );
+      const withTasks = ensureStomatologyBioTasksVisible(updated);
+      if (withTasks) updated = withTasks;
       await saveUser(tgIdStr, updated);
       return res.status(200).json(await subjectsResponse(updated, tgIdStr));
     }
