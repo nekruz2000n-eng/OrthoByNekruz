@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Crop pedigree diagrams from «Био_задачи_26» PDF for ped/ther bio tasks."""
+"""Crop pedigree diagrams from «Ped_zadachi (1).pdf» for ped/ther bio tasks."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,27 +7,24 @@ from pathlib import Path
 import fitz
 
 ROOT = Path(__file__).resolve().parent.parent
-PDF_PATH = Path(r"c:\Users\Admin\Downloads\Био_задачи_26 (1).pdf")
+PDF_PATH = Path(r"c:\Users\Admin\Downloads\Ped_zadachi (1).pdf")
 OUT_DIR = ROOT / "public" / "images" / "bio" / "tasks-ped"
 MATRIX = fitz.Matrix(2.5, 2.5)
 
 # page index (0-based) -> (task_id, clip rect in PDF points)
 CLIPS: dict[int, list[tuple[int, fitz.Rect]]] = {
-    8: [  # page 9 — tasks 59, 61
-        (59, fitz.Rect(88.8, 196.2, 537.36, 384.6)),
-        (61, fitz.Rect(88.8, 560.04, 537.36, 748.44)),
+    9: [  # page 10 — задача 83 (родословная сверху)
+        (83, fitz.Rect(70, 55, 530, 200)),
     ],
-    9: [  # page 10 — tasks 63, 64
-        (63, fitz.Rect(88.8, 213.48, 537.36, 401.88)),
-        (64, fitz.Rect(88.8, 454.92, 537.36, 643.32)),
+    11: [  # page 12 — 98, 102, 103
+        (98, fitz.Rect(83.3, 194.16, 242.45, 237.25)),
+        (102, fitz.Rect(84.8, 446.41, 244.2, 525.51)),
+        (103, fitz.Rect(83.3, 594.5, 251.59, 637.15)),
     ],
-    10: [  # page 11 — tasks 66, 67
-        (66, fitz.Rect(88.8, 125.64, 537.36, 314.04)),
-        (67, fitz.Rect(88.8, 384.48, 537.36, 572.88)),
-    ],
-    11: [  # page 12 — tasks 72, 73
-        (72, fitz.Rect(72.72, 364.56, 300.0, 510.12)),
-        (73, fitz.Rect(72.72, 572.04, 417.72, 743.04)),
+    12: [  # page 13 — 107, 108, 109
+        (107, fitz.Rect(83.3, 123.2, 234.14, 211.4)),
+        (108, fitz.Rect(83.3, 239.29, 266.2, 331.44)),
+        (109, fitz.Rect(83.3, 400.44, 271.0, 493.59)),
     ],
 }
 

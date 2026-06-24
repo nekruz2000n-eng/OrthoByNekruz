@@ -1,5 +1,5 @@
 /** Bump when paid users may have stale preview state in localStorage. */
-export const ACCESS_CACHE_VERSION = 4;
+export const ACCESS_CACHE_VERSION = 5;
 
 const VERSION_KEY = 'access_cache_v';
 

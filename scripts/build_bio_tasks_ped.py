@@ -11,17 +11,30 @@ SRC = Path(__file__).resolve().parent / "_bio_tasks_ped_source.json"
 OUT = ROOT / "src" / "data" / "bio_tasks_pediatrics.json"
 
 FACULTIES = ("pediatrics", "therapeutic")
-IMAGE_TASKS = {59, 61, 63, 64, 66, 67, 72, 73}
+# Родословные из Ped_zadachi (1).pdf
+IMAGE_TASKS = {83, 98, 102, 103, 107, 108, 109}
 IMAGE_PREFIX = "/images/bio/tasks-ped"
 
 WARN_RE = re.compile(
-    r"^⚠\s*Требуется изображение родословной из PDF\.?\s*\n*",
+    r"^⚠\s*Требуется изображение[^\n]*\n*",
+    re.IGNORECASE,
+)
+BRACKET_WARN_RE = re.compile(
+    r"\s*\[Требуется изображение[^\]]*\]\s*",
+    re.IGNORECASE,
+)
+TRAIL_LEGEND_RE = re.compile(
+    r"\n\n\[Родословная строится по легенде[^\]]*\]\s*$",
     re.IGNORECASE,
 )
 
 
-def clean_text(text: str) -> str:
-    return WARN_RE.sub("", (text or "").strip()).strip()
+def clean_text(s: str) -> str:
+    s = (s or "").strip()
+    s = WARN_RE.sub("", s)
+    s = BRACKET_WARN_RE.sub("", s)
+    s = TRAIL_LEGEND_RE.sub("", s)
+    return s.strip()
 
 
 def build_question(block: str, condition: str, image_note: str | None, has_image: bool) -> str:
