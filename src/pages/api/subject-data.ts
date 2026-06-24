@@ -26,7 +26,7 @@ import { Redis }                from '@upstash/redis';
 import { getSubject, getAllDataFileNames } from '@/lib/subjects';
 import { resolveBioQuestionsFile } from '@/lib/bioQuestions';
 import { resolveBioTasksFile } from '@/lib/bioTasks';
-import { filterChemTasksForFaculty, resolveChemTasksFile } from '@/lib/chemTasks';
+import { filterChemTasksForFaculty, resolveChemFacultyId, resolveChemTasksFile } from '@/lib/chemTasks';
 import { isPreviewExpired, isPreviewModuleTrialExpired, maybeExpirePreviewUser } from '@/lib/preview';
 import { userHasModuleDataAccess } from '@/lib/previewModuleStatus';
 import { verifyInitDataId }     from '@/lib/verifyInitData';
@@ -139,7 +139,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(403).json({ error: 'Задачи по биологии доступны только стоматологам' });
           }
         } else if (subjectCfg.id === 'chem') {
-          fileName = resolveChemTasksFile(user?.facultyId);
+          fileName = resolveChemTasksFile(resolveChemFacultyId(user));
           if (!fileName) {
             return res.status(403).json({ error: 'Задачи по химии доступны педиатрам и лечебникам' });
           }
@@ -198,7 +198,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (type === 'tasks' && subjectCfg.id === 'chem' && Array.isArray(data)) {
-      const filtered = filterChemTasksForFaculty(data as { faculties?: string[] }[], user?.facultyId);
+      const filtered = filterChemTasksForFaculty(
+        data as { faculties?: string[] }[],
+        resolveChemFacultyId(user),
+      );
       data = filtered.map(({ faculties: _f, ...rest }) => rest);
     }
 

@@ -386,6 +386,7 @@ async function saveUser(tgId: string, user: any) {
 async function subjectsResponse(user: any, tgId?: string, extra?: Record<string, unknown>) {
   user = migrateUserSubjects(user);
   user = normalizeAddonPreviewNavHidden(user);
+  user = healUserFacultyFields(user).user;
   const stomTasks = ensureStomatologyBioTasksVisible(user);
   if (stomTasks) user = stomTasks;
   const chemTasks = ensurePedTherChemTasksVisible(user);
@@ -407,14 +408,14 @@ async function healAndMaybePersistUser(tgId: string, user: any, redisOk: boolean
   healed = normalizeAddonPreviewNavHidden(healed);
   healed = healExamNavHidden(healed);
   healed = clearPreviewFlowIfAdminGrantedAccess(healed);
+  const facultyHeal = healUserFacultyFields(healed);
+  healed = facultyHeal.user;
   const stomTasks = ensureStomatologyBioTasksVisible(healed);
   if (stomTasks) healed = stomTasks;
   const chemTasks = ensurePedTherChemTasksVisible(healed);
   if (chemTasks) healed = chemTasks;
   const resumed = resumePreviewTrialAfterGroup(healed);
   if (resumed) healed = resumed;
-  const facultyHeal = healUserFacultyFields(healed);
-  healed = facultyHeal.user;
   const accessHealed = healed !== before || facultyHeal.changed;
   if (redisOk && accessHealed) {
     await saveUser(tgId, touchUserActivity(healed));

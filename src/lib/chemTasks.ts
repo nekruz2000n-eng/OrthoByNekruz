@@ -1,11 +1,21 @@
+import { resolveUserFacultyPromo } from '@/lib/facultyCodes';
+
 /** Задачи по химии для педиатрии и лечебного дела. */
 export const CHEM_TASKS_FILE = 'chem_tasks.json';
 
 const CHEM_TASKS_FACULTIES = new Set(['pediatrics', 'therapeutic']);
 
 export function chemFacultyHasTasks(facultyId: string | null | undefined): boolean {
-  if (!facultyId) return true;
-  return CHEM_TASKS_FACULTIES.has(facultyId);
+  return !!facultyId && CHEM_TASKS_FACULTIES.has(facultyId);
+}
+
+export function resolveChemFacultyId(user: {
+  facultyId?: string | null;
+  promoCode?: string | null;
+  previewFaculty?: string | null;
+  activatedKey?: string | null;
+} | null | undefined): string | null {
+  return resolveUserFacultyPromo(user)?.id ?? user?.facultyId ?? null;
 }
 
 export function resolveChemTasksFile(facultyId: string | null | undefined): string | null {

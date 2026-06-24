@@ -16,7 +16,7 @@
 
 import { BIO_QUESTIONS_PED_FILE, BIO_QUESTIONS_THERAPEUTIC_FILE } from '@/lib/bioQuestions';
 import { BIO_TASKS_STOM_FILE } from '@/lib/bioTasks';
-import { CHEM_TASKS_FILE } from '@/lib/chemTasks';
+import { CHEM_TASKS_FILE, resolveChemFacultyId } from '@/lib/chemTasks';
 
 /** Название университета в шапке всех дисциплин */
 export const APP_BRAND_NAME = 'КрасГМУ';
@@ -461,8 +461,8 @@ const CHEM_SUBJECT_ID = 'chem';
 /** Педиатры и лечебники с доступом к химии видят раздел «Задачи». */
 export function ensurePedTherChemTasksVisible(user: any): any | null {
   if (!user) return null;
-  const facultyId = user.facultyId as string | null | undefined;
-  if (facultyId && facultyId !== 'pediatrics' && facultyId !== 'therapeutic') return null;
+  const facultyId = resolveChemFacultyId(user);
+  if (facultyId !== 'pediatrics' && facultyId !== 'therapeutic') return null;
 
   const migrated = migrateUserSubjects(user);
   if (!getUserAvailableSubjects(migrated).includes(CHEM_SUBJECT_ID)) return null;

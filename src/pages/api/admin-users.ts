@@ -235,6 +235,7 @@ function applyAdminAccessHeals(user: any): any {
   let healed = healStalePreviewForFinalizedUser(user);
   healed = healExamNavHidden(healed);
   healed = clearPreviewFlowIfAdminGrantedAccess(healed);
+  healed = healUserFacultyFields(healed).user;
   const stomTasks = ensureStomatologyBioTasksVisible(healed);
   if (stomTasks) healed = stomTasks;
   const chemTasks = ensurePedTherChemTasksVisible(healed);

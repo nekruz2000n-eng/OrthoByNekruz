@@ -40,6 +40,7 @@ import {
 } from '@/lib/previewModuleStatus';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
 import { persistFacultyId, readStoredFacultyId, USER_FACULTY_ID_KEY, type FacultyPromo } from '@/lib/facultyCodes';
+import { useFacultyId } from '@/hooks/use-faculty-id';
 import { bioFacultyHasTasks } from '@/lib/bioTasks';
 import { chemFacultyHasTasks } from '@/lib/chemTasks';
 
@@ -227,12 +228,14 @@ export default function Home() {
   const [retryClaimAfterGroup, setRetryClaimAfterGroup] = useState<PreviewModule[] | null>(null);
   const [needsFacultyPick, setNeedsFacultyPick] = useState(false);
   const [needsStudyGroup, setNeedsStudyGroup] = useState(false);
+  const [userFacultyId, setUserFacultyId] = useState<string | null>(null);
   const [facultyPickSaving, setFacultyPickSaving] = useState(false);
   const pendingReceiptModulesRef = useRef<PreviewModule[] | null>(null);
   const previewActiveDeltaRef = useRef(0);
   const previewModuleRealMsRef = useRef<Partial<Record<PreviewModule, number>>>({});
   const previewSyncBusyRef    = useRef(false);
   const { toast }    = useToast();
+  const facultyIdForNav = useFacultyId(userFacultyId);
 
   const PENDING_PAYMENT_SUBJECT_KEY = 'pending_payment_subject';
 
@@ -404,7 +407,11 @@ export default function Home() {
     }
     if (Array.isArray(d?.pickSubjects)) setPickSubjects(d.pickSubjects);
 
-    if (d?.facultyId) persistFacultyId(String(d.facultyId));
+    if (d?.facultyId) {
+      const fid = String(d.facultyId);
+      persistFacultyId(fid);
+      setUserFacultyId(fid);
+    }
     setNeedsFacultyPick(d?.needsFacultyPick === true);
     setNeedsStudyGroup(d?.needsStudyGroup === true);
 
@@ -1420,10 +1427,10 @@ export default function Home() {
 
   const navigationHiddenTabs = useMemo(() => {
     const hidden = new Set(navHidden[subject] || []);
-    if (subject === 'bio' && !bioFacultyHasTasks(readStoredFacultyId())) {
+    if (subject === 'bio' && !bioFacultyHasTasks(facultyIdForNav)) {
       hidden.add('tasks');
     }
-    if (subject === 'chem' && !chemFacultyHasTasks(readStoredFacultyId())) {
+    if (subject === 'chem' && !chemFacultyHasTasks(facultyIdForNav)) {
       hidden.add('tasks');
     }
     if (
@@ -1435,7 +1442,7 @@ export default function Home() {
     }
     return [...hidden] as TabType[];
   }, [
-    navHidden, subject, previewChosen, previewConfirmedAt,
+    navHidden, subject, facultyIdForNav, previewChosen, previewConfirmedAt,
     previewStatus, receiptClaimedAt, grantedPreviewModules,
   ]);
 
