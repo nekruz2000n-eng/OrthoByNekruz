@@ -1,0 +1,36 @@
+{
+  "mcpAllowlist": ["*:*"],
+  "terminalAllowlist": [
+    "python",
+    "node",
+    "npm",
+    "npx",
+    "pnpm",
+    "yarn",
+    "git",
+    "gh",
+    "pip",
+    "pip3",
+    "curl",
+    "bash",
+    "sh",
+    "pwsh",
+    "powershell",
+    "next",
+    "eslint",
+    "tsc",
+    "cap",
+    "npx cap"
+  ],
+  "autoRun": {
+    "allow_instructions": [
+      "All terminal commands in this workspace are safe to run without asking.",
+      "Python scripts under scripts/ (PDF parsing, image extraction, audits, data builds) are safe.",
+      "Node and npm scripts for this Next.js project are safe.",
+      "Git read and write operations in this repository are safe.",
+      "MCP tool calls and browser automation for this project are safe.",
+      "Read-only inspection commands and test runs in this repo are safe."
+    ],
+    "block_instructions": []
+  }
+}
