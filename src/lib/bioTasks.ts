@@ -2,9 +2,8 @@
 import { resolveUserFacultyPromo } from '@/lib/facultyCodes';
 
 export const BIO_TASKS_STOM_FILE = 'bio_tasks.json';
-export const BIO_TASKS_PED_THER_FILE = 'bio_tasks_pediatrics.json';
-
-const BIO_TASKS_PED_THER = new Set(['pediatrics', 'therapeutic']);
+export const BIO_TASKS_PED_FILE = 'bio_tasks_pediatrics.json';
+export const BIO_TASKS_THERAPEUTIC_FILE = 'bio_tasks_therapeutic.json';
 
 export function resolveBioFacultyId(user: {
   facultyId?: string | null;
@@ -16,7 +15,8 @@ export function resolveBioFacultyId(user: {
 }
 
 export function resolveBioTasksFile(facultyId: string | null | undefined): string | null {
-  if (facultyId && BIO_TASKS_PED_THER.has(facultyId)) return BIO_TASKS_PED_THER_FILE;
+  if (facultyId === 'pediatrics') return BIO_TASKS_PED_FILE;
+  if (facultyId === 'therapeutic') return BIO_TASKS_THERAPEUTIC_FILE;
   if (facultyId === 'stomatology' || !facultyId) return BIO_TASKS_STOM_FILE;
   return null;
 }

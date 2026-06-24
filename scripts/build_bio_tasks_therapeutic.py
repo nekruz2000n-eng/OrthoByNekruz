@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Build src/data/bio_tasks_pediatrics.json — задачи bio для педиатрии (115)."""
+"""Build src/data/bio_tasks_therapeutic.json — задачи bio для лечебного дела (165)."""
 from __future__ import annotations
 
 import json
@@ -7,12 +7,12 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = Path(__file__).resolve().parent / "_bio_tasks_pediatrics_source.json"
-OUT = ROOT / "src" / "data" / "bio_tasks_pediatrics.json"
+SRC = Path(__file__).resolve().parent / "_bio_tasks_therapeutic_source.json"
+OUT = ROOT / "src" / "data" / "bio_tasks_therapeutic.json"
 
-FACULTIES = ("pediatrics",)
-IMAGE_TASKS = {83, 98, 102, 103, 107, 108, 109}
-IMAGE_PREFIX = "/images/bio/tasks-ped"
+FACULTIES = ("therapeutic",)
+IMAGE_TASKS = {59, 61, 63, 64, 66, 67, 72, 73}
+IMAGE_PREFIX = "/images/bio/tasks-ther"
 
 WARN_RE = re.compile(
     r"^⚠\s*Требуется изображение[^\n]*\n*",
@@ -83,7 +83,7 @@ def main() -> None:
     out.sort(key=lambda x: x["id"])
     OUT.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     with_img = sum(1 for x in out if x.get("image"))
-    print(f"bio_tasks_pediatrics: {len(out)} tasks ({with_img} with images) -> {OUT.relative_to(ROOT)}")
+    print(f"bio_tasks_therapeutic: {len(out)} tasks ({with_img} with images) -> {OUT.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

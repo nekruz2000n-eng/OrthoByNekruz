@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC_TXT = Path(r"c:\Users\Admin\Downloads\задачи и ответы педиатрии .txt")
-OUT = Path(__file__).resolve().parent / "_bio_tasks_ped_source.json"
+OUT = Path(__file__).resolve().parent / "_bio_tasks_pediatrics_source.json"
 
 # Родословные, которые реально есть в Ped_zadachi (1).pdf
 PDF_IMAGE_TASKS = {83, 98, 102, 103, 107, 108, 109}

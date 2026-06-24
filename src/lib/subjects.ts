@@ -15,7 +15,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { BIO_QUESTIONS_PED_FILE, BIO_QUESTIONS_THERAPEUTIC_FILE } from '@/lib/bioQuestions';
-import { BIO_TASKS_PED_THER_FILE, BIO_TASKS_STOM_FILE, resolveBioFacultyId } from '@/lib/bioTasks';
+import { BIO_TASKS_PED_FILE, BIO_TASKS_STOM_FILE, BIO_TASKS_THERAPEUTIC_FILE, resolveBioFacultyId } from '@/lib/bioTasks';
 import { CHEM_TASKS_FILE, resolveChemFacultyId } from '@/lib/chemTasks';
 
 /** Название университета в шапке всех дисциплин */
@@ -545,7 +545,8 @@ export function getAllDataFileNames(): string[] {
   names.add(BIO_QUESTIONS_PED_FILE);
   names.add(BIO_QUESTIONS_THERAPEUTIC_FILE);
   names.add(BIO_TASKS_STOM_FILE);
-  names.add(BIO_TASKS_PED_THER_FILE);
+  names.add(BIO_TASKS_PED_FILE);
+  names.add(BIO_TASKS_THERAPEUTIC_FILE);
   names.add(CHEM_TASKS_FILE);
   names.add('bio_questions.json');
   return [...names];
