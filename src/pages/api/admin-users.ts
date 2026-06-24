@@ -3,6 +3,7 @@ import { Redis } from '@upstash/redis';
 import {
   SUBJECTS, getSubject, getUserAvailableSubjects, migrateUserSubjects, applyBioTasksGift,
   ensureStomatologyBioTasksVisible,
+  ensurePedTherBioTasksVisible,
   ensurePedTherChemTasksVisible,
 } from '@/lib/subjects';
 import {
@@ -238,6 +239,8 @@ function applyAdminAccessHeals(user: any): any {
   healed = healUserFacultyFields(healed).user;
   const stomTasks = ensureStomatologyBioTasksVisible(healed);
   if (stomTasks) healed = stomTasks;
+  const pedBioTasks = ensurePedTherBioTasksVisible(healed);
+  if (pedBioTasks) healed = pedBioTasks;
   const chemTasks = ensurePedTherChemTasksVisible(healed);
   if (chemTasks) healed = chemTasks;
   return healed;

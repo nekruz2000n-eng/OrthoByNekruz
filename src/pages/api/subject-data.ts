@@ -25,7 +25,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis }                from '@upstash/redis';
 import { getSubject, getAllDataFileNames } from '@/lib/subjects';
 import { resolveBioQuestionsFile } from '@/lib/bioQuestions';
-import { resolveBioTasksFile } from '@/lib/bioTasks';
+import { filterBioTasksForFaculty, resolveBioFacultyId, resolveBioTasksFile } from '@/lib/bioTasks';
 import { filterChemTasksForFaculty, resolveChemFacultyId, resolveChemTasksFile } from '@/lib/chemTasks';
 import { isPreviewExpired, isPreviewModuleTrialExpired, maybeExpirePreviewUser } from '@/lib/preview';
 import { userHasModuleDataAccess } from '@/lib/previewModuleStatus';
@@ -134,9 +134,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         break;
       case 'tasks':
         if (subjectCfg.id === 'bio') {
-          fileName = resolveBioTasksFile(user?.facultyId);
+          fileName = resolveBioTasksFile(resolveBioFacultyId(user));
           if (!fileName) {
-            return res.status(403).json({ error: 'Задачи по биологии доступны только стоматологам' });
+            return res.status(403).json({ error: 'Задачи по биологии недоступны для этого факультета' });
           }
         } else if (subjectCfg.id === 'chem') {
           fileName = resolveChemTasksFile(resolveChemFacultyId(user));
@@ -195,6 +195,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           data = merged;
         }
       } catch { /* Redis недоступен — отдаём JSON без оверрайдов */ }
+    }
+
+    if (type === 'tasks' && subjectCfg.id === 'bio' && Array.isArray(data)) {
+      const filtered = filterBioTasksForFaculty(
+        data as { faculties?: string[] }[],
+        resolveBioFacultyId(user),
+      );
+      data = filtered.map(({ faculties: _f, ...rest }) => rest);
     }
 
     if (type === 'tasks' && subjectCfg.id === 'chem' && Array.isArray(data)) {

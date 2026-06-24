@@ -7,6 +7,7 @@ import {
   createDefaultSubjects,
   migrateUserSubjects,
   ensureStomatologyBioTasksVisible,
+  ensurePedTherBioTasksVisible,
   ensurePedTherChemTasksVisible,
 } from '@/lib/subjects';
 import {
@@ -389,6 +390,8 @@ async function subjectsResponse(user: any, tgId?: string, extra?: Record<string,
   user = healUserFacultyFields(user).user;
   const stomTasks = ensureStomatologyBioTasksVisible(user);
   if (stomTasks) user = stomTasks;
+  const pedBioTasks = ensurePedTherBioTasksVisible(user);
+  if (pedBioTasks) user = pedBioTasks;
   const chemTasks = ensurePedTherChemTasksVisible(user);
   if (chemTasks) user = chemTasks;
   const subjects = getEffectiveUserSubjects(user, tgId);
@@ -412,6 +415,8 @@ async function healAndMaybePersistUser(tgId: string, user: any, redisOk: boolean
   healed = facultyHeal.user;
   const stomTasks = ensureStomatologyBioTasksVisible(healed);
   if (stomTasks) healed = stomTasks;
+  const pedBioTasks = ensurePedTherBioTasksVisible(healed);
+  if (pedBioTasks) healed = pedBioTasks;
   const chemTasks = ensurePedTherChemTasksVisible(healed);
   if (chemTasks) healed = chemTasks;
   const resumed = resumePreviewTrialAfterGroup(healed);
@@ -560,6 +565,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
       const withBioTasks = ensureStomatologyBioTasksVisible(updated);
       if (withBioTasks) updated = withBioTasks;
+      const withPedBioTasks = ensurePedTherBioTasksVisible(updated);
+      if (withPedBioTasks) updated = withPedBioTasks;
       const withChemTasks = ensurePedTherChemTasksVisible(updated);
       if (withChemTasks) updated = withChemTasks;
       await saveUser(tgIdStr, updated);
