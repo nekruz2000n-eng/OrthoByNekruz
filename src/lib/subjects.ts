@@ -16,6 +16,7 @@
 
 import { BIO_QUESTIONS_PED_FILE, BIO_QUESTIONS_THERAPEUTIC_FILE } from '@/lib/bioQuestions';
 import { BIO_TASKS_STOM_FILE } from '@/lib/bioTasks';
+import { CHEM_TASKS_FILE } from '@/lib/chemTasks';
 
 /** Название университета в шапке всех дисциплин */
 export const APP_BRAND_NAME = 'КрасГМУ';
@@ -455,6 +456,27 @@ export function ensureStomatologyBioTasksVisible(user: any): any | null {
   return { ...user, navHidden };
 }
 
+const CHEM_SUBJECT_ID = 'chem';
+
+/** Педиатры и лечебники с доступом к химии видят раздел «Задачи». */
+export function ensurePedTherChemTasksVisible(user: any): any | null {
+  if (!user) return null;
+  const facultyId = user.facultyId as string | null | undefined;
+  if (facultyId && facultyId !== 'pediatrics' && facultyId !== 'therapeutic') return null;
+
+  const migrated = migrateUserSubjects(user);
+  if (!getUserAvailableSubjects(migrated).includes(CHEM_SUBJECT_ID)) return null;
+
+  const hidden = new Set<string>((user.navHidden?.[CHEM_SUBJECT_ID] as string[]) || []);
+  if (!hidden.has('tasks')) return null;
+
+  hidden.delete('tasks');
+  const navHidden: Record<string, string[]> = { ...(user.navHidden || {}) };
+  if (hidden.size === 0) delete navHidden[CHEM_SUBJECT_ID];
+  else navHidden[CHEM_SUBJECT_ID] = [...hidden];
+  return { ...user, navHidden };
+}
+
 /** Получить список ID открытых дисциплин у пользователя. */
 export function getUserAvailableSubjects(user: any): string[] {
   if (!user) return [];
@@ -504,6 +526,7 @@ export function getAllDataFileNames(): string[] {
   names.add(BIO_QUESTIONS_PED_FILE);
   names.add(BIO_QUESTIONS_THERAPEUTIC_FILE);
   names.add(BIO_TASKS_STOM_FILE);
+  names.add(CHEM_TASKS_FILE);
   names.add('bio_questions.json');
   return [...names];
 }

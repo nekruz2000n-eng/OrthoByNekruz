@@ -11,6 +11,7 @@
 
 import { readStoredFacultyId } from '@/lib/facultyCodes';
 import { bioFacultyHasTasks } from '@/lib/bioTasks';
+import { chemFacultyHasTasks } from '@/lib/chemTasks';
 
 let onSubjectDataUnavailable: (() => void) | null = null;
 
@@ -56,6 +57,10 @@ function cacheKey(subject: string, type: SubjectDataType): string {
   }
   if (subject === 'bio' && type === 'tasks') {
     const faculty = readStoredFacultyId() || 'stomatology';
+    return `https://cache.local/subject-data/${subject}/${type}/${faculty}`;
+  }
+  if (subject === 'chem' && type === 'tasks') {
+    const faculty = readStoredFacultyId() || 'pediatrics';
     return `https://cache.local/subject-data/${subject}/${type}/${faculty}`;
   }
   return `https://cache.local/subject-data/${subject}/${type}`;

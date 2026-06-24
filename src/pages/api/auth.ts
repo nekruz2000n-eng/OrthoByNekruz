@@ -7,6 +7,7 @@ import {
   createDefaultSubjects,
   migrateUserSubjects,
   ensureStomatologyBioTasksVisible,
+  ensurePedTherChemTasksVisible,
 } from '@/lib/subjects';
 import {
   buildSelectingPreviewUser,
@@ -387,6 +388,8 @@ async function subjectsResponse(user: any, tgId?: string, extra?: Record<string,
   user = normalizeAddonPreviewNavHidden(user);
   const stomTasks = ensureStomatologyBioTasksVisible(user);
   if (stomTasks) user = stomTasks;
+  const chemTasks = ensurePedTherChemTasksVisible(user);
+  if (chemTasks) user = chemTasks;
   const subjects = getEffectiveUserSubjects(user, tgId);
   const catalog = user?.previewStatus ? await buildPreviewSubjectCatalog(redis) : undefined;
   return {
@@ -406,6 +409,8 @@ async function healAndMaybePersistUser(tgId: string, user: any, redisOk: boolean
   healed = clearPreviewFlowIfAdminGrantedAccess(healed);
   const stomTasks = ensureStomatologyBioTasksVisible(healed);
   if (stomTasks) healed = stomTasks;
+  const chemTasks = ensurePedTherChemTasksVisible(healed);
+  if (chemTasks) healed = chemTasks;
   const resumed = resumePreviewTrialAfterGroup(healed);
   if (resumed) healed = resumed;
   const facultyHeal = healUserFacultyFields(healed);
@@ -552,8 +557,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         touchUserVisit({ ...user, username, firstName, lastName }),
         promo,
       );
-      const withTasks = ensureStomatologyBioTasksVisible(updated);
-      if (withTasks) updated = withTasks;
+      const withBioTasks = ensureStomatologyBioTasksVisible(updated);
+      if (withBioTasks) updated = withBioTasks;
+      const withChemTasks = ensurePedTherChemTasksVisible(updated);
+      if (withChemTasks) updated = withChemTasks;
       await saveUser(tgIdStr, updated);
       return res.status(200).json(await subjectsResponse(updated, tgIdStr));
     }

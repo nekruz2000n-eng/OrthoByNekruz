@@ -26,6 +26,7 @@ import { Redis }                from '@upstash/redis';
 import { getSubject, getAllDataFileNames } from '@/lib/subjects';
 import { resolveBioQuestionsFile } from '@/lib/bioQuestions';
 import { resolveBioTasksFile } from '@/lib/bioTasks';
+import { filterChemTasksForFaculty, resolveChemTasksFile } from '@/lib/chemTasks';
 import { isPreviewExpired, isPreviewModuleTrialExpired, maybeExpirePreviewUser } from '@/lib/preview';
 import { userHasModuleDataAccess } from '@/lib/previewModuleStatus';
 import { verifyInitDataId }     from '@/lib/verifyInitData';
@@ -137,6 +138,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           if (!fileName) {
             return res.status(403).json({ error: 'Задачи по биологии доступны только стоматологам' });
           }
+        } else if (subjectCfg.id === 'chem') {
+          fileName = resolveChemTasksFile(user?.facultyId);
+          if (!fileName) {
+            return res.status(403).json({ error: 'Задачи по химии доступны педиатрам и лечебникам' });
+          }
         } else {
           fileName = subjectCfg.tasksFile;
         }
@@ -146,7 +152,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       default:          return res.status(400).json({ error: 'Unknown type' });
     }
 
-    const data = loadDataFile(fileName);
+    let data = loadDataFile(fileName);
     if (data === null) {
       return res.status(404).json({
         error: `Data file not found: ${fileName}`,
@@ -186,9 +192,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
             return item;
           });
-          return res.status(200).json({ data: merged });
+          data = merged;
         }
       } catch { /* Redis недоступен — отдаём JSON без оверрайдов */ }
+    }
+
+    if (type === 'tasks' && subjectCfg.id === 'chem' && Array.isArray(data)) {
+      const filtered = filterChemTasksForFaculty(data as { faculties?: string[] }[], user?.facultyId);
+      data = filtered.map(({ faculties: _f, ...rest }) => rest);
     }
 
     return res.status(200).json({ data });

@@ -41,6 +41,7 @@ import {
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
 import { persistFacultyId, readStoredFacultyId, USER_FACULTY_ID_KEY, type FacultyPromo } from '@/lib/facultyCodes';
 import { bioFacultyHasTasks } from '@/lib/bioTasks';
+import { chemFacultyHasTasks } from '@/lib/chemTasks';
 
 // ─── updateSafeAreas ─────────────────────────────────────────────────────────
 //
@@ -1007,6 +1008,7 @@ export default function Home() {
       }
       persistFacultyId(promo.id);
       void bustSubjectModuleCache('bio', ['questions', 'tasks']);
+      void bustSubjectModuleCache('chem', ['tasks']);
       applyAccessPayload(data);
       setNeedsFacultyPick(false);
     } catch {
@@ -1419,6 +1421,9 @@ export default function Home() {
   const navigationHiddenTabs = useMemo(() => {
     const hidden = new Set(navHidden[subject] || []);
     if (subject === 'bio' && !bioFacultyHasTasks(readStoredFacultyId())) {
+      hidden.add('tasks');
+    }
+    if (subject === 'chem' && !chemFacultyHasTasks(readStoredFacultyId())) {
       hidden.add('tasks');
     }
     if (
