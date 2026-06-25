@@ -22,7 +22,8 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { Redis }                from '@upstash/redis';
+import { Redis } from '@upstash/redis';
+import { applyGroupAccessToUser, loadGroupAccessRules } from '@/lib/groupAccess';
 import { getSubject, getAllDataFileNames } from '@/lib/subjects';
 import { resolveBioQuestionsFile } from '@/lib/bioQuestions';
 import { filterBioTasksForFaculty, resolveBioFacultyId, resolveBioTasksFile } from '@/lib/bioTasks';
@@ -95,6 +96,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       user = await redis.get(`user_id:${telegramId}`);
       user = await maybeExpirePreviewUser(redis, String(telegramId), user);
+      const rules = await loadGroupAccessRules(redis);
+      const applied = applyGroupAccessToUser(user, rules);
+      if (applied.changed) {
+        user = applied.user;
+        await redis.set(`user_id:${telegramId}`, user);
+      } else {
+        user = applied.user;
+      }
     } catch (err) {
       if (isRedisUnavailableError(err)) {
         return res.status(503).json({ error: 'Service temporarily unavailable', degraded: true });

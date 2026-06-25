@@ -53,6 +53,7 @@ import { notifyAdminReceiptClaimed } from '@/lib/notifyAdmin';
 import { resolveFacultyPromoCode, facultyFieldsFromUser, resolveUserFacultyPromo, applyFacultyToUser, getFacultyPromoById, userNeedsFacultyPick, userHasKnownFaculty, healUserFacultyFields } from '@/lib/facultyCodes';
 import { ACCESS_CACHE_VERSION } from '@/lib/accessCache';
 import { normalizeStudyGroup, buildStudyGroupFromDigits } from '@/lib/studyGroup';
+import { applyGroupAccessToUser, loadGroupAccessRules } from '@/lib/groupAccess';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
 import { buildPreviewSubjectCatalog } from '@/lib/previewCatalogSettings';
 import type { FacultyPromo } from '@/lib/facultyCodes';
@@ -384,10 +385,28 @@ async function saveUser(tgId: string, user: any) {
   await registerUserId(redis, tgId);
 }
 
+
+async function mergeGroupAccess(user: any): Promise<{ user: any; changed: boolean }> {
+  try {
+    const rules = await loadGroupAccessRules(redis);
+    return applyGroupAccessToUser(user, rules);
+  } catch (e) {
+    console.error('[mergeGroupAccess]', e);
+    return { user, changed: false };
+  }
+}
+
 async function subjectsResponse(user: any, tgId?: string, extra?: Record<string, unknown>) {
   user = migrateUserSubjects(user);
   user = normalizeAddonPreviewNavHidden(user);
   user = healUserFacultyFields(user).user;
+  if (tgId) {
+    const merged = await mergeGroupAccess(user);
+    user = merged.user;
+    if (merged.changed) {
+      await saveUser(tgId, touchUserActivity(user));
+    }
+  }
   const stomTasks = ensureStomatologyBioTasksVisible(user);
   if (stomTasks) user = stomTasks;
   const pedBioTasks = ensurePedTherBioTasksVisible(user);
@@ -421,7 +440,9 @@ async function healAndMaybePersistUser(tgId: string, user: any, redisOk: boolean
   if (chemTasks) healed = chemTasks;
   const resumed = resumePreviewTrialAfterGroup(healed);
   if (resumed) healed = resumed;
-  const accessHealed = healed !== before || facultyHeal.changed;
+  const merged = await mergeGroupAccess(healed);
+  healed = merged.user;
+  const accessHealed = healed !== before || facultyHeal.changed || merged.changed;
   if (redisOk && accessHealed) {
     await saveUser(tgId, touchUserActivity(healed));
   }
@@ -601,10 +622,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         loginCount: Number(user.loginCount || 0) + 1,
       };
       const resumed = resumePreviewTrialAfterGroup(updated) ?? updated;
-      await saveUser(tgIdStr, resumed);
+      const merged = await mergeGroupAccess(resumed);
+      const withGroup = merged.user;
+      await saveUser(tgIdStr, touchUserActivity(withGroup));
       return res.status(200).json({
         success: true,
-        ...(await subjectsResponse(resumed, tgIdStr)),
+        ...(await subjectsResponse(withGroup, tgIdStr)),
       });
     }
 
