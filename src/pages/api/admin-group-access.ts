@@ -16,6 +16,7 @@ import {
   type GroupAccessModule,
   normalizeModules,
 } from '@/lib/groupAccess';
+import { buildSubjectCatalog } from '@/lib/subjectCatalog';
 
 const redis = Redis.fromEnv();
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
@@ -56,6 +57,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           label: s.label,
           shortLabel: s.shortLabel,
           color: s.color,
+        })),
+        catalog: buildSubjectCatalog().map(s => ({
+          id: s.id,
+          modules: s.modules.map(m => ({
+            id: m.id,
+            label: m.label,
+            available: m.available,
+          })),
         })),
       });
     }

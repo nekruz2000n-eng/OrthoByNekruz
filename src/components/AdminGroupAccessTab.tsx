@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FACULTY_SHORT_LABEL } from '@/lib/facultyCodes';
 import type { FacultyId } from '@/lib/groupRegistry';
+import { PREVIEW_MODULE_LABELS, type PreviewModule } from '@/lib/previewModules';
 
 const T = {
   surface:     '#FFFFFF',
@@ -23,6 +24,34 @@ const FONT_SANS = 'var(--font-sans, system-ui, sans-serif)';
 
 type DurationKind = 'unlimited' | 'hours' | 'days' | 'exam_day';
 type ModuleId = 'questions' | 'tests' | 'tasks' | 'exam' | 'materials';
+
+const CORE_MODULES: PreviewModule[] = ['questions', 'tests', 'tasks'];
+
+interface CatalogSubject {
+  id: string;
+  modules: { id: PreviewModule; label: string; available: boolean }[];
+}
+
+function moduleOptionsForSubject(
+  catalog: CatalogSubject[],
+  subjectId: string,
+): { id: PreviewModule; label: string; available: boolean }[] {
+  const entry = catalog.find(s => s.id === subjectId);
+  return CORE_MODULES.map(id => ({
+    id,
+    label: PREVIEW_MODULE_LABELS[id],
+    available: entry?.modules.find(m => m.id === id)?.available ?? true,
+  }));
+}
+
+function defaultModulesForSubject(
+  catalog: CatalogSubject[],
+  subjectId: string,
+): PreviewModule[] {
+  return moduleOptionsForSubject(catalog, subjectId)
+    .filter(m => m.available)
+    .map(m => m.id);
+}
 
 interface SubjectState {
   id: string;
@@ -99,6 +128,39 @@ function formatModules(modules: ModuleId[]): string {
   return modules.map(m => labels.get(m) ?? m).join(', ');
 }
 
+const MODULE_SHORT: Record<PreviewModule, string> = {
+  questions: 'В',
+  tests:     'Т',
+  tasks:     'З',
+};
+
+function ModuleShortBadges({ modules }: { modules: ModuleId[] }) {
+  const set = new Set(modules);
+  const open = CORE_MODULES.filter(m => set.has(m));
+  if (!open.length) {
+    return <span style={{ fontSize: 10, color: T.textFaint }}>—</span>;
+  }
+  return (
+    <span style={{ display: 'inline-flex', gap: 3, flexShrink: 0 }}>
+      {open.map(m => (
+        <span
+          key={m}
+          title={PREVIEW_MODULE_LABELS[m]}
+          style={{
+            fontSize: 10, fontWeight: 800, lineHeight: 1,
+            minWidth: 16, padding: '3px 4px', borderRadius: 4,
+            textAlign: 'center',
+            background: T.accentSoft, color: T.accent,
+            border: `1px solid ${T.accent}44`,
+          }}
+        >
+          {MODULE_SHORT[m]}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export default function AdminGroupAccessTab({
   secret,
   showToast,
@@ -118,6 +180,8 @@ export default function AdminGroupAccessTab({
   const [bulkExamDate, setBulkExamDate] = useState('');
   const [showOnlyActive, setShowOnlyActive] = useState(false);
   const [rulesScope, setRulesScope] = useState<'course' | 'faculty'>('course');
+  const [catalog, setCatalog] = useState<CatalogSubject[]>([]);
+  const [bulkModules, setBulkModules] = useState<PreviewModule[]>(['questions', 'tests', 'tasks']);
 
   const faculty = useMemo(
     () => tree.find(f => f.facultyId === facultyId) ?? null,
@@ -170,6 +234,15 @@ export default function AdminGroupAccessTab({
     return courseGroups.filter(g => g.subjects.some(s => s.active));
   }, [courseGroups, showOnlyActive]);
 
+  const bulkModuleOptions = useMemo(
+    () => moduleOptionsForSubject(catalog, bulkSubject),
+    [catalog, bulkSubject],
+  );
+
+  useEffect(() => {
+    setBulkModules(defaultModulesForSubject(catalog, bulkSubject));
+  }, [catalog, bulkSubject]);
+
   const loadTree = useCallback(async () => {
     const initData = getTelegramInitData();
     if (!initData || !secret) return;
@@ -183,6 +256,7 @@ export default function AdminGroupAccessTab({
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Ошибка загрузки');
       setTree(d.tree ?? []);
+      setCatalog(d.catalog ?? []);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Ошибка загрузки');
     } finally {
@@ -261,6 +335,10 @@ export default function AdminGroupAccessTab({
       showToast('Выбери группы');
       return;
     }
+    if (enabled && bulkModules.length === 0) {
+      showToast('Выбери хотя бы один раздел');
+      return;
+    }
     const digits = selectedList
       .map(g => Number(g.match(/^([0-9]+)/)?.[1] || 0))
       .filter(n => n > 0);
@@ -290,7 +368,7 @@ export default function AdminGroupAccessTab({
             ? bulkDurationValue
             : undefined,
           examDate: bulkDuration === 'exam_day' ? bulkExamDate : undefined,
-          modules: ['questions', 'tests', 'tasks'],
+          modules: bulkModules,
         }),
       });
       const d = await r.json();
@@ -442,8 +520,12 @@ export default function AdminGroupAccessTab({
                 }}>
                   {row.subjectLabel}
                 </span>
-                <span style={{ fontSize: 11, color: T.textFaint, flex: 1, minWidth: 80 }}>
-                  {formatModules(row.modules)} · {formatExpiry(row.expiresAt)}
+                <span style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  fontSize: 11, color: T.textFaint, flex: 1, minWidth: 80,
+                }}>
+                  <ModuleShortBadges modules={row.modules} />
+                  <span>{formatExpiry(row.expiresAt)}</span>
                 </span>
                 <button
                   type="button"
@@ -627,10 +709,21 @@ export default function AdminGroupAccessTab({
               />
             )}
           </div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, marginBottom: 6 }}>
+              Разделы предмета
+            </div>
+            <ModulePicker
+              options={bulkModuleOptions}
+              selected={bulkModules}
+              onChange={setBulkModules}
+              disabled={saving}
+            />
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               type="button"
-              disabled={saving}
+              disabled={saving || bulkModules.length === 0}
               onClick={() => void bulkSet(true)}
               style={{
                 flex: 1, padding: '10px 12px', borderRadius: 10, border: 'none',
@@ -673,6 +766,7 @@ export default function AdminGroupAccessTab({
             <SubjectRow
               key={subj.id}
               subj={subj}
+              moduleOptions={moduleOptionsForSubject(catalog, subj.id)}
               saving={saving}
               onToggle={enabled => void setRule(singleGroup.studyGroup, subj.id, enabled, {
                 durationKind: subj.durationKind,
@@ -701,13 +795,64 @@ export default function AdminGroupAccessTab({
   );
 }
 
+function ModulePicker({
+  options,
+  selected,
+  onChange,
+  disabled,
+}: {
+  options: { id: PreviewModule; label: string; available: boolean }[];
+  selected: PreviewModule[];
+  onChange: (next: PreviewModule[]) => void;
+  disabled?: boolean;
+}) {
+  const toggle = (id: PreviewModule, available: boolean) => {
+    if (!available || disabled) return;
+    onChange(
+      selected.includes(id)
+        ? selected.filter(m => m !== id)
+        : [...selected, id],
+    );
+  };
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      {options.map(m => {
+        const on = selected.includes(m.id);
+        return (
+          <button
+            key={m.id}
+            type="button"
+            disabled={disabled || !m.available}
+            onClick={() => toggle(m.id, m.available)}
+            title={m.available ? undefined : 'Нет данных для этого раздела'}
+            style={{
+              padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+              border: `1px solid ${on ? T.accent : T.border}`,
+              background: on ? T.accentSoft : T.surfaceAlt,
+              color: !m.available ? T.textFaint : on ? T.accent : T.textMuted,
+              cursor: disabled || !m.available ? 'default' : 'pointer',
+              opacity: m.available ? 1 : 0.45,
+              textDecoration: m.available ? 'none' : 'line-through',
+            }}
+          >
+            {m.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function SubjectRow({
   subj,
+  moduleOptions,
   saving,
   onToggle,
   onSave,
 }: {
   subj: SubjectState;
+  moduleOptions: { id: PreviewModule; label: string; available: boolean }[];
   saving: boolean;
   onToggle: (enabled: boolean) => void;
   onSave: (enabled: boolean, opts: {
@@ -720,18 +865,20 @@ function SubjectRow({
   const [durationKind, setDurationKind] = useState<DurationKind>(subj.durationKind);
   const [durationValue, setDurationValue] = useState(subj.durationValue ?? 24);
   const [examDate, setExamDate] = useState(subj.examDate ?? '');
-  const [modules, setModules] = useState<ModuleId[]>(subj.modules);
+  const [modules, setModules] = useState<PreviewModule[]>(
+    subj.modules.filter((m): m is PreviewModule => CORE_MODULES.includes(m as PreviewModule)),
+  );
 
   useEffect(() => {
     setDurationKind(subj.durationKind);
     setDurationValue(subj.durationValue ?? 24);
     setExamDate(subj.examDate ?? '');
-    setModules(subj.modules);
-  }, [subj]);
-
-  const toggleModule = (id: ModuleId) => {
-    setModules(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
-  };
+    const core = subj.modules.filter((m): m is PreviewModule => CORE_MODULES.includes(m as PreviewModule));
+    setModules(core.length ? core : defaultModulesForSubject(
+      [{ id: subj.id, modules: moduleOptions }],
+      subj.id,
+    ));
+  }, [subj, moduleOptions]);
 
   return (
     <div style={{
@@ -788,23 +935,16 @@ function SubjectRow({
           {formatExpiry(subj.expiresAt)} · {formatModules(subj.modules)}
         </div>
       )}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
-        {MODULE_OPTS.map(m => (
-          <button
-            key={m.id}
-            type="button"
-            onClick={() => toggleModule(m.id)}
-            style={{
-              padding: '4px 8px', borderRadius: 6, fontSize: 11,
-              border: `1px solid ${modules.includes(m.id) ? T.accent : T.border}`,
-              background: modules.includes(m.id) ? T.accentSoft : T.surfaceAlt,
-              color: modules.includes(m.id) ? T.accent : T.textFaint,
-              cursor: 'pointer',
-            }}
-          >
-            {m.label}
-          </button>
-        ))}
+      <div style={{ marginTop: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, marginBottom: 6 }}>
+          Разделы
+        </div>
+        <ModulePicker
+          options={moduleOptions}
+          selected={modules}
+          onChange={setModules}
+          disabled={saving}
+        />
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
         <select
