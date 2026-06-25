@@ -75,6 +75,30 @@ const DURATION_OPTS: { id: DurationKind; label: string }[] = [
   { id: 'exam_day',  label: 'До конца дня экзамена' },
 ];
 
+interface ActiveRuleRow {
+  studyGroup: string;
+  subjectId: string;
+  subjectLabel: string;
+  subjectColor: string;
+  shortLabel: string;
+  modules: ModuleId[];
+  expiresAt: string | null;
+  course: number;
+}
+
+function formatExpiry(expiresAt: string | null): string {
+  if (!expiresAt) return 'без срока';
+  return new Date(expiresAt).toLocaleString('ru-RU', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+function formatModules(modules: ModuleId[]): string {
+  const labels = new Map(MODULE_OPTS.map(m => [m.id, m.label]));
+  return modules.map(m => labels.get(m) ?? m).join(', ');
+}
+
 export default function AdminGroupAccessTab({
   secret,
   showToast,
@@ -92,6 +116,8 @@ export default function AdminGroupAccessTab({
   const [bulkDuration, setBulkDuration] = useState<DurationKind>('unlimited');
   const [bulkDurationValue, setBulkDurationValue] = useState(24);
   const [bulkExamDate, setBulkExamDate] = useState('');
+  const [showOnlyActive, setShowOnlyActive] = useState(false);
+  const [rulesScope, setRulesScope] = useState<'course' | 'faculty'>('course');
 
   const faculty = useMemo(
     () => tree.find(f => f.facultyId === facultyId) ?? null,
@@ -107,6 +133,42 @@ export default function AdminGroupAccessTab({
     () => [...selectedGroups],
     [selectedGroups],
   );
+
+  const activeRules = useMemo(() => {
+    const rows: ActiveRuleRow[] = [];
+    for (const fac of tree) {
+      if (fac.facultyId !== facultyId) continue;
+      for (const c of fac.courses) {
+        if (rulesScope === 'course' && c.course !== course) continue;
+        for (const g of c.groups) {
+          for (const s of g.subjects) {
+            if (!s.active) continue;
+            rows.push({
+              studyGroup: g.studyGroup,
+              subjectId: s.id,
+              subjectLabel: s.label,
+              subjectColor: s.color,
+              shortLabel: s.shortLabel,
+              modules: s.modules,
+              expiresAt: s.expiresAt,
+              course: c.course,
+            });
+          }
+        }
+      }
+    }
+    return rows.sort((a, b) => {
+      const da = Number(a.studyGroup.match(/^([0-9]+)/)?.[1] || 0);
+      const db = Number(b.studyGroup.match(/^([0-9]+)/)?.[1] || 0);
+      if (da !== db) return da - db;
+      return a.subjectLabel.localeCompare(b.subjectLabel, 'ru');
+    });
+  }, [tree, facultyId, course, rulesScope]);
+
+  const visibleGroups = useMemo(() => {
+    if (!showOnlyActive) return courseGroups;
+    return courseGroups.filter(g => g.subjects.some(s => s.active));
+  }, [courseGroups, showOnlyActive]);
 
   const loadTree = useCallback(async () => {
     const initData = getTelegramInitData();
@@ -242,9 +304,17 @@ export default function AdminGroupAccessTab({
     }
   };
 
-  const singleGroup = selectedList.length === 1
-    ? courseGroups.find(g => g.studyGroup === selectedList[0])
-    : null;
+  const singleGroup = useMemo(() => {
+    if (selectedList.length !== 1) return null;
+    const sg = selectedList[0];
+    const inCourse = courseGroups.find(g => g.studyGroup === sg);
+    if (inCourse) return inCourse;
+    for (const c of faculty?.courses ?? []) {
+      const found = c.groups.find(g => g.studyGroup === sg);
+      if (found) return found;
+    }
+    return null;
+  }, [selectedList, courseGroups, faculty]);
 
   if (loading && tree.length === 0) {
     return (
@@ -284,6 +354,116 @@ export default function AdminGroupAccessTab({
         ))}
       </div>
 
+      {/* Активные правила */}
+      <div style={{
+        background: T.surfaceAlt, border: `1px solid ${T.border}`,
+        borderRadius: 12, padding: 12, marginBottom: 14,
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 8, marginBottom: 8, flexWrap: 'wrap',
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>
+            Активные доступы
+            <span style={{ fontWeight: 500, color: T.textMuted, marginLeft: 6 }}>
+              ({activeRules.length})
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => setRulesScope('course')}
+              style={{
+                padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                border: `1px solid ${rulesScope === 'course' ? T.accent : T.border}`,
+                background: rulesScope === 'course' ? T.accentSoft : T.surface,
+                color: rulesScope === 'course' ? T.accent : T.textFaint,
+                cursor: 'pointer',
+              }}
+            >
+              {course} курс
+            </button>
+            <button
+              type="button"
+              onClick={() => setRulesScope('faculty')}
+              style={{
+                padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                border: `1px solid ${rulesScope === 'faculty' ? T.accent : T.border}`,
+                background: rulesScope === 'faculty' ? T.accentSoft : T.surface,
+                color: rulesScope === 'faculty' ? T.accent : T.textFaint,
+                cursor: 'pointer',
+              }}
+            >
+              весь факультет
+            </button>
+          </div>
+        </div>
+
+        {activeRules.length === 0 ? (
+          <div style={{ fontSize: 12, color: T.textFaint, lineHeight: 1.45 }}>
+            Нет открытых доступов{rulesScope === 'course' ? ` на ${course} курсе` : ''}.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+            {activeRules.map(row => (
+              <div
+                key={`${row.studyGroup}:${row.subjectId}`}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 10px', borderRadius: 8,
+                  background: T.surface, border: `1px solid ${T.border}`,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedGroups(new Set([row.studyGroup]));
+                    const rowCourse = row.course;
+                    if (rowCourse !== course) setCourse(rowCourse);
+                  }}
+                  style={{
+                    padding: '4px 8px', borderRadius: 6, fontSize: 12, fontWeight: 700,
+                    border: `1px solid ${T.border}`, background: T.surfaceAlt,
+                    color: T.text, cursor: 'pointer', flexShrink: 0,
+                  }}
+                >
+                  {row.studyGroup}
+                  {rulesScope === 'faculty' && (
+                    <span style={{ fontWeight: 500, color: T.textFaint, marginLeft: 4 }}>
+                      · {row.course} к.
+                    </span>
+                  )}
+                </button>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: '3px 7px', borderRadius: 6,
+                  background: `${row.subjectColor}18`, color: row.subjectColor,
+                  flexShrink: 0,
+                }}>
+                  {row.subjectLabel}
+                </span>
+                <span style={{ fontSize: 11, color: T.textFaint, flex: 1, minWidth: 80 }}>
+                  {formatModules(row.modules)} · {formatExpiry(row.expiresAt)}
+                </span>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void setRule(row.studyGroup, row.subjectId, false)}
+                  style={{
+                    padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                    border: 'none', background: '#F3E4E4', color: '#9B3B3B',
+                    cursor: saving ? 'default' : 'pointer', flexShrink: 0,
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  Отключить
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Курс */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
         {Array.from({ length: faculty?.maxCourse ?? 5 }, (_, i) => i + 1).map(c => (
@@ -319,14 +499,40 @@ export default function AdminGroupAccessTab({
         </button>
       )}
 
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 8, marginBottom: 8, flexWrap: 'wrap',
+      }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: T.text }}>
+          Группы {course} курса
+        </div>
+        <label style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          fontSize: 11, color: T.textMuted, cursor: 'pointer',
+        }}>
+          <input
+            type="checkbox"
+            checked={showOnlyActive}
+            onChange={e => setShowOnlyActive(e.target.checked)}
+          />
+          только с доступом
+        </label>
+      </div>
+
       {/* Группы */}
       <div style={{
         display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14,
-        maxHeight: 160, overflowY: 'auto', padding: 4,
+        maxHeight: 200, overflowY: 'auto', padding: 4,
       }}>
-        {courseGroups.map(g => {
+        {visibleGroups.length === 0 && (
+          <div style={{ fontSize: 12, color: T.textFaint, padding: 8 }}>
+            {showOnlyActive ? 'Нет групп с открытым доступом на этом курсе.' : 'Нет групп.'}
+          </div>
+        )}
+        {visibleGroups.map(g => {
           const on = selectedGroups.has(g.studyGroup);
-          const bioOn = g.subjects.find(s => s.id === 'bio')?.active;
+          const activeSubs = g.subjects.filter(s => s.active);
+          const hasAccess = activeSubs.length > 0;
           return (
             <button
               key={g.studyGroup}
@@ -334,15 +540,39 @@ export default function AdminGroupAccessTab({
               onClick={() => toggleGroup(g.studyGroup)}
               style={{
                 padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                border: `1px solid ${on ? T.accent : bioOn ? T.success : T.border}`,
-                background: on ? T.accentSoft : bioOn ? T.successSoft : T.surface,
-                color: on ? T.accent : bioOn ? T.success : T.text,
+                border: `1px solid ${on ? T.accent : hasAccess ? T.success : T.border}`,
+                background: on ? T.accentSoft : hasAccess ? T.successSoft : T.surface,
+                color: on ? T.accent : T.text,
                 cursor: 'pointer',
                 opacity: g.international ? 0.85 : 1,
+                display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4,
+                minWidth: 56,
               }}
-              title={g.international ? 'Иностранцы (англ.)' : undefined}
+              title={[
+                g.international ? 'Иностранцы (англ.)' : '',
+                hasAccess
+                  ? activeSubs.map(s => s.label).join(', ')
+                  : 'Доступ не открыт',
+              ].filter(Boolean).join(' · ')}
             >
-              {g.studyGroup}{g.international ? ' 🌐' : ''}
+              <span>
+                {g.studyGroup}{g.international ? ' 🌐' : ''}
+              </span>
+              {activeSubs.length > 0 && (
+                <span style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                  {activeSubs.map(s => (
+                    <span
+                      key={s.id}
+                      style={{
+                        fontSize: 9, fontWeight: 700, padding: '1px 4px', borderRadius: 4,
+                        background: `${s.color}22`, color: s.color, lineHeight: 1.3,
+                      }}
+                    >
+                      {s.shortLabel}
+                    </span>
+                  ))}
+                </span>
+              )}
             </button>
           );
         })}
@@ -354,8 +584,11 @@ export default function AdminGroupAccessTab({
           background: T.surfaceAlt, border: `1px solid ${T.border}`,
           borderRadius: 12, padding: 12, marginBottom: 14,
         }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 4 }}>
             Выбрано групп: {selectedList.length}
+          </div>
+          <div style={{ fontSize: 11, color: T.textFaint, marginBottom: 8, lineHeight: 1.4 }}>
+            «Закрыть» снимает доступ к выбранному предмету у всех выбранных групп.
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
             <select
@@ -505,35 +738,54 @@ function SubjectRow({
       borderTop: `1px solid ${T.border}`, paddingTop: 10, marginTop: 10,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: subj.color }}>{subj.label}</span>
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => {
-            if (subj.active) onToggle(false);
-            else onSave(true, {
+        <div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: subj.color }}>{subj.label}</span>
+          {subj.active && (
+            <span style={{
+              marginLeft: 8, fontSize: 10, fontWeight: 700,
+              padding: '2px 6px', borderRadius: 5,
+              background: T.successSoft, color: T.success,
+            }}>
+              открыт
+            </span>
+          )}
+        </div>
+        {subj.active ? (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => onToggle(false)}
+            style={{
+              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              border: 'none', background: '#F3E4E4', color: '#9B3B3B',
+              cursor: saving ? 'default' : 'pointer',
+            }}
+          >
+            Закрыть доступ
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => onSave(true, {
               durationKind,
               durationValue: durationKind === 'hours' || durationKind === 'days' ? durationValue : undefined,
               examDate: durationKind === 'exam_day' ? examDate : undefined,
               modules,
-            });
-          }}
-          style={{
-            padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-            border: 'none',
-            background: subj.active ? T.success : T.surfaceAlt,
-            color: subj.active ? '#fff' : T.textMuted,
-            cursor: saving ? 'default' : 'pointer',
-          }}
-        >
-          {subj.active ? 'Открыто' : 'Закрыто'}
-        </button>
+            })}
+            style={{
+              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              border: `1px solid ${T.border}`, background: T.surfaceAlt,
+              color: T.textMuted, cursor: saving ? 'default' : 'pointer',
+            }}
+          >
+            Открыть доступ
+          </button>
+        )}
       </div>
-      {subj.enabled && (
+      {subj.active && (
         <div style={{ marginTop: 8, fontSize: 11, color: T.textFaint }}>
-          {subj.expiresAt
-            ? `до ${new Date(subj.expiresAt).toLocaleString('ru-RU')}`
-            : 'без срока'}
+          {formatExpiry(subj.expiresAt)} · {formatModules(subj.modules)}
         </div>
       )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
