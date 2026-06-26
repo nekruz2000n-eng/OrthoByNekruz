@@ -303,6 +303,12 @@ export default function Home() {
     setServiceDegraded(false);
     const pendingSubjectEarly = d?.previewChosenSubject as string | null | undefined;
     let list: string[] = Array.isArray(d?.subjects) ? d.subjects : [];
+    const paymentGrantedEarly = Array.isArray(d?.paymentGrantedSubjects)
+      ? d.paymentGrantedSubjects as string[]
+      : [];
+    if (list.length === 0 && paymentGrantedEarly.length > 0) {
+      list = paymentGrantedEarly;
+    }
     if (
       list.length === 0
       && pendingSubjectEarly
@@ -487,7 +493,13 @@ export default function Home() {
       }
     }
 
-    if (ps === 'selecting') return;
+    if (ps === 'selecting') {
+      if (list.length === 0) return;
+      if (!d?.previewChosenSubject && list.length >= 2 && !localStorage.getItem('subject_chosen')) {
+        setShowSubjectSelect(true);
+      }
+      return;
+    }
 
     if (list.length === 0) return;
 

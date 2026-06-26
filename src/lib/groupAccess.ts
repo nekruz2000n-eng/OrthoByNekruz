@@ -310,9 +310,15 @@ export function applyGroupAccessToUser(
   }
 
   if (grantedSubjects.length > 0) {
-    const wasPreview = !!user.previewStatus;
-    clearPreviewForGroupGrant(next);
-    if (wasPreview) changed = true;
+    const inCatalogBrowse = user._catalogBrowse === true && user.previewStatus === 'selecting';
+    if (!inCatalogBrowse) {
+      const wasPreview = !!user.previewStatus;
+      clearPreviewForGroupGrant(next);
+      if (wasPreview || !user.previewConfirmedAt) changed = true;
+    } else if (!next.previewConfirmedAt) {
+      next.previewConfirmedAt = user.previewConfirmedAt ?? nowIso;
+      changed = true;
+    }
   }
 
   next.subjects = subjects;

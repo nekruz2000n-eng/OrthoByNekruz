@@ -1693,11 +1693,29 @@ export function confirmPreviewUser(user: any) {
 
 export function getEffectiveUserSubjects(user: any, tgId?: string | null): string[] {
   if (!user) return [];
-  if (user.previewStatus === 'selecting') return [];
-  if (user.previewStatus === 'active' && isPreviewExpired(user, Date.now(), tgId)) {
-    return getUserAvailableSubjects(user);
+  const available = getUserAvailableSubjects(user);
+  if (user.previewStatus === 'selecting') {
+    // Групповой/подтверждённый доступ сохраняется при витрине (докупка 3-го предмета).
+    const hasGroupGrants = user.groupGrants
+      && typeof user.groupGrants === 'object'
+      && Object.keys(user.groupGrants).length > 0;
+    if (
+      available.length > 0
+      && (
+        hasFinalizedPreviewAccess(user)
+        || user.paid === true
+        || user._catalogBrowse === true
+        || hasGroupGrants
+      )
+    ) {
+      return available;
+    }
+    return [];
   }
-  return getUserAvailableSubjects(user);
+  if (user.previewStatus === 'active' && isPreviewExpired(user, Date.now(), tgId)) {
+    return available;
+  }
+  return available;
 }
 
 /** Убрать устаревшее авто-скрытие «Проверки готовности» из navHidden (раньше прятали при пробе/оплате). */
