@@ -339,12 +339,6 @@ export default function AdminGroupAccessTab({
       showToast('Выбери хотя бы один раздел');
       return;
     }
-    const digits = selectedList
-      .map(g => Number(g.match(/^([0-9]+)/)?.[1] || 0))
-      .filter(n => n > 0);
-    if (!digits.length) return;
-    const fromDigits = Math.min(...digits);
-    const toDigits = Math.max(...digits);
     const initData = getTelegramInitData();
     if (!initData) return;
     setSaving(true);
@@ -359,9 +353,7 @@ export default function AdminGroupAccessTab({
           facultyId,
           subjectId: bulkSubject,
           enabled,
-          fromDigits,
-          toDigits,
-          course,
+          studyGroups: selectedList,
           syncUsers: true,
           durationKind: bulkDuration,
           durationValue: bulkDuration === 'hours' || bulkDuration === 'days'
@@ -374,6 +366,7 @@ export default function AdminGroupAccessTab({
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Ошибка');
       setTree(d.tree ?? []);
+      setSelectedGroups(new Set());
       showToast(`✓ ${enabled ? 'Открыто' : 'Закрыто'} для ${d.updated ?? 0} групп · ${d.synced ?? 0} студ.`);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Ошибка');
@@ -409,6 +402,7 @@ export default function AdminGroupAccessTab({
       </div>
       <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 14, lineHeight: 1.45 }}>
         Включи предмет для группы — студенты получат полный доступ без пробы при вводе группы.
+        Разным группам можно открыть разные предметы. После «Открыть доступ» выделение сбрасывается.
         Оплаченный доступ не снимается.
       </div>
 
@@ -568,17 +562,30 @@ export default function AdminGroupAccessTab({
 
       {/* Быстрый выбор стом 2 курс 201–208 */}
       {facultyId === 'stomatology' && course === 2 && (
-        <button
-          type="button"
-          onClick={() => selectRange(201, 208)}
-          style={{
-            marginBottom: 10, padding: '8px 12px', borderRadius: 8, fontSize: 12,
-            border: `1px dashed ${T.accent}`, background: T.accentSoft, color: T.accent,
-            fontWeight: 600, cursor: 'pointer', width: '100%',
-          }}
-        >
-          Выбрать 201с–208с (половина потока)
-        </button>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => selectRange(201, 208)}
+            style={{
+              flex: 1, minWidth: 140, padding: '8px 12px', borderRadius: 8, fontSize: 12,
+              border: `1px dashed ${T.accent}`, background: T.accentSoft, color: T.accent,
+              fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            201с–208с
+          </button>
+          <button
+            type="button"
+            onClick={() => selectRange(209, 216)}
+            style={{
+              flex: 1, minWidth: 140, padding: '8px 12px', borderRadius: 8, fontSize: 12,
+              border: `1px dashed ${T.accent}`, background: T.surfaceAlt, color: T.accent,
+              fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            209с–216с
+          </button>
+        </div>
       )}
 
       <div style={{
@@ -599,6 +606,19 @@ export default function AdminGroupAccessTab({
           />
           только с доступом
         </label>
+        {selectedList.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setSelectedGroups(new Set())}
+            style={{
+              padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+              border: `1px solid ${T.border}`, background: T.surface,
+              color: T.textMuted, cursor: 'pointer',
+            }}
+          >
+            Сбросить выбор ({selectedList.length})
+          </button>
+        )}
       </div>
 
       {/* Группы */}
@@ -670,7 +690,8 @@ export default function AdminGroupAccessTab({
             Выбрано групп: {selectedList.length}
           </div>
           <div style={{ fontSize: 11, color: T.textFaint, marginBottom: 8, lineHeight: 1.4 }}>
-            «Закрыть» снимает доступ к выбранному предмету у всех выбранных групп.
+            Действие применяется только к отмеченным группам. После открытия выбор сбросится —
+            можно отметить другие группы и другой предмет.
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
             <select

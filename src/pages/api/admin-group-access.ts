@@ -118,12 +118,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const facultyId = String(req.body.facultyId || '').trim() as FacultyId;
       const subjectId = String(req.body.subjectId || '').trim();
       const enabled = req.body.enabled === true || req.body.enabled === 'true';
-      const fromDigits = Number(req.body.fromDigits);
-      const toDigits = Number(req.body.toDigits);
-      const course = req.body.course != null ? Number(req.body.course) : null;
 
-      if (!facultyId || !subjectId || !Number.isFinite(fromDigits) || !Number.isFinite(toDigits)) {
-        return res.status(400).json({ error: 'Укажи факультет, предмет и диапазон групп.' });
+      if (!facultyId || !subjectId) {
+        return res.status(400).json({ error: 'Укажи факультет и предмет.' });
+      }
+      if (!SUBJECTS.some(s => s.id === subjectId)) {
+        return res.status(400).json({ error: 'Неизвестный предмет.' });
+      }
+
+      const studyGroups = resolveBulkStudyGroups(req.body, facultyId);
+      if (!studyGroups.length) {
+        return res.status(400).json({ error: 'Укажи группы для изменения.' });
       }
 
       const durationKind = String(req.body.durationKind || 'unlimited') as GroupAccessDurationKind;
@@ -132,14 +137,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const modules = normalizeModules(req.body.modules) as GroupAccessModule[];
 
       let next = [...rules];
-      for (let n = fromDigits; n <= toDigits; n++) {
-        const digits = String(n);
-        if (course != null && Number(digits[0]) !== course) continue;
-        const built = buildStudyGroupFromDigits(digits, facultyId);
-        if (!built) continue;
+      for (const studyGroup of studyGroups) {
         next = upsertGroupAccessRule(next, {
           facultyId,
-          studyGroup: built,
+          studyGroup,
           subjectId,
           enabled,
           modules,
@@ -150,19 +151,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       await saveGroupAccessRules(redis, next);
 
-      const synced = await syncUsersForFacultyGroupRange(
-        facultyId,
-        fromDigits,
-        toDigits,
-        next,
-        course,
-      );
+      const synced = await syncUsersForStudyGroups(facultyId, studyGroups, next);
 
       return res.status(200).json({
         ok: true,
         tree: getAdminGroupAccessTree(next),
         synced,
-        updated: toDigits - fromDigits + 1,
+        updated: studyGroups.length,
       });
     }
 
@@ -201,13 +196,12 @@ async function syncUsersForRule(
   return synced;
 }
 
-async function syncUsersForFacultyGroupRange(
+async function syncUsersForStudyGroups(
   facultyId: FacultyId,
-  fromDigits: number,
-  toDigits: number,
+  studyGroups: string[],
   rules: Awaited<ReturnType<typeof loadGroupAccessRules>>,
-  course: number | null,
 ): Promise<number> {
+  const targets = new Set(studyGroups.map(g => normalizeStudyGroup(g)));
   const ids = await getAllUserIds(redis);
   let synced = 0;
   for (const id of ids) {
@@ -215,10 +209,7 @@ async function syncUsersForFacultyGroupRange(
     if (!raw || typeof raw !== 'object') continue;
     const user = raw as Record<string, unknown>;
     if (String(user.facultyId || '') !== facultyId) continue;
-    const g = normalizeStudyGroup(String(user.studyGroup || ''));
-    const digits = Number(g.match(/^([0-9]+)/)?.[1] || 0);
-    if (!digits || digits < fromDigits || digits > toDigits) continue;
-    if (course != null && Number(String(digits)[0]) !== course) continue;
+    if (!targets.has(normalizeStudyGroup(String(user.studyGroup || '')))) continue;
     const { user: patched, changed } = applyGroupAccessToUser(user, rules);
     if (changed) {
       await saveUser(id, patched);
@@ -226,6 +217,38 @@ async function syncUsersForFacultyGroupRange(
     }
   }
   return synced;
+}
+
+function resolveBulkStudyGroups(
+  body: Record<string, unknown>,
+  facultyId: FacultyId,
+): string[] {
+  const raw = body.studyGroups;
+  if (Array.isArray(raw) && raw.length > 0) {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const g of raw) {
+      const sg = normalizeStudyGroup(String(g));
+      if (!sg || seen.has(sg)) continue;
+      seen.add(sg);
+      out.push(sg);
+    }
+    return out;
+  }
+
+  const fromDigits = Number(body.fromDigits);
+  const toDigits = Number(body.toDigits);
+  const course = body.course != null ? Number(body.course) : null;
+  if (!Number.isFinite(fromDigits) || !Number.isFinite(toDigits)) return [];
+
+  const out: string[] = [];
+  for (let n = fromDigits; n <= toDigits; n++) {
+    const digits = String(n);
+    if (course != null && Number(digits[0]) !== course) continue;
+    const built = buildStudyGroupFromDigits(digits, facultyId);
+    if (built) out.push(built);
+  }
+  return out;
 }
 
 async function syncAllUsers(
