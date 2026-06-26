@@ -7,8 +7,6 @@ const STALE_PREVIEW_KEYS = [
   'pending_payment_subject',
   'preview_awaiting_confirm',
   'available_subjects',
-  'subject_chosen',
-  'last_subject',
   'has_micro',
 ] as const;
 

@@ -280,14 +280,12 @@ export default function Home() {
   }, []);
 
   const applyAccessPayload = useCallback((d: any) => {
-    if (d?.accessHealed === true || (
+    if (
       typeof d?.accessCacheVersion === 'number'
       && d.accessCacheVersion > Number(localStorage.getItem('access_cache_v') || '0')
-    )) {
+    ) {
       clearPreviewClientKeys();
-      if (typeof d?.accessCacheVersion === 'number') {
-        localStorage.setItem('access_cache_v', String(d.accessCacheVersion));
-      }
+      localStorage.setItem('access_cache_v', String(d.accessCacheVersion));
     }
     if (d?.degraded === true) {
       try {
@@ -495,7 +493,10 @@ export default function Home() {
 
     if (ps === 'selecting') {
       if (list.length === 0) return;
-      if (!d?.previewChosenSubject && list.length >= 2 && !localStorage.getItem('subject_chosen')) {
+      const saved = localStorage.getItem('last_subject');
+      const picked = localStorage.getItem('subject_chosen') === 'true'
+        || (!!saved && list.includes(saved));
+      if (!d?.previewChosenSubject && list.length >= 2 && !picked) {
         setShowSubjectSelect(true);
       }
       return;
@@ -517,7 +518,8 @@ export default function Home() {
       return;
     }
 
-    const alreadyChosen = localStorage.getItem('subject_chosen') === 'true';
+    const alreadyChosen = localStorage.getItem('subject_chosen') === 'true'
+      || (!!savedSubject && list.includes(savedSubject));
     const preferred = (savedSubject && list.includes(savedSubject)) ? savedSubject : list[0];
 
     if (!alreadyChosen && list.length >= 2 && ps !== 'active' && ps !== 'confirmed') {
