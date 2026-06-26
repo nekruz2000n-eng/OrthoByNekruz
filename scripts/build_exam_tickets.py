@@ -181,9 +181,21 @@ def main() -> None:
     micro = build_micro_tickets()
     save_json("micro_tickets.json", micro)
     patch_ortho_tickets()
-    telegram = sum(1 for t in micro if str(t.get("note", "")).startswith("Telegram"))
-    filled = len(micro) - telegram
-    print(f"micro_tickets.json: {len(micro)} tickets ({telegram} Telegram + {filled} filled)")
+
+    import importlib.util
+
+    chem_path = Path(__file__).resolve().parent / "build_chem_tickets.py"
+    spec = importlib.util.spec_from_file_location("build_chem_tickets", chem_path)
+    chem_mod = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(chem_mod)
+    chem = chem_mod.build_chem_tickets()
+    save_json("chem_tickets.json", chem)
+
+    micro_docx = sum(1 for t in micro if str(t.get("note", "")).startswith("Telegram"))
+    chem_docx = sum(1 for t in chem if str(t.get("note", "")).startswith("Docx"))
+    print(f"micro_tickets.json: {len(micro)} tickets ({micro_docx} Telegram + {len(micro) - micro_docx} filled)")
+    print(f"chem_tickets.json: {len(chem)} tickets ({chem_docx} docx + {len(chem) - chem_docx} filled)")
     print(f"ortho patched: {sorted(ORTHO_PATCHES.keys())}")
 
 

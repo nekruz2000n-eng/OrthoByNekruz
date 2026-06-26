@@ -1,6 +1,7 @@
 import orthoTicketsData from '@/data/ticketsData.json';
 import pharmaTicketsData from '@/data/pharma_tickets.json';
 import microTicketsData from '@/data/micro_tickets.json';
+import chemTicketsData from '@/data/chem_tickets.json';
 
 export interface ExamRawItem {
   id: number | string;
@@ -114,13 +115,15 @@ export function buildRandomExamTickets(
 }
 
 /** Предметы с официальными фиксированными билетами (не случайная сборка). */
-export const OFFICIAL_EXAM_TICKET_SUBJECTS = new Set(['ortho', 'pharma', 'micro']);
+export const OFFICIAL_EXAM_TICKET_SUBJECTS = new Set(['ortho', 'pharma', 'micro', 'chem']);
 
 /** KrasGMU pharma / micro: 2 вопроса + задача. */
 export const PHARMA_EXAM_TICKET_TOTAL = 40;
 export const MICRO_EXAM_TICKET_TOTAL = 40;
+export const CHEM_EXAM_TICKET_TOTAL = 35;
 export const PHARMA_QUESTIONS_PER_TICKET = 2;
 export const MICRO_QUESTIONS_PER_TICKET = 2;
+export const CHEM_QUESTIONS_PER_TICKET = 2;
 
 function collectOfficialUsedIds(official: ExamTicket[]): { qIds: Set<string>; tIds: Set<string> } {
   const qIds = new Set<string>();
@@ -238,7 +241,60 @@ export function buildMicroExamTickets(
   return result;
 }
 
-/** Билеты для предмета: официальные (ortho, pharma, micro) или случайные из вопросов/задач. */
+/** Официальные билеты химии (docx) + заполнители из пула. */
+export function buildChemExamTickets(
+  questions: unknown[],
+  tasks: unknown[],
+): ExamTicket[] {
+  const official = (chemTicketsData as ExamTicket[]).slice();
+  const officialByNumber = new Map<number, ExamTicket>();
+  for (const ticket of official) {
+    officialByNumber.set(Number(ticket.ticketNumber), ticket);
+  }
+
+  const { qIds: usedQ, tIds: usedT } = collectOfficialUsedIds(official);
+  const qPool = normalizePool(questions).filter(q => !usedQ.has(String(q.id)));
+  const tPool = normalizePool(tasks).filter(t => !usedT.has(String(t.id)));
+
+  const missing: number[] = [];
+  for (let n = 1; n <= CHEM_EXAM_TICKET_TOTAL; n++) {
+    if (!officialByNumber.has(n)) missing.push(n);
+  }
+
+  const shuffledQ = seededShuffle(qPool, 'chem:fill:questions');
+  const shuffledT = seededShuffle(tPool, 'chem:fill:tasks');
+
+  const result: ExamTicket[] = [];
+  for (let n = 1; n <= CHEM_EXAM_TICKET_TOTAL; n++) {
+    const fixed = officialByNumber.get(n);
+    if (fixed) {
+      result.push({ ...fixed, isRandom: false });
+      continue;
+    }
+
+    const fillIdx = missing.indexOf(n);
+    const qStart = fillIdx * CHEM_QUESTIONS_PER_TICKET;
+    const ticketQuestions = shuffledQ.slice(qStart, qStart + CHEM_QUESTIONS_PER_TICKET);
+    const task = shuffledT.length > 0 ? shuffledT[fillIdx % shuffledT.length] : null;
+
+    if (ticketQuestions.length < CHEM_QUESTIONS_PER_TICKET || !task) continue;
+
+    result.push({
+      id: n,
+      ticketNumber: String(n),
+      isRandom: true,
+      questions: ticketQuestions.map((q, j) => ({
+        ...q,
+        id: q.id ?? `r${n}_q${j + 1}`,
+      })),
+      task: { ...task, id: task.id ?? `r${n}_task` },
+    });
+  }
+
+  return result;
+}
+
+/** Билеты для предмета: официальные (ortho, pharma, micro, chem) или случайные из вопросов/задач. */
 export function buildExamTicketsForSubject(
   subjectId: string,
   questions: unknown[],
@@ -252,6 +308,9 @@ export function buildExamTicketsForSubject(
   }
   if (subjectId === 'micro') {
     return buildMicroExamTickets(questions, tasks);
+  }
+  if (subjectId === 'chem') {
+    return buildChemExamTickets(questions, tasks);
   }
   return buildRandomExamTickets(subjectId, questions, tasks);
 }
@@ -283,6 +342,18 @@ export function hasExamTicketData(
     const missing = MICRO_EXAM_TICKET_TOTAL - official.length;
     return (
       qPool.length >= missing * MICRO_QUESTIONS_PER_TICKET &&
+      tPool.length >= 1
+    );
+  }
+  if (subjectId === 'chem') {
+    const official = chemTicketsData as ExamTicket[];
+    if (!official.length) return false;
+    const { qIds, tIds } = collectOfficialUsedIds(official);
+    const qPool = normalizePool(questions).filter(q => !qIds.has(String(q.id)));
+    const tPool = normalizePool(tasks).filter(t => !tIds.has(String(t.id)));
+    const missing = CHEM_EXAM_TICKET_TOTAL - official.length;
+    return (
+      qPool.length >= missing * CHEM_QUESTIONS_PER_TICKET &&
       tPool.length >= 1
     );
   }
