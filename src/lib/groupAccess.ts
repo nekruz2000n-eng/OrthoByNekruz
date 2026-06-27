@@ -7,6 +7,7 @@ import {
   buildNavHiddenForConfirmedPurchase,
   healExamNavHidden,
 } from '@/lib/preview';
+import { applyGroupGrantPreviewSideEffects } from '@/lib/previewStateMachine';
 import type { PreviewModule } from '@/lib/previewModules';
 import { normalizePreviewModules } from '@/lib/previewModules';
 import {
@@ -185,33 +186,6 @@ function buildNavHiddenForModules(subjectId: string, modules: GroupAccessModule[
   return [...hidden];
 }
 
-function clearPreviewForGroupGrant(user: Record<string, unknown>): void {
-  delete user.previewStatus;
-  delete user.previewChosenSubject;
-  delete user.previewChosenModules;
-  delete user.previewStartedAt;
-  delete user.previewExpiredAt;
-  delete user.previewPickedAt;
-  delete user.previewFacultyRecordedAt;
-  delete user.previewQuotedPrice;
-  delete user.receiptClaimedAt;
-  delete user.previewModuleStatuses;
-  delete user.previewModuleTrustExpiresAt;
-  delete user.previewActiveMsConsumed;
-  delete user.previewActiveMsByModule;
-  delete user.previewModuleRealSince;
-  delete user.previewPaymentSelection;
-  delete user._subjectsBeforePreview;
-  delete user._navHiddenBeforePreview;
-  delete user._previewSnapshotBeforeAddon;
-  delete user._previewStatusBeforeCatalog;
-  delete user._catalogBrowse;
-  delete user._adminPaymentOnlyLock;
-  if (!user.previewConfirmedAt) {
-    user.previewConfirmedAt = new Date().toISOString();
-  }
-}
-
 function applyFacultyHeals(user: any): any {
   let u = user;
   const stom = ensureStomatologyBioTasksVisible(u);
@@ -310,13 +284,7 @@ export function applyGroupAccessToUser(
   }
 
   if (grantedSubjects.length > 0) {
-    const inCatalogBrowse = user._catalogBrowse === true && user.previewStatus === 'selecting';
-    if (!inCatalogBrowse) {
-      const wasPreview = !!user.previewStatus;
-      clearPreviewForGroupGrant(next);
-      if (wasPreview || !user.previewConfirmedAt) changed = true;
-    } else if (!next.previewConfirmedAt) {
-      next.previewConfirmedAt = user.previewConfirmedAt ?? nowIso;
+    if (applyGroupGrantPreviewSideEffects(next, user)) {
       changed = true;
     }
   }

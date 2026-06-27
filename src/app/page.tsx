@@ -18,6 +18,8 @@ import { StatsTab }      from '@/components/StatsTab';
 import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
 import { applyClientAccessCacheVersion, clearPreviewClientKeys } from '@/lib/accessCache';
+import { clearLocalSession } from '@/lib/appSession';
+import { useAppAuth } from '@/hooks/useAppAuth';
 import { getDefaultSubjectId, subjectHasQuestionGameModes } from '@/lib/subjects';
 import { bustSubjectModuleCache, setOnSubjectDataUnavailable } from '@/lib/subjectData';
 import {
@@ -39,7 +41,7 @@ import {
   shouldBustPaymentFlowCache,
 } from '@/lib/previewModuleStatus';
 import type { SubjectCatalogEntry } from '@/lib/subjectCatalog';
-import { persistFacultyId, readStoredFacultyId, USER_FACULTY_ID_KEY, type FacultyPromo } from '@/lib/facultyCodes';
+import { persistFacultyId, readStoredFacultyId, type FacultyPromo } from '@/lib/facultyCodes';
 import { useFacultyId } from '@/hooks/use-faculty-id';
 import { bioFacultyHasTasks } from '@/lib/bioTasks';
 import { chemFacultyHasTasks } from '@/lib/chemTasks';
@@ -141,17 +143,6 @@ function initTelegramApp(): () => void {
 
 // ═════════════════════════════════════════════════════════════════════════════
 
-const AUTH_STORAGE_KEYS = [
-  'is_authed', 'user_tg_id', 'available_subjects', 'subject_chosen',
-  'has_micro', 'preview_end', 'preview_start', 'last_subject', 'welcome_seen',
-  PREVIEW_AWAITING_CONFIRM_KEY,
-  USER_FACULTY_ID_KEY,
-];
-
-function clearLocalSession() {
-  AUTH_STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
-}
-
 function getTgId(): string | null {
   const fromTg = (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id;
   if (fromTg != null) return String(fromTg).trim();
@@ -185,8 +176,7 @@ export default function Home() {
   const [navHidden, setNavHidden] = useState<Record<string, string[]>>({});
   const [showSubjectSelect, setShowSubjectSelect] = useState<boolean>(false);
   const [hasMicro,        setHasMicro]        = useState<boolean>(false);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading,       setIsLoading]       = useState<boolean>(true);
+  const { isAuthenticated, isLoading, setIsAuthenticated, onAuthenticated } = useAppAuth();
   const [activeTab,       setActiveTab]       = useState<TabType>('questions');
   const [bioQuestionsSection, setBioQuestionsSection] = useState<BioGameMode>('list');
   const [testMode,        setTestMode]        = useState<boolean>(false);
@@ -776,25 +766,6 @@ export default function Home() {
     if (saved) setSubjectRaw(saved);
     const pending = localStorage.getItem(PENDING_PAYMENT_SUBJECT_KEY);
     if (pending) setPendingPaymentSubject(pending);
-  }, []);
-
-  // ── Авторизация ───────────────────────────────────────────────────────────
-  useEffect(() => {
-    const authed = localStorage.getItem('is_authed') === 'true';
-
-    if (authed) {
-      const storedId  = localStorage.getItem('user_tg_id');
-      const currentId = (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id;
-      if (currentId && storedId && String(currentId) !== storedId) {
-        localStorage.removeItem('is_authed');
-        setIsAuthenticated(false);
-      } else {
-        setIsAuthenticated(true);
-      }
-    } else {
-      setIsAuthenticated(false);
-    }
-    setIsLoading(false);
   }, []);
 
   // ── Активный таймер пробы: sync с API (тест — каждую сек, остальные — раз в минуту) ──
@@ -1656,7 +1627,7 @@ export default function Home() {
   }
 
   if (!isAuthenticated) {
-    return <AuthScreen onAuthenticated={() => setIsAuthenticated(true)} />;
+    return <AuthScreen onAuthenticated={onAuthenticated} />;
   }
 
   if (showChannelCode) {

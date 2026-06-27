@@ -26,6 +26,13 @@ export const QuestionAiPanel: React.FC<QuestionAiPanelProps> = ({
     setPendingMode(mode);
     setError(null);
     try {
+      const tgId = (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id
+        ?? localStorage.getItem('user_tg_id');
+      const initData = (window as any).Telegram?.WebApp?.initData || '';
+      if (!tgId || !initData) {
+        setError('Нужна авторизация в Telegram');
+        return;
+      }
       const res = await fetch('/api/ai/question', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -34,6 +41,8 @@ export const QuestionAiPanel: React.FC<QuestionAiPanelProps> = ({
           question,
           answer,
           userQuestion: prompt,
+          telegramId: String(tgId),
+          initData,
         }),
       });
       const data = await res.json();

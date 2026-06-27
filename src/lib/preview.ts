@@ -1,4 +1,9 @@
 import { SUBJECTS, createDefaultSubjects, getUserAvailableSubjects } from '@/lib/subjects';
+import {
+  clearPreviewFlowFields,
+  hasFinalizedPreviewAccess,
+  isPreviewFlowInProgress,
+} from '@/lib/previewStateMachine';
 import type { FacultyPromo } from '@/lib/facultyCodes';
 import { applyFacultyToUser, resolveUserFacultyPromo } from '@/lib/facultyCodes';
 import { getNavHiddenForSubject } from '@/lib/subjectCatalog';
@@ -142,34 +147,10 @@ function getLegacyVirtualMsConsumed(
 
 export type PreviewStatus = 'selecting' | 'active' | 'expired' | 'confirmed';
 
-/** Пробник завершён админом: доступ выдан, сессия витрины снята. */
-export function hasFinalizedPreviewAccess(user: any): boolean {
-  if (!user) return false;
-  if (user.previewStatus === 'confirmed') return true;
-  return !!user.previewConfirmedAt;
-}
+export { isPreviewFlowInProgress, hasFinalizedPreviewAccess } from '@/lib/previewStateMachine';
 
 function clearStalePreviewFlowFields(healed: Record<string, any>) {
-  delete healed.previewStatus;
-  delete healed.previewChosenSubject;
-  delete healed.previewChosenModules;
-  delete healed.previewStartedAt;
-  delete healed.previewExpiredAt;
-  delete healed.previewPickedAt;
-  delete healed.previewFacultyRecordedAt;
-  delete healed.previewQuotedPrice;
-  delete healed.receiptClaimedAt;
-  delete healed.previewActiveMsConsumed;
-  delete healed.previewActiveMsByModule;
-  delete healed.previewModuleRealSince;
-  delete healed.previewPaymentSelection;
-  delete healed.previewModuleStatuses;
-  delete healed.previewModuleTrustExpiresAt;
-  delete healed._subjectsBeforePreview;
-  delete healed._navHiddenBeforePreview;
-  delete healed._previewSnapshotBeforeAddon;
-  delete healed._previewStatusBeforeCatalog;
-  delete healed._catalogBrowse;
+  clearPreviewFlowFields(healed);
 }
 
 /** Все выбранные разделы уже открыты — не запускать пробу/оплату повторно. */
@@ -183,27 +164,6 @@ export function userAlreadyHasAllChosenModules(
   if (chosen.length === 0) return false;
   const hidden = new Set<string>((user.navHidden?.[subjectId] as string[]) || []);
   return chosen.every(m => !hidden.has(m));
-}
-
-/** Идёт проба или незавершённая оплата — нельзя сбрасывать витрину/таймер. */
-export function isPreviewFlowInProgress(user: any): boolean {
-  if (!user) return false;
-  if (getPendingAdminModules(user).length > 0) return true;
-  if (user._catalogBrowse === true && user.previewStatus === 'selecting' && !user.previewChosenSubject) {
-    return true;
-  }
-  const chosen = user.previewChosenSubject;
-  if (!chosen) return false;
-  const modules = normalizePreviewModules(user.previewChosenModules);
-  if (modules.length === 0) return false;
-  const statuses = ensureModuleStatusMap(user, chosen);
-  if (modules.some(m => statuses[m] === 'trial')) return true;
-  if (user.previewStatus === 'active') return true;
-  if (user.receiptClaimedAt) return true;
-  if (user.previewStatus === 'expired') {
-    return modules.some(m => statuses[m] !== 'confirmed');
-  }
-  return false;
 }
 
 /** Админ вручную открыл предмет/разделы — завершить воронку оплаты без «Скинул — войти». */
