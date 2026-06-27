@@ -246,16 +246,25 @@ export function FacultyAmbience({ facultyId }: { facultyId: string | null }) {
 
 export function AuthHeroPitch() {
   return (
-    <div className="space-y-3 max-w-[300px] mx-auto" style={{ animation: 'authFacultyHintPop 0.45s ease forwards' }}>
-      <p className="text-[14px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.72)' }}>
+    <div className="max-w-[300px] mx-auto flex flex-col" style={{ animation: 'authFacultyHintPop 0.45s ease forwards' }}>
+      <p
+        className="m-0"
+        style={{ fontSize: 22, fontWeight: 700, color: '#FFFFFF', lineHeight: 1.4 }}
+      >
         Не важно когда ты начал —<br />
-        важно что <span className="font-semibold text-white">всё нужное уже здесь</span>.
+        важно что всё нужное уже здесь.
       </p>
-      <p className="text-[11px] leading-snug" style={{ color: 'rgba(255,255,255,0.38)' }}>
+      <p
+        className="m-0"
+        style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', lineHeight: 1.4, marginTop: 8 }}
+      >
         Билеты, задачи, глоссарий — под твой факультет и твою группу.
       </p>
-      <p className="text-[13px] leading-snug" style={{ color: 'rgba(255,255,255,0.55)' }}>
-        <span className="font-semibold text-white">200+ студентов КрасГМУ</span> уже готовятся здесь.
+      <p
+        className="m-0"
+        style={{ fontSize: 13, color: '#a3e635', fontWeight: 600, lineHeight: 1.4, marginTop: 16 }}
+      >
+        200+ студентов КрасГМУ уже готовятся здесь.
       </p>
     </div>
   );
