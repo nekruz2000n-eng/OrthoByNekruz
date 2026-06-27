@@ -54,7 +54,135 @@ const AUTH_ANIM_STYLES = `
     0% { transform: translateY(6px); opacity: 0; }
     100% { transform: translateY(0); opacity: 1; }
   }
+  @keyframes authCampusKenBurns {
+    0% { transform: scale(1.08) translate(0, 0); }
+    100% { transform: scale(1.18) translate(-2%, -1%); }
+  }
+  @keyframes authCampusKenBurnsAlt {
+    0% { transform: scale(1.12) translate(-1%, 0); }
+    100% { transform: scale(1.22) translate(1%, -2%); }
+  }
+  @keyframes authAuroraShift {
+    0%, 100% { opacity: 0.5; transform: translateX(-5%) scale(1); }
+    50% { opacity: 0.85; transform: translateX(5%) scale(1.08); }
+  }
 `;
+
+const CAMPUS_AERIAL = '/images/auth/campus-aerial.png';
+const CAMPUS_FRONT = '/images/auth/campus-front.png';
+const CAMPUS_RED = '#C41E3A';
+
+/** Полноэкранный фон: реальные фото кампуса КрасГМУ + затемнение для читаемости. */
+export function AuthCampusBackdrop({ facultyId }: { facultyId: string | null }) {
+  const theme = facultyId ? FACULTY_AUTH_THEME[facultyId as FacultyId] : null;
+  const accentGlow = theme?.accent.glow ?? 'rgba(196, 30, 58, 0.25)';
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+      <style>{AUTH_ANIM_STYLES}</style>
+
+      {/* фото с улицы — купол и «МЕДИЦИНСКИЙ» */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={CAMPUS_FRONT}
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover"
+        style={{
+          objectPosition: 'center 35%',
+          animation: facultyId ? 'authCampusKenBurnsAlt 22s ease-in-out infinite alternate' : 'authCampusKenBurns 22s ease-in-out infinite alternate',
+          filter: 'saturate(1.05) contrast(1.05)',
+        }}
+        draggable={false}
+      />
+
+      {/* лёгкий слой с aerial для глубины (верх экрана) */}
+      <div
+        className="absolute inset-0 opacity-[0.22]"
+        style={{
+          backgroundImage: `url(${CAMPUS_AERIAL})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center 20%',
+          mixBlendMode: 'soft-light',
+        }}
+      />
+
+      {/* цвета корпуса: жёлтый + синий купол + красный цоколь */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `
+            linear-gradient(180deg,
+              rgba(8, 10, 12, 0.92) 0%,
+              rgba(8, 10, 12, 0.55) 28%,
+              rgba(8, 10, 12, 0.35) 48%,
+              rgba(8, 10, 12, 0.72) 78%,
+              rgba(8, 10, 12, 0.96) 100%
+            )
+          `,
+        }}
+      />
+
+      {/* красный оттенок снизу — цоколь здания */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `linear-gradient(0deg, rgba(139, 26, 26, 0.35) 0%, transparent 45%)`,
+        }}
+      />
+
+      {/* синий блик купола сверху */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `radial-gradient(ellipse 70% 40% at 50% 18%, rgba(59, 130, 246, 0.12) 0%, transparent 70%)`,
+        }}
+      />
+
+      {/* акцент факультета */}
+      {theme && (
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `radial-gradient(ellipse 90% 55% at 50% 100%, ${accentGlow} 0%, transparent 65%)`,
+            animation: 'authAuroraShift 6s ease-in-out infinite',
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+export function AuthHeroTitle({ onTitleClick }: { onTitleClick?: () => void }) {
+  return (
+    <div className="flex flex-col items-center text-center space-y-2">
+      <p
+        className="text-[10px] font-semibold uppercase tracking-[0.28em]"
+        style={{ color: 'rgba(196, 30, 58, 0.75)' }}
+      >
+        Красноярский мед. университет
+      </p>
+      <h1
+        className="text-[2.75rem] font-black tracking-tighter select-none cursor-default leading-none"
+        onClick={onTitleClick}
+        style={{
+          background: 'linear-gradient(135deg, #FFFFFF 0%, #F8F8F8 40%, #E8A0A8 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          filter: 'drop-shadow(0 2px 24px rgba(196, 30, 58, 0.35))',
+        }}
+      >
+        КрасГМУ
+      </h1>
+      <div
+        className="h-[2px] w-16 rounded-full"
+        style={{
+          background: `linear-gradient(90deg, transparent, ${CAMPUS_RED}, transparent)`,
+        }}
+      />
+    </div>
+  );
+}
 
 type FacultyId = keyof typeof FACULTY_AUTH_THEME;
 
@@ -75,7 +203,7 @@ function buildParticles(facultyId: FacultyId | null) {
       size: facultyId ? 22 + (i % 5) * 6 : 14 + (i % 4) * 5,
       dur: facultyId ? 5.5 + (i % 4) * 1.2 : 9 + (i % 5) * 1.4,
       delay: (i * 0.55) % 6,
-      maxOpacity: facultyId ? 0.38 : 0.14,
+      maxOpacity: facultyId ? 0.22 : 0.1,
       blur: facultyId ? 0 : 1.2,
     };
   });
@@ -120,13 +248,14 @@ export function AuthHeroPitch() {
   return (
     <div className="space-y-3 max-w-[300px] mx-auto" style={{ animation: 'authFacultyHintPop 0.45s ease forwards' }}>
       <p className="text-[14px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.72)' }}>
-        <span className="font-semibold text-white">Экзаменационные вопросы</span>,{' '}
-        <span className="font-semibold text-white">задачи с разбором</span> и{' '}
-        <span className="font-semibold text-white">итоговые тесты</span>
-        {' '}— готовься к сессии в одном месте: учи, тренируйся, сдавай увереннее.
+        Не важно когда ты начал —<br />
+        важно что <span className="font-semibold text-white">всё нужное уже здесь</span>.
       </p>
       <p className="text-[11px] leading-snug" style={{ color: 'rgba(255,255,255,0.38)' }}>
-        Билеты, глоссарий с картинками и пробник перед покупкой — без лишних приложений.
+        Билеты, задачи, глоссарий — под твой факультет и твою группу.
+      </p>
+      <p className="text-[13px] leading-snug" style={{ color: 'rgba(255,255,255,0.55)' }}>
+        <span className="font-semibold text-white">200+ студентов КрасГМУ</span> уже готовятся здесь.
       </p>
     </div>
   );

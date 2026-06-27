@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'; // Компонент кноп�
 import { useToast } from '@/hooks/use-toast'; // Хук для показа всплывающих уведомлений (тостов)
 import { Loader2, ExternalLink, Heart } from 'lucide-react'; // Иконки из библиотеки lucide-react
 import { cn } from '@/lib/utils';
-import { PREVIEW_AWAITING_CONFIRM_KEY } from '@/components/AccessWelcomeOverlay';
 import {
   detectFacultyByInput,
   resolveFacultyPromoCode,
@@ -19,10 +18,10 @@ import {
   persistFacultyFromAccessCode,
 } from '@/lib/facultyCodes';
 import { applyClientAccessCacheVersion } from '@/lib/accessCache';
-import { APP_BRAND_NAME } from '@/lib/subjects';
-import { AppBrandIcon } from '@/components/AppBrandIcon';
 import {
+  AuthCampusBackdrop,
   AuthHeroPitch,
+  AuthHeroTitle,
   FacultyAmbience,
   FacultyPicker,
 } from '@/components/AuthFacultyExperience';
@@ -31,10 +30,6 @@ function syncFacultyAfterAuth(data: { facultyId?: string | null }, accessCode: s
   if (data?.facultyId) persistFacultyId(String(data.facultyId));
   else if (accessCode.trim()) persistFacultyFromAccessCode(accessCode.trim());
 }
-
-const AuthBrandLogo = () => (
-  <AppBrandIcon size={72} forceDark />
-);
 
 export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void }) => {
   const { toast } = useToast();
@@ -72,9 +67,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [autoTgId, setAutoTgId] = useState<string | null>(null); // Telegram ID, полученный автоматически
   const [idChecked, setIdChecked] = useState(false); // Проверили ли мы наличие Telegram ID
   const [idCheckAttempts, setIdCheckAttempts] = useState(0); // Количество попыток получить ID
-  const [debugInfo, setDebugInfo] = useState(''); // Техническая инфа (для отладки)
   const [initData, setInitData] = useState(''); // Данные инициализации от Telegram
-  const [demoMessage, setDemoMessage] = useState(''); // Сообщение об ошибке демо-режима
   const [errorMessage, setErrorMessage] = useState(''); // Текст ошибки ключа
 
   const maxAttempts = 20; // Макс. попыток дождаться Telegram
@@ -134,7 +127,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           setIdChecked(true);
         }
         else {
-          setDebugInfo(`Attempt ${idCheckAttempts}: No ID`);
           setIdCheckAttempts(p => p + 1);
         }
       } else {
@@ -309,43 +301,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
     handleAuth(key, id);
   };
 
-  const handleCheckStatusClick = async () => {
-    const id = autoTgId || manualTgId.trim();
-    if (!id) { toast({ variant: 'destructive', title: 'Ошибка', description: 'Не удалось определить ID.' }); return; }
-    setLoading(true);
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telegramId: String(id), mode: 'check_preview_status', initData }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setDemoMessage(data.error || 'Заявка не найдена');
-        setTimeout(() => setDemoMessage(''), 3500);
-        return;
-      }
-      localStorage.setItem('user_tg_id', String(id));
-      const confirmed = data.previewStatus === 'confirmed'
-        || (data.previewConfirmedAt && !data.previewStatus);
-      if (confirmed || data.previewStatus === 'active' || data.previewStatus === 'selecting') {
-        localStorage.setItem('is_authed', 'true');
-        if (confirmed) {
-          localStorage.removeItem(PREVIEW_AWAITING_CONFIRM_KEY);
-        }
-        syncFacultyAfterAuth(data, key);
-        onAuthenticated();
-        return;
-      }
-      setDemoMessage('Заявка на рассмотрении — администратор скоро подтвердит доступ');
-      setTimeout(() => setDemoMessage(''), 4500);
-    } catch {
-      toast({ variant: 'destructive', title: 'Ошибка', description: 'Проблемы с соединением' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Пока компонент не смонтирован (hydration), ничего не рендерим, чтобы избежать мерцаний
   if (!mounted) return null;
 
@@ -387,10 +342,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       )}
 
       <style>{`
-        @keyframes authToothPulse {
-          0%,100% { transform: scale(1); filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.4)); }
-          50% { transform: scale(1.08); filter: drop-shadow(0 0 20px hsl(var(--primary) / 0.8)); }
-        }
         @keyframes authShake {
           0%,100% { transform: translateX(0); }
           25% { transform: translateX(-5px); }
@@ -399,6 +350,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         .auth-shake { animation: authShake 0.2s ease-in-out 0s 2; }
       `}</style>
 
+      <AuthCampusBackdrop facultyId={activeFacultyId} />
       <FacultyAmbience facultyId={activeFacultyId} />
 
       {/* ── Контейнер с контентом авторизации ── */}
@@ -406,32 +358,9 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       <div className="w-full max-w-sm flex flex-col items-center z-10">
         
         {/* ── Блок Логотипа и Заголовка ── */}
-        <div className="mb-8 flex flex-col items-center space-y-4 text-center">
-          {/* Контейнер иконки зуба с пульсацией и свечением */}
-          <div
-            className="w-20 h-20 rounded-[28px] flex items-center justify-center"
-            style={{
-              background: 'hsl(var(--primary) / 0.08)', // Полупрозрачный фон
-              border: '1.5px solid hsl(var(--primary) / 0.2)', // Тонкая рамка
-              animation: 'authToothPulse 2.5s ease-in-out infinite', // Анимация дыхания
-              filter: 'drop-shadow(0 0 12px hsl(var(--primary) / 0.5))', // Неоновое свечение вокруг
-            }}
-          >
-            <AuthBrandLogo />
-          </div>
-
-          <h1
-            className="text-3xl font-bold tracking-tighter text-white select-none cursor-default"
-            onClick={handleTitleClick}
-          >
-            {APP_BRAND_NAME}
-          </h1>
+        <div className="mb-6 flex flex-col items-center space-y-5 text-center">
+          <AuthHeroTitle onTitleClick={handleTitleClick} />
           <AuthHeroPitch />
-          
-          {/* Режим отладки (если не удалось определить ID) */}
-          {debugInfo && (
-            <p className="text-[10px] text-white/20 font-mono break-all px-4">{debugInfo}</p>
-          )}
         </div>
 
         {/* ── Карточка с полями ввода и кнопками ── */}
@@ -439,7 +368,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         <div className={cn('w-full space-y-4', error && 'auth-shake')}>
           
           {/* Фон карточки: глухой темно-зеленый с эффектом размытия заднего фона */}
-          <div className="space-y-4 bg-[#141A17]/80 p-6 rounded-[28px] border border-white/5 backdrop-blur-md shadow-2xl">
+          <div className="space-y-4 bg-[#0A0E0C]/75 p-6 rounded-[28px] border border-white/10 backdrop-blur-xl shadow-2xl">
 
             {!passwordMode ? (
               <>
@@ -540,33 +469,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
               />
             )}
 
-            <button
-              onClick={handleCheckStatusClick}
-              disabled={loading}
-              className="w-full h-[44px] rounded-2xl text-[13px] font-medium transition-all mt-2"
-              style={{
-                background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.08)',
-                color: 'rgba(255,255,255,0.55)',
-              }}
-            >
-              Проверить статус заявки
-            </button>
-
-            {/* ── БЛОК ОШИБКИ ДЕМО ── (Выезжает только если есть ошибка демо-режима) */}
-            {demoMessage && (
-              <div className="animate-in fade-in slide-in-from-top-2 duration-300 rounded-2xl p-4 text-center text-[14px]"
-                style={{
-                  background: 'rgba(220,38,38,0.15)', // Красный фон ошибки
-                  border: '1px solid rgba(220,38,38,0.2)',
-                  color: '#fca5a5',
-                  animation: 'fadeInOut 4s ease forwards',
-                }}>
-                {demoMessage}
-              </div>
-            )}
-
-            {/* ── БЛОК ОШИБКИ КЛЮЧА ── (Выезжает при неверном ключе) */}
+            {/* ── БЛОК ОШИБКИ КЛЮЧА ── (Выезжает при неверном ключе) ── */}
             {errorMessage && (
               <div className="animate-in fade-in slide-in-from-top-2 duration-300 rounded-2xl p-4 text-center text-[14px]"
                 style={{
