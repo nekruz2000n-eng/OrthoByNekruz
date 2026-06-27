@@ -626,7 +626,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-[15px] font-bold">
-                      {enoughData ? 'Проверка готовности' : 'Экзамен недоступен'}
+                      {enoughData ? 'Экзаменационные билеты' : 'Экзамен недоступен'}
                     </div>
                     <div className="text-[12px] mt-0.5" style={{ opacity: 0.9 }}>
                       {enoughData
