@@ -49,6 +49,72 @@ export const FACULTY_SHORT_LABEL: Record<string, string> = {
   pediatrics:  'Педиатрия',
 };
 
+/** Оформление и копирайт экрана входа по факультету. */
+export type FacultyAuthTheme = {
+  tagline: string;
+  hook: string;
+  iconAnim: string;
+  rainAnim: string;
+  accent: {
+    border: string;
+    bg: string;
+    text: string;
+    glow: string;
+    field: string;
+    fieldFocus: string;
+  };
+};
+
+export const FACULTY_AUTH_THEME: Record<string, FacultyAuthTheme> = {
+  stomatology: {
+    tagline: 'Ортопедия, задачи с фото, глоссарий',
+    hook: 'Код ISO 3950 — нумерация зубов',
+    iconAnim: 'authIconTooth',
+    rainAnim: 'authRainCascade',
+    accent: {
+      border: 'rgba(52, 211, 153, 0.4)',
+      bg: 'rgba(52, 211, 153, 0.12)',
+      text: 'rgba(52, 211, 153, 0.98)',
+      glow: 'rgba(52, 211, 153, 0.35)',
+      field: 'rgba(52, 211, 153, 0.2)',
+      fieldFocus: 'rgba(52, 211, 153, 0.45)',
+    },
+  },
+  therapeutic: {
+    tagline: 'Фарма, биохимия, анатомия, терапия',
+    hook: 'Яремная вена — анатомия сосудов',
+    iconAnim: 'authIconStethoscope',
+    rainAnim: 'authRainDrift',
+    accent: {
+      border: 'rgba(96, 165, 250, 0.4)',
+      bg: 'rgba(96, 165, 250, 0.12)',
+      text: 'rgba(96, 165, 250, 0.98)',
+      glow: 'rgba(96, 165, 250, 0.35)',
+      field: 'rgba(96, 165, 250, 0.2)',
+      fieldFocus: 'rgba(96, 165, 250, 0.45)',
+    },
+  },
+  pediatrics: {
+    tagline: 'Педиатрия, химия, микробиология',
+    hook: 'Этапы роста тканей ребёнка',
+    iconAnim: 'authIconPediatrics',
+    rainAnim: 'authRainBubble',
+    accent: {
+      border: 'rgba(251, 191, 36, 0.42)',
+      bg: 'rgba(251, 191, 36, 0.12)',
+      text: 'rgba(251, 191, 36, 0.98)',
+      glow: 'rgba(251, 191, 36, 0.35)',
+      field: 'rgba(251, 191, 36, 0.2)',
+      fieldFocus: 'rgba(251, 191, 36, 0.45)',
+    },
+  },
+};
+
+export function getFacultyAuthTheme(facultyId: string | null | undefined): FacultyAuthTheme | null {
+  if (!facultyId) return null;
+  return FACULTY_AUTH_THEME[facultyId] ?? null;
+}
+
 export function getFacultyShortLabel(facultyId: string | null | undefined): string | null {
   if (!facultyId) return null;
   return FACULTY_SHORT_LABEL[facultyId] ?? null;

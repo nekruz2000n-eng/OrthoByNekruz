@@ -14,284 +14,28 @@ import {
   MAX_INPUT_LENGTH,
   getDefaultDigitIcon,
   isLegacyPaidKey,
-  FACULTY_PROMOS,
-  FACULTY_SHORT_LABEL,
-  EMOJI_FONT_STACK,
+  FACULTY_AUTH_THEME,
   persistFacultyId,
   persistFacultyFromAccessCode,
-  type FacultyPromo,
 } from '@/lib/facultyCodes';
 import { applyClientAccessCacheVersion } from '@/lib/accessCache';
 import { APP_BRAND_NAME } from '@/lib/subjects';
 import { AppBrandIcon } from '@/components/AppBrandIcon';
-
-type FacultyVariant = 'tooth' | 'stethoscope' | 'pediatrics';
+import {
+  AuthHeroPitch,
+  FacultyAmbience,
+  FacultyPicker,
+} from '@/components/AuthFacultyExperience';
 
 function syncFacultyAfterAuth(data: { facultyId?: string | null }, accessCode: string) {
   if (data?.facultyId) persistFacultyId(String(data.facultyId));
   else if (accessCode.trim()) persistFacultyFromAccessCode(accessCode.trim());
 }
 
-/** Те же эмодзи, что в поле ввода кода (3950 / 5016 / 2314) */
-const FACULTY_BY_VARIANT: Record<FacultyVariant, FacultyPromo> = {
-  tooth:       FACULTY_PROMOS.find(p => p.id === 'stomatology')!,
-  stethoscope: FACULTY_PROMOS.find(p => p.id === 'therapeutic')!,
-  pediatrics:  FACULTY_PROMOS.find(p => p.id === 'pediatrics')!,
-};
-
-const FACULTY_EMOJI: Record<FacultyVariant, string> = {
-  tooth:       FACULTY_BY_VARIANT.tooth.digitIcon,
-  stethoscope: FACULTY_BY_VARIANT.stethoscope.digitIcon,
-  pediatrics:  FACULTY_BY_VARIANT.pediatrics.digitIcon,
-};
-
-/** Эмодзи в дожде — как в поле ввода (статичный div, без blur) */
-const FallingFacultyEmoji = ({
-  emoji,
-  size,
-  fallStyle,
-  blurPx,
-}: {
-  emoji: string;
-  size: number;
-  fallStyle: React.CSSProperties;
-  blurPx: number;
-}) => (
-  <div
-    aria-hidden
-    style={{
-      ...fallStyle,
-      width: size,
-      height: size,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: size * 0.92,
-      lineHeight: 1,
-      fontFamily: EMOJI_FONT_STACK,
-      userSelect: 'none',
-      filter: blurPx
-        ? `blur(${blurPx}px) drop-shadow(0 0 6px rgba(255,255,255,0.5))`
-        : 'drop-shadow(0 0 6px rgba(255,255,255,0.5))',
-    }}
-  >
-    {emoji}
-  </div>
-);
-
-const FallingFacultyParticle = ({
-  variant,
-  size,
-  fallStyle,
-  blurPx,
-}: {
-  variant: FacultyVariant;
-  size: number;
-  fallStyle: React.CSSProperties;
-  blurPx: number;
-}) => (
-  <FallingFacultyEmoji
-    emoji={FACULTY_EMOJI[variant]}
-    size={size}
-    fallStyle={fallStyle}
-    blurPx={blurPx}
-  />
-);
-
-// ─── ЦЕНТРАЛЬНЫЙ ЛОГОТИП ─────────────────────────────────────────────────────
 const AuthBrandLogo = () => (
   <AppBrandIcon size={72} forceDark />
 );
 
-const FACULTY_ACCENT: Record<string, { border: string; bg: string; text: string }> = {
-  stomatology: {
-    border: 'rgba(52, 211, 153, 0.35)',
-    bg:     'rgba(52, 211, 153, 0.1)',
-    text:   'rgba(52, 211, 153, 0.95)',
-  },
-  therapeutic: {
-    border: 'rgba(96, 165, 250, 0.35)',
-    bg:     'rgba(96, 165, 250, 0.1)',
-    text:   'rgba(96, 165, 250, 0.95)',
-  },
-  pediatrics: {
-    border: 'rgba(251, 191, 36, 0.35)',
-    bg:     'rgba(251, 191, 36, 0.1)',
-    text:   'rgba(251, 191, 36, 0.95)',
-  },
-};
-
-/** Все три кода факультета — всегда на экране, по нажатию подставляется в поле */
-const FacultyCodesPanel = ({
-  input,
-  disabled,
-  onSelect,
-}: {
-  input: string;
-  disabled: boolean;
-  onSelect: (code: string) => void;
-}) => {
-  const active = detectFacultyByInput(input);
-
-  return (
-    <div className="space-y-2">
-      <p className="text-[11px] text-center leading-snug" style={{ color: 'rgba(255,255,255,0.42)' }}>
-        Код из канала — выбери свой факультет
-      </p>
-      <div className="grid gap-2">
-        {FACULTY_PROMOS.map(promo => {
-          const accent = FACULTY_ACCENT[promo.id];
-          const isActive = active?.id === promo.id;
-          const isFilled = input === promo.code;
-          return (
-            <button
-              key={promo.id}
-              type="button"
-              disabled={disabled}
-              onClick={() => onSelect(promo.code)}
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all duration-200 active:scale-[0.98] disabled:opacity-45 disabled:pointer-events-none"
-              style={{
-                background: isActive || isFilled ? accent.bg : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${isActive || isFilled ? accent.border : 'rgba(255,255,255,0.07)'}`,
-                boxShadow: isFilled ? `0 0 0 1px ${accent.border}` : undefined,
-              }}
-            >
-              <span
-                className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center"
-                style={{
-                  background: accent.bg,
-                  border: `1px solid ${accent.border}`,
-                  fontSize: 20,
-                  fontFamily: EMOJI_FONT_STACK,
-                  lineHeight: 1,
-                }}
-                aria-hidden
-              >
-                {promo.digitIcon}
-              </span>
-              <span
-                className="text-[14px] font-semibold leading-tight"
-                style={{ color: isActive || isFilled ? accent.text : 'rgba(255,255,255,0.88)' }}
-              >
-                {FACULTY_SHORT_LABEL[promo.id]}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-const RAIN_CYCLE: FacultyVariant[] = ['tooth', 'stethoscope', 'pediatrics'];
-
-function buildRainParticles() {
-  const background = Array.from({ length: 18 }, (_, i) => ({
-    id: `bg-${i}`,
-    variant: RAIN_CYCLE[i % 3],
-    left: (i * 27) % 100,
-    size: 12 + ((i * 11) % 20),
-    dur: 10 + ((i * 5) % 6),
-    delay: (i * 0.9) % 7,
-    blur: 1.5,
-    maxOpacity: 0.15,
-    swayDir: i % 2 === 0 ? 1 : -1,
-    isForeground: false,
-  }));
-
-  const foreground = Array.from({ length: 12 }, (_, i) => ({
-    id: `fg-${i}`,
-    variant: RAIN_CYCLE[(i + 1) % 3],
-    left: (i * 19 + 11) % 94,
-    size: 28 + ((i * 4) % 14),
-    dur: 5 + ((i * 2) % 4) * 0.6,
-    delay: (i * 0.65) % 6,
-    blur: 0,
-    maxOpacity: 0.44,
-    swayDir: i % 2 === 0 ? -1 : 1,
-    isForeground: true,
-  }));
-
-  return [...background, ...foreground];
-}
-
-// ─── КОМПОНЕНТ ФОНА: ПАДАЮЩИЕ ИКОНКИ ФАКУЛЬТЕТОВ ───────────────────────────
-const ToothRainBG = () => {
-  const teeth = buildRainParticles();
-
-  return (
-    // Обертка на весь экран (absolute inset-0). pointer-events-none делает так, чтобы зубы не перекрывали клики по кнопкам.
-    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-      
-      {/* Глобальные стили для анимаций именно этой страницы */}
-      <style>{`
-        /* Анимация 3D падения зубов */
-        @keyframes toothFall3D {
-          0% {
-            transform: translateY(-50px) rotate(calc(-16deg * var(--sway))) translateX(0px);
-            opacity: 0;
-          }
-          15% { opacity: var(--max-op); }
-          50% {
-            transform: translateY(52vh) rotate(calc(12deg * var(--sway))) translateX(calc(14px * var(--sway)));
-            opacity: var(--max-op);
-          }
-          85% { opacity: var(--max-op); }
-          100% {
-            transform: translateY(110vh) rotate(calc(-10deg * var(--sway))) translateX(calc(22px * var(--sway)));
-            opacity: 0;
-          }
-        }
-        /* Анимация пульсации центрального логотипа-зуба */
-        @keyframes authToothPulse {
-          0%,100% { transform: scale(1);    filter: drop-shadow(0 0 8px  hsl(var(--primary) / 0.4)); }
-          50%     { transform: scale(1.08); filter: drop-shadow(0 0 20px hsl(var(--primary) / 0.8)); }
-        }
-        /* Анимация плавного всплывания эмодзи-зубика при вводе пароля */
-        @keyframes authToothSlideUp {
-          from { transform: translateY(8px) scale(0.8); opacity: 0; }
-          to   { transform: translateY(0)   scale(1);   opacity: 1; }
-        }
-        @keyframes authFacultyHintPop {
-          0%   { transform: translateY(8px) scale(0.92); opacity: 0; }
-          60%  { transform: translateY(-2px) scale(1.03); opacity: 1; }
-          100% { transform: translateY(0) scale(1); opacity: 1; }
-        }
-        /* Анимация тряски (ошибки) при неверном пароле */
-        @keyframes authShake {
-          0%,100% { transform: translateX(0); }
-          25%     { transform: translateX(-5px); }
-          75%     { transform: translateX(5px); }
-        }
-        .auth-shake { animation: authShake 0.2s ease-in-out 0s 2; }
-      `}</style>
-      
-      {teeth.map((t) => {
-        const fallStyle = {
-          position: 'absolute',
-          left: `${t.left}%`,
-          top: -50,
-          zIndex: t.isForeground ? 2 : 0,
-          animation: `toothFall3D ${t.dur}s ${t.delay}s linear infinite`,
-          '--max-op': t.maxOpacity,
-          '--sway': t.swayDir,
-        } as React.CSSProperties;
-
-        return (
-          <FallingFacultyParticle
-            key={t.id}
-            variant={t.variant}
-            size={t.size}
-            fallStyle={fallStyle}
-            blurPx={t.blur}
-          />
-        );
-      })}
-    </div>
-  );
-};
-
-// ─── ГЛАВНЫЙ КОМПОНЕНТ АВТОРИЗАЦИИ ───────────────────────────────────────────
 export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void }) => {
   const { toast } = useToast();
 
@@ -300,7 +44,7 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   const [key, setKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [focused, setFocused] = useState(false);
+  const [passwordMode, setPasswordMode] = useState(false);
   const [isPaidKeysEnabled, setIsPaidKeysEnabled] = useState(true);
 
   useEffect(() => {
@@ -556,10 +300,10 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
       toast({ variant: 'destructive', title: 'Неверный ID', description: 'Telegram ID должен быть числовым (5-12 цифр)' }); return;
     }
     if (!canEnter) {
-      const msg = legacyReady && !isPaidKeysEnabled
-        ? 'Платные ключи временно отключены — введи код из канала'
-        : 'Введи код из канала полностью';
-      toast({ variant: 'destructive', title: 'Неверный код', description: msg });
+      const msg = passwordMode
+        ? (isPaidKeysEnabled ? 'Введи 8-значный пароль полностью' : 'Вход по паролю временно отключён')
+        : 'Сначала выбери факультет';
+      toast({ variant: 'destructive', title: 'Нельзя войти', description: msg });
       return;
     }
     handleAuth(key, id);
@@ -605,27 +349,13 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
   // Пока компонент не смонтирован (hydration), ничего не рендерим, чтобы избежать мерцаний
   if (!mounted) return null;
 
-  const promoHint   = isLegacyPaidKey(key) ? null : detectFacultyByInput(key);
+  const promoHint   = passwordMode || isLegacyPaidKey(key) ? null : detectFacultyByInput(key);
   const digitIcon   = promoHint?.digitIcon ?? getDefaultDigitIcon();
-  const promoReady  = !!resolveFacultyPromoCode(key);
-  const legacyReady = isLegacyPaidKey(key) && isPaidKeysEnabled;
+  const promoReady  = !passwordMode && !!resolveFacultyPromoCode(key);
+  const legacyReady = passwordMode && isLegacyPaidKey(key) && isPaidKeysEnabled;
   const canEnter    = promoReady || legacyReady;
-
-  const inputBorder = focused
-    ? promoHint?.id === 'stomatology'
-      ? 'rgba(52, 211, 153, 0.45)'
-      : promoHint?.id === 'therapeutic'
-        ? 'rgba(96, 165, 250, 0.45)'
-        : promoHint?.id === 'pediatrics'
-          ? 'rgba(251, 191, 36, 0.45)'
-          : 'hsl(var(--primary) / 0.4)'
-    : promoHint
-      ? promoHint.id === 'stomatology'
-        ? 'rgba(52, 211, 153, 0.22)'
-        : promoHint.id === 'therapeutic'
-          ? 'rgba(96, 165, 250, 0.22)'
-          : 'rgba(251, 191, 36, 0.22)'
-      : 'rgba(255,255,255,0.08)';
+  const activeFacultyId = passwordMode ? null : (promoHint?.id ?? null);
+  const loginAccent = activeFacultyId ? FACULTY_AUTH_THEME[activeFacultyId]?.accent : null;
 
   // ── ВИЗУАЛЬНАЯ ЧАСТЬ (RENDER) ───────────────────────────────────────────────
   return (
@@ -656,8 +386,20 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
         </div>
       )}
 
-      {/* ── Анимация Дождя из Зубов на заднем фоне ── */}
-      <ToothRainBG />
+      <style>{`
+        @keyframes authToothPulse {
+          0%,100% { transform: scale(1); filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.4)); }
+          50% { transform: scale(1.08); filter: drop-shadow(0 0 20px hsl(var(--primary) / 0.8)); }
+        }
+        @keyframes authShake {
+          0%,100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          75% { transform: translateX(5px); }
+        }
+        .auth-shake { animation: authShake 0.2s ease-in-out 0s 2; }
+      `}</style>
+
+      <FacultyAmbience facultyId={activeFacultyId} />
 
       {/* ── Контейнер с контентом авторизации ── */}
       {/* z-10 поднимает этот блок над дождем зубов */}
@@ -680,11 +422,11 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
 
           <h1
             className="text-3xl font-bold tracking-tighter text-white select-none cursor-default"
-            onClick={handleTitleClick} // Обработчик 6 тапов для сброса
+            onClick={handleTitleClick}
           >
             {APP_BRAND_NAME}
           </h1>
-          <p className="text-[13px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Подготовка к экзамену</p>
+          <AuthHeroPitch />
           
           {/* Режим отладки (если не удалось определить ID) */}
           {debugInfo && (
@@ -699,62 +441,95 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
           {/* Фон карточки: глухой темно-зеленый с эффектом размытия заднего фона */}
           <div className="space-y-4 bg-[#141A17]/80 p-6 rounded-[28px] border border-white/5 backdrop-blur-md shadow-2xl">
 
-            <FacultyCodesPanel
-              input={key}
-              disabled={loading || lockoutTime > 0}
-              onSelect={code => setKey(code)}
-            />
+            {!passwordMode ? (
+              <>
+                <FacultyPicker
+                  code={key}
+                  disabled={loading || lockoutTime > 0}
+                  onSelect={promo => setKey(promo.code)}
+                />
 
-            {/* ── ПОЛЕ ВВОДА КЛЮЧА ── */}
-            {/* Это кастомное поле. Настоящий <input> скрыт (opacity-0), а мы визуализируем то, что юзер ввел, с помощью эмодзи */}
-            <div
-              className="relative h-14 rounded-2xl flex items-center justify-center overflow-hidden cursor-text transition-colors"
-              style={{
-                background: 'rgba(255,255,255,0.03)', 
-                border: `1px solid ${inputBorder}`,
-              }}
-            >
-              {/* Placeholder: показываем текст, если поле пустое */}
-              {key.length === 0 && (
-                <span className="absolute text-[15px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                  {lockoutTime > 0 ? `Подожди ${lockoutTime}с` : 'Введи код'}
-                </span>
-              )}
-              
-              <div className="flex gap-1 items-center z-10">
-                {key.split('').map((_, i) => {
-                  const dynamicSize = Math.max(20, 44 - (key.length * 3));
-                  return (
-                    <div 
-                      key={i} 
-                      style={{ 
-                        animation: 'authToothSlideUp 0.2s ease forwards',
-                        fontSize: `${dynamicSize}px`,
-                        filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.49))',
-                        transition: 'font-size 0.2s ease-in-out',
-                        lineHeight: 1,
-                      }}
-                    >
-                      {digitIcon}
-                    </div>
-                  );
-                })}
-              </div>
-              
-              <input
-                value={key}
-                onChange={e => setKey(e.target.value.replace(/\D/g, '').slice(0, MAX_INPUT_LENGTH))}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                disabled={loading || lockoutTime > 0}
-                maxLength={8}
-                inputMode="numeric"
-                className="absolute inset-0 opacity-0 cursor-text"
-                style={{ fontSize: 1 }}
-              />
-            </div>
+                <button
+                  onClick={handleLoginClick}
+                  disabled={loading || lockoutTime > 0 || !promoReady}
+                  className="w-full h-[52px] rounded-2xl text-[15px] font-semibold transition-all duration-250 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40"
+                  style={promoReady ? {
+                    background: loginAccent
+                      ? `linear-gradient(135deg, ${loginAccent.text}, ${loginAccent.border})`
+                      : 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))',
+                    color: '#0A0E0C',
+                    boxShadow: loginAccent
+                      ? `0 8px 24px ${loginAccent.glow}`
+                      : '0 8px 24px hsl(var(--primary) / 0.3)',
+                  } : {
+                    background: 'hsl(var(--primary) / 0.12)',
+                    color: 'hsl(var(--primary) / 0.85)',
+                  }}
+                >
+                  {loading
+                    ? <Loader2 className="w-5 h-5 animate-spin" />
+                    : promoReady
+                      ? <>{digitIcon} Войти</>
+                      : 'Войти'}
+                </button>
 
-            {/* ── РУЧНОЙ ВВОД TELEGRAM ID (Показывается, если скрипт не смог найти его сам) ── */}
+                {isPaidKeysEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => { setPasswordMode(true); setKey(''); setError(false); }}
+                    disabled={loading}
+                    className="w-full text-center text-[12px] py-1 transition-opacity active:opacity-60 disabled:opacity-40"
+                    style={{ color: 'rgba(255,255,255,0.38)' }}
+                  >
+                    Войти по паролю
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <p className="text-[11px] text-center" style={{ color: 'rgba(255,255,255,0.42)' }}>
+                    {lockoutTime > 0 ? `Подожди ${lockoutTime}с` : '8-значный пароль доступа'}
+                  </p>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="••••••••"
+                    value={key}
+                    onChange={e => setKey(e.target.value.replace(/\D/g, '').slice(0, MAX_INPUT_LENGTH))}
+                    disabled={loading || lockoutTime > 0}
+                    className="h-14 text-center text-xl tracking-[0.35em] font-mono bg-white/[0.03] border-white/10 rounded-2xl text-white"
+                  />
+                </div>
+
+                <button
+                  onClick={handleLoginClick}
+                  disabled={loading || lockoutTime > 0 || !legacyReady}
+                  className="w-full h-[52px] rounded-2xl text-[15px] font-semibold transition-all duration-250 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40"
+                  style={legacyReady ? {
+                    background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))',
+                    color: 'hsl(var(--primary-foreground))',
+                    boxShadow: '0 8px 24px hsl(var(--primary) / 0.3)',
+                  } : {
+                    background: 'hsl(var(--primary) / 0.12)',
+                    color: 'hsl(var(--primary) / 0.85)',
+                  }}
+                >
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Войти'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setPasswordMode(false); setKey(''); setError(false); }}
+                  disabled={loading}
+                  className="w-full text-center text-[12px] py-1 transition-opacity active:opacity-60"
+                  style={{ color: 'rgba(255,255,255,0.38)' }}
+                >
+                  ← Код факультета из канала
+                </button>
+              </>
+            )}
+
             {idChecked && !autoTgId && (
               <Input
                 type="text" inputMode="numeric"
@@ -764,33 +539,6 @@ export const AuthScreen = ({ onAuthenticated }: { onAuthenticated: () => void })
                 className="h-14 text-center text-lg bg-background/40 border-white/10 rounded-2xl text-white animate-in slide-in-from-top-2"
               />
             )}
-
-            {/* ── КНОПКА "ВОЙТИ" ── */}
-            <button
-              onClick={handleLoginClick}
-              disabled={loading || lockoutTime > 0}
-              className="w-full h-[52px] rounded-2xl text-[15px] font-medium transition-all duration-250 active:scale-[0.98] flex items-center justify-center gap-2"
-              // СТИЛИ МЕНЯЮТСЯ, если введено 4 или больше символов (кнопка "загорается")
-              style={canEnter ? {
-                background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))',
-                color: 'hsl(var(--primary-foreground))',
-                boxShadow: '0 8px 24px hsl(var(--primary) / 0.3)',
-              } : {
-                background: 'hsl(var(--primary) / 0.12)',
-                border: '1px solid transparent',
-                color: 'hsl(var(--primary) / 0.85)',
-              }}
-            >
-              {loading
-                ? <Loader2 className="w-5 h-5 animate-spin" />
-                : promoReady
-                  ? `${digitIcon} Войти`
-                  : promoHint && key.length > 0
-                    ? digitIcon
-                    : canEnter
-                      ? 'Войти'
-                      : 'Войти'}
-            </button>
 
             <button
               onClick={handleCheckStatusClick}
