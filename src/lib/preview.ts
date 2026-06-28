@@ -79,6 +79,15 @@ export function buildNavHiddenForConfirmedPurchase(
   return [...hidden];
 }
 
+/** Максимум реального времени на всю сессию пробника (страховка от «вечного» пробника). */
+export const PREVIEW_SESSION_ABSOLUTE_MAX_MS = 20 * 60 * 1000;
+
+export function getPreviewSessionAgeMs(user: any, nowMs = Date.now()): number {
+  const started = user?.previewStartedAt ? Date.parse(user.previewStartedAt) : NaN;
+  if (!Number.isFinite(started)) return 0;
+  return Math.max(0, nowMs - started);
+}
+
 export const PREVIEW_DURATION_MS = 5 * 60 * 1000;
 
 /** Проба раздела «Тест» в навигации — 3 мин активного времени на вкладке. */
@@ -321,9 +330,15 @@ export function isPreviewModuleTrialExpired(
   const statuses = ensureModuleStatusMap(user, user.previewChosenSubject);
   if (statuses[module] !== 'trial') return true;
 
+  const sessionAge = getPreviewSessionAgeMs(user);
+  if (sessionAge >= PREVIEW_SESSION_ABSOLUTE_MAX_MS) return true;
+
   const limit = getPreviewDurationMs(tgId, module);
   const consumed = getModuleActiveMsConsumed(user, module, chosen);
-  if (consumed > 0) return consumed >= limit;
+  if (consumed >= limit) return true;
+
+  const wallLimit = getPreviewRealWindowMs(tgId, module);
+  if (sessionAge >= wallLimit) return true;
 
   if (isPreviewShortDurationAccount(tgId)) {
     const since = user?.previewModuleRealSince?.[module];
@@ -332,7 +347,6 @@ export function isPreviewModuleTrialExpired(
     }
   }
 
-  // Один раздел без per-module ms — старый общий таймер
   if (
     chosen.length === 1
     && usesLegacySharedTrialClock(user, chosen)
@@ -340,7 +354,7 @@ export function isPreviewModuleTrialExpired(
   ) {
     return getLegacyVirtualMsConsumed(user, tgId, module) >= limit;
   }
-  // Несколько разделов: не посещённый ещё не истёк
+
   return false;
 }
 
@@ -367,15 +381,13 @@ export function previewRemainingMsForModule(
   if (statuses[module] !== 'trial') return 0;
   const limit = getPreviewDurationMs(tgId, module);
   const consumed = getModuleActiveMsConsumed(user, module, chosen);
-  if (consumed > 0) return Math.max(0, limit - consumed);
-  if (
-    chosen.length === 1
-    && usesLegacySharedTrialClock(user, chosen)
-    && user.previewStartedAt
-  ) {
-    return Math.max(0, limit - getLegacyVirtualMsConsumed(user, tgId, module));
-  }
-  return limit;
+  const sessionAge = getPreviewSessionAgeMs(user);
+  const absoluteLeft = PREVIEW_SESSION_ABSOLUTE_MAX_MS - sessionAge;
+  const wallLeft = getPreviewRealWindowMs(tgId, module) - sessionAge;
+  const activeLeft = limit - consumed;
+  const candidates = [absoluteLeft, wallLeft, activeLeft].filter(n => Number.isFinite(n));
+  if (candidates.length === 0) return limit;
+  return Math.max(0, Math.min(...candidates));
 }
 
 export function previewRemainingMsByModule(user: any, tgId?: string | null): PreviewActiveMsMap {

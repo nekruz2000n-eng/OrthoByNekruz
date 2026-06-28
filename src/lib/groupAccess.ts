@@ -357,7 +357,7 @@ export function applyGroupAccessToUser(
   }
 
   if (grantedSubjects.length > 0) {
-    if (applyGroupGrantPreviewSideEffects(next, user)) {
+    if (applyGroupGrantPreviewSideEffects(next, user, grantedSubjects)) {
       changed = true;
     }
   }

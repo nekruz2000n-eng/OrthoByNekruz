@@ -60,7 +60,12 @@ export function clearPreviewFlowFields(user: Record<string, unknown>): void {
 }
 
 /** Групповой доступ не должен прерывать активную пробу или незавершённую оплату. */
-export function shouldPreservePreviewFlowOnGroupGrant(user: any): boolean {
+export function shouldPreservePreviewFlowOnGroupGrant(
+  user: any,
+  options?: { grantedSubjects?: string[] },
+): boolean {
+  // Админ открыл предмет группе — это полный доступ, пробник сбрасываем.
+  if (options?.grantedSubjects?.length) return false;
   if (isPreviewFlowInProgress(user)) return true;
   if (user?._catalogBrowse === true && user?.previewStatus === 'selecting') {
     const hasPurchased = hasFinalizedPreviewAccess(user) || user?.paid === true;
@@ -76,8 +81,9 @@ export function shouldPreservePreviewFlowOnGroupGrant(user: any): boolean {
 export function applyGroupGrantPreviewSideEffects(
   next: Record<string, unknown>,
   user: any,
+  grantedSubjects?: string[],
 ): boolean {
-  if (shouldPreservePreviewFlowOnGroupGrant(user)) {
+  if (shouldPreservePreviewFlowOnGroupGrant(user, { grantedSubjects })) {
     return false;
   }
 
