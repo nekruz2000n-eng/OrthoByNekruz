@@ -77,7 +77,18 @@ export const SubjectSelectScreen: React.FC<SubjectSelectScreenProps> = ({
 }) => {
   useReleaseScroll();
   const facultyIcon = useFacultyIcon();
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const saved = localStorage.getItem('last_subject');
+    return saved && availableSubjects.includes(saved) ? saved : null;
+  });
+
+  useEffect(() => {
+    const saved = localStorage.getItem('last_subject');
+    if (saved && availableSubjects.includes(saved)) {
+      setSelected(saved);
+    }
+  }, [availableSubjects]);
 
   const visibleSubjects: SubjectConfig[] = SUBJECTS.filter(s =>
     availableSubjects.includes(s.id)

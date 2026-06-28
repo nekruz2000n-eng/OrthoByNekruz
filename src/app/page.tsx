@@ -19,7 +19,7 @@ import { StatsTab }      from '@/components/StatsTab';
 import { Loader2 }       from 'lucide-react';
 import { useToast }      from '@/hooks/use-toast';
 import { applyClientAccessCacheVersion, clearPreviewClientKeys } from '@/lib/accessCache';
-import { clearLocalSession } from '@/lib/appSession';
+import { clearLocalSession, clearSubjectPickedSession, hasSubjectPickedThisSession, markSubjectPickedThisSession } from '@/lib/appSession';
 import { useAppAuth } from '@/hooks/useAppAuth';
 import { getDefaultSubjectId, subjectHasQuestionGameModes } from '@/lib/subjects';
 import { bustSubjectModuleCache, setOnSubjectDataUnavailable } from '@/lib/subjectData';
@@ -262,8 +262,13 @@ export default function Home() {
   /** Поздний ответ check_subjects не должен затирать свежий ответ после кода/группы. */
   const accessRequestGen = useRef(0);
   const previewPollGen   = useRef(0);
+  const groupHintAfterPickRef = useRef(false);
 
   const PREVIEW_ADMIN_POLL_MS = 5_000;
+
+  useEffect(() => {
+    clearSubjectPickedSession();
+  }, []);
 
   const logoutLocal = useCallback(() => {
     clearLocalSession();
@@ -315,6 +320,7 @@ export default function Home() {
     }
     setAvailableSubjects(list);
     setHasMicro(list.includes('micro'));
+    if (list.length <= 1) setShowSubjectSelect(false);
     setNavHidden(d?.navHidden && typeof d.navHidden === 'object' ? d.navHidden : {});
     localStorage.setItem('available_subjects', JSON.stringify(list));
     if (list.includes('micro')) localStorage.setItem('has_micro', 'true');
@@ -430,22 +436,38 @@ export default function Home() {
     const showGroupHint = d?.showGroupAccessHint === true && groupHintSubjects.length > 0;
     const groupOnlyAccess = d?.groupOnlyAccess === true;
 
-    const openGroupAccessSubjects = () => {
-      const ordered = groupHintSubjects.length > 0 ? groupHintSubjects : groupGranted;
-      if (ordered.length === 0) return;
-      const saved = localStorage.getItem('last_subject');
-      const pick = saved && ordered.includes(saved) ? saved : ordered[0];
+    const showGroupHintAfterPick = () => {
+      if (!showGroupHint) return;
+      groupHintAfterPickRef.current = true;
+      setGroupAccessHintSubjects(groupHintSubjects);
+    };
+
+    const enterSubject = (pick: string, markSession = true) => {
       setShowSubjectSelect(false);
-      localStorage.setItem('subject_chosen', 'true');
+      if (markSession) markSubjectPickedThisSession();
       setSubjectRaw(pick);
       localStorage.setItem('last_subject', pick);
-      if (showGroupHint) {
-        setGroupAccessHintSubjects(groupHintSubjects);
-        setShowGroupAccessHint(true);
-      } else {
-        setShowGroupAccessHint(false);
-        setGroupAccessHintSubjects([]);
+      localStorage.setItem('subject_chosen', 'true');
+    };
+
+    /** 2+ предмета — экран выбора при каждом открытии; 1 предмет — сразу внутрь. */
+    const resolveSubjectEntry = (subjects: string[]): boolean => {
+      if (subjects.length === 0) return false;
+      if (subjects.length === 1) {
+        enterSubject(subjects[0]);
+        showGroupHintAfterPick();
+        if (groupHintAfterPickRef.current) setShowGroupAccessHint(true);
+        return true;
       }
+      if (!hasSubjectPickedThisSession()) {
+        setShowSubjectSelect(true);
+        showGroupHintAfterPick();
+        return true;
+      }
+      const saved = localStorage.getItem('last_subject');
+      const pick = saved && subjects.includes(saved) ? saved : subjects[0];
+      enterSubject(pick, false);
+      return true;
     };
 
     const isGroupAccessFlow = groupOnlyAccess
@@ -454,10 +476,6 @@ export default function Home() {
       && ps !== 'active'
       && ps !== 'expired'
       && !(d?.receiptClaimedAt && !d?.previewConfirmedAt);
-
-    const shouldForceGroupEntry = isGroupAccessFlow && (
-      showGroupHint || (ps === 'selecting' && !d?.previewChosenSubject)
-    );
 
     if (ps === 'active') {
       const endIso = resolvePreviewEndIso(d?.previewEndsAt ?? null, d?.previewStartedAt ?? null, getTgId());
@@ -532,15 +550,12 @@ export default function Home() {
     }
 
     if (ps === 'selecting') {
-      if (shouldForceGroupEntry) {
-        openGroupAccessSubjects();
+      if (isGroupAccessFlow && list.length > 0 && !d?.previewChosenSubject) {
+        resolveSubjectEntry(list);
         return;
       }
       if (list.length === 0) return;
-      const saved = localStorage.getItem('last_subject');
-      const picked = localStorage.getItem('subject_chosen') === 'true'
-        || (!!saved && list.includes(saved));
-      if (!d?.previewChosenSubject && list.length >= 2 && !picked) {
+      if (!d?.previewChosenSubject && list.length >= 2 && !hasSubjectPickedThisSession()) {
         setShowSubjectSelect(true);
       }
       return;
@@ -548,8 +563,8 @@ export default function Home() {
 
     if (list.length === 0) return;
 
-    if (shouldForceGroupEntry) {
-      openGroupAccessSubjects();
+    if (isGroupAccessFlow) {
+      resolveSubjectEntry(list);
       return;
     }
 
@@ -567,25 +582,26 @@ export default function Home() {
       return;
     }
 
-    const alreadyChosen = localStorage.getItem('subject_chosen') === 'true'
-      || (!!savedSubject && list.includes(savedSubject));
-    const preferred = (savedSubject && list.includes(savedSubject)) ? savedSubject : list[0];
-
-    if (!alreadyChosen && list.length >= 2 && ps !== 'active' && ps !== 'confirmed' && !groupOnlyAccess) {
+    if (list.length >= 2 && !hasSubjectPickedThisSession()
+      && ps !== 'active'
+      && ps !== 'confirmed'
+      && ps !== 'expired'
+      && !(d?.receiptClaimedAt && !d?.previewConfirmedAt)) {
       setShowSubjectSelect(true);
       return;
     }
 
     setShowSubjectSelect(false);
-    localStorage.setItem('subject_chosen', 'true');
-    setSubjectRaw(current => {
-      if (savedSubject && list.includes(savedSubject)) {
-        return savedSubject;
-      }
-      const next = list.includes(current) ? current : preferred;
-      localStorage.setItem('last_subject', next);
-      return next;
-    });
+    const preferred = (savedSubject && list.includes(savedSubject)) ? savedSubject : list[0];
+    if (preferred) {
+      markSubjectPickedThisSession();
+      setSubjectRaw(current => {
+        const next = list.includes(current) ? current : preferred;
+        localStorage.setItem('last_subject', next);
+        localStorage.setItem('subject_chosen', 'true');
+        return next;
+      });
+    }
   }, [setSubjectRaw]);
 
   const pollAccessForAdminConfirm = useCallback(async () => {
@@ -1820,7 +1836,7 @@ export default function Home() {
     );
   }
 
-  // ── Экран выбора дисциплины (только когда открыто 2+ и юзер ещё не выбирал) ──
+  // ── Экран выбора дисциплины (2+ предмета при каждом открытии приложения) ──
   if (showSubjectSelect) {
     return withAccessWelcome(
       <SubjectSelectScreen
@@ -1830,7 +1846,12 @@ export default function Home() {
         onSelect={(s: string) => {
           setSubject(s);
           setShowSubjectSelect(false);
+          markSubjectPickedThisSession();
           localStorage.setItem('subject_chosen', 'true');
+          if (groupHintAfterPickRef.current) {
+            setShowGroupAccessHint(true);
+            groupHintAfterPickRef.current = false;
+          }
         }}
       />,
     );

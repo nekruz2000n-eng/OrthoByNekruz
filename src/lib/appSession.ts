@@ -23,6 +23,25 @@ export function readClientAuthFlag(): boolean {
 export function clearLocalSession(): void {
   if (typeof window === 'undefined') return;
   AUTH_STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
+  clearSubjectPickedSession();
+}
+
+/** Сбрасывается при каждой загрузке мини-приложения — экран выбора предмета. */
+export const SESSION_SUBJECT_PICKED_KEY = 'subject_picked_session';
+
+export function hasSubjectPickedThisSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  return sessionStorage.getItem(SESSION_SUBJECT_PICKED_KEY) === '1';
+}
+
+export function markSubjectPickedThisSession(): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem(SESSION_SUBJECT_PICKED_KEY, '1');
+}
+
+export function clearSubjectPickedSession(): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(SESSION_SUBJECT_PICKED_KEY);
 }
 
 /** Сессия валидна, если TG ID в localStorage совпадает с текущим WebApp. */
