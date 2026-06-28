@@ -2,7 +2,7 @@
  * Бесплатный доступ по факультету + группе (правила в Redis, админка).
  */
 import { Redis } from '@upstash/redis';
-import { SUBJECTS, getSubject, createDefaultSubjects, migrateUserSubjects } from '@/lib/subjects';
+import { SUBJECTS, getSubject, createDefaultSubjects, migrateUserSubjects, getUserAvailableSubjects } from '@/lib/subjects';
 import {
   buildNavHiddenForConfirmedPurchase,
   healExamNavHidden,
@@ -168,10 +168,83 @@ export function isSubjectProtectedFromGroupRevoke(user: any, subjectId: string):
   return user?.subjects?.[subjectId] === true;
 }
 
-function mergeModulesForSubject(grants: GroupGrantRecord[]): GroupAccessModule[] {
+export function getActiveGroupGrantedSubjectIds(user: any, nowMs = Date.now()): string[] {
+  if (!user?.groupGrants || typeof user.groupGrants !== 'object') return [];
+  const out: string[] = [];
+  for (const { id } of SUBJECTS) {
+    const grants = (user.groupGrants as Record<string, GroupGrantRecord[]>)[id];
+    if (!Array.isArray(grants) || grants.length === 0) continue;
+    if (mergeModulesForSubject(grants, nowMs).length === 0) continue;
+    if (user.subjects?.[id] !== true) continue;
+    out.push(id);
+  }
+  return out;
+}
+
+export function orderGroupGrantedSubjectIds(ids: string[]): string[] {
+  const set = new Set(ids);
+  return SUBJECTS.map(s => s.id).filter(id => set.has(id));
+}
+
+export function applyGroupAccessHintFlags(
+  user: any,
+  grantedSubjectIds: string[],
+): { user: any; changed: boolean } {
+  if (grantedSubjectIds.length === 0) return { user, changed: false };
+  if (user?.groupAccessHintSeenAt) return { user, changed: false };
+  const existing = Array.isArray(user?.groupAccessPendingHint)
+    ? (user.groupAccessPendingHint as string[])
+    : [];
+  const merged = orderGroupGrantedSubjectIds([...new Set([...existing, ...grantedSubjectIds])]);
+  if (merged.length === existing.length && merged.every((id, i) => existing[i] === id)) {
+    return { user, changed: false };
+  }
+  return {
+    user: { ...user, groupAccessPendingHint: merged },
+    changed: true,
+  };
+}
+
+/** Доступ только через групповые правила (без оплаты / ключа). */
+export function isGroupOnlySubjectAccess(user: any, availableSubjectIds: string[]): boolean {
+  const grantIds = getActiveGroupGrantedSubjectIds(user);
+  if (grantIds.length === 0 || availableSubjectIds.length === 0) return false;
+  if (user?.paid === true || user?.previewConfirmedAt || user?.previewStatus === 'confirmed') {
+    return false;
+  }
+  return availableSubjectIds.every(id => grantIds.includes(id));
+}
+
+export function buildGroupAccessClientPayload(user: any) {
+  const grantIds = getActiveGroupGrantedSubjectIds(user);
+  const pendingRaw = Array.isArray(user?.groupAccessPendingHint)
+    ? (user.groupAccessPendingHint as string[])
+    : [];
+  const pending = orderGroupGrantedSubjectIds(pendingRaw.filter(id => grantIds.includes(id)));
+  const showHint = pending.length > 0 && !user?.groupAccessHintSeenAt;
+  const available = getUserAvailableSubjects(user);
+  return {
+    groupGrantedSubjects: grantIds,
+    groupOnlyAccess: isGroupOnlySubjectAccess(user, available),
+    showGroupAccessHint: showHint,
+    groupAccessHintSubjects: showHint ? pending : [],
+  };
+}
+
+export function dismissGroupAccessHint(user: any): { user: any; changed: boolean } {
+  if (!user?.groupAccessPendingHint && user?.groupAccessHintSeenAt) {
+    return { user, changed: false };
+  }
+  const next = { ...user };
+  delete next.groupAccessPendingHint;
+  next.groupAccessHintSeenAt = new Date().toISOString();
+  return { user: next, changed: true };
+}
+
+function mergeModulesForSubject(grants: GroupGrantRecord[], nowMs = Date.now()): GroupAccessModule[] {
   const set = new Set<GroupAccessModule>();
   for (const g of grants) {
-    if (!isGrantActive(g.expiresAt)) continue;
+    if (!isGrantActive(g.expiresAt, nowMs)) continue;
     for (const m of g.modules) set.add(m);
   }
   return [...set];
@@ -295,10 +368,39 @@ export function applyGroupAccessToUser(
   next._migrated_subjects = true;
 
   const healed = applyFacultyHeals(next);
-  const finalChanged = changed || healed !== user;
+  let finalUser = healed;
+  let finalChanged = changed || healed !== user;
+
+  const previouslyGranted = getActiveGroupGrantedSubjectIds(user, nowMs);
+  const newlyGranted = grantedSubjects.filter(id => !previouslyGranted.includes(id));
+
+  if (Array.isArray(finalUser.groupAccessPendingHint)) {
+    const filtered = orderGroupGrantedSubjectIds(
+      (finalUser.groupAccessPendingHint as string[]).filter(id => grantedSubjects.includes(id)),
+    );
+    const prevPending = finalUser.groupAccessPendingHint as string[];
+    if (filtered.length !== prevPending.length || !filtered.every((id, i) => prevPending[i] === id)) {
+      finalUser = filtered.length > 0
+        ? { ...finalUser, groupAccessPendingHint: filtered }
+        : (() => {
+          const u = { ...finalUser };
+          delete u.groupAccessPendingHint;
+          return u;
+        })();
+      finalChanged = true;
+    }
+  }
+
+  if (newlyGranted.length > 0) {
+    const hint = applyGroupAccessHintFlags(finalUser, newlyGranted);
+    if (hint.changed) {
+      finalUser = hint.user;
+      finalChanged = true;
+    }
+  }
 
   return {
-    user: finalChanged ? healed : user,
+    user: finalUser,
     changed: finalChanged,
     grantedSubjects,
   };

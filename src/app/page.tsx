@@ -9,6 +9,7 @@ import { TrustAccessNotice } from '@/components/TrustAccessNotice';
 import { FacultyPickerModal } from '@/components/FacultyPickerModal';
 import { ChannelCodeEntryScreen } from '@/components/ChannelCodeEntryScreen';
 import { AccessWelcomeOverlay, PREVIEW_AWAITING_CONFIRM_KEY, PREVIEW_WELCOME_SEEN_KEY } from '@/components/AccessWelcomeOverlay';
+import { GroupAccessHintModal } from '@/components/GroupAccessHintModal';
 import { AuthScreen }    from '@/components/AuthScreen';
 import { Navigation, TabType, type BioGameMode } from '@/components/Navigation';
 import { QuestionsTab }  from '@/components/QuestionsTab';
@@ -205,6 +206,10 @@ export default function Home() {
   const [paymentModulesUpdating, setPaymentModulesUpdating] = useState(false);
   const [previewPaymentSelection, setPreviewPaymentSelection] = useState<PreviewModule[]>([]);
   const [showAccessWelcome, setShowAccessWelcome] = useState(false);
+  const [showGroupAccessHint, setShowGroupAccessHint] = useState(false);
+  const [groupAccessHintSubjects, setGroupAccessHintSubjects] = useState<string[]>([]);
+  const [groupGrantedSubjects, setGroupGrantedSubjects] = useState<string[]>([]);
+  const [groupOnlyAccess, setGroupOnlyAccess] = useState(false);
   const [accessChecked,   setAccessChecked]   = useState<boolean>(false);
   const [previewModuleStatuses, setPreviewModuleStatuses] = useState<PreviewModuleStatusMap>({});
   const [previewRemainingMinByModule, setPreviewRemainingMinByModule] = useState<PreviewActiveMsMap>({});
@@ -267,6 +272,10 @@ export default function Home() {
     setAvailableSubjects([]);
     setPreviewStatus(null);
     setShowSubjectSelect(false);
+    setShowGroupAccessHint(false);
+    setGroupAccessHintSubjects([]);
+    setGroupGrantedSubjects([]);
+    setGroupOnlyAccess(false);
   }, []);
 
   const applyAccessPayload = useCallback((d: any) => {
@@ -409,6 +418,47 @@ export default function Home() {
     setNeedsFacultyPick(d?.needsFacultyPick === true);
     setNeedsStudyGroup(d?.needsStudyGroup === true);
 
+    const groupGranted = Array.isArray(d?.groupGrantedSubjects)
+      ? (d.groupGrantedSubjects as string[]).filter((id: string) => list.includes(id))
+      : [];
+    setGroupGrantedSubjects(groupGranted);
+    setGroupOnlyAccess(d?.groupOnlyAccess === true);
+
+    const groupHintSubjects = Array.isArray(d?.groupAccessHintSubjects)
+      ? (d.groupAccessHintSubjects as string[]).filter((id: string) => list.includes(id))
+      : [];
+    const showGroupHint = d?.showGroupAccessHint === true && groupHintSubjects.length > 0;
+    const groupOnlyAccess = d?.groupOnlyAccess === true;
+
+    const openGroupAccessSubjects = () => {
+      const ordered = groupHintSubjects.length > 0 ? groupHintSubjects : groupGranted;
+      if (ordered.length === 0) return;
+      const saved = localStorage.getItem('last_subject');
+      const pick = saved && ordered.includes(saved) ? saved : ordered[0];
+      setShowSubjectSelect(false);
+      localStorage.setItem('subject_chosen', 'true');
+      setSubjectRaw(pick);
+      localStorage.setItem('last_subject', pick);
+      if (showGroupHint) {
+        setGroupAccessHintSubjects(groupHintSubjects);
+        setShowGroupAccessHint(true);
+      } else {
+        setShowGroupAccessHint(false);
+        setGroupAccessHintSubjects([]);
+      }
+    };
+
+    const isGroupAccessFlow = groupOnlyAccess
+      && groupGranted.length > 0
+      && !d?.previewConfirmedAt
+      && ps !== 'active'
+      && ps !== 'expired'
+      && !(d?.receiptClaimedAt && !d?.previewConfirmedAt);
+
+    const shouldForceGroupEntry = isGroupAccessFlow && (
+      showGroupHint || (ps === 'selecting' && !d?.previewChosenSubject)
+    );
+
     if (ps === 'active') {
       const endIso = resolvePreviewEndIso(d?.previewEndsAt ?? null, d?.previewStartedAt ?? null, getTgId());
       if (endIso) localStorage.setItem('preview_end', endIso);
@@ -482,6 +532,10 @@ export default function Home() {
     }
 
     if (ps === 'selecting') {
+      if (shouldForceGroupEntry) {
+        openGroupAccessSubjects();
+        return;
+      }
       if (list.length === 0) return;
       const saved = localStorage.getItem('last_subject');
       const picked = localStorage.getItem('subject_chosen') === 'true'
@@ -493,6 +547,11 @@ export default function Home() {
     }
 
     if (list.length === 0) return;
+
+    if (shouldForceGroupEntry) {
+      openGroupAccessSubjects();
+      return;
+    }
 
     /** Докупка: предмет пробы ещё не в купленных — не уводить на старый предмет после таймера/sync. */
     const isCatalogAddonPreview = !!pendingSubject && !list.includes(pendingSubject);
@@ -512,7 +571,7 @@ export default function Home() {
       || (!!savedSubject && list.includes(savedSubject));
     const preferred = (savedSubject && list.includes(savedSubject)) ? savedSubject : list[0];
 
-    if (!alreadyChosen && list.length >= 2 && ps !== 'active' && ps !== 'confirmed') {
+    if (!alreadyChosen && list.length >= 2 && ps !== 'active' && ps !== 'confirmed' && !groupOnlyAccess) {
       setShowSubjectSelect(true);
       return;
     }
@@ -660,6 +719,26 @@ export default function Home() {
     }
     void refreshAccess();
   }, [refreshAccess, previewConfirmedAt]);
+
+  const dismissGroupAccessHint = useCallback(async () => {
+    setShowGroupAccessHint(false);
+    const tgId    = localStorage.getItem('user_tg_id');
+    const initDat = (window as any).Telegram?.WebApp?.initData || '';
+    if (!tgId) return;
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: tgId,
+          mode: 'dismiss_group_access_hint',
+          initData: initDat,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) applyAccessPayload(data);
+    } catch { /* подсказка уже скрыта локально */ }
+  }, [applyAccessPayload]);
 
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1068,6 +1147,7 @@ export default function Home() {
       }
       accessRequestGen.current += 1;
       applyAccessPayload(data);
+      setAccessChecked(true);
       if (pendingReceiptModulesRef.current?.length) {
         setRetryClaimAfterGroup([...pendingReceiptModulesRef.current]);
         pendingReceiptModulesRef.current = null;
@@ -1613,6 +1693,12 @@ export default function Home() {
   const withAccessWelcome = (node: React.ReactNode) => (
     <>
       {showAccessWelcome && <AccessWelcomeOverlay onContinue={dismissAccessWelcome} />}
+      {showGroupAccessHint && groupAccessHintSubjects.length > 0 && (
+        <GroupAccessHintModal
+          subjectIds={groupAccessHintSubjects}
+          onContinue={() => { void dismissGroupAccessHint(); }}
+        />
+      )}
       {node}
     </>
   );
@@ -1673,7 +1759,7 @@ export default function Home() {
     );
   }
 
-  if (previewStatus === 'selecting') {
+  if (previewStatus === 'selecting' && !(groupGrantedSubjects.length > 0 && groupOnlyAccess && !previewChosen)) {
     if (!accessChecked || subjectCatalog.length === 0) {
       return withAccessWelcome(
         <div className="flex items-center justify-center min-h-screen bg-background">

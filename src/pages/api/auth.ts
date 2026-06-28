@@ -53,7 +53,7 @@ import { notifyAdminReceiptClaimed } from '@/lib/notifyAdmin';
 import { resolveFacultyPromoCode, facultyFieldsFromUser, resolveUserFacultyPromo, applyFacultyToUser, getFacultyPromoById, userNeedsFacultyPick, userHasKnownFaculty, healUserFacultyFields } from '@/lib/facultyCodes';
 import { ACCESS_CACHE_VERSION } from '@/lib/accessCache';
 import { normalizeStudyGroup, buildStudyGroupFromDigits } from '@/lib/studyGroup';
-import { applyGroupAccessToUser, loadGroupAccessRules } from '@/lib/groupAccess';
+import { applyGroupAccessToUser, loadGroupAccessRules, buildGroupAccessClientPayload, dismissGroupAccessHint } from '@/lib/groupAccess';
 import { buildSubjectCatalog } from '@/lib/subjectCatalog';
 import { buildPreviewSubjectCatalog } from '@/lib/previewCatalogSettings';
 import type { FacultyPromo } from '@/lib/facultyCodes';
@@ -420,6 +420,7 @@ async function subjectsResponse(user: any, tgId?: string, extra?: Record<string,
     subjects,
     accessCacheVersion: ACCESS_CACHE_VERSION,
     ...previewPayload(user, catalog, tgId),
+    ...buildGroupAccessClientPayload(user),
     ...extra,
   };
 }
@@ -628,6 +629,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({
         success: true,
         ...(await subjectsResponse(withGroup, tgIdStr)),
+      });
+    }
+
+    if (mode === 'dismiss_group_access_hint') {
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      const dismissed = dismissGroupAccessHint(user);
+      if (dismissed.changed) {
+        await saveUser(tgIdStr, touchUserActivity(dismissed.user));
+      }
+      return res.status(200).json({
+        success: true,
+        ...(await subjectsResponse(dismissed.user, tgIdStr)),
       });
     }
 

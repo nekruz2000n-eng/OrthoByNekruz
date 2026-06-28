@@ -249,10 +249,9 @@ export function AuthHeroPitch() {
     <div className="max-w-[300px] mx-auto flex flex-col" style={{ animation: 'authFacultyHintPop 0.45s ease forwards' }}>
       <p
         className="m-0"
-        style={{ fontSize: 22, fontWeight: 700, color: '#FFFFFF', lineHeight: 1.4 }}
+        style={{ fontSize: 20, fontWeight: 700, color: '#FFFFFF', lineHeight: 1.4 }}
       >
-        Не важно когда ты начал —<br />
-        важно что всё нужное уже здесь.
+        Не важно когда ты начал —{'\u00A0'}важно что всё нужное уже здесь.
       </p>
       <p
         className="m-0"

@@ -804,7 +804,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                 </svg>
               </div>
               <div className="flex-1 text-left min-w-0">
-                <div className="text-[14px] font-bold" style={{ color: 'var(--c-text)' }}>Мои предметы</div>
+                <div className="text-[14px] font-bold" style={{ color: 'var(--c-text)' }}>Сменить предмет</div>
                 <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--c-muted)' }}>
                   Сейчас: <span style={{ color: 'var(--c-text)', fontWeight: 600 }}>{subjectLabel}</span>
                 </div>

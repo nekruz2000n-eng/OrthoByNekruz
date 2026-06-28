@@ -62,7 +62,10 @@ export function clearPreviewFlowFields(user: Record<string, unknown>): void {
 /** Групповой доступ не должен прерывать активную пробу или незавершённую оплату. */
 export function shouldPreservePreviewFlowOnGroupGrant(user: any): boolean {
   if (isPreviewFlowInProgress(user)) return true;
-  if (user?._catalogBrowse === true && user?.previewStatus === 'selecting') return true;
+  if (user?._catalogBrowse === true && user?.previewStatus === 'selecting') {
+    const hasPurchased = hasFinalizedPreviewAccess(user) || user?.paid === true;
+    return hasPurchased;
+  }
   return false;
 }
 
