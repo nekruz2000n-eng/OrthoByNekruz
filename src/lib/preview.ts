@@ -1,4 +1,4 @@
-import { SUBJECTS, createDefaultSubjects, getUserAvailableSubjects } from '@/lib/subjects';
+import { SUBJECTS, createDefaultSubjects, getUserAvailableSubjects, getSubject } from '@/lib/subjects';
 import {
   clearPreviewFlowFields,
   hasFinalizedPreviewAccess,
@@ -1661,6 +1661,85 @@ export function confirmPreviewUser(user: any) {
   delete updated.previewModuleTrustExpiresAt;
 
   return updated;
+}
+
+/**
+ * Админ: открыть доступ сразу — без пробника и экрана оплаты.
+ * Сохраняет группу, факультет и выбранные студентом предмет/разделы.
+ */
+export function adminGrantDirectAccess(user: any): any | null {
+  if (!user) return null;
+
+  const studyGroup = user.studyGroup ?? null;
+  const facultyId = user.facultyId ?? null;
+  const promoCode = user.promoCode ?? null;
+  const previewFaculty = user.previewFaculty ?? null;
+
+  const primarySubject = String(user.previewChosenSubject || '').trim();
+  const openSubjects = getUserAvailableSubjects(user);
+  const grantPlan: { id: string; modules: PreviewModule[] }[] = [];
+  const seen = new Set<string>();
+
+  const addSubject = (id: string, modules?: PreviewModule[]) => {
+    if (!id || seen.has(id) || !getSubject(id)) return;
+    const fromField = modules && modules.length > 0
+      ? normalizePreviewModules(modules)
+      : inferChosenModulesForConfirm(user, id);
+    const finalMods = fromField.length > 0
+      ? fromField
+      : (['questions', 'tests', 'tasks'] as PreviewModule[]);
+    grantPlan.push({ id, modules: finalMods });
+    seen.add(id);
+  };
+
+  if (primarySubject) {
+    addSubject(primarySubject, getPreviewChosenModulesForAdmin(user));
+  }
+  for (const sid of openSubjects) addSubject(sid);
+
+  if (grantPlan.length === 0) return null;
+
+  const subjects = user.subjects && typeof user.subjects === 'object'
+    ? { ...user.subjects }
+    : createDefaultSubjects();
+  const navHidden: Record<string, string[]> = { ...(user.navHidden || {}) };
+  const now = new Date().toISOString();
+
+  for (const { id, modules } of grantPlan) {
+    subjects[id] = true;
+    navHidden[id] = buildNavHiddenForConfirmedPurchase(id, modules);
+  }
+
+  const updated: Record<string, any> = {
+    ...user,
+    subjects,
+    navHidden,
+    studyGroup,
+    facultyId,
+    promoCode,
+    previewFaculty,
+    previewConfirmedAt: now,
+    paid: true,
+    _migrated_subjects: true,
+  };
+
+  for (const { id } of grantPlan) {
+    if (!updated[`${id}_grantedAt`]) updated[`${id}_grantedAt`] = now;
+  }
+
+  if (!updated.activatedKey || String(updated.activatedKey).startsWith('promo:')) {
+    updated.activatedKey = updated.activatedKey || 'preview';
+  }
+
+  clearPreviewFlowFields(updated);
+  delete updated._adminPaymentOnlyLock;
+  delete updated._subjectsBeforePreview;
+  delete updated._navHiddenBeforePreview;
+  delete updated._previewSnapshotBeforeAddon;
+  delete updated._previewStatusBeforeCatalog;
+  delete updated._catalogBrowse;
+
+  return healExamNavHidden(updated);
 }
 
 export function getEffectiveUserSubjects(user: any, tgId?: string | null): string[] {

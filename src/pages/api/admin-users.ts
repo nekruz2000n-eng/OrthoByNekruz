@@ -23,7 +23,9 @@ import {
   getPreviewChosenModulesForAdmin,
   adminForcePaymentOnlyScreen,
   resetPreviewDemoAccess,
+  adminGrantDirectAccess,
 } from '@/lib/preview';
+import { applyGroupAccessToUser, loadGroupAccessRules } from '@/lib/groupAccess';
 import type { PreviewModule } from '@/lib/previewModules';
 import { clearAuthRateLimitsForTgId } from '@/lib/authRateLimit';
 import { verifyInitDataUser } from '@/lib/verifyInitData';
@@ -464,6 +466,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ok: true,
           subjects: detail?.subjects ?? [],
           navHidden: detail?.navHidden ?? {},
+          user: detail,
+        });
+      }
+
+      if (action === 'grant_direct_access') {
+        const granted = adminGrantDirectAccess(user);
+        if (!granted) {
+          return res.status(400).json({
+            error: 'Нет выбранного предмета. Попроси студента выбрать предмет или открой вручную.',
+          });
+        }
+        let updated = granted;
+        try {
+          const rules = await loadGroupAccessRules(redis);
+          const merged = applyGroupAccessToUser(updated, rules);
+          updated = merged.user;
+        } catch { /* групповые правила — best effort */ }
+        updated = applyAdminAccessHeals(updated);
+        await saveUser(String(tgId), updated);
+        const today = new Date().toISOString().slice(0, 10);
+        const opensToday = Number(await redis.get(`opens:${String(tgId)}:${today}`)) || 0;
+        const usedDemo = Boolean(await redis.sismember('used_demo_ids', String(tgId)));
+        const detail = toDetailUser(String(tgId), updated, opensToday, usedDemo);
+        return res.status(200).json({
+          ok: true,
+          subjects: getUserAvailableSubjects(updated),
+          navHidden: updated.navHidden ?? {},
+          previewStatus: null,
+          previewConfirmedAt: updated.previewConfirmedAt ?? null,
+          previewChosenSubject: null,
+          previewChosenModules: null,
+          previewNeedsConfirm: false,
+          previewPendingModules: [],
+          previewDisplayModules: [],
+          receiptClaimedAt: null,
+          paid: updated.paid === true,
+          studyGroup: updated.studyGroup ?? null,
           user: detail,
         });
       }

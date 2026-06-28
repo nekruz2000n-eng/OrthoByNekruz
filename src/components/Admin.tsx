@@ -79,7 +79,7 @@ const RES_TYPE_OPTS: { id: ResType; label: string; emoji: string }[] = [
 
 type Filter = 'all' | 'blocked' | 'suspicious' | 'demo' | 'unpaid';
 type SortBy = 'registered' | 'lastActivity' | 'loginCount';
-type Action = 'block' | 'unblock' | 'reset_demo' | 'force_payment_only' | 'confirm_preview' | 'confirm_preview_module' | 'reject_preview_module' | 'reopen_preview_vitrine' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid' | 'set_contact_username';
+type Action = 'block' | 'unblock' | 'reset_demo' | 'grant_direct_access' | 'force_payment_only' | 'confirm_preview' | 'confirm_preview_module' | 'reject_preview_module' | 'reopen_preview_vitrine' | 'toggle_subject' | 'toggle_section' | 'delete_user' | 'toggle_paid' | 'set_contact_username';
 
 type PreviewModKind = 'questions' | 'tests' | 'tasks';
 type PreviewCatalogSettings = Record<string, {
@@ -806,6 +806,13 @@ function UserCard({
               <ActionBtn variant="danger" disabled={busy} fullWidth
                 onClick={() => { setBlockReason(''); setBlockOpen(true); }}>
                 {busy ? '...' : 'Заблокировать'}
+              </ActionBtn>
+            )}
+            {(user.previewStatus || user.receiptClaimedAt
+              || (user.previewChosenSubject && !user.previewConfirmedAt)) && (
+              <ActionBtn variant="success" disabled={busy} fullWidth
+                onClick={() => onAction(user.tgId, 'grant_direct_access')}>
+                {busy ? '...' : '✓ Открыть доступ (без пробника)'}
               </ActionBtn>
             )}
             {user.previewNeedsConfirm && user.previewChosenSubject && (
@@ -2115,6 +2122,33 @@ export default function AdminPage() {
               paid: data.paid === true,
             };
           }
+          case 'grant_direct_access': {
+            const detail = (data.user && typeof data.user === 'object')
+              ? data.user as Partial<User>
+              : null;
+            const newSubjects = Array.isArray(data.subjects) ? data.subjects : u.subjects;
+            const navHidden = (data.navHidden && typeof data.navHidden === 'object')
+              ? data.navHidden as Record<string, string[]>
+              : u.navHidden;
+            return {
+              ...u,
+              ...detail,
+              previewStatus: null,
+              previewStartedAt: null,
+              previewExpiredAt: null,
+              previewConfirmedAt: (data.previewConfirmedAt as string | null) ?? new Date().toISOString(),
+              previewChosenSubject: null,
+              previewChosenModules: null,
+              previewNeedsConfirm: false,
+              previewPendingModules: [],
+              previewDisplayModules: [],
+              receiptClaimedAt: null,
+              paid: true,
+              studyGroup: (data.studyGroup as string | null) ?? detail?.studyGroup ?? u.studyGroup ?? null,
+              subjects: newSubjects,
+              navHidden,
+            };
+          }
           case 'confirm_preview':
           case 'confirm_preview_module': {
             const newSubjects = Array.isArray(data.subjects) ? data.subjects : u.subjects;
@@ -2253,6 +2287,7 @@ export default function AdminPage() {
         case 'block':          msg = '🚫 Заблокирован'; break;
         case 'unblock':        msg = '✓ Разблокирован'; break;
         case 'reset_demo':     msg = '✓ Пробный доступ сброшен'; break;
+        case 'grant_direct_access': msg = '✓ Доступ открыт без пробника'; break;
         case 'force_payment_only': msg = '💳 Только экраны оплаты'; break;
         case 'confirm_preview':
         case 'confirm_preview_module': msg = '✓ Раздел подтверждён'; break;
