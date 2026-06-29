@@ -87,14 +87,27 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
     })
   ), [chosenModules, grantedSet, moduleStatuses]);
 
-  /** Можно включать/выключать в сумму: проба, оплата, отказ. */
+  /** Разделы не из пробы — можно добавить к покупке. */
+  const additionalModules = useMemo(() => (
+    PAYMENT_MODULE_ROW_ORDER.filter(m => {
+      if (chosenModules.includes(m) || grantedSet.has(m)) return false;
+      const opt = rowOptions.find(o => o.id === m);
+      return opt?.selectable === true;
+    })
+  ), [chosenModules, grantedSet, rowOptions]);
+
+  /** Можно включать/выключать в сумму: проба, оплата, отказ, и добавляемые разделы. */
   const toggleableModules = useMemo(() => (
     PAYMENT_MODULE_ROW_ORDER.filter(m => {
-      if (!chosenModules.includes(m) || grantedSet.has(m)) return false;
-      const st = moduleStatuses[m];
-      return st === 'trial' || st === 'awaiting_payment' || st === 'rejected' || !st;
+      if (grantedSet.has(m)) return false;
+      if (chosenModules.includes(m)) {
+        const st = moduleStatuses[m];
+        return st === 'trial' || st === 'awaiting_payment' || st === 'rejected' || !st;
+      }
+      const opt = rowOptions.find(o => o.id === m);
+      return opt?.selectable === true;
     })
-  ), [chosenModules, grantedSet, moduleStatuses]);
+  ), [chosenModules, grantedSet, moduleStatuses, rowOptions]);
 
   const isPharma = subjectId === 'pharma';
 
@@ -284,6 +297,7 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
             const phase = modulePhase(opt.id);
             const on = selected.includes(opt.id);
             const isTrial = phase === 'trial' && chosenModules.includes(opt.id);
+            const isAdditional = additionalModules.includes(opt.id);
             const isLastSelected = on && selected.length <= 1;
             const disabled = opt.alreadyOwned || modulesUpdating || checking
               || isLastSelected
@@ -312,6 +326,11 @@ export const PreviewPaymentTabPanel: React.FC<PreviewPaymentTabPanelProps> = ({
                     {isTrial && (
                       <span className="text-[8px] font-semibold uppercase tracking-wide opacity-70">
                         проба
+                      </span>
+                    )}
+                    {isAdditional && (
+                      <span className="text-[8px] font-semibold uppercase tracking-wide opacity-70">
+                        {on ? 'добавлен' : 'добавить'}
                       </span>
                     )}
                   </>
