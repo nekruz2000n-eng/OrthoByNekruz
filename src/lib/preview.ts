@@ -337,9 +337,6 @@ export function isPreviewModuleTrialExpired(
   const consumed = getModuleActiveMsConsumed(user, module, chosen);
   if (consumed >= limit) return true;
 
-  const wallLimit = getPreviewRealWindowMs(tgId, module);
-  if (sessionAge >= wallLimit) return true;
-
   if (isPreviewShortDurationAccount(tgId)) {
     const since = user?.previewModuleRealSince?.[module];
     if (since && Date.now() - Date.parse(since) >= PREVIEW_TEST_REAL_WINDOW_MS) {
@@ -383,9 +380,8 @@ export function previewRemainingMsForModule(
   const consumed = getModuleActiveMsConsumed(user, module, chosen);
   const sessionAge = getPreviewSessionAgeMs(user);
   const absoluteLeft = PREVIEW_SESSION_ABSOLUTE_MAX_MS - sessionAge;
-  const wallLeft = getPreviewRealWindowMs(tgId, module) - sessionAge;
   const activeLeft = limit - consumed;
-  const candidates = [absoluteLeft, wallLeft, activeLeft].filter(n => Number.isFinite(n));
+  const candidates = [absoluteLeft, activeLeft].filter(n => Number.isFinite(n));
   if (candidates.length === 0) return limit;
   return Math.max(0, Math.min(...candidates));
 }
@@ -436,11 +432,6 @@ export function previewEndsAt(user: any, tgId?: string | null): string | null {
   const anyActiveMs = trialMods.some(m => getModuleActiveMsConsumed(user, m, chosen) > 0);
   if (anyActiveMs) {
     return new Date(Date.now() + remaining).toISOString();
-  }
-  if (trialMods.length === 1 && user.previewStartedAt) {
-    return new Date(
-      Date.parse(user.previewStartedAt) + getPreviewRealWindowMs(tgId, trialMods[0]),
-    ).toISOString();
   }
   return new Date(Date.now() + remaining).toISOString();
 }
